@@ -1,8 +1,5 @@
 /*
- * test_ocp_header.c — host-side contract test for protocol/ocp.h.
- *
- * Compiles with a plain host compiler (no ESP-IDF, no PlatformIO) and asserts
- * the properties both firmwares depend on. Run via tools/check_protocol.sh.
+ * test_ocp_header.c — contract test for ocp.h. Run via tools/check_protocol.sh.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -13,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Materialise the verb table three ways — each expansion must compile. */
+/* Each expansion of the verb table must compile. */
 #define X(id, verb, cc, mn, mx, reply) OCP_VID_##id,
 typedef enum { OCP_VERB_TABLE(X) OCP_VERB_COUNT } ocp_verb_id_t;
 #undef X
@@ -28,7 +25,7 @@ static const struct {
 } k_verbs[] = { OCP_VERB_TABLE(X) };
 #undef X
 
-/* Any verb whose name suggests transmission fails the §8 / D-8 guarantee. */
+/* A transmit-shaped verb name fails the D-8 guarantee. */
 static const char *k_tx_needles[] = {
     "_tx", "tx_", "transmit", "send", "inject", "deauth_attack",
     "beacon_spam", "jam", "evil_twin", "rogue"
@@ -41,19 +38,19 @@ int main(void)
     assert(n > 0);
 
     for (size_t i = 0; i < n; i++) {
-        /* Well-formed table row. */
+        /* Well-formed row. */
         assert(k_verbs[i].verb != NULL && k_verbs[i].verb[0] != '\0');
         assert(strlen(k_verbs[i].verb) < OCP_MAX_VERB_LEN);
         assert(k_verbs[i].min_args >= 0);
         assert(k_verbs[i].max_args >= k_verbs[i].min_args);
         assert(k_verbs[i].max_args < OCP_MAX_ARGV);  /* verb + args must fit argv */
 
-        /* Verbs are unique — a duplicate would shadow silently at dispatch. */
+        /* A duplicate would shadow silently at dispatch. */
         for (size_t j = i + 1; j < n; j++) {
             assert(strcmp(k_verbs[i].verb, k_verbs[j].verb) != 0);
         }
 
-        /* §8: no transmit verb is compiled into any build. */
+        /* D-8: no transmit verb in any build. */
         for (size_t k = 0; k < sizeof(k_tx_needles) / sizeof(k_tx_needles[0]); k++) {
             if (strstr(k_verbs[i].verb, k_tx_needles[k]) != NULL) {
                 fprintf(stderr,
@@ -65,7 +62,7 @@ int main(void)
         }
     }
 
-    /* No capability advertises transmit (§5.3). */
+    /* No capability advertises transmit. */
     const char *caps[] = { OCP_CAP_WIFI24, OCP_CAP_WIFI5, OCP_CAP_BLE,
                            OCP_CAP_IEEE802154, OCP_CAP_LORA_RX };
     for (size_t i = 0; i < sizeof(caps) / sizeof(caps[0]); i++) {
@@ -74,8 +71,7 @@ int main(void)
         assert(strchr(caps[i], ' ') == NULL);
     }
 
-    /* Markers are bracketed and contain no whitespace, so the deck's line
-     * recogniser can key on the first token alone (§5.2). */
+    /* Bracketed and whitespace-free, so a parser can key on the first token. */
     const char *marks[] = { OCP_MARK_HELLO, OCP_MARK_VER, OCP_MARK_STATUS,
                             OCP_MARK_STOP, OCP_MARK_CFG, OCP_MARK_SCAN,
                             OCP_MARK_INSPECT, OCP_MARK_SNIFF, OCP_MARK_CLIENTS,
@@ -91,7 +87,7 @@ int main(void)
         }
     }
 
-    /* Protocol identity and transport constants (§5.1, §5.7). */
+    /* Protocol identity and transport constants. */
     assert(OCP_PROTO_VERSION == 1);
     assert(strcmp(OCP_PROTO_VERSION_STR, "1") == 0);
     assert(OCP_BAUD_DEFAULT == 115200);

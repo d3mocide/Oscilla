@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""ocp_repl.py — host-side OCP client for the Oscilla probe.
+"""ocp_repl.py — host-side OCP client.
 
-Three modes, in the order you will need them:
+    ocp_repl.py --selftest               assert OCP-SPEC §9 conformance
+    ocp_repl.py --replay fixtures/x.txt  parse a canned byte stream
+    ocp_repl.py /dev/ttyACM0             drive a real probe
 
-    ocp_repl.py --selftest                    # no hardware: assert the spec's
-                                              # conformance checklist (§9)
-    ocp_repl.py --replay fixtures/x.txt       # no hardware: parse a canned
-                                              # byte stream and pretty-print it
-    ocp_repl.py /dev/ttyACM0                  # drive a real probe
-
-The point of the serial mode is P1's first exit gate: drive the C5 through the
-whole system-verb set from a laptop *before the deck firmware exists*.
-
-Needs pyserial only for the serial mode; --selftest and --replay run on a bare
-Python 3.11+.
+Only the serial mode needs pyserial or hardware.
 
 SPDX-License-Identifier: MIT
 """
@@ -49,13 +41,10 @@ C = {
 
 
 def safe(raw: bytes | str) -> str:
-    """Make a decoded field safe to print.
+    """Re-escape a decoded field for display (OCP-SPEC §6).
 
-    Field contents are attacker-controlled (an SSID is whatever the AP says it
-    is). Once decoded they are real bytes again, so anything that reaches a
-    terminal must be re-escaped first — otherwise a crafted SSID injects ANSI
-    escapes or newlines into the operator's display. Every renderer, deck
-    included, owes the same duty.
+    Decoded bytes are attacker-controlled; printing them raw lets a crafted
+    SSID inject ANSI escapes into the operator's terminal.
     """
     if isinstance(raw, str):
         raw = raw.encode("utf-8", "surrogateescape")
@@ -122,8 +111,7 @@ def show(item, color: bool = True) -> None:
 
 
 def mode_replay(path: Path, color: bool = True, chunk: int = 7) -> int:
-    """Parse a canned byte stream. Fed in odd-sized chunks so the parser's
-    byte-level line assembly is exercised, not just its line handling."""
+    """Parse a canned byte stream, in odd chunks to exercise line assembly."""
     data = path.read_bytes()
     parser = OcpParser()
     counts = {"frames": 0, "events": 0, "errors": 0, "noise": 0, "pong": 0}
@@ -187,8 +175,7 @@ def mode_serial(port: str, baud: int, color: bool = True) -> int:
         t = threading.Thread(target=reader, daemon=True)
         t.start()
 
-        # The probe may already be mid-boot; give its [HELLO] a moment, then
-        # solicit one so we know the caps either way.
+        # The probe may be mid-boot; solicit a [HELLO] so caps are known.
         time.sleep(0.3)
         ser.write(encode_command("hello"))
 
@@ -224,6 +211,7 @@ def mode_serial(port: str, baud: int, color: bool = True) -> int:
 
 
 def mode_selftest(color: bool = True) -> int:
+    """Assert every item on the OCP-SPEC §9 conformance checklist."""
     checks: list[tuple[str, bool, str]] = []
 
     def check(name: str, ok: bool, detail: str = "") -> None:
@@ -236,21 +224,20 @@ def mode_selftest(color: bool = True) -> int:
             out.extend(p.feed_line(ln))
         return out
 
-    # ocp.py has not drifted from ocp.h
     drift = ocp.check_against_header()
     check("ocp.py literals match ocp.h", not drift, "; ".join(drift))
 
-    # The command table carries no transmit verb (§7 / D-8)
+    # No transmit verb (D-8).
     tx = [v for v in header_verbs()
           if any(n in v for n in ("_tx", "tx_", "transmit", "send", "inject"))]
     check("no transmit verb in the command table", not tx, ", ".join(tx))
 
-    # 1. Non-marker text is ignored and never advances frame state
+    # Non-marker text never advances frame state.
     got = items("ets Jul 29 2019", "rst:0x1 (POWERON)", "I (31) boot: ok")
     check("boot chatter parses as noise only",
           len(got) == 3 and all(isinstance(i, Noise) for i in got))
 
-    # 2. An oversized line is discarded without desynchronising the next
+    # An oversized line must not desynchronise the next.
     p = OcpParser(max_line_len=64)
     over = b"[SCAN] " + b"A" * 200 + b"\n[STOP] running=0 END\n"
     got = list(p.feed_bytes(over))
@@ -258,7 +245,7 @@ def mode_selftest(color: bool = True) -> int:
           len(got) == 2 and isinstance(got[0], Noise)
           and isinstance(got[1], Frame) and got[1].tag == "[STOP]")
 
-    # 3. [EVT]/[ERR] interleaved inside an open frame are routed out-of-band
+    # [EVT]/[ERR] inside an open frame are routed out-of-band.
     got = items("[SCAN] BEGIN n=1",
                 "[EVT] kind=sniff pkts=9",
                 '[SCAN] "1","a","AA:BB:CC:DD:EE:01","6","WPA2","-50","2.4"',
@@ -270,7 +257,7 @@ def mode_selftest(color: bool = True) -> int:
           and isinstance(got[0], Event) and isinstance(got[1], Error)
           and len(frames) == 1 and len(frames[0].rows) == 1)
 
-    # 4. Unknown marker / kind / key are ignored, never fatal
+    # Unknown marker / kind / key are ignored, never fatal.
     got = items("[QUANTUM] BEGIN a=1", "[QUANTUM] row", "[QUANTUM] END")
     check("unknown marker parses as an ordinary frame",
           len(got) == 1 and isinstance(got[0], Frame) and got[0].tag == "[QUANTUM]")
@@ -281,7 +268,7 @@ def mode_selftest(color: bool = True) -> int:
     check("unknown k=v key is ignored",
           len(got) == 1 and got[0].get("running") == "0")
 
-    # 5. Compact and block forms accepted for any tag
+    # Compact and block forms accepted for any tag.
     compact = items("[STOP] running=0 END")
     block = items("[STOP] BEGIN", "[STOP] running=0", "[STOP] END")
     check("compact and block forms both accepted",
@@ -289,14 +276,14 @@ def mode_selftest(color: bool = True) -> int:
           and len(block) == 1 and not block[0].compact
           and block[0].row_kvs()[0]["running"] == b"0")
 
-    # 6. Escapes round-trip byte-exactly
+    # Escapes round-trip byte-exactly.
     payloads = [b"plain", b"", b'quote" and \\ backslash',
                 b"newline\nand\rCR", b"caf\xc3\xa9", b"\x00\x01\xff",
                 b"comma,separated", "日本語".encode()]
     bad = [p for p in payloads if ocp.decode_field(ocp.encode_field(p)) != p]
     check("escapes round-trip byte-exactly", not bad, repr(bad))
 
-    # An SSID containing a newline cannot break out of its row
+    # A newline in an SSID cannot break out of its row.
     evil = ocp.encode_field(b"evil\nrow")
     check("embedded newline cannot escape a field", "\n" not in evil, repr(evil))
 
@@ -307,7 +294,7 @@ def mode_selftest(color: bool = True) -> int:
     check("CSV row splits on real separators only",
           len(fields) == 7 and fields[1] == b'a,b"c', repr(fields))
 
-    # 7. Unsolicited [HELLO] is delivered even inside an open frame
+    # [HELLO] is delivered even inside an open frame.
     got = items("[LORA] BEGIN state=idle",
                 "[LORA] freq=0",
                 "ets Jul 29 2019",
@@ -316,7 +303,7 @@ def mode_selftest(color: bool = True) -> int:
     check("HELLO inside an open frame is still delivered",
           len(hellos) == 1 and hellos[0].get("caps") == "wifi24,ble")
 
-    # 8. A frame missing its END is abandoned without wedging the reader
+    # A frame missing its END is abandoned without wedging the reader.
     p = OcpParser()
     list(p.feed_line("[SCAN] BEGIN n=1"))
     abandoned = p.abandon_open_frame()
@@ -325,13 +312,13 @@ def mode_selftest(color: bool = True) -> int:
           abandoned is not None and abandoned.tag == "[SCAN]"
           and len(after) == 1 and after[0].tag == "[STOP]")
 
-    # A re-opened frame does not nest
+    # A re-opened frame does not nest.
     got = items("[SCAN] BEGIN n=1", "[SCAN] BEGIN n=2", "[SCAN] END")
     check("a re-opened frame is reported, not nested",
           any(isinstance(i, Noise) for i in got)
           and len([i for i in got if isinstance(i, Frame)]) == 1)
 
-    # 9. pong is recognised
+    # pong is recognised.
     got = items("pong")
     check("pong is recognised as ping's reply",
           len(got) == 1 and isinstance(got[0], Pong))
@@ -339,7 +326,7 @@ def mode_selftest(color: bool = True) -> int:
     check("'pong extra' is not a pong",
           len(got) == 1 and isinstance(got[0], Noise))
 
-    # Malformed input never raises out of the parser
+    # Malformed input never raises out of the parser.
     for junk in ['[SCAN] "unterminated', "[SCAN] BEGIN k=\\xZZ", "[", "[]", "[ ]",
                  "[scan] lower", "\x00\x01\x02", "[SCAN]", "=", "==", "k=", '"'*5]:
         try:
@@ -350,7 +337,6 @@ def mode_selftest(color: bool = True) -> int:
     else:
         check("malformed input never raises out of the parser", True)
 
-    # Command encoding respects the caps
     try:
         encode_command("scan_bt", "10")
         encode_command("inspect_network", "1")
@@ -365,7 +351,7 @@ def mode_selftest(color: bool = True) -> int:
         ok = True
     check("command encoder enforces MAX_ARGV", ok)
 
-    # The shipped fixture parses end to end
+    # The shipped fixture parses end to end.
     fixture = Path(__file__).resolve().parent / "fixtures" / "boot_and_scan.txt"
     if fixture.exists():
         p = OcpParser()
@@ -378,7 +364,6 @@ def mode_selftest(color: bool = True) -> int:
         check("shipped fixture parses (frames found, noise tolerated)",
               n_frames >= 6 and n_noise >= 5, f"frames={n_frames} noise={n_noise}")
 
-    # -- report ------------------------------------------------------------
     width = max(len(n) for n, _, _ in checks)
     failed = 0
     for name, ok, detail in checks:

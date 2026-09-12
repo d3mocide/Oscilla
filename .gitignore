@@ -33,14 +33,8 @@ venv/
 .pytest_cache/
 
 # ─── FIELD DATA — never commit ───────────────────────────────────────────────
-# Everything Oscilla records is a log of where its operator physically was and
-# what was transmitting around them. A wardrive CSV is a movement history; a
-# KML track is that history on a map; an NMEA capture is raw position fixes.
-# These belong on the deck's microSD, not in a public repository — committing
-# one discloses the operator's home, routine, and the networks of everyone they
-# drove past.
-#
-# Write up *conclusions* in docs/hardware/ by hand. Never paste the raw rows.
+# Recorded observations are the operator's movement history. Policy and
+# reasoning: SECURITY.md. Write up conclusions in docs/hardware/, never rows.
 *.csv
 *.kml
 *.kmz
@@ -58,9 +52,8 @@ wardrive/
 !tools/fixtures/**
 
 # ─── Secrets ─────────────────────────────────────────────────────────────────
-# Nothing in v1 needs credentials (the deck's own radios stay off, and the probe
-# only receives). If that ever changes, the secret goes in a file matched here
-# and is referenced from code — never typed into a source file.
+# Nothing in v1 needs credentials. If that changes, the secret goes in a file
+# matched here — never typed into a source file.
 secrets.h
 credentials.h
 *secrets*.h
@@ -71,8 +64,7 @@ credentials.h
 *.p12
 
 # ─── Crash / debug dumps ─────────────────────────────────────────────────────
-# Coredumps embed RAM contents, which during a session includes observed SSIDs,
-# MACs, and buffered observations.
+# Coredumps embed RAM, including buffered observations.
 *.coredump
 core.*
 coredump*.bin

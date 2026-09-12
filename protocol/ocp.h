@@ -1,18 +1,8 @@
 /*
- * ocp.h — Oscilla Control Protocol, v1.
+ * ocp.h — Oscilla Control Protocol v1. The contract both firmwares compile
+ * against. Literals live here; wire behaviour is protocol/OCP-SPEC.md.
  *
- * THE contract between the deck (oscilla-cp, ESP32-S3) and the probe
- * (oscilla-c5, ESP32-C5). Both firmwares add `../protocol` to their include
- * path and #include this file, so a rename here breaks both builds until
- * fixed — the contract cannot silently drift.
- *
- * Human-readable companion: protocol/OCP-SPEC.md (normative for wire
- * behaviour; this header is normative for the literals).
- * Architecture: DESIGN.md §5.  Hardware: Research/c5-backpack-design.md Rev D.
- *
- * This header is data only: string literals, limits, and one X-macro verb
- * table. It allocates nothing, includes nothing, and compiles as C99 and
- * C++11 alike.
+ * C99 and C++11 clean. Data only: no includes, no allocation.
  *
  * SPDX-License-Identifier: MIT
  * Copyright (c) 2026 Will Shields
@@ -21,15 +11,8 @@
 #ifndef OSCILLA_OCP_H
 #define OSCILLA_OCP_H
 
-/* ------------------------------------------------------------------------
- * §8 / D-8 — receive-only, enforced at build time.
- *
- * Oscilla v1 compiles no transmit verb into any build, so no reachable
- * firmware code path to transmission exists on any radio. These flags are
- * the names such a future effort would use; tripping this #error means
- * someone is reintroducing transmit without reopening D-8/D-13 first.
- * (The SX1262 is TX-capable silicon — the guarantee is about code paths.)
- * ------------------------------------------------------------------------ */
+/* Receive-only (DESIGN §8, D-8). Tripping this means transmit is being
+ * reintroduced without reopening the decision. */
 #if defined(OSCILLA_WIFI_TX) || defined(OSCILLA_BLE_TX) || \
     defined(OSCILLA_154_TX) || defined(OSCILLA_LORA_TX) || defined(OSCILLA_TX)
 #error "Oscilla v1 is receive-only (DESIGN.md §8, docs/DECISIONS.md D-8). No transmit build flag is recognised."
@@ -39,55 +22,38 @@
 extern "C" {
 #endif
 
-/* ------------------------------------------------------------------------
- * Protocol identity and transport
- * ------------------------------------------------------------------------ */
+/* --- Identity and transport ---------------------------------------------- */
 
-/* Single integer. Bumped only on a breaking change to framing or handshake;
- * new verbs and new [EVT] kinds are additive and do NOT bump it (§5.7). */
+/* Bumped only on a breaking framing/handshake change (OCP-SPEC §1). */
 #define OCP_PROTO_VERSION       1
 #define OCP_PROTO_VERSION_STR   "1"
 
 #define OCP_FW_NAME_PROBE       "oscilla-c5"
 #define OCP_FW_NAME_DECK        "oscilla-cp"
 
-/* Fixed at boot so a plain terminal always works (§5.1). */
 #define OCP_BAUD_DEFAULT        115200
 #define OCP_DATA_BITS           8
 #define OCP_PARITY              'N'
 #define OCP_STOP_BITS           1
 
-/* Commands are LF-terminated; the probe also tolerates CRLF. */
+/* Commands are LF-terminated; the probe also accepts CRLF. */
 #define OCP_LINE_TERM           "\n"
 #define OCP_LINE_TERM_CHAR      '\n'
 
-/* ------------------------------------------------------------------------
- * Bounded messages (§5.1, Rev D §10) — both ends cap and drop, never block.
- * ------------------------------------------------------------------------ */
-#define OCP_MAX_LINE_LEN        512  /* bytes, excluding the terminator */
-#define OCP_MAX_ARGV            10   /* verb + up to 9 arguments         */
-#define OCP_MAX_VERB_LEN        32
-#define OCP_MAX_SSID_LEN        32   /* 802.11 limit; +1 for NUL         */
-#define OCP_MAX_BSSID_STR_LEN   17   /* "AA:BB:CC:DD:EE:FF"              */
-#define OCP_EVENT_QUEUE_DEPTH   32   /* drop-oldest past this            */
+/* --- Limits — both ends cap these and drop rather than block -------------- */
 
-/* ------------------------------------------------------------------------
- * Framing keywords (§5.2)
- *
- *   block frame:    [TAG] BEGIN [k=v ...]
- *                   [TAG] <row>
- *                   [TAG] END
- *   compact frame:  [TAG] [k=v ...] END        (single line)
- *   bare line:      [EVT] k=v ...  /  [ERR] code=... msg="..."
- *
- * Any line that is neither a known marker nor an expected row is ignored —
- * that is how the deck rides out C5 ROM boot chatter (§4.2). Unknown markers
- * and unknown k=v keys are ignored, never fatal.
- * ------------------------------------------------------------------------ */
+#define OCP_MAX_LINE_LEN        512  /* excluding terminator */
+#define OCP_MAX_ARGV            10   /* verb + 9 args        */
+#define OCP_MAX_VERB_LEN        32
+#define OCP_MAX_SSID_LEN        32
+#define OCP_MAX_BSSID_STR_LEN   17
+#define OCP_EVENT_QUEUE_DEPTH   32
+
+/* --- Framing (OCP-SPEC §3) ------------------------------------------------ */
+
 #define OCP_KW_BEGIN            "BEGIN"
 #define OCP_KW_END              "END"
 
-/* Marker registry (Appendix B). Brackets are part of the literal. */
 #define OCP_MARK_HELLO          "[HELLO]"
 #define OCP_MARK_VER            "[VER]"
 #define OCP_MARK_STATUS         "[STATUS]"
@@ -104,40 +70,33 @@ extern "C" {
 #define OCP_MARK_LORA           "[LORA]"
 #define OCP_MARK_EVT            "[EVT]"
 #define OCP_MARK_ERR            "[ERR]"
-#define OCP_MARK_FT             "[FT]"   /* reserved, unimplemented (§5.6, D-2) */
+#define OCP_MARK_FT             "[FT]"   /* reserved, unimplemented (D-2) */
 
-/* The one non-marker reply, kept because a human types `ping` at a terminal
- * and wants to read `pong` back. Deck parsers must recognise it explicitly. */
+/* The only unbracketed reply; parsers must match it explicitly. */
 #define OCP_REPLY_PONG          "pong"
 
-/* ------------------------------------------------------------------------
- * Capabilities (§5.3)
- *
- * Every cap names a RECEIVE capability. There is no transmit cap because
- * there is no transmit verb (§8).
- * ------------------------------------------------------------------------ */
+/* --- Capabilities (OCP-SPEC §4) ------------------------------------------- */
+
+/* All name receive capabilities. There is no transmit cap. */
 #define OCP_CAP_WIFI24          "wifi24"
 #define OCP_CAP_WIFI5           "wifi5"
 #define OCP_CAP_BLE             "ble"
 #define OCP_CAP_IEEE802154      "ieee802154"
 #define OCP_CAP_LORA_RX         "lora_rx"
 
-#define OCP_CAP_SEP             ","   /* caps=wifi24,wifi5,ble,... */
+#define OCP_CAP_SEP             ","
 
-/* Verb gating works on capability *classes*, not individual cap strings:
- * a Wi-Fi verb is available if either wifi24 or wifi5 is advertised. */
+/* Verbs gate on a class, not a single cap: OCP_CC_WIFI is satisfied by
+ * either wifi24 or wifi5. */
 typedef enum {
-    OCP_CC_NONE = 0,   /* always available — system verbs */
-    OCP_CC_WIFI,       /* satisfied by OCP_CAP_WIFI24 or OCP_CAP_WIFI5 */
+    OCP_CC_NONE = 0,
+    OCP_CC_WIFI,
     OCP_CC_BLE,
     OCP_CC_IEEE802154,
     OCP_CC_LORA_RX
 } ocp_cap_class_t;
 
-/* ------------------------------------------------------------------------
- * Verbs (Appendix A). All receive-only — the command table IS the attack
- * surface (§8), so this list is the guarantee.
- * ------------------------------------------------------------------------ */
+/* --- Verbs (DESIGN Appendix A) -------------------------------------------- */
 
 /* System */
 #define OCP_V_HELLO             "hello"
@@ -181,14 +140,11 @@ typedef enum {
 #define OCP_V_START_WARDRIVE    "start_wardrive"
 
 /*
- * The command table, as an X-macro over the literals above so there is
- * exactly one definition of each verb string in the system.
+ * The command table. Referencing the macros above keeps each verb string
+ * defined once. The probe's dispatch table, the tooling and the §8 audit all
+ * expand this list.
  *
  *   X(id, verb, cap_class, min_args, max_args, reply_marker)
- *
- * The probe builds its dispatch table from this; tools derive help and
- * argument checking from it; the P3 exit gate greps it for TX verbs and
- * must find none.
  */
 #define OCP_VERB_TABLE(X)                                                                          \
     /*   id              verb                     cap class          min max  reply            */  \
@@ -222,21 +178,18 @@ typedef enum {
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)
 
-/* ------------------------------------------------------------------------
- * Errors (§5.5) — [ERR] code=<code> [k=v ...] msg="..."
- * ------------------------------------------------------------------------ */
-#define OCP_ERR_BUSY            "busy"      /* PHY lane held by another owner; owner= names it */
-#define OCP_ERR_BADARG          "badarg"    /* wrong arity, or an argument out of range        */
-#define OCP_ERR_BUDGET          "budget"    /* refused by the power interlock (§6.2)           */
-#define OCP_ERR_HWFAULT         "hwfault"   /* peripheral did not respond (e.g. SX1262 BUSY)   */
-#define OCP_ERR_UNKNOWN         "unknown"   /* verb not in this build's command table          */
-#define OCP_ERR_NOCAP           "nocap"     /* verb known, capability absent in this build     */
-#define OCP_ERR_INTERNAL        "internal"  /* allocation/queue failure — a probe-side bug     */
+/* --- Errors (OCP-SPEC §5.3) ----------------------------------------------- */
 
-/* ------------------------------------------------------------------------
- * Event kinds (§5.4) — [EVT] kind=<kind> ...
- * Additive: an unknown kind is ignored, never fatal.
- * ------------------------------------------------------------------------ */
+#define OCP_ERR_BUSY            "busy"      /* PHY lane held; owner= names it  */
+#define OCP_ERR_BADARG          "badarg"    /* wrong arity or range            */
+#define OCP_ERR_BUDGET          "budget"    /* refused by the power interlock  */
+#define OCP_ERR_HWFAULT         "hwfault"   /* peripheral did not respond      */
+#define OCP_ERR_UNKNOWN         "unknown"   /* verb not in this command table  */
+#define OCP_ERR_NOCAP           "nocap"     /* verb known, capability absent   */
+#define OCP_ERR_INTERNAL        "internal"  /* probe-side bug                  */
+
+/* --- Event kinds — additive; unknown kinds are ignored --------------------- */
+
 #define OCP_EVT_KIND_SNIFF      "sniff"
 #define OCP_EVT_KIND_FOLLOWER   "follower"
 #define OCP_EVT_KIND_AIRTAG     "airtag"
@@ -247,9 +200,8 @@ typedef enum {
 #define OCP_EVT_KIND_DEAUTH     "deauth"
 #define OCP_EVT_KIND_WARDRIVE   "wardrive"
 
-/* ------------------------------------------------------------------------
- * Well-known keys and row shapes
- * ------------------------------------------------------------------------ */
+/* --- Well-known keys and row shapes --------------------------------------- */
+
 #define OCP_K_PROTO             "proto"
 #define OCP_K_FW                "fw"
 #define OCP_K_VER               "ver"
@@ -261,28 +213,24 @@ typedef enum {
 #define OCP_K_COUNT             "n"
 #define OCP_K_RUNNING           "running"
 #define OCP_K_UPTIME_MS         "uptime_ms"
-#define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp on observations (§9.1) */
+#define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
 
-/* [SCAN] rows, emitted after the BEGIN line. Escaping: OCP-SPEC.md §6. */
+/* Escaping rules: OCP-SPEC §6. */
 #define OCP_SCAN_CSV_HEADER     "\"idx\",\"ssid\",\"bssid\",\"ch\",\"auth\",\"rssi\",\"band\""
 #define OCP_SCAN_CSV_FIELDS     7
 
-/* set_band arguments */
 #define OCP_BAND_24             "24"
 #define OCP_BAND_5              "5"
 #define OCP_BAND_AUTO           "auto"
 
-/* PHY-lane owner names, as reported by [STATUS] and [ERR] owner= */
+/* PHY-lane owners, as reported by [STATUS] and [ERR] owner=. */
 #define OCP_OWNER_NONE          "none"
 #define OCP_OWNER_WIFI          "wifi"
 #define OCP_OWNER_BLE           "ble"
 #define OCP_OWNER_IEEE802154    "ieee802154"
 
-/* ------------------------------------------------------------------------
- * Small pure helpers. Header-only, no allocation.
- * ------------------------------------------------------------------------ */
+/* --- Helpers -------------------------------------------------------------- */
 
-/* Name of a capability class, for error text and tooling. */
 static inline const char *ocp_cap_class_name(ocp_cap_class_t cc)
 {
     switch (cc) {
@@ -296,7 +244,7 @@ static inline const char *ocp_cap_class_name(ocp_cap_class_t cc)
 }
 
 #ifdef __cplusplus
-}  /* extern "C" */
+}
 #endif
 
 #endif /* OSCILLA_OCP_H */

@@ -128,7 +128,51 @@ result; this repo's culture is that a claim without evidence is a defect.
 | `firmware-cardputer/` | C++. Everything from the OCP client **down** is framework-agnostic plain C++ so a future LVGL move touches only views (DESIGN §7.1). Testable on the host via `tools/hoststub/`. |
 | `protocol/` | C99/C++11-clean, data only, no allocation, no includes. |
 | `tools/` | Python 3, standard library only. `pyserial` is required *only* for live serial; `--selftest` and `--replay` must keep working without it and without hardware. |
-| Comments | Explain *why*, especially the non-obvious constraint. Match the density of the surrounding file. |
+
+### 7.1 Comments — brief, and only where needed
+
+Code carries *what*. The docs carry *why*. This repo has authoritative
+documents for rationale — DESIGN, OCP-SPEC, Rev D, DECISIONS, WORKLOG — so a
+comment that explains reasoning at length is duplicating one of them, and
+duplicates drift.
+
+- **One line, usually.** Two if it earns it.
+- **Cite, don't restate.** `/* Bounded: fault, never hang (Rev D §4.3). */`
+  beats a paragraph on why the SX1262 needs it. The reader who wants the
+  argument follows the reference.
+- **Comment the surprise**, not the obvious. If the code says what it does,
+  say nothing.
+- **File headers stay short** — what this file is, and which document owns its
+  rules. Not a design summary.
+- **Never in code:** change history, decision narratives, alternatives
+  considered, "we used to do X". That is what WORKLOG and DECISIONS are for.
+
+A file that is majority comment is a signal that its rationale belongs in a
+document and the file should point at it instead.
+
+### 7.2 Modules — small, single-purpose, findable
+
+No monoliths. `projectZero`'s `main.c` is explicitly on the do-not-copy list
+(DESIGN §11) and that applies to anything we write too.
+
+- **One responsibility per file.** If describing it needs an "and", split it.
+- **~300 lines is the soft cap.** Past that, look for the seam. Past 500, there
+  is one and you have not found it yet.
+- **Follow the module map** in DESIGN §6.1 (probe) and §7.1 (deck). Adding a
+  module means updating the map in the same change.
+- **Predictable names.** A file should be findable from its responsibility
+  without searching the tree — `lora_radio.c` drives the radio, `lora_recon.c`
+  runs the survey.
+- **The interface is the header.** Keep public surface small and documented in
+  a line each; an agent should be able to *use* a module from its header
+  without reading the implementation.
+- **Isolate what is lifted.** Third-party code lives in `components/`, never
+  mixed into our own layers.
+
+This is a maintainability rule and a context-cost rule at once. A session
+should be able to pick up work from AGENTS.md, a module map, and one or two
+files — not by reading the tree. Every file that has to be read in full to
+understand one behaviour is a tax on every future session.
 
 ## 8. When to stop and ask
 

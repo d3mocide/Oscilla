@@ -1,11 +1,8 @@
 /*
- * Arduino.h — minimal host stub.
+ * Arduino.h — minimal host stub, not a simulator.
  *
- * Not a simulator. It exists so the deck's framework-agnostic layers
- * (DESIGN §7.1: everything from the OCP client down) and its use of the OCP
- * contract can be compiled and tested on a workstation, without an ESP32 or a
- * PlatformIO toolchain. Only the surface the deck actually touches is stubbed;
- * anything missing should be added deliberately, not reflexively.
+ * Lets the deck's framework-agnostic layers (DESIGN §7.1) compile and be
+ * tested off-target. Stub only what the deck actually touches.
  *
  * SPDX-License-Identifier: MIT
  */

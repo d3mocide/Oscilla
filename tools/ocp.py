@@ -1,11 +1,7 @@
-"""ocp.py — reference implementation of the Oscilla Control Protocol, v1.
+"""ocp.py — reference implementation of the Oscilla Control Protocol v1.
 
-Pure Python, no dependencies, no I/O. The deck's C++ transport layer mirrors
-this; when the two disagree, one of them is a bug and this file plus
-``protocol/OCP-SPEC.md`` say which.
-
-Literals are mirrored from ``protocol/ocp.h``; :func:`check_against_header`
-verifies they still match, so drift fails a test rather than a field session.
+Pure Python, no dependencies, no I/O. The deck's C++ transport mirrors this.
+Wire behaviour is protocol/OCP-SPEC.md.
 
 SPDX-License-Identifier: MIT
 """
@@ -17,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
-# --- Mirrored from protocol/ocp.h (verified by check_against_header) --------
+# Mirrored from protocol/ocp.h; check_against_header() catches drift.
 
 PROTO_VERSION = 1
 BAUD_DEFAULT = 115200
@@ -44,11 +40,10 @@ _BARE_VALUE_RE = re.compile(r"^[A-Za-z0-9_.:+,\-]*$")
 
 
 def encode_field(raw: bytes | str) -> str:
-    """Encode a text field for the wire: quoted, escaped, printable ASCII.
+    """Encode a text field: quoted, escaped, printable ASCII (OCP-SPEC §6).
 
-    Reversible byte-for-byte by :func:`decode_field`. Attacker-controlled
-    bytes (SSIDs, device names) must go through here or they can inject a
-    newline and desynchronise the reader.
+    Reversible byte-for-byte by decode_field. Every attacker-controlled string
+    must go through here or a newline in an SSID desynchronises the reader.
     """
     if isinstance(raw, str):
         raw = raw.encode("utf-8", "surrogateescape")
@@ -67,11 +62,7 @@ def encode_field(raw: bytes | str) -> str:
 
 
 def decode_field(text: str) -> bytes:
-    """Decode one wire field back to its original bytes.
-
-    Accepts the field with or without surrounding quotes. Raises
-    :class:`OcpFramingError` on a malformed escape.
-    """
+    """Decode one wire field to its original bytes, quoted or not."""
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         text = text[1:-1]
     out = bytearray()
@@ -103,7 +94,7 @@ def decode_field(text: str) -> bytes:
 
 
 def encode_value(raw: bytes | str) -> str:
-    """Encode a ``k=v`` value, quoting only when the spec requires it."""
+    """Encode a k=v value, quoting only when the spec requires it."""
     text = raw.decode("utf-8", "surrogateescape") if isinstance(raw, bytes) else raw
     if text and _BARE_VALUE_RE.match(text):
         return text
@@ -111,15 +102,14 @@ def encode_value(raw: bytes | str) -> str:
 
 
 class OcpFramingError(ValueError):
-    """A line could not be tokenised. The line is discarded, never the stream."""
+    """Unparseable line. The line is discarded, never the stream."""
 
 
 def tokenize(text: str) -> list[str]:
-    """Split a line into whitespace-delimited tokens, respecting quotes.
+    """Split a line into tokens, keeping a quoted run intact.
 
-    A quoted run is kept intact (quotes included) so ``msg="radio in use"``
-    is one token. An unterminated quote raises — per §6 the line is then
-    discarded rather than consuming the next one.
+    Unterminated quote raises, so the line is discarded rather than consuming
+    the next one (OCP-SPEC §6).
     """
     tokens: list[str] = []
     cur: list[str] = []
@@ -159,7 +149,7 @@ def tokenize(text: str) -> list[str]:
 
 
 def parse_kv(tokens: list[str]) -> dict[str, bytes]:
-    """Parse ``k=v`` tokens into a mapping. Non-``k=v`` tokens are ignored."""
+    """Parse k=v tokens into a mapping; other tokens are ignored."""
     out: dict[str, bytes] = {}
     for tok in tokens:
         if "=" not in tok:
@@ -172,7 +162,7 @@ def parse_kv(tokens: list[str]) -> dict[str, bytes]:
 
 
 def split_csv_row(text: str) -> list[bytes]:
-    """Split a ``[SCAN]``-family CSV row into decoded fields."""
+    """Split a [SCAN]-family CSV row into decoded fields."""
     fields: list[bytes] = []
     cur: list[str] = []
     in_quote = False
@@ -210,7 +200,7 @@ def split_csv_row(text: str) -> list[bytes]:
 
 @dataclass
 class Frame:
-    """A complete ``[TAG]`` frame, compact or block."""
+    """A complete [TAG] frame, compact or block."""
 
     tag: str
     kv: dict[str, bytes] = field(default_factory=dict)
@@ -230,7 +220,7 @@ class Frame:
 
 @dataclass
 class Event:
-    """An unsolicited ``[EVT]`` line. Lossy by design (§5.1)."""
+    """An unsolicited [EVT] line. Lossy by design."""
 
     kind: str
     kv: dict[str, bytes] = field(default_factory=dict)
@@ -238,7 +228,7 @@ class Event:
 
 @dataclass
 class Error:
-    """An ``[ERR]`` line. ``code`` is machine-readable; ``msg`` never is."""
+    """An [ERR] line. `code` is machine-readable; `msg` never is."""
 
     code: str
     msg: str = ""
@@ -247,15 +237,14 @@ class Error:
 
 @dataclass
 class Pong:
-    """The one unbracketed reply (§3.4)."""
+    """The one unbracketed reply."""
 
 
 @dataclass
 class Noise:
-    """A line that is not protocol: boot chatter, log spam, a malformed line.
+    """Non-protocol line: boot chatter, log spam, malformed input.
 
-    Surfaced rather than swallowed so tools can show it, but it never
-    advances frame state — that property is what survives a probe reset.
+    Surfaced so tools can show it, but it never advances frame state.
     """
 
     text: str
@@ -269,12 +258,10 @@ Item = Frame | Event | Error | Pong | Noise
 
 
 class OcpParser:
-    """Line-oriented OCP reader.
+    """Line-oriented OCP reader. Never raises on input; bad lines yield Noise.
 
-    Feed it lines (or bytes) and it yields :class:`Item`s. It never raises on
-    input: anything it cannot parse comes back as :class:`Noise`. An open
-    block frame is held until its ``END``; ``[EVT]``/``[ERR]`` arriving inside
-    one are emitted immediately without disturbing it (§5.1).
+    An open block frame is held until its END. [EVT]/[ERR] arriving inside one
+    are emitted without disturbing it (OCP-SPEC §5.1).
     """
 
     def __init__(self, max_line_len: int = MAX_LINE_LEN) -> None:
@@ -286,7 +273,7 @@ class OcpParser:
     # -- byte-level ---------------------------------------------------------
 
     def feed_bytes(self, data: bytes) -> Iterator[Item]:
-        """Feed raw serial bytes. Handles line splitting and the length cap."""
+        """Feed raw serial bytes; handles line splitting and the length cap."""
         for byte in data:
             if byte == 0x0A:
                 line = bytes(self._buf)
@@ -351,9 +338,8 @@ class OcpParser:
             )
             return
 
-        # [HELLO] is a reset announcement (§4.1) and outranks parser state:
-        # if the probe rebooted mid-frame, the open frame is already dead and
-        # swallowing the [HELLO] would strand the deck waiting for an END.
+        # [HELLO] outranks parser state: a probe that reset mid-frame leaves
+        # the open frame dead, and swallowing it strands the deck (§4.1).
         if tag == MARK_HELLO and self._open is not None and self._open.tag != MARK_HELLO:
             abandoned = self._open
             self._open = None
@@ -369,7 +355,7 @@ class OcpParser:
 
         if rest and rest[0] == KW_BEGIN:
             if self._open is not None:
-                # A second BEGIN means the first frame was never closed.
+                # A second BEGIN means the first was never closed.
                 abandoned = self._open
                 yield Noise(
                     f"{abandoned.tag} BEGIN", "frame re-opened without END"
@@ -395,10 +381,9 @@ class OcpParser:
     # -- lifecycle ----------------------------------------------------------
 
     def abandon_open_frame(self) -> Frame | None:
-        """Drop a half-read frame (on timeout or an unsolicited ``[HELLO]``).
+        """Drop a half-read frame on timeout or reset, and stay usable.
 
-        Returns what was abandoned, so a caller can log it. The parser is
-        immediately usable again — a stuck frame must never wedge the reader.
+        Returns what was abandoned so a caller can log it.
         """
         frame, self._open = self._open, None
         self._buf.clear()
@@ -428,7 +413,7 @@ def encode_command(verb: str, *args: str | bytes) -> bytes:
 
 
 def read_header_defines(path: Path | None = None) -> dict[str, str]:
-    """Extract ``#define NAME value`` pairs from protocol/ocp.h."""
+    """Extract `#define NAME value` pairs from protocol/ocp.h."""
     src = (path or HEADER_PATH).read_text(encoding="utf-8")
     out: dict[str, str] = {}
     for m in re.finditer(r"^#define\s+(\w+)\s+(.+?)\s*(?:/\*.*)?$", src, re.M):
@@ -440,7 +425,7 @@ def read_header_defines(path: Path | None = None) -> dict[str, str]:
 
 
 def header_verbs(path: Path | None = None) -> list[str]:
-    """Every verb registered in ``OCP_VERB_TABLE`` — the whole command surface."""
+    """Every verb in OCP_VERB_TABLE — the whole command surface."""
     src = (path or HEADER_PATH).read_text(encoding="utf-8")
     table = src.split("#define OCP_VERB_TABLE(X)", 1)
     if len(table) < 2:
@@ -458,7 +443,7 @@ def header_verbs(path: Path | None = None) -> list[str]:
 
 
 def check_against_header(path: Path | None = None) -> list[str]:
-    """Return a list of drift complaints; empty means this file matches ocp.h."""
+    """Return drift complaints; empty means this file matches ocp.h."""
     d = read_header_defines(path)
     problems = []
     expect = {
