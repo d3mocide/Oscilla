@@ -39,7 +39,7 @@ C5 GPIO11 is UART0's default pin, so ROM and bootloader text appears on this wir
 verb [arg1 [arg2 ...]]\n
 ```
 
-- Tokens are separated by one or more spaces or tabs; leading and trailing whitespace is ignored.
+- Tokens are separated by one or more spaces (0x20) or tabs (0x09); leading and trailing spaces and tabs are ignored. **No other byte is whitespace.** Trailing CR and LF bytes end the line. Parsers work on bytes, never on decoded text.
 - An empty line is ignored, not an error.
 - Verbs are case-sensitive and lowercase.
 - Indices are **1-based** (`inspect_network 1` is the first row of the last scan).
@@ -210,7 +210,7 @@ The result is always printable ASCII on one line, and is byte-exactly reversible
 
 **Where it does not:** keys, verbs, markers, capability strings, and simple values — these are never quoted. A **key** is `[A-Za-z0-9_.]+`. A **bare value** is `[A-Za-z0-9_.:,+-]*`, which deliberately admits the comma so `caps=wifi24,wifi5` and `set_channels 1,6,11` need no quotes; a CSV row quotes every field, so a comma is never ambiguous there. A value needing any character outside that set is quoted and escaped.
 
-A parser reading an unterminated quoted field discards the line rather than consuming the next one.
+A parser reading an unterminated quoted field discards the line rather than consuming the next one. So does a **malformed escape** in any `k=v` value — a `\` not followed by `"`, `\`, or `xHH` — and the check happens before the line affects parser state, so a malformed `[HELLO]` cannot abandon an open frame. Frame *rows* are delivered raw; a consumer that decodes a row handles its own malformed escapes.
 
 **Decoded bytes stay hostile.** Escaping protects the *transport*; it does not sanitise the content. An SSID is whatever the AP chose to broadcast, so once a field is decoded back to bytes it may contain control characters, ANSI escape sequences, or bidirectional-override codepoints. Every renderer — the deck's views, `ocp_repl.py`, anything reading a log back — must re-escape non-printables before display. Store the true bytes; never print them raw.
 
@@ -274,6 +274,7 @@ A deck-side parser is conformant iff:
 - [ ] a bare `[TAG] END` with no open frame is noise, never an empty frame;
 - [ ] a block frame exceeding `OCP_MAX_FRAME_ROWS` is abandoned whole, and the reader recovers;
 - [ ] `\xHH`, `\"` and `\\` round-trip to the original bytes;
+- [ ] a malformed escape in a `k=v` value makes the line noise, never an exception, and changes no parser state;
 - [ ] an unsolicited `[HELLO]` invalidates cached state and cancels any pending command;
 - [ ] a `[HELLO]` arriving *inside* an open block frame abandons that frame and is still delivered;
 - [ ] a frame missing its `END` is abandoned on timeout without wedging the reader;

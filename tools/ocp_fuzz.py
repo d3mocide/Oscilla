@@ -47,11 +47,11 @@ def canon(item) -> dict:
     hexkv = lambda kv: {k: v.hex() for k, v in sorted(kv.items())}  # noqa: E731
     if isinstance(item, Frame):
         return {"t": "frame", "tag": item.tag, "compact": item.compact,
-                "kv": hexkv(item.kv), "rows": item.rows}
+                "kv": hexkv(item.kv), "rows": [r.encode("latin-1").hex() for r in item.rows]}
     if isinstance(item, Event):
-        return {"t": "evt", "kind": item.kind, "kv": hexkv(item.kv)}
+        return {"t": "evt", "kv": hexkv(item.kv)}       # kind lives in kv
     if isinstance(item, Error):
-        return {"t": "err", "code": item.code, "kv": hexkv(item.kv)}   # msg bytes live in kv
+        return {"t": "err", "kv": hexkv(item.kv)}       # code and msg live in kv
     if isinstance(item, Pong):
         return {"t": "pong"}
     return {"t": "noise"}
@@ -128,10 +128,18 @@ def gen_garbage(rng: random.Random) -> bytes:
             parts.append(b'[SCAN] "unterminated')
         elif r < 0.75:
             parts.append(b"A" * rng.randint(400, 1400))   # over-long
-        elif r < 0.85:
+        elif r < 0.80:
             parts.append(rng.choice(BOOT_NOISE).encode())
+        elif r < 0.88:
+            # k=v shapes with broken escapes, on every line type that parses kv
+            bad = rng.choice([r'"\q"', r'"\x4"', r'"\xZZ"', r'"\"', r'"ok\"', '"\\x"'])
+            head = rng.choice([f"{rng.choice(TAGS)} BEGIN", "[EVT] kind=x", "[ERR] code=busy",
+                               "[HELLO]", rng.choice(TAGS)])
+            tail = " END" if "BEGIN" not in head and rng.random() < 0.6 else ""
+            parts.append(f"{head} {rng.choice(KEYS)}={bad}{tail}".encode())
         else:
-            parts.append(rng.choice([b"\r", b"\n", b"\r\n", b"\x00", b"\\", b'"', b"END"]))
+            parts.append(rng.choice([b"\r", b"\n", b"\r\n", b"\x00", b"\\", b'"', b"END",
+                                     b"\x0c", b"\x1c", b"\x85", b"\xa0", b" \t "]))
         parts.append(rng.choice([b"\n", b"\r\n", b"", b" "]))
     return b"".join(parts)
 
@@ -236,7 +244,11 @@ def run(iterations: int, seed: int) -> int:
     for name, prop in PROPERTIES.items():
         for i in range(iterations):
             case_seed = seed * 1_000_003 + i
-            msg = prop(random.Random(case_seed))
+            try:
+                msg = prop(random.Random(case_seed))
+            except Exception as exc:  # noqa: BLE001  a raise is a failure, not a crash
+                msg = f"raised {type(exc).__name__}: {exc}"
+
             if msg:
                 print(f"  FAIL  {name:15} case seed {case_seed}: {msg}")
                 print(f"        reproduce: ocp_fuzz.py --property {name} --case {case_seed}")

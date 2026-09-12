@@ -468,6 +468,24 @@ def mode_selftest(color: bool = True) -> int:
           abandoned is not None and abandoned.tag == "[SCAN]"
           and len(after) == 1 and after[0].tag == "[STOP]")
 
+    # A malformed escape in k=v is noise, never an exception, and a malformed
+    # [HELLO] must not abandon an open frame.
+    try:
+        got = items('[STOP] k="\\q" END', '[EVT] kind=x v="\\xZZ"')
+        check("malformed escape in k=v is noise, not an exception",
+              len(got) == 2 and all(isinstance(i, Noise) for i in got))
+    except Exception as exc:  # noqa: BLE001
+        check("malformed escape in k=v is noise, not an exception", False, repr(exc))
+    p = OcpParser()
+    list(p.feed_line("[SCAN] BEGIN n=1"))
+    list(p.feed_line('[HELLO] proto="\\q" END'))
+    check("malformed [HELLO] does not abandon an open frame", p.frame_open)
+
+    # Only SP/HT are whitespace: \x0c is part of the token, not a separator.
+    got = items("\x0c[STOP] running=0 END")
+    check("form feed is not whitespace (byte-exact, OCP-SPEC §2)",
+          len(got) == 1 and isinstance(got[0], Noise))
+
     # A late bare END is noise, not an empty result.
     got = items("[SCAN] END")
     check("bare END with no open frame is noise, not an empty frame",

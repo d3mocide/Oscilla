@@ -65,7 +65,11 @@ def encode_field(raw: bytes | str) -> str:
 
 
 def decode_field(text: str) -> bytes:
-    """Decode one wire field to its original bytes, quoted or not."""
+    """Decode one wire field to its original bytes, quoted or not.
+
+    Wire text is bytes held 1:1 as chars (latin-1), so a char below U+0100 is
+    one byte. Valid fields are ASCII anyway; this keeps garbage byte-exact.
+    """
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         text = text[1:-1]
     out = bytearray()
@@ -74,7 +78,8 @@ def decode_field(text: str) -> bytes:
     while i < n:
         c = text[i]
         if c != "\\":
-            out.extend(c.encode("utf-8", "surrogateescape"))
+            cp = ord(c)
+            out.extend(bytes([cp]) if cp < 0x100 else c.encode("utf-8", "surrogateescape"))
             i += 1
             continue
         if i + 1 >= n:
@@ -160,8 +165,16 @@ def parse_kv(tokens: list[str]) -> dict[str, bytes]:
         key, _, val = tok.partition("=")
         if not _BARE_KEY_RE.fullmatch(key):
             continue
-        out[key] = decode_field(val) if val.startswith('"') else val.encode()
+        out[key] = decode_field(val) if val.startswith('"') else val.encode("latin-1", "replace")
     return out
+
+
+def try_parse_kv(tokens: list[str]) -> dict[str, bytes] | None:
+    """parse_kv, but None instead of raising on a malformed escape."""
+    try:
+        return parse_kv(tokens)
+    except OcpFramingError:
+        return None
 
 
 def split_csv_row(text: str) -> list[bytes]:
@@ -286,12 +299,10 @@ class OcpParser:
                 self._buf.clear()
                 self._overlong = False
                 if overlong:
-                    yield Noise(
-                        line.decode("utf-8", "replace"),
-                        f"line exceeded {self.max_line_len} bytes",
-                    )
+                    yield Noise(line.decode("latin-1"),
+                                f"line exceeded {self.max_line_len} bytes")
                 else:
-                    yield from self.feed_line(line.decode("utf-8", "replace"))
+                    yield from self.feed_line(line)
                 continue
             if self._overlong:
                 continue  # discard to end of line
@@ -302,9 +313,13 @@ class OcpParser:
 
     # -- line-level ---------------------------------------------------------
 
-    def feed_line(self, line: str) -> Iterator[Item]:
-        line = line.rstrip("\r\n")
-        stripped = line.strip()
+    def feed_line(self, line: bytes | str) -> Iterator[Item]:
+        # Byte-exact per OCP-SPEC §2: bytes map 1:1 to chars, and whitespace is
+        # SP/HT only. str.strip() would also eat \x0c, \x1c, \xa0 ...
+        if isinstance(line, str):
+            line = line.encode("utf-8", "surrogateescape")
+        line = line.decode("latin-1").rstrip("\r\n")
+        stripped = line.strip(" \t")
         if not stripped:
             return
 
@@ -327,15 +342,31 @@ class OcpParser:
             return
 
         rest = tokens[1:]
-        raw_rest = stripped[len(tag) :].strip()
+        raw_rest = stripped[len(tag) :].strip(" \t")
+
+        # Decode every k=v this line carries *before* touching parser state:
+        # a malformed escape makes the whole line noise (OCP-SPEC §6), and a
+        # garbage [HELLO] must not abandon a good open frame on its way out.
+        is_begin = bool(rest) and rest[0] == KW_BEGIN
+        is_end = bool(rest) and rest[-1] == KW_END
+        if tag in (MARK_EVT, MARK_ERR):
+            kv_span = rest
+        elif is_begin:
+            kv_span = rest[1:]
+        elif is_end:
+            kv_span = rest[:-1]
+        else:
+            kv_span = []                     # rows stay raw; consumers decode
+        kv = try_parse_kv(kv_span)
+        if kv is None:
+            yield Noise(line, "malformed escape")
+            return
 
         # [EVT] and [ERR] are bare lines; they never open or close a frame.
         if tag == MARK_EVT:
-            kv = parse_kv(rest)
             yield Event(kv.get("kind", b"").decode("utf-8", "replace"), kv)
             return
         if tag == MARK_ERR:
-            kv = parse_kv(rest)
             yield Error(
                 kv.get("code", b"").decode("utf-8", "replace"),
                 kv.get("msg", b"").decode("utf-8", "replace"),
@@ -358,17 +389,17 @@ class OcpParser:
             yield Noise(line, f"tag {tag} inside open {self._open.tag} frame")
             return
 
-        if rest and rest[0] == KW_BEGIN:
+        if is_begin:
             if self._open is not None:
                 # A second BEGIN means the first was never closed.
                 abandoned = self._open
                 yield Noise(
                     f"{abandoned.tag} BEGIN", "frame re-opened without END"
                 )
-            self._open = Frame(tag=tag, kv=parse_kv(rest[1:]))
+            self._open = Frame(tag=tag, kv=kv)
             return
 
-        if rest and rest[-1] == KW_END:
+        if is_end:
             if self._open is not None:
                 frame, self._open = self._open, None
                 yield frame
@@ -378,7 +409,7 @@ class OcpParser:
             if len(rest) == 1:
                 yield Noise(line, "END with no open frame")
                 return
-            yield Frame(tag=tag, kv=parse_kv(rest[:-1]), compact=True)
+            yield Frame(tag=tag, kv=kv, compact=True)
             return
 
         if self._open is not None:
