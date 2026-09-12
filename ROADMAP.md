@@ -62,10 +62,7 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 `tools/build_firmware.sh` (both boards). Toolchain paths live in
 `tools/env.sh`; nothing needs installing on the dev host.
 
-**What the board builds did *not* settle:** the deck built against
-`board = m5stack-stamps3` with no M5Unified dependency, so **[D-12](docs/DECISIONS.md)
-remains open and blocking** — a successful build of an Arduino skeleton says
-nothing about ADV keyboard-matrix or EXT-header support. P1 must confirm it.
+**What the board builds did *not* settle:** ADV hardware support. That was D-12, resolved on hardware 2026-09-12.
 
 ---
 
@@ -73,7 +70,7 @@ nothing about ADV keyboard-matrix or EXT-header support. P1 must confirm it.
 
 **Why:** the Grove UART with unavoidable C5 boot noise (Rev D §3, DESIGN §4.2) is the riskiest interface in the system. Prove it before building anything on top.
 
-**Entry gate:** P0 exit met. Both boards on their own USB, Grove **5V (red) disconnected** (Rev D §9). Cardputer ADV board support confirmed ([D-12](docs/DECISIONS.md)).
+**Entry gate:** P0 exit met. Both boards on their own USB, Grove **5V (red) disconnected** (Rev D §9). Cardputer ADV board support confirmed ([D-12](docs/DECISIONS.md) ✅ 2026-09-12).
 
 **Work:**
 - [x] C5: boot → OCP server on the Grove UART (GPIO11 TX / GPIO12 RX, 115200 8N1). *Plus a USB Serial/JTAG bench transport (`--bench`) for driving the probe with no Grove cable.*

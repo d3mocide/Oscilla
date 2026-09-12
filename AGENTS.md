@@ -32,7 +32,7 @@ cannot silently drift.
 | What actually happened | [`WORKLOG.md`](WORKLOG.md) | — |
 
 Currently blocking: **D-10** (SX1262 TCXO startup delay — Rev D says *do not
-guess*) and **D-12** (Cardputer ADV support in M5Unified, unverified).
+guess*). D-12 (Cardputer ADV support) is resolved.
 
 ## 3. Invariants — do not break these
 
@@ -120,7 +120,15 @@ result; this repo's culture is that a claim without evidence is a defect.
 12. **Grove is a crossover: G2 (TX) → D7, G1 (RX) → D6.** Swapped, both
     directions go silent and two outputs fight. Check with the JTAG line
     test in `docs/hardware/link-bringup.md`.
-13. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
+13. **M5Unified's "Port A" I²C *is* our Grove UART (GPIO1/2).** On the deck,
+    never set `external_rtc`/`external_imu` and never include an M5
+    display-unit header — any of these starts I²C on the link. Call
+    `Serial1.begin()` after `M5.begin()`. `M5.Ex_I2C.isEnabled()` returning 1
+    only means a port was *assigned*, not started; don't read it as a conflict.
+14. **Cardputer keyboard: read the modifier flags, not the translated
+    character.** M5Cardputer's translation is inconsistent (Ctrl+g → `G`, but
+    Fn/Opt/Alt+letter → plain lowercase).
+15. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
    disconnected and insulated. Grove-powered operation is not evaluated until
    P6 produces a *measured* current budget.
 
@@ -197,7 +205,7 @@ understand one behaviour is a tax on every future session.
 ## 8. When to stop and ask
 
 - A task seems to need transmitting (§3.1).
-- A `⛔` decision blocks the path (D-10, D-12).
+- A `⛔` decision blocks the path (currently D-10).
 - Rev D and DESIGN.md disagree about something Rev D doesn't actually cover.
 - A change would weaken a stated guarantee — tripwire, bounded wait, bus lock,
   escaping, receive-only.

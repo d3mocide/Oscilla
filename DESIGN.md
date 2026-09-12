@@ -347,7 +347,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 - Both the external TFT and the internal SD live on **one SPI bus**. All access goes through a single shared lock; SD is brought up before TFT traffic; the TFT is write-only at ~4 MHz with no readback. UI and logger tasks must not bypass the lock. This is the deck's main source of hard-to-debug failures — treat it with suspicion.
 
 ### 7.5 Framework
-**M5Unified + M5GFX on PlatformIO** ([D-1](docs/DECISIONS.md) — decided). Keyboard, internal LCD and SD come mostly for free; M5GFX drives the external panel as a second device on the shared bus. *Open risk:* Cardputer **ADV** board support in M5Unified must be verified before P1 — the ADV differs from the original Cardputer in keyboard matrix and EXT header.
+**M5Unified + M5GFX on PlatformIO** ([D-1](docs/DECISIONS.md) — decided). Keyboard, internal LCD and SD come mostly for free; M5GFX drives the external panel as a second device on the shared bus. Cardputer **ADV** support verified on hardware ([D-12](docs/DECISIONS.md)): M5Unified autodetects the board and M5Cardputer drives its TCA8418 keyboard. M5's "Port A" I²C uses the Grove UART pins, so the deck must never enable it.
 
 ---
 
@@ -470,7 +470,7 @@ The shape: contract first, then prove the link on the bench with separated power
 
 See **[`docs/DECISIONS.md`](docs/DECISIONS.md)** — the D-numbered register, with status and rationale. Decisions no longer live in this document so they can churn without a design revision.
 
-Currently open and **blocking**: D-10 (TCXO startup delay — needed for SX1262 init even in RX), D-12 (Cardputer ADV board support in M5Unified). D-9 (LoRa region profile) is closed by the receive-only decision — no TX means no region/duty obligation.
+Currently open and **blocking**: D-10 (TCXO startup delay — needed for SX1262 init even in RX). D-12 (Cardputer ADV support) was resolved on hardware. D-9 (LoRa region profile) is closed by the receive-only decision — no TX means no region/duty obligation.
 
 ---
 

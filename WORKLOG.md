@@ -13,6 +13,18 @@
 
 ---
 
+## 2026-09-12 — D-12 resolved: Cardputer ADV is supported
+**Phase:** P1 · **By:** Will + Claude
+
+- **D-12 → ✅.** M5Unified 0.2.21, M5GFX 0.2.28 and M5Cardputer 1.1.1 all support the ADV. Checked in source first, then on the hardware with `bench/adv_check.cpp`: the board is detected as `board_M5CardputerADV`, the 240×135 display renders correctly, and the TCA8418 keyboard shows up at `0x34` on the internal I²C bus. 52 key events captured, covering every modifier and `` ` ``. Details: `docs/hardware/cardputer-adv.md`.
+- **The finding that matters: M5Unified's "Port A" external I²C uses GPIO1/2, our Grove UART pins.** In the source, that bus is only started by `external_rtc`/`external_imu` (off by default) or by including an M5 display-unit header. On the hardware, `--gate` passed 18/18 on three runs through firmware running M5Unified, the display and keyboard polling. Those rules are now AGENTS.md gotcha 13.
+- **A check I got wrong.** My firmware printed `ex_i2c_enabled=1 (must be 0)`. `isEnabled()` only means a port was *assigned*, not started, so the check measured the wrong thing. Read the source to see why, and relied on the gate result for the answer. The label is fixed in the firmware.
+- The keyboard library translates keys inconsistently: Ctrl+g gives `G`, Fn/Opt/Alt+letter give lowercase. The deck should read the modifier flags. Gotcha 14.
+- The libraries are pinned exactly in the deck's base build, and the `board` line is no longer a placeholder.
+- **Next:** P1's remaining work is unblocked: the deck's transport layer and connection state machine (demo 2), and `tools/ocp_fuzz.py`. D-10 blocks only P3.
+
+---
+
 ## 2026-09-12 — Grove link proven
 **Phase:** P1 · **By:** Will + Claude
 
