@@ -13,6 +13,25 @@
 
 ---
 
+## 2026-09-12 — Grove link proven
+**Phase:** P1 · **By:** Will + Claude
+
+- **The Grove UART works.** Will soldered headers on the XIAO and wired Grove (red insulated). The Cardputer runs `grove-bridge`, a USB↔Grove passthrough, and the probe runs the UART build. `ocp_repl.py --gate` from the laptop through the real cable: **18/18, four runs in a row.** `[STATUS]` shows `link=uart0`. During a reset the wire carries ROM text and then `[HELLO]`, and the parser treats that text as noise. That's exit-gate demo 1 on the real link. Details: `docs/hardware/link-bringup.md`.
+- Probe app and bootloader logs moved to the C5's native USB, because Rev D §3 says keep debug text out of the command channel and our config had put it there. A reset now puts 9 lines of text on the wire, down from 59 before the move.
+- Cardputer: `grove-bridge` is a separate PlatformIO build (`bench/`), so the deck app is untouched. Its flash was confirmed byte-identical to that build. Set `ARDUINO_USB_CDC_ON_BOOT=1`; without it the StampS3 board sends `Serial` to UART0 pins, not USB.
+
+### Getting there
+
+- **After soldering, the C5 wouldn't boot.** The LED was dark. Over JTAG the CPU was looping in ROM at `0x4003B10E` and our app never started. The strap register decoded to normal flash boot. Rewriting all three images over JTAG (verified) didn't fix it; a hardware RESET did. **Root cause still unknown**: the flash was rewritten before that RESET, so bad flash and a boot-time condition can't be told apart. Logged as open in link-bringup.md.
+- **Two red herrings, both mine.** OpenOCD's `reset run` is a CPU reset that always parks this chip in ROM, so my post-reset observations looked like the fault persisting. And the only ROM symbols installed are rev0, while this chip is `eco2`, so the function names addr2line gave me were meaningless. I didn't act on either, but they cost time. AGENTS.md gotcha 10.
+- **Getting OpenOCD access took two tries.** Espressif's udev rules use a `plugdev` group that Arch doesn't have, so udev silently dropped every line naming it. Changing it to `uucp` worked. AGENTS.md gotcha 11.
+- **The wire was swapped** (TX→TX). Reading the C5's pin levels over JTAG while flooding zero bytes showed the signal wasn't reaching either UART pin. Will spotted the swap at the same moment. After fixing it, GPIO12 read low in 32 of 40 samples. The two outputs fought each other for a while; Rev D's 470 Ω series resistors would limit that. AGENTS.md gotcha 12.
+- The LED paid for itself on its first day: "dark" narrowed a wedge to "the app isn't running" before any tool was attached.
+
+- **Next:** P1 still needs `tools/ocp_fuzz.py`, plus the deck transport layer and connection state machine for demo 2, which D-12 blocks. The Cardputer is attached, so D-12 can be settled now.
+
+---
+
 ## 2026-09-12 — Status LED heartbeat
 **Phase:** P1 · **By:** Will + Claude
 

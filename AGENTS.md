@@ -109,7 +109,18 @@ result; this repo's culture is that a claim without evidence is a defect.
    `/dev/serial/by-id/…<usb-serial>` and **always pass `--chip`** to esptool —
    an explicit `--chip esp32c5` is what stopped a probe image being written to
    the Cardputer. Probe `38:44:BE:1F:4F:A0`, deck `50:78:7D:CE:6D:64`.
-10. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
+10. **A JTAG `reset` leaves the C5 parked in ROM.** OpenOCD's `reset run`
+    is a CPU reset; the chip loops at `0x4003B10E` and never boots the app.
+    Use the RESET button or `esptool --after watchdog_reset`. Halt/resume
+    without reset is safe. Installed ROM symbols are rev0 and this chip is
+    `eco2`, so don't trust addr2line on ROM addresses.
+11. **OpenOCD needs a udev rule, and Espressif's assumes `plugdev`.** Arch
+    has no such group, so udev drops every line naming it. Install
+    `60-openocd.rules` with `GROUP="uucp"`, check it with `udevadm verify`.
+12. **Grove is a crossover: G2 (TX) → D7, G1 (RX) → D6.** Swapped, both
+    directions go silent and two outputs fight. Check with the JTAG line
+    test in `docs/hardware/link-bringup.md`.
+13. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
    disconnected and insulated. Grove-powered operation is not evaluated until
    P6 produces a *measured* current budget.
 

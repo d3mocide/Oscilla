@@ -85,7 +85,7 @@ nothing about ADV keyboard-matrix or EXT-header support. P1 must confirm it.
 - [ ] `tools/ocp_fuzz.py` replays ROM boot chatter + garbage and asserts the deck parser never wedges.
 
 **Exit gate (two demos):**
-1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*. **✅ Met 2026-09-12 over USB (bench transport): `--gate` 18/18, three consecutive runs, and again when started 0.5 s after a reboot.** Not yet repeated over the Grove UART itself.
+1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*. **✅ Met 2026-09-12 over the real Grove UART** through the Cardputer's `grove-bridge` firmware: `--gate` 18/18, four consecutive runs, `link=uart0`, with ROM boot text on the wire parsed as noise. Also met over USB. Record: [`docs/hardware/link-bringup.md`](docs/hardware/link-bringup.md).
 2. With the deck connected, physically resetting the C5 mid-session produces a clean `[HELLO]`, the deck returns to `Ready`, and no boot text is ever mistaken for a frame.
 
 ---

@@ -1,4 +1,3 @@
 # Bench overlay: drive the probe over its USB port with no Grove cable.
 #   idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.bench" build
 CONFIG_OSCILLA_OCP_TRANSPORT_USB=y
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
