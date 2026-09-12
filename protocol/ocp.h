@@ -48,6 +48,7 @@ extern "C" {
 #define OCP_MAX_SSID_LEN        32
 #define OCP_MAX_BSSID_STR_LEN   17
 #define OCP_EVENT_QUEUE_DEPTH   32
+#define OCP_MAX_FRAME_ROWS      256  /* larger results must be paged      */
 
 /* --- Framing (OCP-SPEC §3) ------------------------------------------------ */
 

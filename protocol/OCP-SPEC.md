@@ -17,7 +17,7 @@
 | Terminator | `\n` sent; the probe also accepts `\r\n` |
 | Encoding | 7-bit ASCII on the wire (§6 defines how other bytes are carried) |
 
-Both ends cap line length at `OCP_MAX_LINE_LEN` and queue depth at `OCP_EVENT_QUEUE_DEPTH`, and **drop rather than block** (Rev D §10). A line longer than the cap is truncated at the cap, the remainder is discarded up to the next `\n`, and the truncated line is not treated as a frame.
+Both ends cap line length at `OCP_MAX_LINE_LEN`, queue depth at `OCP_EVENT_QUEUE_DEPTH`, and rows per block frame at `OCP_MAX_FRAME_ROWS`, and **drop rather than block** (Rev D §10). A frame that would exceed the row cap is abandoned whole, never delivered truncated, since a short result is indistinguishable from a complete one. A producer with more rows than the cap must page. A line longer than the cap is truncated at the cap, the remainder is discarded up to the next `\n`, and the truncated line is not treated as a frame.
 
 Rate is fixed at boot so a plain terminal always works. A higher rate may be negotiated after the handshake; nothing in v1 does.
 
@@ -82,7 +82,7 @@ For a frame that is all context and no rows, `BEGIN` and `END` collapse onto one
 [HELLO] proto=1 fw=oscilla-c5 ver=0.1.0 caps=wifi24,wifi5,ble,ieee802154,lora_rx END
 ```
 
-A line is a compact frame iff its second token is **not** `BEGIN` and its final token is `END` (outside quotes). Compact and block forms are otherwise equivalent; a parser must accept either for any tag, because a producer may grow rows later without bumping `proto`.
+A line is a compact frame iff its second token is **not** `BEGIN`, its final token is `END` (outside quotes), and **at least one token lies between them**. A bare `[TAG] END` is only ever a block terminator; with no frame open it is noise — typically the late `END` of a frame already abandoned by a timeout or a reset, which must not surface as an empty result. Compact and block forms are otherwise equivalent; a parser must accept either for any tag, because a producer may grow rows later without bumping `proto`.
 
 ### 3.3 Bare line
 
@@ -271,6 +271,8 @@ A deck-side parser is conformant iff:
 - [ ] `[EVT]`/`[ERR]` interleaved inside an open block frame are routed out-of-band and do not close it;
 - [ ] an unknown marker, unknown `kind=`, or unknown `k=v` key is ignored, never fatal;
 - [ ] both compact and block forms are accepted for every tag;
+- [ ] a bare `[TAG] END` with no open frame is noise, never an empty frame;
+- [ ] a block frame exceeding `OCP_MAX_FRAME_ROWS` is abandoned whole, and the reader recovers;
 - [ ] `\xHH`, `\"` and `\\` round-trip to the original bytes;
 - [ ] an unsolicited `[HELLO]` invalidates cached state and cancels any pending command;
 - [ ] a `[HELLO]` arriving *inside* an open block frame abandons that frame and is still delivered;

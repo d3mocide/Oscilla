@@ -79,7 +79,7 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 - [x] *(added)* `ocp_repl.py --gate` — the exit-gate demo as assertions against a live probe.
 - [ ] Deck: transport layer — line reader, marker/row recogniser, **resync-after-boot-noise**, reply/event demux, timeouts.
 - [ ] Deck: connection state machine `Disconnected → HelloSent → Ready(caps)`.
-- [ ] `tools/ocp_fuzz.py` replays ROM boot chatter + garbage and asserts the deck parser never wedges.
+- [x] `tools/ocp_fuzz.py` — property fuzzer (no raise, chunk-invariant, noise-safe, recovery, bounded). Found three reference-parser bugs, all fixed and regression-guarded. `--emit-corpus` feeds the deck parser's diff test. *Deck-parser half pending the transport layer.*
 
 **Exit gate (two demos):**
 1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*. **✅ Met 2026-09-12 over the real Grove UART** through the Cardputer's `grove-bridge` firmware: `--gate` 18/18, four consecutive runs, `link=uart0`, with ROM boot text on the wire parsed as noise. Also met over USB. Record: [`docs/hardware/link-bringup.md`](docs/hardware/link-bringup.md).

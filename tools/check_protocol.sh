@@ -30,6 +30,12 @@ echo "  tripwire: -DOSCILLA_LORA_TX refuses to build (expected)"
     protocol/ocp_text.c protocol/test_ocp_text.c
 python3 tools/check_ocp_text.py "$out/text_corpus"
 
+# Spec rules: the OCP-SPEC §9 conformance checklist.
+python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'
+
+# Parser properties: never raises, chunk-invariant, noise-safe, recovers, bounded.
+python3 tools/ocp_fuzz.py --iterations 1000 | grep -E 'FAIL|reproduce|fuzz:' | sed 's/^/  /'
+
 # The deck skeleton compiles against ocp.h on the host. The probe is a real
 # ESP-IDF app now; tools/build_firmware.sh is what verifies it.
 

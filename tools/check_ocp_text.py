@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Diff the C field encoder against the Python reference.
 
-protocol/test_ocp_text.c prints `<input hex> <escaped>` for a corpus; this
-asserts tools/ocp.py produces the identical escape and decodes it back to the
+protocol/test_ocp_text.c prints `<hex>\t<field>\t<value>` for a corpus; this
+asserts tools/ocp.py produces the identical field and value encodings and decodes it back to the
 original bytes. Both firmwares and the deck depend on these agreeing.
 
 SPDX-License-Identifier: MIT
@@ -18,15 +18,21 @@ import ocp  # noqa: E402
 
 def main(corpus_bin: str) -> int:
     out = subprocess.run([corpus_bin], capture_output=True, text=True, check=True).stdout
-    lines = [l for l in out.splitlines() if l.strip()]
+    lines = [l for l in out.split("\n") if l]
     if not lines:
         print("no corpus produced", file=sys.stderr)
         return 1
 
     mismatches = []
     for lineno, line in enumerate(lines, 1):
-        hexin, _, c_escaped = line.partition(" ")
+        hexin, c_escaped, c_value = line.split("\t")
         raw = bytes.fromhex(hexin)
+
+        py_value = ocp.encode_value(raw)
+        if py_value != c_value:
+            mismatches.append(f"  line {lineno}: value encoding for {raw!r}\n"
+                              f"    C : {c_value}\n    py: {py_value}")
+            continue
 
         py_escaped = ocp.encode_field(raw)
         if py_escaped != c_escaped:

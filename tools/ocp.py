@@ -19,6 +19,7 @@ PROTO_VERSION = 1
 BAUD_DEFAULT = 115200
 MAX_LINE_LEN = 512
 MAX_ARGV = 10
+MAX_FRAME_ROWS = 256
 
 KW_BEGIN = "BEGIN"
 KW_END = "END"
@@ -29,11 +30,13 @@ REPLY_PONG = "pong"
 
 HEADER_PATH = Path(__file__).resolve().parent.parent / "protocol" / "ocp.h"
 
-_MARKER_RE = re.compile(r"^\[[A-Z0-9_]+\]$")
-_BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_.]+$")
+# fullmatch, never match: `$` also matches before a trailing newline, which
+# once let a value ending in "\n" pass as bare and split a frame.
+_MARKER_RE = re.compile(r"\[[A-Z0-9_]+\]")
+_BARE_KEY_RE = re.compile(r"[A-Za-z0-9_.]+")
 # Commas are legal unquoted: caps=wifi24,wifi5 and set_channels 1,6,11 rely on
 # it. A CSV row always quotes every field, so there is no ambiguity.
-_BARE_VALUE_RE = re.compile(r"^[A-Za-z0-9_.:+,\-]*$")
+_BARE_VALUE_RE = re.compile(r"[A-Za-z0-9_.:+,\-]*")
 
 
 # --- §6 Text, quoting, escaping --------------------------------------------
@@ -96,7 +99,7 @@ def decode_field(text: str) -> bytes:
 def encode_value(raw: bytes | str) -> str:
     """Encode a k=v value, quoting only when the spec requires it."""
     text = raw.decode("utf-8", "surrogateescape") if isinstance(raw, bytes) else raw
-    if text and _BARE_VALUE_RE.match(text):
+    if text and _BARE_VALUE_RE.fullmatch(text):
         return text
     return encode_field(raw)
 
@@ -155,7 +158,7 @@ def parse_kv(tokens: list[str]) -> dict[str, bytes]:
         if "=" not in tok:
             continue
         key, _, val = tok.partition("=")
-        if not _BARE_KEY_RE.match(key):
+        if not _BARE_KEY_RE.fullmatch(key):
             continue
         out[key] = decode_field(val) if val.startswith('"') else val.encode()
     return out
@@ -264,8 +267,10 @@ class OcpParser:
     are emitted without disturbing it (OCP-SPEC §5.1).
     """
 
-    def __init__(self, max_line_len: int = MAX_LINE_LEN) -> None:
+    def __init__(self, max_line_len: int = MAX_LINE_LEN,
+                 max_frame_rows: int = MAX_FRAME_ROWS) -> None:
         self.max_line_len = max_line_len
+        self.max_frame_rows = max_frame_rows
         self._open: Frame | None = None
         self._buf = bytearray()
         self._overlong = False
@@ -317,7 +322,7 @@ class OcpParser:
             yield Pong()
             return
 
-        if not _MARKER_RE.match(tag):
+        if not _MARKER_RE.fullmatch(tag):
             yield Noise(line)
             return
 
@@ -368,11 +373,22 @@ class OcpParser:
                 frame, self._open = self._open, None
                 yield frame
                 return
-            # Compact frame: [TAG] k=v ... END on one line.
+            # A bare `[TAG] END` only ever closes a block; with none open it is
+            # a late terminator, not an empty compact frame (OCP-SPEC §3.2).
+            if len(rest) == 1:
+                yield Noise(line, "END with no open frame")
+                return
             yield Frame(tag=tag, kv=parse_kv(rest[:-1]), compact=True)
             return
 
         if self._open is not None:
+            if len(self._open.rows) >= self.max_frame_rows:
+                # Dropped whole: a truncated result would read as complete.
+                abandoned = self._open
+                self._open = None
+                yield Noise(f"{abandoned.tag} BEGIN",
+                            f"frame exceeded {self.max_frame_rows} rows")
+                return
             self._open.rows.append(raw_rest)
             return
 
@@ -451,6 +467,7 @@ def check_against_header(path: Path | None = None) -> list[str]:
         "OCP_BAUD_DEFAULT": str(BAUD_DEFAULT),
         "OCP_MAX_LINE_LEN": str(MAX_LINE_LEN),
         "OCP_MAX_ARGV": str(MAX_ARGV),
+        "OCP_MAX_FRAME_ROWS": str(MAX_FRAME_ROWS),
         "OCP_KW_BEGIN": KW_BEGIN,
         "OCP_KW_END": KW_END,
         "OCP_MARK_EVT": MARK_EVT,

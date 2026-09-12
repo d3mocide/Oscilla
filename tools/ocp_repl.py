@@ -468,6 +468,22 @@ def mode_selftest(color: bool = True) -> int:
           abandoned is not None and abandoned.tag == "[SCAN]"
           and len(after) == 1 and after[0].tag == "[STOP]")
 
+    # A late bare END is noise, not an empty result.
+    got = items("[SCAN] END")
+    check("bare END with no open frame is noise, not an empty frame",
+          len(got) == 1 and isinstance(got[0], Noise))
+
+    # Row cap: an endless frame is dropped whole and the reader recovers.
+    p = OcpParser(max_frame_rows=4)
+    got = list(p.feed_line("[SCAN] BEGIN"))
+    for _ in range(10):
+        got += list(p.feed_line('[SCAN] "x"'))
+    got += list(p.feed_line("[SCAN] END")) + list(p.feed_line("[STOP] running=0 END"))
+    frames = [i for i in got if isinstance(i, Frame)]
+    check("over-long frame abandoned whole; reader recovers",
+          not p.frame_open and len(frames) == 1 and frames[0].tag == "[STOP]",
+          f"frames={[f.tag for f in frames]}")
+
     # A re-opened frame does not nest.
     got = items("[SCAN] BEGIN n=1", "[SCAN] BEGIN n=2", "[SCAN] END")
     check("a re-opened frame is reported, not nested",

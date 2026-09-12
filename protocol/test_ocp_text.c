@@ -1,5 +1,5 @@
 /*
- * test_ocp_text.c — emits `<input hex> <escaped>` lines for a corpus of
+ * test_ocp_text.c — emits `<hex>\t<field>\t<value>` lines for a corpus of
  * payloads, so tools/check_ocp_text.py can diff this C encoder against the
  * Python reference. Also asserts escape/unescape round-trips in C.
  *
@@ -29,10 +29,17 @@ static void emit(const uint8_t *in, size_t len)
     assert(got == (int)len);
     assert(memcmp(back, in, len) == 0);
 
+    char val[2048];
+    size_t vn = ocp_escape_value(in, len, val, sizeof val);
+    assert(vn < sizeof val);
+    for (size_t i = 0; i < vn; i++) {
+        assert(val[i] >= 0x20 && val[i] <= 0x7E);   /* bare or not, one line */
+    }
+
     for (size_t i = 0; i < len; i++) {
         printf("%02x", in[i]);
     }
-    printf(" %s\n", esc);
+    printf("\t%s\t%s\n", esc, val);   /* tab: never present in escaped output */
 }
 
 /* xorshift32: the Python side regenerates the identical corpus. */
@@ -52,6 +59,7 @@ int main(void)
         "comma,separated", "newline\nhere", "cr\rhere", "tab\there",
         "caf\xc3\xa9", "\xff\xfe\xfd", "a\"b\\c,d e",
         "\x1b[31mANSI\x1b[0m", "]END[", "BEGIN", "END",
+        "\n", "abc\n", "wifi24,wifi5\n", "1,6,11\r\n", "ok\x00",
     };
     for (size_t i = 0; i < sizeof fixed / sizeof fixed[0]; i++) {
         emit((const uint8_t *)fixed[i], strlen(fixed[i]));

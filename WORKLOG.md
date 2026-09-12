@@ -13,6 +13,20 @@
 
 ---
 
+## 2026-09-12 — ocp_fuzz.py, and three parser bugs
+**Phase:** P1 · **By:** Will + Claude
+
+- **`tools/ocp_fuzz.py`**: a property fuzzer for the reference parser. It checks that no input raises, results don't depend on how bytes are chunked, valid items survive boot text and log noise exactly, the parser recovers after garbage via `[HELLO]` or a timeout, line buffer and frame rows stay bounded, and escapes round-trip. 125,000 cases pass across five seeds. `--emit-corpus` writes byte streams plus the reference parser's output, so the deck's C++ parser can be diffed against it later.
+- **Three real bugs, all in the reference parser the deck will copy:**
+  1. **Newline injection in `encode_value`.** Python's `$` also matches just before a trailing newline, so a value ending in `\n` counted as bare and went out unquoted, splitting a frame. The fuzzer caught it by comparing contents, not just item counts. All three regexes now use `fullmatch`. The C encoder was always correct; the C/Python cross-check only compared *field* encoding, so it now covers value encoding too. With the old regex put back, it fails on 4 of 789 payloads.
+  2. **Unbounded frame rows.** A stray `BEGIN` followed by endless rows grew memory forever, fatal on a Cardputer without PSRAM. New contract limit `OCP_MAX_FRAME_ROWS 256`: an over-limit frame is dropped whole, never delivered truncated, so larger results must be paged. **This binds P2's `[SCAN]`.**
+  3. **A late bare `[TAG] END` became an empty compact frame.** After a timeout, a late `END` would have shown up as "0 results". Spec: a compact frame needs at least one token before `END`, and a bare `END` with no open frame is noise.
+- **I discarded uncommitted work and recovered it.** While proving the checks catch regressions, I undid a deliberate break with `git checkout -- tools/ocp.py`. That reverted to the last commit and threw away all three fixes. A backup taken minutes earlier held all of them; every marker was verified before restoring, and all checks passed afterwards. The later regression runs used a copy and a checksum. Rule added to AGENTS.md §6.
+- **That test also found a gap:** `check_protocol.sh` passed with the bare-`END` fix removed. The fuzzer tests robustness, not spec rules, and the spec checklist (`--selftest`) wasn't in the script. It is now, and removing any of the three fixes fails it.
+- **Next:** the deck transport layer in C++. Testable on the host, and diffed against the fuzz corpus.
+
+---
+
 ## 2026-09-12 — D-12 resolved: Cardputer ADV is supported
 **Phase:** P1 · **By:** Will + Claude
 

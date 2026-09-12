@@ -147,6 +147,13 @@ result; this repo's culture is that a claim without evidence is a defect.
   mark the rest unverified. Never round up.
 - **Surface blockers, don't code around them.** An unresolved `⛔` decision
   means stop and ask.
+- **Never `git checkout -- <file>` or `git restore` to undo a temporary
+  edit.** Either one reverts to the last *commit*, discarding every
+  uncommitted change in that file, not just your test edit. To break
+  something on purpose, copy the file first and restore from the copy.
+- **Prove a check catches the bug.** After fixing something, put the bug back
+  (on a copy) and confirm the check fails. A green check that can't go red
+  proves nothing.
 
 ## 7. Conventions
 
