@@ -30,6 +30,9 @@ echo "  tripwire: -DOSCILLA_LORA_TX refuses to build (expected)"
     protocol/ocp_text.c protocol/test_ocp_text.c
 python3 tools/check_ocp_text.py "$out/text_corpus"
 
+# D-8 at the driver level: no transmit-capable API in firmware source.
+python3 tools/check_rx_only.py
+
 # Spec rules: the OCP-SPEC §9 conformance checklist.
 python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'
 

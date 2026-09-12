@@ -52,6 +52,8 @@ Each verb's arity and required capability class live in the `OCP_VERB_TABLE` X-m
 
 One command is in flight at a time. The probe processes commands in order and does not pipeline. A long-running mode (`start_sniffer`, `lora_listen`, …) **returns its reply frame immediately** and continues to emit `[EVT]` lines; it does not hold the command channel. `stop` is always accepted, including while a mode runs (DESIGN §6.4: the dispatch task outranks engine tasks, so `stop` always lands).
 
+**`stop` is the one exception to one-at-a-time.** A deck may send it while another command is pending. The cancelled command still gets its reply frame — flagged `aborted=1`, with its unconditional `END` — and then `[STOP] running=1 END`. A deck therefore waits for both.
+
 ---
 
 ## 3. Frames
@@ -190,7 +192,7 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] running=0 END
 ```
 
-`running=1` means a mode was cancelled, `running=0` means there was nothing to cancel. Either way the probe is idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, and uptime.
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the probe is idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, and uptime.
 
 ---
 
@@ -226,7 +228,9 @@ A parser reading an unterminated quoted field discards the line rather than cons
 2. **The deck cannot reach a radio directly.** It speaks only OCP. A compromised or buggy deck cannot inject frames: there is no verb to carry the request and no handler to service it.
 3. **No cap advertises transmit**, so no deck build can even present transmit UI.
 
-`ocp.h` refuses to compile if a transmit build flag is defined, and `protocol/test_ocp_header.c` fails if any registered verb matches a transmit-shaped name. The SX1262 is TX-capable silicon; the guarantee is about *reachable code paths*, and is stated that way deliberately.
+`ocp.h` refuses to compile if a transmit build flag is defined, and `protocol/test_ocp_header.c` fails if any registered verb matches a transmit-shaped name.
+
+The verb table is not the whole story: an innocent verb could still call a transmitting driver API. `tools/check_rx_only.py` therefore fails the build if probe source references any **transmit-capable API** on a denylist — active Wi-Fi scan, raw 802.11 transmit, association, soft-AP, ESP-NOW, BLE advertising or connection, 802.15.4 transmit. Scans are passive (§10.1). The SX1262 is TX-capable silicon; the guarantee is about *reachable code paths*, and is stated that way deliberately.
 
 ---
 
@@ -283,3 +287,47 @@ A deck-side parser is conformant iff:
 - [ ] `pong` is recognised as the reply to `ping`.
 
 `tools/ocp_repl.py --selftest` asserts every item on this list; `tools/ocp_fuzz.py` (P1) replays boot chatter and garbage against it.
+
+---
+
+## 10. Wi-Fi survey frames
+
+### 10.1 Scans are passive
+
+A scan **listens for beacons on each channel for `dwell_ms`; it never transmits a probe request** (§7). This is slower than an active scan and cannot discover a hidden network's name by probing for it — the price of the receive-only guarantee, not a tuning choice. A dual-band scan therefore replies after several seconds; decks size their timeout for `scan_networks` accordingly.
+
+### 10.2 `scan_networks` and paging
+
+`scan_networks` replies when the scan completes, with the **first page** of results:
+
+```
+[SCAN] BEGIN n=3 total=3 first=1 dwell_ms=250 elapsed_ms=9412
+[SCAN] "1","HomeNet","aa:bb:cc:dd:ee:01","6","WPA2","-52","2.4"
+[SCAN] "2","","aa:bb:cc:dd:ee:02","36","WPA3","-71","5"
+[SCAN] "3","Caf\xc3\xa9","aa:bb:cc:dd:ee:03","11","OPEN","-80","2.4"
+[SCAN] END
+```
+
+| Key | Meaning |
+|---|---|
+| `n` | rows in *this* frame, ≤ `OCP_MAX_FRAME_ROWS` |
+| `total` | results stored on the probe |
+| `first` | 1-based `idx` of this frame's first row |
+| `aborted` | present as `1` when `stop` cut the scan short |
+
+Rows are ordered by descending RSSI and carry their `idx`; indices stay stable until the next scan. When `first + n - 1 < total`, the deck pages with `show_scan_results <first>`, which returns the next frame from that index. `show_scan_results` with no argument returns the first page. Row columns are always all quoted (§6): `idx`, `ssid`, `bssid` (lowercase, colon-separated), `ch`, `auth` (an `OCP_AUTH_*` value), `rssi` (dBm), `band` (`2.4` or `5`).
+
+### 10.3 `inspect_network <idx>`
+
+Passively captures beacons from one scanned AP on its channel:
+
+```
+[INSPECT] BEGIN idx=1 bssid=aa:bb:cc:dd:ee:01 ch=6 band=2.4
+[INSPECT] beacons=3 rssi=-51 rsn=1 mfp_capable=1 mfp_required=0 uptime_s=1042311 interval_ms=102
+[INSPECT] END
+```
+
+- `beacons=0` means none were heard in the capture window; the other row keys are then omitted.
+- `rsn=0` means no RSN element (open or WEP); `mfp_*` are then `0`.
+- `uptime_s` is the beacon TSF in seconds. Most APs reset it at boot, so it is uptime; some randomise it, so treat it as a hint.
+- An `idx` outside the stored results is `code=badarg`.

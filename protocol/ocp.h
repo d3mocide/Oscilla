@@ -156,7 +156,7 @@ typedef enum {
     X(STOP,              OCP_V_STOP,              OCP_CC_NONE,        0,  0,  OCP_MARK_STOP)       \
     X(REBOOT,            OCP_V_REBOOT,            OCP_CC_NONE,        0,  0,  "")                  \
     X(SCAN_NETWORKS,     OCP_V_SCAN_NETWORKS,     OCP_CC_WIFI,        0,  0,  OCP_MARK_SCAN)       \
-    X(SHOW_SCAN_RESULTS, OCP_V_SHOW_SCAN_RESULTS, OCP_CC_WIFI,        0,  0,  OCP_MARK_SCAN)       \
+    X(SHOW_SCAN_RESULTS, OCP_V_SHOW_SCAN_RESULTS, OCP_CC_WIFI,        0,  1,  OCP_MARK_SCAN)       \
     X(INSPECT_NETWORK,   OCP_V_INSPECT_NETWORK,   OCP_CC_WIFI,        1,  1,  OCP_MARK_INSPECT)    \
     X(START_SNIFFER,     OCP_V_START_SNIFFER,     OCP_CC_WIFI,        0,  0,  OCP_MARK_SNIFF)      \
     X(SHOW_CLIENTS,      OCP_V_SHOW_CLIENTS,      OCP_CC_WIFI,        0,  0,  OCP_MARK_CLIENTS)    \
@@ -215,6 +215,46 @@ typedef enum {
 #define OCP_K_RUNNING           "running"
 #define OCP_K_UPTIME_MS         "uptime_ms"
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
+
+/* Wi-Fi survey frames (OCP-SPEC §10). */
+#define OCP_K_TOTAL             "total"    /* results stored on the probe  */
+#define OCP_K_FIRST             "first"    /* 1-based idx of a page's row 1 */
+#define OCP_K_ABORTED           "aborted"  /* 1 if `stop` cut it short      */
+#define OCP_K_DWELL_MS          "dwell_ms"
+#define OCP_K_ELAPSED_MS        "elapsed_ms"
+#define OCP_K_IDX               "idx"
+#define OCP_K_BSSID             "bssid"
+#define OCP_K_CH                "ch"
+#define OCP_K_BAND              "band"
+#define OCP_K_BEACONS           "beacons"
+#define OCP_K_RSSI              "rssi"
+#define OCP_K_RSN               "rsn"
+#define OCP_K_MFP_CAPABLE       "mfp_capable"
+#define OCP_K_MFP_REQUIRED      "mfp_required"
+#define OCP_K_UPTIME_S          "uptime_s"
+#define OCP_K_INTERVAL_MS       "interval_ms"
+
+/* [SCAN] "auth" column values. */
+#define OCP_AUTH_OPEN           "OPEN"
+#define OCP_AUTH_WEP            "WEP"
+#define OCP_AUTH_WPA            "WPA"
+#define OCP_AUTH_WPA2           "WPA2"
+#define OCP_AUTH_WPA_WPA2       "WPA/WPA2"
+#define OCP_AUTH_WPA3           "WPA3"
+#define OCP_AUTH_WPA2_WPA3      "WPA2/WPA3"
+#define OCP_AUTH_WPA_EAP        "WPA-EAP"
+#define OCP_AUTH_WPA2_EAP       "WPA2-EAP"
+#define OCP_AUTH_WPA3_EAP       "WPA3-EAP"
+#define OCP_AUTH_WPA2_WPA3_EAP  "WPA2/WPA3-EAP"
+#define OCP_AUTH_WPA3_EAP192    "WPA3-EAP192"
+#define OCP_AUTH_OWE            "OWE"
+#define OCP_AUTH_WAPI           "WAPI"
+#define OCP_AUTH_DPP            "DPP"
+#define OCP_AUTH_UNKNOWN        "UNKNOWN"
+
+/* [SCAN] "band" column values. */
+#define OCP_BAND_LABEL_24       "2.4"
+#define OCP_BAND_LABEL_5        "5"
 
 /* Escaping rules: OCP-SPEC §6. */
 #define OCP_SCAN_CSV_HEADER     "\"idx\",\"ssid\",\"bssid\",\"ch\",\"auth\",\"rssi\",\"band\""

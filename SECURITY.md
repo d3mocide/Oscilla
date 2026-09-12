@@ -52,6 +52,8 @@ The boundary is structural — a build-time fact, not a runtime toggle:
 | Build tripwire | `protocol/ocp.h` | `#error`s if `OSCILLA_WIFI_TX`, `OSCILLA_BLE_TX`, `OSCILLA_154_TX`, `OSCILLA_LORA_TX` or `OSCILLA_TX` is defined. A build that tries to enable transmit does not compile. |
 | Verb-name audit | `protocol/test_ocp_header.c` | Fails the test suite if any registered verb matches a transmit-shaped name. |
 | No transmit capability | handshake | Every advertised capability names a *receive* capability, so no client — including a future third-party one — can discover or present transmit functionality. |
+| Transmit-API denylist | `tools/check_rx_only.py` | Fails the build if probe source references a transmit-capable driver API — active Wi-Fi scan, raw 802.11 TX, association, soft-AP, ESP-NOW, BLE advertising/connection, 802.15.4 TX — or if deck source touches any radio API (deck radios are off in v1). A verb cannot smuggle transmission in behind an innocent name. |
+| Passive scanning | `OCP-SPEC §10.1` | Wi-Fi scans listen for beacons only and never send probe requests. |
 | Protocol-only access | architecture | The deck cannot reach a radio directly. It speaks only OCP. A compromised or buggy deck cannot inject frames: there is no verb to carry the request and no handler to service it. |
 
 Run it yourself:

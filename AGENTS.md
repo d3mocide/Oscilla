@@ -41,7 +41,9 @@ guess*). D-12 (Cardputer ADV support) is resolved.
    is the entire capability surface; with no TX verb in it, there is no
    reachable firmware path to transmission. `ocp.h` `#error`s on any
    `OSCILLA_*_TX` flag and `protocol/test_ocp_header.c` fails on any
-   transmit-shaped verb name. **If a task appears to require transmitting,
+   transmit-shaped verb name, and `tools/check_rx_only.py` fails if firmware
+   source reaches a transmit-capable driver API (e.g. `WIFI_SCAN_TYPE_ACTIVE`
+   — **scans are passive**). **If a task appears to require transmitting,
    stop and ask** — do not add the verb, do not remove the tripwire.
 2. **Pin constants come from Rev D only.** Not from DESIGN.md's summary tables,
    which exist for orientation and say so.
