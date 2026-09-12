@@ -25,12 +25,13 @@ echo "  tripwire: -DOSCILLA_LORA_TX refuses to build (expected)"
 
 "$out/t.c11"
 
-# Both skeletons compile against ocp.h. Not a board build: this proves only
-# that each firmware's use of the contract is well-formed.
+# The C field encoder must agree with the Python reference byte-for-byte.
+"${CC:-gcc}" -std=c99 "${warn[@]}" -Iprotocol -o "$out/text_corpus" \
+    protocol/ocp_text.c protocol/test_ocp_text.c
+python3 tools/check_ocp_text.py "$out/text_corpus"
 
-"${CC:-gcc}" -std=c11 "${warn[@]}" -Iprotocol -c -o "$out/probe.o" \
-    firmware-c5/main/main.c
-echo "  compiled: firmware-c5/main/main.c against ocp.h"
+# The deck skeleton compiles against ocp.h on the host. The probe is a real
+# ESP-IDF app now; tools/build_firmware.sh is what verifies it.
 
 "${CXX:-g++}" -std=gnu++17 "${warn[@]}" -Iprotocol -Itools/hoststub \
     -c -o "$out/deck.o" firmware-cardputer/src/main.cpp

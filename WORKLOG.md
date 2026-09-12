@@ -13,6 +13,26 @@
 
 ---
 
+## 2026-09-12 — P1 probe: OCP server on real hardware
+**Phase:** P1 · **By:** Will + Claude
+
+- Both boards on USB, no Grove cable. C5 probe USB serial `38:44:BE:1F:4F:A0`, Cardputer `50:78:7D:CE:6D:64`.
+- **Probe firmware, modular:** `ocp_transport` (Grove UART0 or USB Serial/JTAG, picked in Kconfig), `ocp_frame` (writes whole lines under a lock), `ocp_server` (reads lines, dispatches verbs from `OCP_VERB_TABLE`, the six system verbs), `main`. The escaping code moved to `protocol/ocp_text.{h,c}` so both firmwares share it; checked byte-for-byte against `ocp.py` on 784 payloads, every byte value included.
+- **Exit-gate demo 1 met over USB.** `ocp_repl.py --gate` passed 18/18, three runs in a row, and again when started 0.5 s after a reboot. That covers `unknown`/`nocap`/`badarg`, recovery from an over-long line, and a reboot producing an unsolicited `[HELLO]` with 59 lines of real ROM boot text read as noise, never as a frame. Not yet repeated over the Grove UART.
+
+### What went wrong
+
+- **I got the probe stuck, and wrote the warning for it earlier the same day.** The read loop assumed the transport's timeout would make it wait. It spun at priority 10 on a single-core chip, so the USB driver task never ran: the device stayed connected but stopped accepting writes and couldn't be flashed. Recovery needed BOOT+RESET. Fixed by yielding explicitly when idle. `CONFIG_ESP_TASK_WDT_PANIC=y` now makes a starved core reboot; by default the watchdog only prints a warning. AGENTS.md gotcha 6 reworded to "never spin without yielding".
+- **The boards swapped port numbers on replug.** A C5 image went to `ttyACM1`, which had become the Cardputer. esptool refused because `--chip esp32c5` was explicit, so nothing was written. Read-only check afterwards: the Cardputer's flash doesn't match our deck build, so its original firmware is intact. From now on boards are addressed by `/dev/serial/by-id/`. AGENTS.md gotcha 9.
+- After flashing from download mode over USB, `--after hard_reset` doesn't leave the ROM loader. `--after watchdog_reset` does.
+- **My own build script had a trap.** Once `sdkconfig` exists, `idf.py` ignores the defaults files, so a normal build after `--bench` quietly kept the USB transport. Each variant now has its own `build-uart/` or `build-bench/` directory, and the script checks which transport ended up in the config.
+- `check_protocol.sh` was still host-compiling the probe's `main.c`, which now needs IDF headers; step removed, since the real board build covers it.
+- The first gate run failed one check because it started before the app was up. The gate now retries `hello` for up to 6 s. A deck will have the same race after every probe reset.
+
+- **Next:** status LED on the XIAO (Will asked), then `ocp_fuzz.py`. Demo 2 needs the Grove cable. The deck half still waits on D-12.
+
+---
+
 ## 2026-09-12 — Agent and security docs
 **Phase:** P0 → P1 · **By:** Will + Claude
 

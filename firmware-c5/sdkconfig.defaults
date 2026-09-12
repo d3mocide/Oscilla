@@ -10,9 +10,12 @@ CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
 # Single-core: dispatch must outrank engines so `stop` lands (DESIGN §6.4).
 CONFIG_FREERTOS_HZ=1000
 
-# Fault, never hang (Rev D §4.3).
+# Fault, never hang (Rev D §4.3). PANIC is deliberate: the default only prints
+# a warning, so a starved core stays wedged and the probe cannot even be
+# reflashed over USB. Rebooting is always the better failure.
 CONFIG_ESP_TASK_WDT_INIT=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
+CONFIG_ESP_TASK_WDT_PANIC=y
 
 CONFIG_COMPILER_WARN_WRITE_STRINGS=y
 CONFIG_COMPILER_STACK_CHECK_MODE_NORM=y

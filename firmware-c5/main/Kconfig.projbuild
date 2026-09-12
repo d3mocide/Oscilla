@@ -1,0 +1,23 @@
+menu "Oscilla probe"
+
+choice OSCILLA_OCP_TRANSPORT
+    prompt "OCP control transport"
+    default OSCILLA_OCP_TRANSPORT_UART
+    help
+        Where the probe listens for OCP commands.
+
+config OSCILLA_OCP_TRANSPORT_UART
+    bool "Grove UART0 (GPIO11 TX / GPIO12 RX)"
+    help
+        The real link (Rev D §3). Shares its pins with the ROM console, so
+        boot text appears on the wire; the protocol tolerates that.
+
+config OSCILLA_OCP_TRANSPORT_USB
+    bool "USB Serial/JTAG (bench)"
+    help
+        For driving the probe from a host over its USB port with no Grove
+        cable attached. Console logs share the stream.
+
+endchoice
+
+endmenu

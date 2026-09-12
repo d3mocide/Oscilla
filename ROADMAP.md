@@ -76,14 +76,16 @@ nothing about ADV keyboard-matrix or EXT-header support. P1 must confirm it.
 **Entry gate:** P0 exit met. Both boards on their own USB, Grove **5V (red) disconnected** (Rev D §9). Cardputer ADV board support confirmed ([D-12](docs/DECISIONS.md)).
 
 **Work:**
-- [ ] C5: boot → OCP server on the Grove UART (GPIO11 TX / GPIO12 RX, 115200 8N1).
-- [ ] C5: implement `hello`, `ping`, `version`, `status`, `stop`, `reboot`. Emit unsolicited `[HELLO]` on boot.
+- [x] C5: boot → OCP server on the Grove UART (GPIO11 TX / GPIO12 RX, 115200 8N1). *Plus a USB Serial/JTAG bench transport (`--bench`) for driving the probe with no Grove cable.*
+- [x] C5: implement `hello`, `ping`, `version`, `status`, `stop`, `reboot`. Emit unsolicited `[HELLO]` on boot.
+- [x] *(added)* `protocol/ocp_text.{h,c}` — shared field escaping, cross-checked against `ocp.py` on 784 payloads.
+- [x] *(added)* `ocp_repl.py --gate` — the exit-gate demo as assertions against a live probe.
 - [ ] Deck: transport layer — line reader, marker/row recogniser, **resync-after-boot-noise**, reply/event demux, timeouts.
 - [ ] Deck: connection state machine `Disconnected → HelloSent → Ready(caps)`.
 - [ ] `tools/ocp_fuzz.py` replays ROM boot chatter + garbage and asserts the deck parser never wedges.
 
 **Exit gate (two demos):**
-1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*.
+1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*. **✅ Met 2026-09-12 over USB (bench transport): `--gate` 18/18, three consecutive runs, and again when started 0.5 s after a reboot.** Not yet repeated over the Grove UART itself.
 2. With the deck connected, physically resetting the C5 mid-session produces a clean `[HELLO]`, the deck returns to `Ready`, and no boot text is ever mistaken for a frame.
 
 ---

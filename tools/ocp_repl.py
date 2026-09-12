@@ -143,6 +143,162 @@ def mode_replay(path: Path, color: bool = True, chunk: int = 7) -> int:
     return 0
 
 
+class Probe:
+    """A live probe: background reader, parsed items on a queue."""
+
+    def __init__(self, port: str, baud: int):
+        import queue
+        import serial  # type: ignore
+        import threading
+
+        self.ser = serial.Serial(port, baud, timeout=0.05)
+        self.parser = OcpParser()
+        self.q: "queue.Queue" = queue.Queue()
+        self._stop = threading.Event()
+        self._t = threading.Thread(target=self._read, daemon=True)
+        self._t.start()
+
+    def _read(self) -> None:
+        while not self._stop.is_set():
+            data = self.ser.read(256)
+            if data:
+                for item in self.parser.feed_bytes(data):
+                    self.q.put(item)
+
+    def send(self, line: str) -> None:
+        parts = line.split()
+        self.ser.write(encode_command(parts[0], *parts[1:]))
+
+    def collect(self, seconds: float) -> list:
+        import queue
+        out, deadline = [], time.time() + seconds
+        while time.time() < deadline:
+            try:
+                out.append(self.q.get(timeout=max(0.01, deadline - time.time())))
+            except queue.Empty:
+                break
+        return out
+
+    def command(self, line: str, wait: float = 1.0) -> list:
+        self.send(line)
+        return self.collect(wait)
+
+    def close(self) -> None:
+        self._stop.set()
+        self._t.join(timeout=1.0)
+        self.ser.close()
+
+
+def mode_exec(port: str, baud: int, cmds: list[str], color: bool = True) -> int:
+    """Run commands non-interactively and print what comes back."""
+    p = Probe(port, baud)
+    try:
+        for item in p.collect(0.6):          # catch a boot [HELLO]
+            show(item, color)
+        for cmd in cmds:
+            print(paint(f"> {cmd}", "bold", enabled=color))
+            for item in p.command(cmd, wait=1.2):
+                show(item, color)
+    finally:
+        p.close()
+    return 0
+
+
+def mode_gate(port: str, baud: int, color: bool = True) -> int:
+    """P1 exit gate: drive the probe through the system verbs and assert."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name: str, ok: bool, detail: str = "") -> None:
+        checks.append((name, bool(ok), detail))
+
+    def first(items, cls, tag=None):
+        for i in items:
+            if isinstance(i, cls) and (tag is None or getattr(i, "tag", None) == tag):
+                return i
+        return None
+
+    p = Probe(port, baud)
+    try:
+        # A freshly reset probe enumerates before its app is up; retry, bounded.
+        hello = None
+        for _ in range(8):
+            hello = first(p.command("hello", 0.75), Frame, "[HELLO]")
+            if hello:
+                break
+        check("hello returns [HELLO]", hello is not None)
+        if hello:
+            check("proto matches ocp.h",
+                  hello.get("proto") == str(ocp.PROTO_VERSION), hello.get("proto") or "")
+            check("fw identifies the probe", hello.get("fw") == "oscilla-c5",
+                  hello.get("fw") or "")
+            check("caps key present", "caps" in hello.kv)
+
+        check("ping returns pong", first(p.command("ping"), Pong) is not None)
+
+        ver = first(p.command("version"), Frame, "[VER]")
+        check("version returns [VER]", ver is not None,
+              (ver.get("ver") or "") if ver else "")
+
+        st = first(p.command("status"), Frame, "[STATUS]")
+        check("status returns [STATUS]", st is not None)
+        if st:
+            check("status reports an idle PHY owner", st.get("owner") == "none",
+                  st.get("owner") or "")
+            check("status reports uptime", (st.get("uptime_ms") or "").isdigit())
+
+        stop = first(p.command("stop"), Frame, "[STOP]")
+        check("stop is acked when idle", stop is not None and stop.get("running") == "0")
+
+        err = first(p.command("no_such_verb"), Error)
+        check("unknown verb -> code=unknown",
+              err is not None and err.code == "unknown", err.code if err else "")
+
+        err = first(p.command("scan_networks"), Error)
+        check("radio verb with no caps -> code=nocap",
+              err is not None and err.code == "nocap", err.code if err else "")
+
+        err = first(p.command("inspect_network"), Error)
+        check("wrong arity -> code=badarg",
+              err is not None and err.code == "badarg", err.code if err else "")
+
+        # An over-long line must be refused without desynchronising the next.
+        p.ser.write(b"x" * (ocp.MAX_LINE_LEN + 200) + b"\n")
+        long_err = first(p.collect(1.0), Error)
+        check("over-long line -> code=badarg", long_err is not None
+              and long_err.code == "badarg", long_err.code if long_err else "")
+        check("probe still answers after an over-long line",
+              first(p.command("ping"), Pong) is not None)
+
+        # Reset announcement: reboot must produce a fresh unsolicited [HELLO],
+        # and boot chatter must never be mistaken for a frame.
+        p.send("reboot")
+        items = p.collect(4.0)
+        check("reboot announces an unsolicited [HELLO]",
+              first(items, Frame, "[HELLO]") is not None)
+        check("boot text parsed as noise, never as a frame",
+              all(not (isinstance(i, Frame) and i.tag != "[HELLO]") for i in items),
+              f"{sum(isinstance(i, Noise) for i in items)} noise lines")
+        check("probe usable after reset", first(p.command("ping", 2.0), Pong) is not None)
+    finally:
+        p.close()
+
+    width = max(len(n) for n, _, _ in checks)
+    failed = 0
+    for name, ok, detail in checks:
+        mark = (paint("PASS", "green", enabled=color) if ok
+                else paint("FAIL", "red", "bold", enabled=color))
+        print(f"  {mark}  {name.ljust(width)}  "
+              f"{paint(detail, 'dim', enabled=color) if detail else ''}")
+        failed += not ok
+    print()
+    if failed:
+        print(paint(f"{failed}/{len(checks)} checks FAILED", "red", "bold", enabled=color))
+        return 1
+    print(paint(f"all {len(checks)} checks passed — P1 probe exit gate",
+                "green", "bold", enabled=color))
+    return 0
+
+
 def mode_serial(port: str, baud: int, color: bool = True) -> int:
     try:
         import serial  # type: ignore
@@ -394,6 +550,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="parse a canned byte stream instead of a serial port")
     ap.add_argument("--selftest", action="store_true",
                     help="assert the OCP-SPEC.md §9 conformance checklist")
+    ap.add_argument("--exec", dest="exec_cmds", action="append", metavar="CMD",
+                    help="run a command non-interactively (repeatable)")
+    ap.add_argument("--gate", action="store_true",
+                    help="drive a live probe through the P1 exit-gate checks")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
     color = not args.no_color and sys.stdout.isatty()
@@ -402,6 +562,10 @@ def main(argv: list[str] | None = None) -> int:
         return mode_selftest(color)
     if args.replay:
         return mode_replay(args.replay, color)
+    if args.port and args.gate:
+        return mode_gate(args.port, args.baud, color)
+    if args.port and args.exec_cmds:
+        return mode_exec(args.port, args.baud, args.exec_cmds, color)
     if args.port:
         return mode_serial(args.port, args.baud, color)
     ap.print_help()

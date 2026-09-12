@@ -1,6 +1,7 @@
 # ─── Build output ────────────────────────────────────────────────────────────
 # ESP-IDF
 firmware-c5/build/
+firmware-c5/build-*/
 # sdkconfig is generated from sdkconfig.defaults and is machine-local; only
 # the defaults file is committed.
 firmware-c5/sdkconfig

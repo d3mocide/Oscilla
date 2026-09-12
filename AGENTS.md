@@ -93,14 +93,23 @@ result; this repo's culture is that a claim without evidence is a defect.
    GPIO11 is UART0's default pin, so ROM chatter appears on the Grove link on
    every probe reset. A parser that wedges on it is a defect
    (OCP-SPEC §1.1). The ROM console is deliberately left enabled.
-6. **The C5 is single-core.** The dispatch task must outrank engine tasks or
-   `stop` will not land while an engine is busy (DESIGN §6.4).
+6. **The C5 is single-core — never spin without yielding.** The dispatch task
+   outranks engines so `stop` lands (DESIGN §6.4), which means a loop in it
+   that doesn't block starves *everything*, including the USB driver. The
+   probe then stays enumerated but stops accepting writes, and cannot be
+   reflashed without BOOT+RESET. Never trust a read timeout to block; yield
+   explicitly when idle.
 7. **The deck's SD and external TFT share one SPI bus.** One lock, SD brought
    up first, TFT write-only, no task bypasses it (Rev D §5.2). This is the
    deck's main source of hard-to-debug failures.
 8. **No SPI inside the DIO1 ISR.** Post to the radio task. All hardware waits
    are bounded — fault, never hang (Rev D §4.3).
-9. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
+9. **`/dev/ttyACM*` numbering is not stable.** Both boards enumerate as the
+   same Espressif VID/PID and swap port numbers on replug. Address them by
+   `/dev/serial/by-id/…<usb-serial>` and **always pass `--chip`** to esptool —
+   an explicit `--chip esp32c5` is what stopped a probe image being written to
+   the Cardputer. Probe `38:44:BE:1F:4F:A0`, deck `50:78:7D:CE:6D:64`.
+10. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
    disconnected and insulated. Grove-powered operation is not evaluated until
    P6 produces a *measured* current budget.
 
