@@ -1,0 +1,26 @@
+Oscilla — Decision register
+
+> D-numbered decisions, moved out of DESIGN.md so they can churn without a design revision.
+> **Status:** ✅ decided · 🔵 leaning · 🟠 open · ⛔ blocking (must resolve before its phase).
+> When a decision changes, update its row and note it in [`WORKLOG.md`](../WORKLOG.md). Cite decisions as `D-n` from DESIGN.md and ROADMAP.md.
+
+| ID | Decision | Status | Resolution / leaning | Gates |
+|---|---|---|---|---|
+| **D-1** | Deck framework | ✅ Decided | **M5Unified + PlatformIO.** Keep OCP client + model framework-agnostic C++ so a later LVGL move touches only views. | — |
+| **D-2** | Probe-side capture (PCAP/HCCAPX) in v1 | ✅ Decided (defer) | **Deferred.** Probe has no SD (Rev D); capture would require streaming frames over Grove. Revisit post-v1. `[FT]` marker reserved, unimplemented. | — |
+| **D-3** | Probe control UART | ✅ Decided (by HW) | **C5 GPIO11/12** (XIAO D6/D7) per Rev D — these are the wired pins; UART0 default. Boot noise is unavoidable, so the parser resync (DESIGN §5.2) is load-bearing. | P1 |
+| **D-4** | Probe power source | 🟠 Open | Bench phase: **own USB, Grove red disconnected** (Rev D §9). Grove-powered operation only after P6 current measurement — C5+Wio ≈910 mA vs ~1 A rail. | P6 |
+| **D-5** | Grove pin routing on Cardputer ADV | ✅ Decided (by HW) | Fixed by Rev D §3: S3 GPIO2 TX / GPIO1 RX. Verify controller index against M5 board lib. | P1 |
+| **D-6** | D-UCB channel picker in v1 | ✅ Decided (defer) | **Round-robin through P7; D-UCB in P8** as a drop-in behind the same interface. | P8 |
+| **D-7** | Naming (`deck`/`probe`) | ✅ Decided | Keep. | — |
+| **D-8** | Transmit posture | ✅ Decided | **Receive-only on every radio.** No transmit verb is compiled into any build → no reachable firmware code path to transmission (DESIGN §8). Restores the v0.1 structural guarantee (LoRa is TX-capable silicon, so the guarantee is about *reachable code paths*, stated as such). Any future transmit is a separate, explicitly-flagged, authorization-gated effort — out of v1 scope, but not architecturally foreclosed (adding TX = registering new gated verbs). *History:* briefly considered a radio-agnostic transmit gate; reverted to receive-only to keep the strong, simple posture and drop the TX-only blockers off the path. | — |
+| **D-9** | LoRa region/authorization profile | ✅ Closed | **Not applicable.** Receive-only (D-8) means no transmit, no frequency-plan/EIRP/duty obligation. Would reopen only if transmit is ever scoped. | — |
+| **D-10** | SX1262 TCXO startup delay & voltage encoding | ⛔ Blocking (init) | **Unresolved — do not guess** (Rev D §4.3). Needed to bring the radio up even for RX. Resolve from Wio-SX1262 module datasheet; TCXO on internal DIO3, ~1.8 V candidate at 3.3 V supply. | P3 |
+| **D-11** | SX1262 driver: lift vs. in-house | 🔵 Leaning | Evaluate existing MIT/Apache SX1262 drivers vs. a thin in-house RX layer over the Rev D pin map. Prefer thin in-house if third-party drivers assume a bare-SX1262 board (Rev D warns against generic presets/RF-switch handling). | P3 |
+| **D-12** | Cardputer ADV support in M5Unified/M5GFX | ⛔ Blocking | **Verify before P1.** ADV differs from original Cardputer (keyboard matrix, EXT header). Confirm board support exists or budget writing it. | P1 |
+| **D-13** | Any transmit capability, if ever | 🟠 Open (post-v1) | Not in v1. Reversing D-8 for any radio (LoRa telemetry, range test, authorized active assessment) is a deliberate future decision with its own scope, build flag, and authorization gate — recorded here, not designed away. | post-v1 |
+
+## Notes
+
+- **D-8 restores the v0.1 stance.** After briefly designing a compile+runtime transmit gate (to keep TX reachable long-term), we reverted to plain receive-only: no TX verbs compiled, so no reachable transmit path. This is a genuine structural guarantee again (with the honest caveat that the SX1262 hardware is TX-capable), and it removes region/duty (D-9) from scope entirely. The long-term option to add TX is preserved by architecture, not by shipped code (D-13).
+- **Blocking decisions** (⛔) are surfaced in ROADMAP at their phase entry gates. D-10 and D-12 are the current ones.

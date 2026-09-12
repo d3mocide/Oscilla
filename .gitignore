@@ -1,0 +1,78 @@
+# ─── Build output ────────────────────────────────────────────────────────────
+# ESP-IDF
+firmware-c5/build/
+# sdkconfig is generated from sdkconfig.defaults and is machine-local; only
+# the defaults file is committed.
+firmware-c5/sdkconfig
+firmware-c5/sdkconfig.old
+firmware-c5/managed_components/
+firmware-c5/dependencies.lock
+
+# PlatformIO
+.pio/
+firmware-cardputer/.pio/
+
+# ─── Local toolchain / editor state ──────────────────────────────────────────
+# Note the trailing /* rather than /: git cannot re-include a file whose
+# parent directory is excluded, so the negation below would not work.
+.vscode/*
+# Exception: extensions.json is shareable — it says which extensions this
+# project expects, not anything about this machine.
+!.vscode/extensions.json
+.idea/
+compile_commands.json
+.cache/
+*.swp
+.DS_Store
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ─── FIELD DATA — never commit ───────────────────────────────────────────────
+# Everything Oscilla records is a log of where its operator physically was and
+# what was transmitting around them. A wardrive CSV is a movement history; a
+# KML track is that history on a map; an NMEA capture is raw position fixes.
+# These belong on the deck's microSD, not in a public repository — committing
+# one discloses the operator's home, routine, and the networks of everyone they
+# drove past.
+#
+# Write up *conclusions* in docs/hardware/ by hand. Never paste the raw rows.
+*.csv
+*.kml
+*.kmz
+*.gpx
+*.nmea
+*.pcap
+*.pcapng
+*.hccapx
+*.log
+sessions/
+captures/
+wardrive/
+
+# Fixtures are synthetic — hand-written protocol test data, no real observations.
+!tools/fixtures/**
+
+# ─── Secrets ─────────────────────────────────────────────────────────────────
+# Nothing in v1 needs credentials (the deck's own radios stay off, and the probe
+# only receives). If that ever changes, the secret goes in a file matched here
+# and is referenced from code — never typed into a source file.
+secrets.h
+credentials.h
+*secrets*.h
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# ─── Crash / debug dumps ─────────────────────────────────────────────────────
+# Coredumps embed RAM contents, which during a session includes observed SSIDs,
+# MACs, and buffered observations.
+*.coredump
+core.*
+coredump*.bin

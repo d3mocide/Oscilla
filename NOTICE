@@ -1,0 +1,67 @@
+Oscilla
+Copyright (c) 2026 Will Shields
+Licensed under the MIT License. See LICENSE.
+
+================================================================================
+Third-party material
+================================================================================
+
+Oscilla's probe firmware studies and, in one case, incorporates code from two
+upstream MIT-licensed projects. Both remain under their original licenses and
+copyrights; nothing here relicenses them.
+
+--------------------------------------------------------------------------------
+C5Lab projectZero
+--------------------------------------------------------------------------------
+License: MIT
+
+Used in Oscilla as follows (DESIGN.md §11):
+
+  * Lifted verbatim
+      - zig_recon/  (IEEE 802.15.4 PAN and node discovery)
+        Location: firmware-c5/components/zig_recon/
+        Original copyright and author headers are preserved in every lifted
+        file. Lifted code is kept isolated under components/ so its provenance
+        stays obvious.
+
+  * Referenced and reimplemented (no code copied)
+      - the D-UCB discounted-bandit channel picker
+      - promiscuous-mode channel hopping
+      - NimBLE scan parameters
+      - Wi-Fi band-mode handling
+        Location: firmware-c5/main/
+
+  * Deliberately not used
+      - the main.c monolith
+      - frame_analyzer, sniffer, pcap_serializer, hccapx_serializer
+        (deferred: the Oscilla probe has no SD card, so these would require
+        streaming frames over the control link — see docs/DECISIONS.md D-2)
+
+--------------------------------------------------------------------------------
+esp32-wifi-penetration-tool — Martin Risinek (@risinek)
+--------------------------------------------------------------------------------
+License: MIT
+
+The upstream project from which projectZero descends. Oscilla studied its
+architecture and its ESP32 Wi-Fi recon patterns. Original copyright and
+@risinek attribution headers are preserved in any file that carries them.
+
+Note on scope: that project includes active/offensive capabilities. Oscilla
+takes none of them. Oscilla v1 is receive-only on every radio — no transmit
+verb is compiled into any build, so there is no reachable firmware code path
+to transmission (DESIGN.md §8, docs/DECISIONS.md D-8).
+
+================================================================================
+Obligations
+================================================================================
+
+The MIT License requires that the copyright notice and permission notice be
+included in all copies or substantial portions of the software. Accordingly:
+
+  1. Every lifted file keeps its original header intact.
+  2. Lifted components live under firmware-c5/components/, never mixed into
+     Oscilla's own application layer.
+  3. This NOTICE ships with the source and with any binary distribution.
+
+When a new upstream component is lifted, add it here in the same session it is
+added to the tree — not later.
