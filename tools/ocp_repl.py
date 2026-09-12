@@ -480,6 +480,9 @@ def mode_selftest(color: bool = True) -> int:
     list(p.feed_line("[SCAN] BEGIN n=1"))
     list(p.feed_line('[HELLO] proto="\\q" END'))
     check("malformed [HELLO] does not abandon an open frame", p.frame_open)
+    got = items('[STOP] k="\\x+f" END', '[STOP] k="\\x f" END')
+    check("\\xHH is strict: sign or space is malformed",
+          len(got) == 2 and all(isinstance(i, Noise) for i in got))
 
     # Only SP/HT are whitespace: \x0c is part of the token, not a separator.
     got = items("\x0c[STOP] running=0 END")

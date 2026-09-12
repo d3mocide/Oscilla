@@ -126,13 +126,21 @@ def gen_garbage(rng: random.Random) -> bytes:
             parts.append(f"{rng.choice(TAGS)} END".encode())
         elif r < 0.65:
             parts.append(b'[SCAN] "unterminated')
-        elif r < 0.75:
+        elif r < 0.70:
             parts.append(b"A" * rng.randint(400, 1400))   # over-long
+        elif r < 0.75:
+            # A frame at, just under, or past the row cap (OCP_MAX_FRAME_ROWS).
+            tag = rng.choice(TAGS)
+            n = ocp.MAX_FRAME_ROWS + rng.choice([-1, 0, 1, 2, 40])
+            rows = b"".join(f'{tag} "r{i}"\n'.encode() for i in range(n))
+            end = f"{tag} END".encode() if rng.random() < 0.8 else b""
+            parts.append(f"{tag} BEGIN\n".encode() + rows + end)
         elif r < 0.80:
             parts.append(rng.choice(BOOT_NOISE).encode())
         elif r < 0.88:
             # k=v shapes with broken escapes, on every line type that parses kv
-            bad = rng.choice([r'"\q"', r'"\x4"', r'"\xZZ"', r'"\"', r'"ok\"', '"\\x"'])
+            bad = rng.choice([r'"\q"', r'"\x4"', r'"\xZZ"', r'"\"', r'"ok\"', '"\\x"',
+                              r'"\x+f"', r'"\x f"', r'"\x-1"'])
             head = rng.choice([f"{rng.choice(TAGS)} BEGIN", "[EVT] kind=x", "[ERR] code=busy",
                                "[HELLO]", rng.choice(TAGS)])
             tail = " END" if "BEGIN" not in head and rng.random() < 0.6 else ""

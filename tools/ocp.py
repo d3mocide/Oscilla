@@ -34,6 +34,7 @@ HEADER_PATH = Path(__file__).resolve().parent.parent / "protocol" / "ocp.h"
 # once let a value ending in "\n" pass as bare and split a frame.
 _MARKER_RE = re.compile(r"\[[A-Z0-9_]+\]")
 _BARE_KEY_RE = re.compile(r"[A-Za-z0-9_.]+")
+_HEX2_RE = re.compile(r"[0-9A-Fa-f]{2}")
 # Commas are legal unquoted: caps=wifi24,wifi5 and set_channels 1,6,11 rely on
 # it. A CSV row always quotes every field, so there is no ambiguity.
 _BARE_VALUE_RE = re.compile(r"[A-Za-z0-9_.:+,\-]*")
@@ -88,10 +89,11 @@ def decode_field(text: str) -> bytes:
         if esc == "x":
             if i + 3 >= n:
                 raise OcpFramingError("truncated \\xHH escape")
-            try:
-                out.append(int(text[i + 2 : i + 4], 16))
-            except ValueError:
-                raise OcpFramingError(f"bad \\xHH escape: {text[i:i+4]!r}") from None
+            hh = text[i + 2 : i + 4]
+            # Not int(hh, 16): it also accepts "+f" and " f" (OCP-SPEC §6).
+            if not _HEX2_RE.fullmatch(hh):
+                raise OcpFramingError(f"bad \\xHH escape: {text[i:i+4]!r}")
+            out.append(int(hh, 16))
             i += 4
         elif esc in ('"', "\\"):
             out.extend(esc.encode())

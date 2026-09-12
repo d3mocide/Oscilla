@@ -101,6 +101,8 @@ int main(void)
     assert(ocp_unescape_field("\\q", 2, out, sizeof out) == -1);
     assert(ocp_unescape_field("\\xZZ", 4, out, sizeof out) == -1);
     assert(ocp_unescape_field("\\x4", 3, out, sizeof out) == -1);
+    assert(ocp_unescape_field("\\x+f", 4, out, sizeof out) == -1);
+    assert(ocp_unescape_field("\\x f", 4, out, sizeof out) == -1);
 
     return 0;
 }

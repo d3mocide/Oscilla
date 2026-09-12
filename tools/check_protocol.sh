@@ -36,6 +36,9 @@ python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'
 # Parser properties: never raises, chunk-invariant, noise-safe, recovers, bounded.
 python3 tools/ocp_fuzz.py --iterations 1000 | grep -E 'FAIL|reproduce|fuzz:' | sed 's/^/  /'
 
+# The deck's C++ parser must agree with the reference, item for item.
+python3 tools/check_deck_parser.py --count 150
+
 # The deck skeleton compiles against ocp.h on the host. The probe is a real
 # ESP-IDF app now; tools/build_firmware.sh is what verifies it.
 
