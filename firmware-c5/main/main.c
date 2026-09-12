@@ -10,6 +10,7 @@
 #include "ocp_frame.h"
 #include "ocp_server.h"
 #include "ocp_transport.h"
+#include "status_led.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -25,6 +26,7 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(err);
 
+    ESP_ERROR_CHECK(status_led_start());    /* first, so boot is visible */
     ESP_ERROR_CHECK(ocp_transport_init());
     ESP_ERROR_CHECK(ocp_frame_init());
     ESP_ERROR_CHECK(ocp_server_start());

@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-09-12 — Status LED heartbeat
+**Phase:** P1 · **By:** Will + Claude
+
+- Will asked for a status light so a working probe is visible at a glance on the bench and in the field. `status_led.{h,c}`: rapid blink while booting, 40 ms flash every 2 s when healthy, extra flash per command, solid on for a fault. **Dark means dead or wedged.**
+- **The heartbeat only runs while the dispatch loop checks in.** A heartbeat on its own timer would have kept blinking through this morning's wedge. Now a stalled command loop goes dark within a second.
+- **Pin: GPIO27**, taken from Seeed's XIAO ESP32-C5 pin map and recorded in Rev D §8.1 before any code used it. The web-page summary said GPIO27 wasn't a strapping pin; IDF's own GPIO reference for the C5 says it is (2, 7, 25, 27, 28). It's safe because strapping pins are only read at reset and Seeed's circuit sets the level, but it's documented the same way GPIO25 is.
+- **Polarity confirmed on the board by Will**: active-low, as Seeed's example code suggested.
+- Battery: 2% duty cycle. Kconfig can disable it or set the period (500 ms–10 s).
+- Flashed with no BOOT+RESET, since the running probe now enters download mode from software. That confirms the yield fix. `--gate` still 18/18.
+- Housekeeping: DESIGN §6.1 module map now lists `ocp_transport`, `ocp_frame` and `status_led`. The first two should have gone in with the P1 commit; AGENTS.md §7.2 says so and I skipped it.
+
+---
+
 ## 2026-09-12 — P1 probe: OCP server on real hardware
 **Phase:** P1 · **By:** Will + Claude
 

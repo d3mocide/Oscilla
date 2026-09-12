@@ -278,8 +278,22 @@ xiao_esp32_c5:
     external_rf_switch_tx_level: 0
     transmit_on_boot: false
     operating_frequency_hz: null # Explicit application/antenna setting required.
+  status_led:
+    gpio: 27
+    active_level: 0          # active-low; bench-confirmed 2026-09-12
+    color: yellow
+    strapping_pin: true      # sampled at reset only; board circuit sets the level
+    source: seeed_xiao_esp32c5_wiki_pin_map_user_led
   unused_main_header_gpio: 7
 ```
+
+### 8.1 Status LED (added 2026-09-12)
+
+The XIAO's onboard yellow user LED is on **C5 GPIO27** (Seeed XIAO ESP32-C5 wiki, pin map: `USER_LED | GPIO27`). It is not on the main header and does not collide with any allocation above.
+
+- **GPIO27 is a strapping pin** (ESP-IDF GPIO reference for ESP32-C5: GPIO2, 7, 25, 27, 28). Its level is sampled only at reset and is set by the board's own LED circuit, which Seeed designed to boot correctly. Firmware drives it only after boot. As with GPIO25, test cold boots and USB recovery.
+- **Active-low**: per Seeed's example code, and confirmed on the delivered board on 2026-09-12 (short flashes with dark in between, not the inverted pattern).
+- The red charge LED is driven by the charger IC, not by software.
 
 ## 9. Electrical power and assembly notes
 

@@ -260,8 +260,11 @@ Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
 
 | Module | Responsibility |
 |---|---|
-| `main.c` | Boot: NVS → arbiter → platform (netif/event/esp_wifi NULL) → OCP server on the Grove UART |
-| `ocp_server.c` | Command table + thin handlers; frame/event emission helpers |
+| `main.c` | Boot: NVS → status LED → arbiter → platform (netif/event/esp_wifi NULL) → OCP server |
+| `ocp_transport.c` | Byte I/O: Grove UART0, or USB Serial/JTAG for bench builds (Kconfig) |
+| `ocp_frame.c` | Marker-frame emission; one whole line per write, under a lock |
+| `ocp_server.c` | Line assembly, command table dispatch, system verbs |
+| `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity / fault; dark if dispatch stalls |
 | `radio_arbiter.c` | **Single-owner PHY arbitration** + power interlock. The load-bearing safety invariant. |
 | `wifi_recon.c` | Managed scan; promiscuous sniffer + inspect + channel views; manual hop (optionally D-UCB) |
 | `ble_recon.c` | NimBLE passive scan; device table; tracker classification |

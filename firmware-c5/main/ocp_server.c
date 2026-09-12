@@ -7,6 +7,7 @@
 #include "ocp_server.h"
 #include "ocp_frame.h"
 #include "ocp_transport.h"
+#include "status_led.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -168,6 +169,7 @@ static void dispatch(char *line)
             ocp_emit_error(OCP_ERR_NOCAP, "capability not present in this build");
             return;
         }
+        status_led_activity();
         handle((ocp_verb_id_t)i);
         return;
     }
@@ -186,8 +188,10 @@ static void ocp_task(void *arg)
     uint8_t chunk[128];
 
     emit_hello();
+    status_led_ready();
 
     for (;;) {
+        status_led_kick();
         int n = ocp_transport_read(chunk, sizeof chunk, OCP_READ_TIMEOUT_MS);
         if (n <= 0) {
             /* A transport that returns immediately when idle would otherwise

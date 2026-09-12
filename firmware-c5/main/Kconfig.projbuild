@@ -20,4 +20,17 @@ config OSCILLA_OCP_TRANSPORT_USB
 
 endchoice
 
+config OSCILLA_STATUS_LED
+    bool "Status LED heartbeat"
+    default y
+    help
+        Drive the XIAO user LED (GPIO27) as a liveness indicator. Disable
+        to save the last few microamps in the field.
+
+config OSCILLA_STATUS_LED_PERIOD_MS
+    int "Heartbeat period (ms)"
+    depends on OSCILLA_STATUS_LED
+    range 500 10000
+    default 2000
+
 endmenu
