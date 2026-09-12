@@ -323,6 +323,15 @@ The UI, plus GNSS, storage and logging. Small screen, physical keyboard, must fe
 
 Everything from the OCP client downward is **framework-agnostic plain C++**, so the view layer is the only thing a future LVGL migration touches.
 
+| Module | Layer | Responsibility |
+|---|---|---|
+| `src/main.cpp` | wiring | M5 + Grove UART + client + view; reconnect and keepalive policy |
+| `src/ocp/ocp_parser` | OCP client | Byte-exact line reader; mirrors `tools/ocp.py`, diffed on the fuzz corpus |
+| `src/ocp/ocp_client` | OCP client | Handshake, one-at-a-time commands, reply/event routing, timeouts, reset detection |
+| `src/ocp/ocp_item.h` | OCP client | Parsed item type |
+| `src/ui/link_view` | view | Link state, probe identity, counters; re-escapes probe text for display |
+| `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
+
 ### 7.2 View set (v1)
 
 | View | Verb(s) | Shows |

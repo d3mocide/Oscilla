@@ -162,6 +162,8 @@ Events are lossy by design. When the queue is full the probe drops events rather
 
 Replies are expected within a bounded window; on expiry the deck reports the timeout and returns to `Ready`, then re-syncs on the next `[HELLO]` or successful command. A timeout never leaves a half-read frame in the parser.
 
+**Except for liveness verbs.** `hello` and `ping` exist to prove the probe is there, so when either goes unanswered the deck moves to `Disconnected`, not `Ready`. A slow `scan_networks` is a slow command; a silent `ping` is a missing probe. `reboot` has no reply of its own: the deck waits for the probe's `[HELLO]`, and treats that one as expected rather than as a surprise reset.
+
 ### 5.3 Errors
 
 ```

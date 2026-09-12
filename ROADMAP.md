@@ -5,7 +5,7 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P0 complete → **P1 — Prove the link** |
+| **Current phase** | P1 complete → **P2 — Probe sees Wi-Fi** |
 | **Last updated** | 2026-09-12 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
@@ -17,7 +17,7 @@
 | Phase | Name | Status | Exit gate met? |
 |---|---|---|---|
 | **P0** | Reconcile & scaffold | 🟢 Exit gate met | ✅ 2026-09-12 |
-| **P1** | Prove the link | 🟡 In progress | — |
+| **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P2** | Probe sees Wi-Fi | ⚪ Not started | — |
 | **P3** | LoRa (RX) | ⚪ Not started | — |
 | **P4** | GNSS on the deck | ⚪ Not started | — |
@@ -77,13 +77,14 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 - [x] C5: implement `hello`, `ping`, `version`, `status`, `stop`, `reboot`. Emit unsolicited `[HELLO]` on boot.
 - [x] *(added)* `protocol/ocp_text.{h,c}` — shared field escaping, cross-checked against `ocp.py` on 784 payloads.
 - [x] *(added)* `ocp_repl.py --gate` — the exit-gate demo as assertions against a live probe.
-- [ ] Deck: transport layer — line reader, marker/row recogniser, **resync-after-boot-noise**, reply/event demux, timeouts.
-- [ ] Deck: connection state machine `Disconnected → HelloSent → Ready(caps)`.
-- [x] `tools/ocp_fuzz.py` — property fuzzer (no raise, chunk-invariant, noise-safe, recovery, bounded). Found three reference-parser bugs, all fixed and regression-guarded. `--emit-corpus` feeds the deck parser's diff test. *Deck-parser half pending the transport layer.*
+- [x] Deck: transport layer — `src/ocp/ocp_parser` (byte-exact, bounded, never throws), diffed item-for-item against `ocp.py` on the fuzz corpus.
+- [x] Deck: connection state machine `Disconnected → HelloSent → Ready(caps)` (+ `Incompatible`) — `src/ocp/ocp_client`, 33 host tests incl. reset mid-frame, timeouts, millis wrap, contract-only verbs.
+- [x] *(added)* Deck app: link-status view, auto-reconnect, 3 s keepalive ping, key commands.
+- [x] `tools/ocp_fuzz.py` — property fuzzer (no raise, chunk-invariant, noise-safe, recovery, bounded). Found three reference-parser bugs, all fixed and regression-guarded. `--emit-corpus` feeds the deck parser's diff test. Deck parser diffed against it (`tools/check_deck_parser.py`).
 
 **Exit gate (two demos):**
 1. `ocp_repl.py` on a laptop drives the C5 through the full system-verb set — *before the Cardputer firmware exists*. **✅ Met 2026-09-12 over the real Grove UART** through the Cardputer's `grove-bridge` firmware: `--gate` 18/18, four consecutive runs, `link=uart0`, with ROM boot text on the wire parsed as noise. Also met over USB. Record: [`docs/hardware/link-bringup.md`](docs/hardware/link-bringup.md).
-2. With the deck connected, physically resetting the C5 mid-session produces a clean `[HELLO]`, the deck returns to `Ready`, and no boot text is ever mistaken for a frame.
+2. With the deck connected, physically resetting the C5 mid-session produces a clean `[HELLO]`, the deck returns to `Ready`, and no boot text is ever mistaken for a frame. **✅ Met 2026-09-12 on hardware:** three RESET presses on the XIAO → three detected resets, deck stayed `ready`, **8 boot-noise lines per reset** (matches the captured ROM text), **`stray=0`**, 51 keepalive pongs with 0 timeouts and 0 errors across the session.
 
 ---
 

@@ -39,11 +39,11 @@ python3 tools/ocp_fuzz.py --iterations 1000 | grep -E 'FAIL|reproduce|fuzz:' | s
 # The deck's C++ parser must agree with the reference, item for item.
 python3 tools/check_deck_parser.py --count 150
 
-# The deck skeleton compiles against ocp.h on the host. The probe is a real
-# ESP-IDF app now; tools/build_firmware.sh is what verifies it.
-
-"${CXX:-g++}" -std=gnu++17 "${warn[@]}" -Iprotocol -Itools/hoststub \
-    -c -o "$out/deck.o" firmware-cardputer/src/main.cpp
-echo "  compiled: firmware-cardputer/src/main.cpp against ocp.h"
+# The deck's connection client against a scripted probe.
+"${CC:-gcc}" -std=c99 "${warn[@]}" -Iprotocol -c -o "$out/ocp_text.o" protocol/ocp_text.c
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/client_test" \
+    firmware-cardputer/test/host/client_test.cpp firmware-cardputer/src/ocp/ocp_client.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/client_test" | tail -1 | sed 's/^/  /'
 
 echo "protocol contract OK"

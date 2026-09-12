@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-09-12 — P1 complete: the deck drives the probe
+**Phase:** P1 → P2 · **By:** Will + Claude
+
+- **P1 exit gate met on both demos.** The deck firmware talks to the probe on its own over Grove, with no laptop in the link. Demo 2: Will pressed RESET on the XIAO three times mid-session. Each time the deck detected the unsolicited `[HELLO]`, stayed `ready`, counted exactly 8 boot-noise lines, and `stray=0` (no boot text taken for a frame). 51 keepalive pongs, 0 timeouts, 0 errors. Details: `docs/hardware/link-bringup.md`.
+- **`ocp_client`**: handshake, one command at a time, reply/event routing, timeouts, reset detection, `Incompatible` for an unknown proto. **33 host tests** against a scripted probe, including a reset mid-command *and* mid-frame using the real ROM text, the millis() wrap, and reboot-then-`[HELLO]`. Two tests needed fixing before they meant anything: two placeholder checks that could never fail, and one that looked at output left over from earlier sends. The contract-only check (a verb not in `OCP_VERB_TABLE` never reaches the wire) was mutation-tested. It's the deck-side half of D-8.
+- **Spec §5.2 addition:** a timeout on a *liveness* verb (`hello`, `ping`) means `Disconnected`; any other timeout returns to `Ready` as before. A slow scan is a slow command; a silent ping is a missing probe.
+- **Deck app:** `main.cpp` does only the wiring; `ui/link_view` draws state, probe identity and counters, with probe text re-escaped for display. It reconnects every 2 s, pings every 3 s when idle, and has key commands.
+- Will saw "probe reset: state invalidated" and read it as an error. It was the feature working, but the wording was bad. Now "probe rebooted - resynced".
+- `check_protocol.sh` runs the whole deck stack on the host in ~5 s: conformance, fuzz, C++↔Python parser diff, client tests. The obsolete host-compile of the deck's `main.cpp` is gone, since it includes M5 now.
+- **Next: P2, probe sees Wi-Fi.** Radio arbiter, `scan_networks`/`show_scan_results`/`inspect_network`, `[SCAN]` rows **paged at `OCP_MAX_FRAME_ROWS`**, and the deck's Sweep/Trace views.
+
+---
+
 ## 2026-09-12 — ocp_fuzz.py, and three parser bugs
 **Phase:** P1 · **By:** Will + Claude
 

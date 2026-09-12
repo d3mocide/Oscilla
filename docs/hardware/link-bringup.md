@@ -45,6 +45,23 @@ entry 0x4084bbaa
 9 noise lines over Grove vs 59 over USB earlier: app and bootloader logs now go
 to the C5's native USB (Rev D §3).
 
+## Exit-gate demo 2 — deck survives probe resets
+
+Deck app (`pio run -e cardputer-adv`), probe on the UART build, Grove only.
+Will pressed RESET on the XIAO three times mid-session; the deck log:
+
+```
+ 37.69s deck probe-reset resets=1 noise=8  stray=0 errors=0
+ 44.51s deck probe-reset resets=2 noise=16 stray=0 errors=0
+ 88.21s deck state=hello-sent        <- deck-initiated `h`: no noise added
+ 88.42s deck state=ready
+111.67s deck probe-reset resets=3 noise=24 stray=0 errors=0
+```
+
+Each reset: unsolicited `[HELLO]` detected, deck stayed `ready`, exactly 8
+boot-noise lines (the ROM text above), nothing mistaken for a frame. Keepalive
+pongs continued throughout: 51 pongs, 0 timeouts, 0 errors.
+
 ## Pin-level line check (JTAG)
 
 Reads C5 `GPIO_IN_REG` (`0x60091064`) while flooding `0x00` through the
