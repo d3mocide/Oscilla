@@ -16,11 +16,11 @@ This document is the authority for the **CC1101 addition** and its C5 shared-SPI
 | Radio | Intended receive role | Not a role |
 |---|---|---|
 | Wio-SX1262 | 862–930 MHz LoRa observation, including compatible 915 MHz LoRa traffic; future (G)FSK capability may be evaluated separately | General-purpose spectrum analyzer |
-| CC1101 | Legacy narrowband OOK/FSK/GFSK observation, including compatible 915 MHz devices | LoRa, Meshtastic, or LoRaWAN decoder |
+| CC1101 | Legacy narrowband OOK/FSK/GFSK observation in the 433 MHz ISM band (387–464 MHz per the E07-M1101D-SMA module) | LoRa, Meshtastic, or LoRaWAN decoder |
 
 Frequency alone does not identify a protocol. A 915 MHz LoRa waveform remains an SX1262 job; the CC1101 cannot demodulate LoRa chirp spread spectrum. Conversely, the CC1101 does not provide wideband raw-IQ or a true waterfall. Each radio tunes and observes one configured narrowband channel at a time.
 
-The C5 may electrically operate both radios, but **Oscilla v1 schedules only one sub-GHz receive engine at a time**. This prevents nearby 915 MHz radios from desensitizing one another and keeps the receive-only command surface small.
+The C5 may electrically operate both radios, but **Oscilla v1 schedules only one sub-GHz receive engine at a time**. The two modules sit close together on one harness, so this prevents them from desensitizing one another regardless of band overlap, and keeps the receive-only command surface small.
 
 ## 2. C5 pin allocation
 
@@ -70,7 +70,7 @@ Inspect the delivered Wio board before adding external parts. Retain the require
 | CSN / CS | XIAO D3 / GPIO7 | New, dedicated active-low chip select. |
 | GDO0 | No connection initially | Optional future packet/event interrupt after a real spare-GPIO plan exists. |
 | GDO2 | No connection initially | Optional; leave open. |
-| ANT | Dedicated antenna matched to the module's configured band | Use a 915 MHz antenna for 902–928 MHz work. |
+| ANT | Dedicated antenna matched to the module's configured band | Use a 433 MHz antenna for 387–464 MHz work (E07-M1101D-SMA band). |
 
 ### 3.2 Add these components
 
@@ -79,7 +79,7 @@ Inspect the delivered Wio board before adding external parts. Retain the require
 | 10 kΩ pull-up | CC1101 CSn → 3V3 | Keeps the CC1101 deselected while the C5 resets or is unpowered. |
 | 100 nF ceramic | CC1101 VCC → GND, physically near module header | Local high-frequency supply bypass. |
 | 10 µF ceramic/electrolytic | CC1101 VCC → GND, near module header | Local transient support. |
-| 915 MHz antenna | CC1101 ANT connector/pad | Band-match the antenna; do not use a 433 MHz antenna for 915 MHz measurements. |
+| 433 MHz antenna | CC1101 ANT connector/pad | Band-match the antenna; do not use a 915 MHz antenna for 433 MHz measurements. |
 
 The pull-up and decoupling parts are required even if a breakout board appears to include similar parts; inspect the delivered board and avoid accidentally placing conflicting values. Do **not** add series resistors, a shared-antenna splitter, or a GPIO expander in the first build unless bench measurements show a specific need.
 
@@ -88,7 +88,7 @@ The pull-up and decoupling parts are required even if a breakout board appears t
 - Use **separate antennas** for the Wio and CC1101. Do not combine their antenna ports with a passive T/splitter.
 - Keep antenna feed lines and radio modules away from the C5, display, and USB wiring where practical.
 - Keep the shared SPI harness short (target under 10 cm), with a nearby ground return. Start at 1 MHz; raise the clock only after reliable transfers are measured.
-- If both antennas cover 915 MHz, do not claim concurrent receive performance until it is measured. The v1 arbiter intentionally leaves the inactive radio idle.
+- The Wio (862–930 MHz) and CC1101 (387–464 MHz) now target separate bands by design, so this addendum no longer relies on the earlier same-band desense assumption. That does not remove the need to measure coexistence (line pickup, harmonics, supply-rail interaction); the v1 arbiter still intentionally leaves the inactive radio idle regardless.
 
 ## 5. Safe electrical and firmware operation
 
@@ -143,4 +143,5 @@ Mark every result as measured, failed, or untested. Do not represent this wiring
 
 - Existing backpack baseline: [`Research/c5-backpack-design.md`](../../Research/c5-backpack-design.md) Rev D.
 - [TI CC1101 datasheet](https://www.ti.com/lit/ds/symlink/cc1101.pdf): SPI interface, reset strobe, supported modulation families, and RF-band constraints.
+- [CDEBYTE E07-M1101D-SMA product page](https://www.cdebyte.com/products/E07-M1101D-SMA/2): the specific CC1101 module this addendum targets. 387–464 MHz band, 1.8–3.6 V supply, SMA antenna connector. Confirms the SPI pinout (GND, VCC, GDO0, CSN, SCK, MOSI, MISO/GDO1 shared, GDO2) assumed above.
 - [Seeed Wio-SX1262 module datasheet](https://files.seeedstudio.com/products/SenseCAP/Wio_SX1262/Wio-SX1262_Module_Datasheet.pdf): Wio supply, RF-switch, TCXO, and module constraints.

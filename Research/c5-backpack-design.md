@@ -14,7 +14,8 @@ This document supersedes the original architecture draft and PDF revisions A–C
 | M5Stack Cardputer ADV, ESP32-S3 | Host, keyboard, internal display, external display, GNSS parsing, SD logging | All host peripherals and Grove UART |
 | Seeed Studio XIAO ESP32-C5 | Radio coprocessor: Wi-Fi, BLE, IEEE 802.15.4, LoRa control | Cardputer through UART; Wio through SPI and GPIO |
 | Seeed Wio-SX1262 for XIAO | SX1262 LoRa transceiver; standard two-row header version, SKU 113010003 | XIAO through a custom wire harness |
-| Blue 2.8-inch SPI ILI9341 TFT, 240 × 320, 11-pin version with touch | External display | Cardputer rear EXT header |
+| MakerWorld "Cap TFT V2" display expansion: 2.8-inch SPI ILI9341 TFT, 240 × 320, 8-pin, no touch, with onboard step-down regulator | External display | Cardputer rear EXT header |
+| Onboard step-down regulator on the Cap TFT V2 board, identified by the user as AMS1117-3.3 (confirm marking/datasheet on bench) | Steps Cardputer 5 V OUT down to regulated 3.3 V for the display | Cap TFT V2 board; VIN from EXT6, VOUT feeds display VCC + BLK |
 | Standard five-pin ATGM336H GNSS breakout shown in the supplied photo | Position/time receiver; VCC, GND, TX, RX, PPS header | Cardputer rear EXT header |
 | Existing internal microSD | Host storage | Existing Cardputer wiring; shares SPI signals with external TFT |
 
@@ -25,7 +26,7 @@ The Cardputer owns GNSS directly. GNSS data need not traverse the C5 link unless
 ```mermaid
 flowchart TD
     H["Cardputer ADV / ESP32-S3"] -->|"Grove UART"| C["XIAO ESP32-C5"]
-    H -->|"One shared SPI bus"| S["External ILI9341 + internal microSD"]
+    H -->|"One shared SPI bus"| S["External ILI9341 (Cap TFT V2) + internal microSD"]
     H -->|"Separate GNSS UART"| G["ATGM336H"]
     C -->|"SPI + BUSY + DIO1 + reset + RF switch"| L["Wio-SX1262"]
 ```
@@ -34,7 +35,7 @@ flowchart TD
 
 - `GPIO` numbers are native ESP32 pin numbers. Firmware constants below use these numbers, not XIAO `D` labels or connector positions.
 - `EXT` numbers are physical positions on the Cardputer ADV rear 14-pin connector, following M5Stack's documentation.
-- TFT pin numbers follow the user's supplied **11-pin** image. Match printed labels when wiring; front and rear views are mirrored.
+- TFT pin numbers follow the Cap TFT V2's **8-pin** header (§5). Match printed labels when wiring; front and rear views are mirrored.
 - Wio endpoint names are its own silkscreen labels. **XIAO D0 → Wio RST**, not Wio D0.
 - GPIO numbering is local to each processor. S3 GPIO1 and C5 GPIO1 are different electrical nets.
 - All interconnected digital signals use **3.3 V logic**. A connector carrying 5 V power does not make its signal pins 5 V tolerant.
@@ -111,33 +112,40 @@ The Wio module is specified for **862–930 MHz**. It is not the 433 MHz version
 
 Start SPI near **1 MHz** with leads under approximately 10 cm and adjacent ground returns. Increase speed after checking reliable transactions.
 
-## 5. Cardputer ↔ ordered 11-pin TFT
+## 5. Cardputer ↔ Cap TFT V2 display (8-pin SPI, onboard step-down)
 
-The user's confirmed display header is:
+**Withdrawn:** the earlier "ordered 11-pin TFT" assumption below (its CLK/MOSI/RES/DC/BLK/MISO/CS1/CS2/PEN 11-pin header, the touch CS pull-up, and the separately-wired peripheral supply). The board actually selected is MakerWorld's "Cap TFT V2" display expansion: a 2.8-inch ILI9341, 240 × 320, **8-pin, no touch**, mounted on a cap PCB with its own onboard step-down regulator. It was transcribed from the MakerWorld listing on 2026-09-13; confirm against the physical board before soldering, same as every other component here.
 
-`1 GND, 2 VCC, 3 CLK, 4 MOSI, 5 RES, 6 DC, 7 BLK, 8 MISO, 9 CS1, 10 CS2, 11 PEN`.
+The confirmed display header is:
+
+`1 GND, 2 VCC, 3 SCL, 4 SDA, 5 RES, 6 DC, 7 CS, 8 BLK`.
+
+`SCL`/`SDA` are this panel's silkscreen names for SPI clock and MOSI — there is **no I²C bus and no MISO pin** on this board; it is write-only by construction, not just by firmware choice.
 
 ### 5.1 Complete header disposition
 
 | TFT pin | Label | Connect to | Baseline behavior |
 |---:|---|---|---|
-| 1 | GND | Cardputer EXT 4 / GND | Common ground |
-| 2 | VCC | Qualified peripheral supply | Supply circuit remains an assembly check; see §9 |
-| 3 | CLK | Cardputer EXT 7 / S3 GPIO40 | SPI SCK, shared with internal SD |
-| 4 | MOSI | Cardputer EXT 9 / S3 GPIO14 | SPI MOSI, shared with internal SD |
-| 5 | RES | Cardputer EXT 5 / S3 GPIO6 | LCD reset, active low |
-| 6 | DC | Cardputer EXT 3 / S3 GPIO4 | Low = command; high = data |
-| 7 | BLK | Backlight circuit connection to be verified | No MCU PWM pin allocated |
-| 8 | MISO | Unconnected | External display is write-only; touch disabled |
-| 9 | CS1 | Cardputer EXT 13 / S3 GPIO5 | LCD chip-select, active low |
-| 10 | CS2 | Proposed 10 kΩ pull-up to verified TFT 3.3 V logic rail | Touch chip-select held inactive |
-| 11 | PEN | Unconnected | Touch interrupt unused |
+| 1 | GND | Cap step-down module GND / Cardputer EXT 4 / GND | Common ground |
+| 2 | VCC | Cap step-down module VOUT | Regulated 3.3 V from the onboard regulator, not a bare Cardputer rail |
+| 3 | SCL | Cardputer EXT 7 / S3 GPIO40 | SPI SCK, shared with internal SD |
+| 4 | SDA | Cardputer EXT 9 / S3 GPIO14 | SPI MOSI, shared with internal SD |
+| 5 | RES | Cardputer EXT 1 / S3 GPIO3 | LCD reset, active low. **GPIO3 is an S3 JTAG strap pin (§7) — this diverges from the earlier assumption that avoided it. Bench-verify cold boot and JTAG both still work with this line driven before calling this ready.** |
+| 6 | DC | Cardputer EXT 5 / S3 GPIO6 | Low = command; high = data |
+| 7 | CS | Cardputer EXT 13 / S3 GPIO5 | LCD chip-select, active low |
+| 8 | BLK | Cap step-down module VOUT | Backlight is tied directly to the regulated 3.3 V rail alongside VCC. It is **not** MCU-driven — there is no backlight PWM/enable GPIO on this board, confirming §9's open question. |
 
-Add a proposed **10 kΩ pull-up from CS1 to the verified TFT 3.3 V logic rail**. Pull-ups must use the logic rail, not an unverified higher-voltage VCC input.
+GPIO4 (Cardputer EXT 3) is **not used** by this display — the earlier draft assigned it to DC, which this board does not. It is free for reassignment (GNSS or otherwise) during firmware bring-up. GPIO39/EXT11 (MISO) also stays unconnected, consistent with the write-only design.
 
-CS1 is assigned to the LCD and CS2 to the touch controller, consistent with this touch-board interface. Check the delivered board's labeling and controller connections before soldering. Touch support is deliberately disabled in this baseline: do not initialize a touch driver or invent a CS/IRQ pin for it.
+### Cap step-down module
 
-**Withdrawn:** the earlier 14-pin LCDWiki example, its J1 bypass instructions, pin-8 LED instructions, and 0.31 W estimate. They belong to a different board and must not be used for the ordered display.
+| Regulator net | Connect to | Notes |
+|---|---|---|
+| VIN | Cardputer EXT 6 / 5V OUT | Input from the Cardputer's switched 5 V rail |
+| VOUT | Display pin 2 (VCC) and pin 8 (BLK) | Regulated 3.3 V; powers panel logic and backlight together, no separate switch |
+| GND | Cardputer EXT 4 / GND, display pin 1 | Common reference |
+
+This is the "final regulator" §9 previously left unselected for TFT/GNSS supply — it ships on the display cap itself rather than as a separately wired part. It does **not** power the GNSS receiver; GNSS still needs its own supply per §6.
 
 ### 5.2 Shared SPI bus with internal SD
 
@@ -147,7 +155,7 @@ CS1 is assigned to the LCD and CS2 to the touch controller, consistent with this
 | MOSI | 14 | Internal SD and external TFT |
 | MISO | 39 | Internal SD; external TFT pin 8 left open |
 | SD CS | 12 | Existing internal SD only |
-| TFT CS1 | 5 | External TFT only |
+| TFT CS | 5 | External TFT only |
 
 The external TFT does **not** receive a separate dedicated S3 SPI bus. It uses the existing SD bus, with a different chip-select. LoRa is on the C5's separate SPI bus and cannot contend electrically with this bus.
 
@@ -167,6 +175,8 @@ If touch is added later, allocate a real touch CS GPIO, connect external MISO on
 
 Use the standard five-pin module shown by the user. Match its printed labels rather than a different six-pin GNSS breakout diagram.
 
+This GNSS wiring shares the same physical 14-pin rear EXT connector as the Cap TFT V2 display (§5). The display cap's own wiring leaves GPIO13/GPIO15 (EXT12/14) untouched, so the assignment below is unaffected by the display's presence on the same header. GPIO4 (EXT3) is also unused by the display and is available if GNSS needs a different pin during firmware bring-up — per §2, GPIO-to-function assignment is a firmware decision; only the EXT-position-to-GPIO mapping is fixed by the Cardputer board itself. How the display and GNSS physically share or stack on one 14-pin socket is an assembly detail still to be worked out, not a pin-numbering one.
+
 | GNSS label | Connection | Direction / purpose |
 |---|---|---|
 | VCC | Qualified regulated supply; 3.3 V is the intended candidate | Receiver power; see §9 |
@@ -185,19 +195,19 @@ A compatible antenna connects to the GNSS RF socket. Active/passive type and ant
 
 | EXT pin | Board net | Assignment |
 |---:|---|---|
-| 1 | GPIO3 | Unconnected; S3 JTAG strap, not the MCU EN reset net |
+| 1 | GPIO3 | TFT RES (Cap TFT V2). **S3 JTAG strap pin** — bench-verify cold boot and JTAG both still work with this line driven before calling this ready. |
 | 2 | 5VIN | Unconnected in this baseline; do not bridge to 5VOUT |
-| 3 | GPIO4 | TFT DC |
+| 3 | GPIO4 | Unused by the Cap TFT V2 display; free for reassignment during firmware bring-up |
 | 4 | GND | TFT/GNSS ground |
-| 5 | GPIO6 | TFT RES |
-| 6 | 5VOUT | Conditional future peripheral power source; not a direct 3.3 V supply |
+| 5 | GPIO6 | TFT DC (Cap TFT V2) |
+| 6 | 5VOUT | Feeds the Cap TFT V2's onboard step-down regulator (VIN); its regulated 3.3 V output powers the display VCC + BLK only, and is not otherwise exposed on this connector |
 | 7 | GPIO40 | Shared SD/TFT SCK |
 | 8 | GPIO8 | Reserved internal I2C SDA |
 | 9 | GPIO14 | Shared SD/TFT MOSI |
 | 10 | GPIO9 | Reserved internal I2C SCL |
 | 11 | GPIO39 | Existing SD MISO; no external connection in baseline |
 | 12 | GPIO13 | GNSS UART TX from host |
-| 13 | GPIO5 | TFT CS1 |
+| 13 | GPIO5 | TFT CS |
 | 14 | GPIO15 | GNSS UART RX at host |
 
 Do not repurpose GPIO8/GPIO9: they serve existing Cardputer ADV I2C peripherals. Header labels suggesting RESET/INT/BUSY do not override the actual GPIO assignments here.
@@ -235,19 +245,20 @@ cardputer_adv:
     shared_transaction_lock_required: true
   external_tft:
     controller: ili9341
+    display_module: cap_tft_v2   # MakerWorld cap, 8-pin, no touch, onboard step-down
     native_width: 240
     native_height: 320
     cs_gpio: 5
-    dc_gpio: 4
-    reset_gpio: 6
+    dc_gpio: 6
+    reset_gpio: 3   # S3 JTAG strap pin — bench-verify boot/JTAG before field use
     initial_spi_hz: 4000000
     readback_enabled: false
-    backlight_gpio: null
-    touch_enabled: false
+    backlight_gpio: null   # BLK is hard-wired to the step-down VOUT, not MCU-driven; no PWM possible
+    touch_enabled: false   # board has no touch pins at all, not just disabled in software
     touch_cs_gpio: null
     touch_irq_gpio: null
-    touch_cs_external_pullup_ohms: 10000
-    supply_and_backlight_circuit_verified: false
+    touch_cs_external_pullup_ohms: null
+    supply_and_backlight_circuit_verified: false   # regulator identified as AMS1117-3.3; confirm on bench
   preserve_existing_internal_peripherals: true
 
 xiao_esp32_c5:
@@ -304,9 +315,9 @@ These notes describe assembly limits; they do not block coding the selected sign
 - Power the Cardputer from its normal USB/battery arrangement.
 - Power the XIAO from its own USB-C. Leave Grove red disconnected and insulated, and leave XIAO 5V/BAT pads unused.
 - Supply Wio from XIAO 3V3, with common ground.
-- TFT/GNSS need a qualified peripheral supply. The current proposal is a separate regulated 3.3 V branch after checking their input circuits; the final regulator is not selected.
-- The GNSS receiver itself is specified at **2.7–3.6 V**. Calling the breakout “standard” establishes its connector convention, not proof of a 5 V regulator. Use 3.3 V if its VCC directly feeds the receiver; verify regulator requirements if one intervenes.
-- The TFT photo establishes its pinout, but not a VCC voltage rating or BLK circuit. Confirm whether BLK is a transistor/driver enable or a direct LED path. No backlight GPIO is assigned; software must not drive an arbitrary pin for brightness.
+- The TFT's supply is resolved: the Cap TFT V2 board carries its own step-down regulator (identified by the user as AMS1117-3.3; confirm the marking/datasheet on the bench), fed from Cardputer 5V OUT (EXT6) and regulating to 3.3 V for the display VCC + BLK (§5). This is a fixed part of the purchased/printed board, not a separately wired component to design.
+- GNSS still needs its own qualified peripheral supply; the display's onboard regulator does not power it. The GNSS receiver itself is specified at **2.7–3.6 V**. Calling the breakout “standard” establishes its connector convention, not proof of a 5 V regulator. Use 3.3 V if its VCC directly feeds the receiver; verify regulator requirements if one intervenes.
+- BLK is confirmed as a direct LED path tied to the step-down VOUT, not a transistor/driver enable. No backlight GPIO is assigned or needed; software must not drive an arbitrary pin for brightness.
 
 ### Power sequencing
 
@@ -360,7 +371,8 @@ The pin plan combines manufacturer references with the user's exact connector im
 - [Espressif SD SPI bus sharing guidance](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/sdspi_share.html): card startup and shared-bus constraints.
 - [ATGM336H-5N manufacturer specifications](https://www.icofchina.com/daohang/danpin/2525.html): receiver supply and default serial output.
 - User-supplied `IMG_1723.png`: five-pin ATGM336H breakout, labels VCC/GND/TX/RX/PPS.
-- User-supplied `IMG_1724.jpeg` and subsequent `image.png`: ordered blue 11-pin ILI9341 touch display and exact header legend, transcribed in §5.
+- User-supplied `IMG_1724.jpeg` and subsequent `image.png`: an earlier candidate blue 11-pin ILI9341 touch display. **Superseded** by the Cap TFT V2 board actually selected; kept here only as a record of what §5 previously assumed.
+- [MakerWorld "Cap TFT V2 — Display Expansion for Cardputer ADV"](https://makerworld.com/en/models/3235288-cap-tft-v2-display-expansion-for-cardputer-adv): the display and step-down module actually selected. The page itself is Cloudflare-protected and could not be fetched directly; its pinout tables and board photo were transcribed by the user on 2026-09-13 and are reproduced in §5. Re-verify against the live page or purchased board if this doc and the physical board ever disagree.
 
 ## 12. Changes from the original draft
 

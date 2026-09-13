@@ -1,3 +1,13 @@
+## 2026-09-13 — Cap TFT V2 display corrects Rev D's TFT pin assumptions
+
+- Replaced Rev D §5's placeholder "ordered 11-pin TFT with touch" with the actual selected board: MakerWorld's "Cap TFT V2" display expansion — 8-pin ILI9341, no touch, no MISO, with an onboard step-down regulator (user-identified as AMS1117-3.3) that feeds off Cardputer 5V OUT and powers the display VCC + BLK together. This also resolves §9's previously-open "final regulator is not selected" gap for the TFT.
+- **Real pin assignment differs from the earlier draft:** TFT RESET lands on **GPIO3**, which Rev D's own pin table already flagged as an S3 JTAG strap pin to avoid; DC lands on GPIO6 instead of GPIO4, leaving GPIO4 unused/free. Documented as-is (the board is a fixed, already-designed PCB — there's no wiring left to choose), with an explicit bench gate: verify cold boot and JTAG both still work with GPIO3 driven as reset before calling this ready.
+- Confirmed the display cap does not touch GPIO13/GPIO15 (GNSS UART) or the reserved internal-I2C pins, so §6's GNSS assignment is unaffected by sharing the same 14-pin rear connector. How the two physically share/stack on one socket is still an open assembly question.
+- Also retargeted the CC1101 addition in `docs/hardware/c5-dual-radio-wiring.md` from 915 MHz to its native 433 MHz band (387–464 MHz, per the actual E07-M1101D-SMA module), since the Wio-SX1262 already owns 862–930 MHz — no GPIO changes, antenna/band references only.
+- **Not bench-validated:** GPIO3-as-reset boot/JTAG behavior, actual regulator part number/current, and CC1101 433 MHz receive all remain required gates before field use.
+
+---
+
 ## 2026-09-13 — Oscilla brand and UI system
 
 **Phase:** P7/P8 design preparation · **By:** Will + Codex
