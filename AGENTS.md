@@ -23,7 +23,7 @@ cannot silently drift.
 
 | Question | Authority | Never |
 |---|---|---|
-| Pins, rails, bus sharing, electrical limits | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) **Rev D** | Write a pin constant from any other document, including DESIGN.md |
+| Pins, rails, bus sharing, electrical limits | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) **Rev D**, plus [`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md) for the proposed CC1101 extension | Write a pin constant from any other document, including DESIGN.md |
 | Software architecture, module structure, feature scope | [`DESIGN.md`](DESIGN.md) | — |
 | Protocol literals — verbs, markers, caps, error codes, limits | [`protocol/ocp.h`](protocol/ocp.h) | Hardcode a verb or marker string anywhere else |
 | Protocol wire behaviour — framing, escaping, parser duties | [`protocol/OCP-SPEC.md`](protocol/OCP-SPEC.md) | — |
