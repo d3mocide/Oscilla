@@ -7,6 +7,8 @@
 #include "ocp_server.h"
 #include "ocp_frame.h"
 #include "ocp_transport.h"
+#include "lora_radio.h"
+#include "lora_recon.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
 #include "wifi_deauth.h"
@@ -25,6 +27,7 @@
 
 #include "ocp.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #define OCP_TASK_STACK      4096
@@ -48,7 +51,15 @@ static const struct {
 /* Advertise only engines that actually came up: caps are a promise (§4). */
 const char *ocp_server_caps(void)
 {
-    return wifi_recon_ready() ? OCP_CAP_WIFI24 OCP_CAP_SEP OCP_CAP_WIFI5 : "";
+    static char caps[32];
+    int n = 0;
+    if (wifi_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s" OCP_CAP_SEP "%s", OCP_CAP_WIFI24, OCP_CAP_WIFI5);
+    }
+    if (lora_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_LORA_RX);
+    }
+    return caps;
 }
 
 static void emit_hello(void)
@@ -98,8 +109,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=absent link=%s %s=%llu %s=%u",
-                         OCP_K_OWNER, arbiter_owner_name(arbiter_owner()), ocp_transport_name(),
+                         "%s=%s lora=%s link=%s %s=%llu %s=%u",
+                         OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
+                         !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
+                         ocp_transport_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          OCP_K_HEAP, (unsigned)esp_get_free_heap_size());
@@ -107,11 +120,26 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STOP: {
         /* Always acked, even when idle. A cancelled owner emits its own
-         * aborted frame during teardown, so [STOP] comes last (§2.1). */
+         * aborted frame during teardown, so [STOP] comes last (§2.1).
+         * LoRa isn't in the PHY arbiter (DESIGN §6.2 defers the two-lane
+         * interlock to P6), so it's released directly here, idempotently. */
         bool running = arbiter_stop_all();
+        lora_cmd_stop();
         ocp_emit_compact(OCP_MARK_STOP, "%s=%d", OCP_K_RUNNING, running ? 1 : 0);
         break;
     }
+
+    case OCP_VID_LORA_CONFIG:
+        lora_cmd_config(argc, argv);
+        break;
+
+    case OCP_VID_LORA_LISTEN:
+        lora_cmd_listen();
+        break;
+
+    case OCP_VID_LORA_STATUS:
+        lora_cmd_status();
+        break;
 
     case OCP_VID_SCAN_NETWORKS:
         wifi_cmd_scan();

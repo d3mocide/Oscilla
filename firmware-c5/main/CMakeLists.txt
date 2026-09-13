@@ -12,6 +12,8 @@ idf_component_register(
          "wifi_channels.c"
          "wifi_deauth.c"
          "wifi_spectrum.c"
+         "lora_radio.c"
+         "lora_recon.c"
          "beacon_parse.c"
          "probe_parse.c"
          "deauth_parse.c"

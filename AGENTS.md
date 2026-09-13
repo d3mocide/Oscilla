@@ -133,6 +133,16 @@ result; this repo's culture is that a claim without evidence is a defect.
 15. **Bench power rule:** both boards on their own USB, Grove 5 V (red)
    disconnected and insulated. Grove-powered operation is not evaluated until
    P6 produces a *measured* current budget.
+16. **A breakout's own shield-template pin labels (D0…D6 and similar) don't
+    apply to a custom harness.** The Wio-SX1262-for-XIAO prints both a
+    passthrough XIAO position label and the module's real signal name at each
+    pin; the position labels only matter if you stack it directly onto a XIAO
+    header, which Rev D §4 explicitly says not to do ("Do not assume a
+    stacked shield pinout"). Verify a custom-harness pin assignment against
+    the *named* signal pad (RST, BUSY, RF_SW, …) and Rev D's own GPIO table —
+    never by aligning one board's D0/D6 position against another board's.
+    That alignment logic only means something for direct stacking, which
+    this project doesn't do.
 
 ## 6. Workflow
 

@@ -15,6 +15,7 @@
 #include "ui/info_view.h"
 #include "ui/link_view.h"
 #include "ui/spectrum_view.h"
+#include "ui/subghz_view.h"
 #include "ui/sweep_view.h"
 #include "ui/trace_view.h"
 
@@ -31,7 +32,8 @@ constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's
 /* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
  * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
  * drill-down from Link instead (DESIGN §7.3), not part of this cycle. */
-constexpr Screen kCards[] = { Screen::Link, Screen::Contacts, Screen::Info, Screen::Spectrum, Screen::Deauth };
+constexpr Screen kCards[] = { Screen::Link,   Screen::Contacts, Screen::Info,
+                              Screen::Spectrum, Screen::SubGhz, Screen::Deauth };
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
 
 bool isHomeCard(Screen s)
@@ -63,6 +65,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         scan_.clear();
         contacts_.clear();
         spectrum_.clear();
+        lora_.clear();
         deauth_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
@@ -109,6 +112,7 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_STOP) {
         contacts_.stopSniffing();
         spectrum_.stop();
+        lora_.stop();
         deauth_.stop();
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
@@ -118,6 +122,11 @@ void DeckApp::onReply(const ocp::Item &it)
         contacts_.absorbProbes(it);
     } else if (it.tag == OCP_MARK_CHAN) {
         log("channel_view started");
+    } else if (it.tag == OCP_MARK_LORA) {
+        /* Shared by lora_listen and lora_status; params are already known
+         * locally (startLoraListen set them), same reasoning as OCP_MARK_CFG
+         * below, so this is diagnostic-only. */
+        log("lora reply");
     } else if (it.tag == OCP_MARK_CFG) {
         /* Shared reply marker (packet_monitor and deauth_detector both use
          * it): which verb it's for is whatever we just sent, not decodable
@@ -152,6 +161,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     dirty_ = true;
     contacts_.absorbEvent(it);   /* ticker only: [CLIENTS]/[PROBES] stay the authority */
     spectrum_.absorbEvent(it);   /* kind=chan is the only source of truth here, no dump verb */
+    lora_.absorbEvent(it);       /* kind=lora is the only source of truth here too */
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
 }
 
@@ -212,6 +222,37 @@ void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
     notice("");
 }
 
+namespace {
+/* Placeholder until there's a real config UI (no numeric entry on this
+ * keyboard yet): MeshCore's own USA/Canada preset, confirmed from their
+ * docs, not a protocol-level default (ocp.h's lora_config takes no default
+ * frequency on purpose — D-9, receive-only means no baked-in region plan). */
+constexpr uint32_t kBenchFreqHz = 910525000;
+constexpr int kBenchSf = 7;
+constexpr int kBenchBwKhz = 62;
+constexpr int kBenchCr = 1;
+}  // namespace
+
+void DeckApp::startLoraConfig(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    std::string cmd = std::string(OCP_V_LORA_CONFIG) + " " + std::to_string(kBenchFreqHz) + " " +
+                       std::to_string(kBenchSf) + " " + std::to_string(kBenchBwKhz) + " " + std::to_string(kBenchCr);
+    if (!client_.send(cmd, now_ms)) { notice("busy"); return; }
+    lora_.configured(kBenchFreqHz, kBenchSf, kBenchBwKhz, kBenchCr);
+    notice("");
+}
+
+void DeckApp::startLoraListen(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!lora_.hasConfig()) { notice("config first (c)"); return; }
+    if (!client_.send(OCP_V_LORA_LISTEN, now_ms)) { notice("busy"); return; }
+    lora_.begin();
+    lora_cursor_ = 0;
+    notice("");
+}
+
 void DeckApp::startDeauthDetector(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
@@ -228,7 +269,7 @@ void DeckApp::back(uint32_t now_ms)
      * must send `stop` unconditionally rather than only when something is
      * pending. */
     if (client_.pending() || screen_ == Screen::Contacts || screen_ == Screen::Spectrum ||
-        screen_ == Screen::Deauth) {
+        screen_ == Screen::SubGhz || screen_ == Screen::Deauth) {
         client_.stop(now_ms);
     }
     screen_ = screen_ == Screen::Trace ? Screen::Sweep : Screen::Link;
@@ -286,6 +327,15 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 's') {
                 if (spectrum_.active()) client_.stop(now_ms);
                 else startChannelView(now_ms);
+            }
+            break;
+        case Screen::SubGhz:
+            if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
+            else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
+            else if (c == 'c') startLoraConfig(now_ms);
+            else if (c == 's') {
+                if (lora_.active()) client_.stop(now_ms);
+                else startLoraListen(now_ms);
             }
             break;
         case Screen::Deauth:
@@ -379,6 +429,9 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Spectrum:
         ui::drawSpectrumView(spectrum_, spectrum_cursor_, notice_);
+        break;
+    case Screen::SubGhz:
+        ui::drawSubGhzView(lora_, lora_cursor_, notice_);
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_, notice_);

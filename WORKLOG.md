@@ -1,3 +1,57 @@
+## 2026-09-13 — Deck Sub-GHz view: lora_model + subghz_view, flashed and live
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Added `model::LoraModel` (`firmware-cardputer/src/model/lora_model.{h,cpp}`) — same shape as `DeauthModel`: a capped, newest-first packet log absorbed from `[EVT] kind=lora`, since there's no snapshot-dump verb for LoRa either. Configured params (freq/sf/bw/cr) come from what the deck itself sent via `lora_config`, not parsed back out of the `[CFG]` reply — that marker is shared across several verbs and isn't decodable from the frame alone, same reasoning already documented for `OCP_MARK_CFG` in `deck_app.cpp`.
+- Added `ui::drawSubGhzView` (`subghz_view.{h,cpp}`), a new **SubGhz** home card between Spectrum and Deauth in the nav cycle: `c` sends `lora_config` (MeshCore's USA/Canada preset, hardcoded for now — there's no numeric-entry UI yet, so this is a placeholder, not a protocol default; `ocp.h`'s `lora_config` still takes no default frequency, per D-9), `s` starts/stops `lora_listen`, `;`/`.` move the selection.
+- Wired into `deck_app.h`/`.cpp` following the exact existing pattern (`Screen::SubGhz`, arbiter-less stop-on-leave like Spectrum/Deauth, `onEvent` absorption, `onReset` clears it like everything else).
+- Host test `lora_model_test.cpp` (14 checks) added to `check_protocol.sh` alongside the other model tests — config-vs-parse separation, malformed-event rejection (hex length mismatch, missing SNR), the row cap, and stop/clear semantics.
+- Built both firmwares clean (no warnings on any touched file), full `check_protocol.sh` suite green (80 source files now in the rx-only scan), flashed both boards: C5 back to the `uart` (Grove) build, Cardputer to the new deck build with the Sub-GHz card.
+- **Confirmed live on the deck itself, same session:** cycled to the new SUBGHZ card on the Cardputer, pressed `c` then `s`, and watched real MeshCore packets scroll in through the actual UI — RSSI/SNR/length/hex, over Grove, not the bench transport. Full chain proven end to end: real chip -> `lora_radio.c` -> `lora_recon.c` -> Grove -> `ocp_client`/`LoraModel` -> `subghz_view`. This satisfies the P3 exit gate's "in the Sub-GHz view" clause that was the one open piece a moment ago.
+
+---
+
+## 2026-09-13 — First live SX1262 RX bring-up: no faults, on real hardware
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Wired the Wio-SX1262 to the C5 point-to-point per Rev D §4 (confirmed pin mapping, not the withdrawn one — see the earlier entry below), **without the NSS/RST/RF_SW pull resistors** Rev D calls for: measured all three pads with a multimeter first (open/`OL`, not populated on the Wio board itself), then wired anyway as a deliberate bench-only call — RF_SW is a Wio *input*, not an actively-driving signal, so it doesn't fight the C5's GPIO25 strap sampling the way an external driver would have. Boot came up clean across the flash/reset cycles done today; no corruption observed.
+- Wrote `lora_recon.c` — the OCP verb layer on top of `lora_radio.c`: `lora_config`/`lora_listen`/`lora_status`, an `[EVT] kind=lora` emitter, and a self-terminating drain task. Wired `lora_rx` into `ocp_server.c`'s capability advertisement and dispatch table, and into `main.c`'s boot sequence. `stop` releases the LoRa lane directly (not through `radio_arbiter`, which doesn't model a LoRa lane yet — DESIGN §6.2 defers that interlock to P6).
+- Flashed the `--bench` build (native USB transport) and drove it live with `ocp_repl.py`:
+  - `hello` → `caps=wifi24,wifi5,lora_rx` — `lora_radio_init()` succeeded on real hardware (SPI bus, GPIO, ISR, task all up).
+  - `lora_config 915000000 7 125 1` → accepted, echoed correctly.
+  - `lora_listen` → **the full bring-up sequence completed with zero faults**: NRESET pulse + bounded BUSY wait, `SetDIO3AsTCXOCtrl` (D-10's values), `Calibrate` + bounded BUSY wait (~3.5ms), `SetStandby(XOSC)`, DC-DC regulator mode, DIO2 RF-switch enable, packet type/frequency/modem/packet params, IRQ config, `SetRx` continuous — no `hwfault`, no `ESP_ERR_TIMEOUT` anywhere. `[STATUS]` showed `lora=rx`.
+  - `stop` → `[STOP] running=0`, and `lora_status` confirmed `running=0` after — clean release, satisfying that part of the P3 exit gate on real hardware.
+- **What this proves:** SPI (SCK/MISO/MOSI/NSS), NRESET, and BUSY are wired correctly and the chip is genuinely alive and responsive — this is a much stronger signal than a static continuity check would have given. Testing without the pull resistors turned out fine in practice, matching the reasoning that led to skipping them.
+- **Update, same session:** retargeted to MeshCore's real USA/Canada preset — 910.525MHz, SF7, BW62.5, CR "5" (= SX1262 register value 1, their shorthand for 4/5) — confirmed from MeshCore's own `docs/faq.md`, not guessed. Will is within range of a real MeshCore repeater. **Received real, correctly-decoded packets**: a dozen-plus `[EVT] kind=lora` lines over ~1 minute, RSSI -58 to -74dBm, SNR 11.5-12.5dB — physically consistent with a strong nearby link, not noise (noise doesn't pass LoRa's header/CRC check to begin with). `stop` released cleanly mid-traffic. This is real-world confirmation of the full chain: ISR → radio task → `GetRxBufferStatus`/`ReadBuffer`/`GetPacketStatus` → RSSI/SNR conversion → `[EVT]` emission — not just a fault-free bring-up sequence against silence.
+- **What this doesn't prove yet:** never explicitly read `GetDeviceErrors` for `XOSC_START_ERR`, so the TCXO's startup health at the chosen 10ms delay is inferred from the sequence not faulting (and now, from real packets decoding correctly, which needs a stable clock) rather than directly confirmed via the flag. No framing classification (meshtastic/lorawan/unknown) written yet — the payloads above are undecoded MeshCore application data, not parsed. The Cardputer's own view of this data (Sub-GHz view) doesn't exist yet — next up per Will.
+
+---
+
+## 2026-09-13 — lora_radio.c: SX1262 RX driver, thin in-house (D-11)
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Wrote `firmware-c5/main/lora_radio.{c,h}` — the driver layer only (DESIGN §6.1's split), not `lora_recon.c`'s survey/framing logic, which doesn't exist yet. Thin in-house over the SX1261/2 datasheet's actual command bytes, not a lifted library — confirms D-11's leaning, since Rev D already warned generic SX126x libraries assume a bare-SX1262 board and mishandle the Wio's RF-switch/TCXO wiring.
+- Reset (NRESET low 150µs, bounded BUSY wait), TCXO bring-up using D-10's resolved values, DC-DC regulator mode, RF_SW/DIO2 driven coherently for receive only, full LoRa modem config (freq/SF/BW/CR, LDRO auto-selected per the datasheet's symbol-time rule), continuous RX, and a DIO1-ISR-posts-to-queue/radio-task-does-the-SPI split (no SPI in the ISR, same rule as the DIO1 gotcha elsewhere in this codebase).
+- No transmit-shaped function anywhere in the file — confirmed by `tools/check_rx_only.py`, which scanned it along with everything else and found nothing banned.
+- Command byte layouts (opcodes, param encodings, IRQ bits, RF frequency formula, RSSI/SNR conversion) were transcribed directly from the official Semtech SX1261/2 datasheet (Rev 1.2), not guessed or copied from a random library — same standard as D-10.
+- Caught and fixed two real issues from an actual `idf.py build`, not just editor lint: an `IRAM_ATTR` on both the DIO1 ISR's forward declaration and its definition made GCC allocate two conflicting IRAM sections (attribute belongs on the definition only), and a dead bounds check (`uint8_t len > 255` can never be true). Also caught and removed a stub `__attribute__((constructor))` function I'd left mid-file while thinking through ISR registration — real task/ISR creation now lives in `lora_radio_init()` where it belongs.
+- Builds clean: `./tools/build_firmware.sh` (both firmwares) and `./tools/check_protocol.sh` (protocol/rx-only gates) both pass.
+- **Not bench-validated:** no Wio harness assembled yet (P3 entry gate unmet — needs pull-ups/passives and an 862–930 MHz antenna first). Everything here is host/compile-verified only. `lora_recon.c`, the OCP verb wiring (`lora_config`/`lora_listen`/`lora_status`), and the deck's Sub-GHz view are still unwritten.
+
+---
+
+## 2026-09-13 — D-10 resolved: SX1262 TCXO voltage settled, delay is a verified starting point
+
+- Read the official Semtech SX1262 datasheet (§13.3.6, `SetDIO3AsTCXOCtrl` opcode `0x97`) and Seeed's Wio-SX1262 module datasheet in full. `tcxoVoltage` is a fixed enum: `0x02` = 1.8 V, confirmed safe by both sources (Wio's documented 1.7–3.3 V TCXO range, and the chip's `VDDop > VTCXO + 200 mV` rule — 3.3 V supply leaves a 1.5 V margin at 1.8 V). `delay(23:0) × 15.625 µs` is the exact timeout formula.
+- The actual startup-time value is genuinely not published anywhere Rev D cites — Semtech's datasheet says startup time is TCXO-component-specific, and Seeed never names the TCXO part. That's a real gap, not something missed.
+- Closed it without guessing: start at `delay = 640` (10 ms, generous for any common 32 MHz TCXO), and let the chip confirm it via its own `XOSC_START_ERR` flag on the bench rather than asserting a number as correct. A too-short delay just raises that flag (clear with `ClearDeviceErrors`), no damage either direction. Enter `STDBY_XOSC` before RX so the delay is paid once, not per burst.
+- Updated D-10 (now ✅ Decided) in `docs/DECISIONS.md`, Rev D §4, and ROADMAP P3's entry-gate note.
+- **Not bench-validated:** whether 10 ms actually clears `XOSC_START_ERR` on the real board remains to be measured when the Wio harness is assembled.
+
+---
+
 ## 2026-09-13 — Cap TFT V2 display corrects Rev D's TFT pin assumptions
 
 - Replaced Rev D §5's placeholder "ordered 11-pin TFT with touch" with the actual selected board: MakerWorld's "Cap TFT V2" display expansion — 8-pin ILI9341, no touch, no MISO, with an onboard step-down regulator (user-identified as AMS1117-3.3) that feeds off Cardputer 5V OUT and powers the display VCC + BLK together. This also resolves §9's previously-open "final regulator is not selected" gap for the TFT.

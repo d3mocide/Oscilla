@@ -106,7 +106,7 @@ These are proposed external additions; account for existing board pulls and deco
 
 Configure radio DIO2 RF-switch operation and the host RF_SW transitions coherently. The external GPIO is not automatically managed by enabling DIO2 alone. Set the appropriate path before the corresponding RX/TX command; validate transitions during bring-up.
 
-The Wio module uses internal **DIO3 to power its TCXO**. No additional DIO3 host wire is needed. Its documented TCXO range permits 1.8 V at a 3.3 V supply; use the correct library/SDK voltage encoding and the documented oscillator startup delay. Do not guess delay values. Use the module's **DC-DC regulator mode**.
+The Wio module uses internal **DIO3 to power its TCXO**. No additional DIO3 host wire is needed. Its documented TCXO range permits 1.8 V at a 3.3 V supply. Per [D-10](docs/DECISIONS.md): call `SetDIO3AsTCXOCtrl` (opcode `0x97`) with `tcxoVoltage = 0x02` (1.8 V) and `delay = 640` (10 ms, i.e. `640 × 15.625 µs`) as the starting value — bench-confirm no `XOSC_START_ERR` at that delay rather than trusting it blind, since the exact settling time is specific to the TCXO component and isn't published by Seeed. Enter `STDBY_XOSC` before RX so this delay is paid once, not per burst. Use the module's **DC-DC regulator mode**.
 
 The Wio module is specified for **862–930 MHz**. It is not the 433 MHz version suggested as a generic option in the original draft. Select operating frequency and TX settings deliberately for the antenna and application; do not start transmitting automatically on boot.
 

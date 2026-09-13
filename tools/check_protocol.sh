@@ -94,4 +94,10 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/deauth_model_test" | tail -1 | sed 's/^/  /'
 
+# The deck's LoRa model: kind=lora packet log, capped and validated.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/lora_model_test" \
+    firmware-cardputer/test/host/lora_model_test.cpp firmware-cardputer/src/model/lora_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/lora_model_test" | tail -1 | sed 's/^/  /'
+
 echo "protocol contract OK"

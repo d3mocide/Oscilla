@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "lora_recon.h"
 #include "ocp_frame.h"
 #include "ocp_server.h"
 #include "ocp_transport.h"
@@ -43,6 +44,8 @@ void app_main(void)
     if (err == ESP_OK) err = wifi_deauth_init();
     if (err == ESP_OK) err = wifi_spectrum_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
+
+    if (lora_recon_init() != ESP_OK) ESP_LOGE(TAG, "lora unavailable");
 
     ESP_ERROR_CHECK(ocp_transport_init());
     ESP_ERROR_CHECK(ocp_frame_init());

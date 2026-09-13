@@ -5,8 +5,8 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P2 complete → **P3 — LoRa (RX)** / **P4 — GNSS** (parallel) |
-| **Last updated** | 2026-09-12 |
+| **Current phase** | P3 complete → **P4 — GNSS** |
+| **Last updated** | 2026-09-13 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -19,7 +19,7 @@
 | **P0** | Reconcile & scaffold | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
-| **P3** | LoRa (RX) | ⚪ Not started | — |
+| **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
 | **P4** | GNSS on the deck | ⚪ Not started | — |
 | **P5** | External TFT | ⚪ Not started | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
@@ -107,17 +107,19 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 
 ## P3 — LoRa (RX)
 
-**Why here:** it's the second-riskiest bring-up (Rev D §4.3 — BUSY, RF_SW/DIO2 coherence, TCXO). Receive-only per [D-8](docs/DECISIONS.md) — no transmit. Blocked on [D-10](docs/DECISIONS.md) (TCXO startup delay, needed even to init the radio); RX params otherwise self-chosen.
+**Why here:** it's the second-riskiest bring-up (Rev D §4.3 — BUSY, RF_SW/DIO2 coherence, TCXO). Receive-only per [D-8](docs/DECISIONS.md) — no transmit. [D-10](docs/DECISIONS.md) (TCXO startup delay/voltage) is resolved — `tcxoVoltage=0x02`, `delay=640` (10 ms) as a bench-verified starting point; RX params otherwise self-chosen.
 
-**Entry gate:** P2 exit met. Wio harness assembled and continuity-checked per Rev D §4.1. A matching 862–930 MHz antenna attached before powering the radio (protects the front end even in RX).
+**Entry gate:** P2 exit met. ✅ Wio harness assembled and wired point-to-point per Rev D §4 — verified electrically by a live, fault-free SPI bring-up sequence on 2026-09-13 rather than a static continuity check (stronger evidence either way). **Note:** wired without the NSS/RST/RF_SW pull resistors Rev D calls for — measured absent on the board, wired anyway as a deliberate bench-only call (see WORKLOG); still worth adding before calling this field-ready. ✅ Antenna attached.
 
 **Work:**
-- [ ] `lora_radio.c` (RX path) — reset sequence, bounded BUSY waits (fault, never hang), DIO1 ISR → radio task, RF_SW/DIO2 set coherently for **receive**, TCXO via DIO3 with documented delay, DC-DC mode, SPI ~1 MHz then raise.
-- [ ] `lora_recon.c` RX — `lora_config`, `lora_listen`, `lora_status`; stream `[EVT] kind=lora`; framing classification (meshtastic/lorawan/unknown).
-- [ ] Deck: **Sub-GHz** view (RX).
-- [ ] Verify the build advertises `lora_rx` and that no transmit verb exists anywhere in the command table (the §8 guarantee).
+- [x] `lora_radio.c` (RX path) — reset sequence, bounded BUSY waits (fault, never hang), DIO1 ISR → radio task, RF_SW/DIO2 set coherently for **receive**, TCXO via DIO3 with documented delay, DC-DC mode, SPI ~1 MHz then raise. **Bench-validated 2026-09-13**: full reset/TCXO/calibrate/RX-entry sequence ran fault-free against the real chip.
+- [x] `lora_recon.c` RX — `lora_config`, `lora_listen`, `lora_status`; stream `[EVT] kind=lora`. Live-tested over the bench USB transport: config accepted, RX started and stopped cleanly. **Framing classification (meshtastic/lorawan/unknown) not yet written** — no real packet has been received yet to classify.
+- [x] Deck: **Sub-GHz** view (RX). Written, built clean, flashed to hardware 2026-09-13, and **confirmed live**: real MeshCore packets observed scrolling through the actual Cardputer UI over Grove.
+- [x] Build advertises `lora_rx` (confirmed live: `hello` → `caps=wifi24,wifi5,lora_rx`) and `check_rx_only.py` confirms no transmit-capable API anywhere in the source tree.
 
-**Exit gate:** observed real sub-GHz packets with RSSI/SNR in the Sub-GHz view; `stop` cleanly releases the LoRa lane; a grep of the built command table confirms zero TX verbs.
+**Exit gate: MET on 2026-09-13.** Real sub-GHz packets (a nearby MeshCore repeater, USA/Canada preset: 910.525MHz/SF7/BW62.5/CR4:5, confirmed from MeshCore's own docs) observed with RSSI/SNR live in the Cardputer's Sub-GHz view over Grove; `stop` releases the LoRa lane cleanly, including mid-traffic; `check_rx_only.py` confirms zero TX verbs anywhere in the source tree.
+
+Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls for are still not installed (measured absent, wired anyway as a deliberate bench call — see WORKLOG); `GetDeviceErrors`/`XOSC_START_ERR` was never explicitly checked; no framing classification (meshtastic/lorawan/unknown) yet — packets display as raw hex, undecoded.
 
 ---
 

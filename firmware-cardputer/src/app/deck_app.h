@@ -1,7 +1,7 @@
 /*
  * deck_app.h — screen flow and command orchestration for the deck.
  *
- *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> Deauth <-,/-> (wraps)
+ *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> (wraps)
  *   Link --w--> Sweep --enter--> Trace                               drill-down
  *   Spectrum --enter--> (locks to one channel, same screen)
  *   ` = stop + back (DESIGN §7.3)
@@ -21,6 +21,7 @@
 
 #include "model/contacts_model.h"
 #include "model/deauth_model.h"
+#include "model/lora_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
 #include "ocp/ocp_client.h"
@@ -28,7 +29,7 @@
 
 namespace app {
 
-enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, Deauth };
+enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -61,6 +62,8 @@ private:
     void startSniffer(uint32_t now_ms);
     void startChannelView(uint32_t now_ms);
     void startPacketMonitor(uint32_t now_ms, uint8_t ch);
+    void startLoraConfig(uint32_t now_ms);
+    void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     void back(uint32_t now_ms);
     void notice(const std::string &text);
@@ -69,6 +72,7 @@ private:
     model::ScanModel scan_;
     model::ContactsModel contacts_;
     model::SpectrumModel spectrum_;
+    model::LoraModel lora_;
     model::DeauthModel deauth_;
     Screen screen_ = Screen::Link;
     size_t cursor_ = 0;
@@ -78,6 +82,7 @@ private:
     bool contacts_poll_clients_ = true;
     uint32_t last_contacts_poll_ms_ = 0;
     size_t spectrum_cursor_ = 0;
+    size_t lora_cursor_ = 0;
     size_t deauth_cursor_ = 0;
 
     bool probe_status_valid_ = false;

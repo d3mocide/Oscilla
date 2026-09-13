@@ -239,6 +239,13 @@ typedef enum {
 #define OCP_K_MFP_REQUIRED      "mfp_required"
 #define OCP_K_UPTIME_S          "uptime_s"
 #define OCP_K_INTERVAL_MS       "interval_ms"
+#define OCP_K_FREQ              "freq"
+#define OCP_K_SF                "sf"
+#define OCP_K_BW                "bw"
+#define OCP_K_CR                "cr"
+#define OCP_K_SNR               "snr"
+#define OCP_K_LEN               "len"
+#define OCP_K_HEX               "hex"
 
 /* [SCAN] "auth" column values. */
 #define OCP_AUTH_OPEN           "OPEN"

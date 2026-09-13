@@ -487,7 +487,7 @@ The shape: contract first, then prove the link on the bench with separated power
 
 See **[`docs/DECISIONS.md`](docs/DECISIONS.md)** — the D-numbered register, with status and rationale. Decisions no longer live in this document so they can churn without a design revision.
 
-Currently open and **blocking**: D-10 (TCXO startup delay — needed for SX1262 init even in RX). D-12 (Cardputer ADV support) was resolved on hardware. D-9 (LoRa region profile) is closed by the receive-only decision — no TX means no region/duty obligation.
+Nothing currently blocking. D-10 (TCXO startup delay/voltage) and D-12 (Cardputer ADV support) are both resolved on hardware/datasheet evidence. D-9 (LoRa region profile) is closed by the receive-only decision — no TX means no region/duty obligation.
 
 ---
 
