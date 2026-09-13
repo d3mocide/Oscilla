@@ -1,3 +1,26 @@
+## 2026-09-13 — Oscilla brand and UI system
+
+**Phase:** P7/P8 design preparation · **By:** Will + Codex
+
+- Added docs/brand/ as the visual/UI handoff: the reviewable HTML master,
+  agent-facing README, full Lens Core SVG and its small lens/dot glyph.
+- Locked Lens Core as the sole mark and OBSERVE THE NOISE. as the hero line.
+  The mark is intentionally free of Signal Pink; pink is reserved for focused
+  UI state and notable detections.
+- Recorded the retro sci-fi mystic-observatory design philosophy: dimensional
+  geometry must orient a field, relationship or reading, never become
+  decorative interference.
+- Established the Cardputer as the sole control surface. Its top bar owns view
+  name, B/G/S/R dots and the terminal far-right battery; its transport strip
+  owns LIVE/CACHED and backpack freshness.
+- Established the external ILI9341 as a chrome-free display-only viewport:
+  no controls or duplicated status. It uses a vertical visualization/selected
+  detail split and remains optional to every workflow.
+- **Not implemented or hardware-verified:** these are visual/UI contracts for
+  forthcoming display work, not a claim that P5/P7/P8 exit gates are met.
+
+---
+
 ## 2026-09-13 — proposed CC1101 dual-radio wiring addendum
 
 - Added `docs/hardware/c5-dual-radio-wiring.md` as the proposed, bench-gated authority for adding a CC1101 to the C5 backpack, and `docs/hardware/c5-dual-radio-wiring.svg` as its visual harness reference.
