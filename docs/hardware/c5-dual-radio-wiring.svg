@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1040" viewBox="0 0 1800 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Oscilla C5 dual-radio backpack wiring reference</title>
+  <desc id="desc">A shared SPI bus connects the XIAO ESP32-C5 to a Wio-SX1262 and a CC1101. Each radio has an independent chip select and a dedicated 915 MHz antenna.</desc>
+  <style>
+    .bg { fill:#101722; } .panel { fill:#172235; stroke:#5f779c; stroke-width:3; }
+    .c5 { fill:#1f3250; stroke:#79c7ff; stroke-width:4; } .lora { fill:#253552; stroke:#bca7ff; stroke-width:4; }
+    .cc { fill:#3d3322; stroke:#f4bd5f; stroke-width:4; } .power { fill:#203a31; stroke:#75d6a9; stroke-width:3; }
+    .wire { fill:none; stroke:#b7c8df; stroke-width:4; } .cs { fill:none; stroke:#ffcf72; stroke-width:5; }
+    .warn { fill:#ffcf72; } .txt { fill:#edf5ff; font-family:Arial,sans-serif; } .muted { fill:#b7c8df; font-family:Arial,sans-serif; }
+    .small { font-size:22px; } .body { font-size:26px; } .head { font-size:38px; font-weight:700; }
+  </style>
+  <rect class="bg" width="1600" height="1040"/>
+  <text class="txt head" x="60" y="70">OSCILLA · C5 DUAL-RADIO BACKPACK</text>
+  <text class="muted body" x="60" y="108">Proposed bench-gated reference · receive-only · shared SPI, independent chip-selects</text>
+
+  <rect class="c5" x="570" y="180" rx="22" width="460" height="500"/>
+  <text class="txt head" x="675" y="240">XIAO ESP32-C5</text>
+  <text class="muted body" x="682" y="278">SPI controller + radio arbiter</text>
+  <text class="txt body" x="620" y="350">D8 / GPIO8</text><text class="muted body" x="820" y="350">SCK</text>
+  <text class="txt body" x="620" y="405">D10 / GPIO10</text><text class="muted body" x="820" y="405">MOSI</text>
+  <text class="txt body" x="620" y="460">D9 / GPIO9</text><text class="muted body" x="820" y="460">MISO</text>
+  <text class="txt body" x="620" y="530">D4 / GPIO23</text><text class="warn body" x="820" y="530">Wio NSS</text>
+  <text class="txt body" x="620" y="585">D3 / GPIO7</text><text class="warn body" x="820" y="585">CC1101 CSn</text>
+  <text class="muted small" x="620" y="638">D0/D1/D5/D2 remain Wio RST/DIO1/BUSY/RF_SW</text>
+
+  <rect class="lora" x="70" y="260" rx="22" width="350" height="360"/>
+  <text class="txt head" x="118" y="322">Wio-SX1262</text>
+  <text class="muted body" x="118" y="362">LoRa RX · 862–930 MHz</text>
+  <text class="txt body" x="118" y="425">SCK · MOSI · MISO</text>
+  <text class="warn body" x="118" y="475">NSS: GPIO23</text>
+  <text class="muted body" x="118" y="525">RST · DIO1 · BUSY · RF SW</text>
+  <text class="txt body" x="118" y="575">Dedicated 915 MHz antenna</text>
+
+  <rect class="cc" x="1170" y="260" rx="22" width="560" height="360"/>
+  <text class="txt head" x="1350" y="322">CC1101</text>
+  <text class="muted body" x="1215" y="362">Legacy OOK / FSK / GFSK RX</text>
+  <text class="txt body" x="1215" y="425">SCK · SI/MOSI · SO/MISO</text>
+  <text class="warn body" x="1215" y="475">CSn: GPIO7 + 10 kΩ → 3V3</text>
+  <text class="muted body" x="1215" y="525">GDO0/GDO2: open, polling first</text>
+  <text class="txt body" x="1215" y="575">Dedicated 915 MHz antenna</text>
+
+  <path class="wire" d="M570 345 H420"/><path class="wire" d="M570 400 H420"/><path class="wire" d="M570 455 H420"/>
+  <path class="wire" d="M1030 345 H1170"/><path class="wire" d="M1030 400 H1170"/><path class="wire" d="M1030 455 H1170"/>
+  <path class="cs" d="M570 525 H420"/><path class="cs" d="M1030 580 H1170"/>
+  <text class="muted small" x="440" y="205">shared SPI bus</text><text class="muted small" x="1080" y="205">shared SPI bus</text>
+
+  <rect class="power" x="220" y="760" rx="18" width="1360" height="150"/>
+  <text class="txt head" x="655" y="815">3.3 V POWER + CLEAN BOOT</text>
+  <text class="txt body" x="310" y="862">Both radios: 100 nF + 10 µF local decoupling · Wio NSS and CC CSn: 10 kΩ pull-up to 3V3</text>
+  <text class="warn body" x="415" y="892">No shared antenna / splitter. One active sub-GHz receiver at a time.</text>
+  <text class="warn body" x="490" y="924">5 V Grove remains disconnected and insulated during bench work.</text>
+
+  <rect class="panel" x="170" y="950" rx="12" width="1460" height="54"/>
+  <text class="txt small" x="290" y="985">Sequence: deselect both → lock SPI → select exactly one radio → bounded receive/poll → deselect → report status/fault</text>
+</svg>
