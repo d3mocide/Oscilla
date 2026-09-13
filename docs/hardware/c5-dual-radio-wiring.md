@@ -40,7 +40,21 @@ The first three SPI wires are a shared bus. Each radio has an independent active
 
 CC1101 has no dedicated reset wire in this design. Its reset is issued with the chip's SPI reset strobe after `CSn` is selected. Do not reuse Wio reset, DIO1, BUSY, or RF_SW for CC1101 signals.
 
-## 3. CC1101 harness and required passives
+## 3. Wio-SX1262 harness passives
+
+The CC1101 extension does **not** replace the Wio boot, RF-switch, or supply-conditioning network from Rev D. Keep these parts with the Wio custom harness.
+
+| Part | Connection | Purpose |
+|---|---|---|
+| 10 kΩ pull-up | Wio NSS → Wio 3V3 | Keeps the Wio deselected while the C5 resets or is unpowered. |
+| 10 kΩ pull-up | Wio RST → Wio 3V3 | Holds reset released until the C5 deliberately pulses reset. |
+| 10 kΩ pull-down | Wio RF_SW → GND | Defines the external RF-control state during startup; retain cold-boot and USB-recovery testing because GPIO25 is strap-sensitive. |
+| 100 nF ceramic | Wio 3V3 → GND, physically near the Wio header | Local high-frequency supply bypass. |
+| 10 µF ceramic/electrolytic | Wio 3V3 → GND, near the Wio header | Local transient support. |
+
+Inspect the delivered Wio board before adding external parts. Retain the required electrical function without blindly duplicating components that are already fitted on the module. The Wio still requires its separate C5 connections for RST, DIO1, BUSY, and RF_SW; do not reduce it to a four-wire SPI peripheral.
+
+## 4. CC1101 harness and required passives
 
 ### 3.1 Point-to-point connections
 
@@ -74,7 +88,7 @@ The pull-up and decoupling parts are required even if a breakout board appears t
 - Keep the shared SPI harness short (target under 10 cm), with a nearby ground return. Start at 1 MHz; raise the clock only after reliable transfers are measured.
 - If both antennas cover 915 MHz, do not claim concurrent receive performance until it is measured. The v1 arbiter intentionally leaves the inactive radio idle.
 
-## 4. Safe electrical and firmware operation
+## 5. Safe electrical and firmware operation
 
 ### 4.1 Boot state
 
@@ -101,7 +115,7 @@ shared SPI bus lock
 - `legacy_rx` begins with polling, not a GDO interrupt. A future interrupt-driven revision needs a new C5 pin allocation; never wire GDO0 and Wio DIO1 together.
 - The only exposed behaviors remain receive, stop, status, and fault reporting. There is no transmit mode.
 
-## 5. Power and validation gates
+## 6. Power and validation gates
 
 The existing Rev D planning budget already places C5 + Wio near the published 3.3 V rail allowance. CC1101 receive current is small compared with the Wio transmit planning figure, but it is still an additional load. **Do not approve a shared battery/Grove-power arrangement on calculation alone.**
 
@@ -123,7 +137,7 @@ Before calling this extension ready, record:
 
 Mark every result as measured, failed, or untested. Do not represent this wiring as field-ready before these gates pass.
 
-## 6. Sources
+## 7. Sources
 
 - Existing backpack baseline: [`Research/c5-backpack-design.md`](../../Research/c5-backpack-design.md) Rev D.
 - [TI CC1101 datasheet](https://www.ti.com/lit/ds/symlink/cc1101.pdf): SPI interface, reset strobe, supported modulation families, and RF-band constraints.
