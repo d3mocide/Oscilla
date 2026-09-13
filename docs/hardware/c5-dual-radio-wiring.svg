@@ -25,7 +25,7 @@
 
   <rect class="lora" x="70" y="260" rx="22" width="350" height="360"/>
   <text class="txt head" x="118" y="322">Wio-SX1262</text>
-  <text class="muted body" x="118" y="362">LoRa RX · 862–930 MHz</text>
+  <text class="muted body" x="90" y="362">LoRa RX · 862–930 MHz</text>
   <text class="txt body" x="118" y="425">SCK · MOSI · MISO</text>
   <text class="warn body" x="118" y="475">NSS: GPIO23</text>
   <text class="muted body" x="118" y="525">RST · DIO1 · BUSY · RF SW</text>
