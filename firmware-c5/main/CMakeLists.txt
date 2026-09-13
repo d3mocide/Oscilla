@@ -6,6 +6,7 @@ idf_component_register(
          "status_led.c"
          "radio_arbiter.c"
          "wifi_recon.c"
+         "wifi_inspect.c"
          "beacon_parse.c"
          "${CMAKE_CURRENT_LIST_DIR}/../../protocol/ocp_text.c"
     INCLUDE_DIRS "." "${CMAKE_CURRENT_LIST_DIR}/../../protocol"

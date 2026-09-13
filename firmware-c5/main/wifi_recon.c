@@ -206,6 +206,19 @@ esp_err_t wifi_recon_init(void)
 
 bool wifi_recon_ready(void) { return s_ready; }
 
+bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel)
+{
+    bool ok = false;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!s_scanning && idx >= 1 && idx <= s_total) {
+        memcpy(bssid, s_results[idx - 1].bssid, 6);
+        *channel = s_results[idx - 1].primary;
+        ok = true;
+    }
+    xSemaphoreGive(s_lock);
+    return ok;
+}
+
 void wifi_cmd_scan(void)
 {
     if (arbiter_acquire(PHY_OWNER_WIFI, scan_teardown) != ESP_OK) {

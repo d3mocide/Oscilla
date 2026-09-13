@@ -94,9 +94,9 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 
 **Work:**
 - [x] `radio_arbiter.c` — PHY-lane single-owner mutex + teardown hooks. *Power interlock stays a stub until P6 (no LoRa lane yet).*
-- [ ] `wifi_recon.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ⏳.
-- [ ] Frame emission: `[SCAN]` CSV rows ✅, `[INSPECT]` ⏳.
-- [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 21 live checks.
+- [x] `wifi_recon.c` / `wifi_inspect.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ✅.
+- [x] Frame emission: `[SCAN]` CSV rows, `[INSPECT]`.
+- [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 41 live checks + 1 skip (no WPA3-only AP in range).
 - [ ] Deck: **Sweep** + **Trace** views over real frames.
 
 **Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Sweep/Trace on the deck. `stop` always returns to idle.

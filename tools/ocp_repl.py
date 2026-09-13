@@ -211,8 +211,8 @@ def mode_gate(port: str, baud: int, color: bool = True) -> int:
     """P1 exit gate: drive the probe through the system verbs and assert."""
     checks: list[tuple[str, bool, str]] = []
 
-    def check(name: str, ok: bool, detail: str = "") -> None:
-        checks.append((name, bool(ok), detail))
+    def check(name: str, ok, detail: str = "") -> None:
+        checks.append((name, None if ok is None else bool(ok), detail))
 
     def first(items, cls, tag=None):
         for i in items:
@@ -263,7 +263,7 @@ def mode_gate(port: str, baud: int, color: bool = True) -> int:
             check(f"verb without its cap ({absent}) -> code=nocap",
                   err is not None and err.code == "nocap", err.code if err else "")
         else:
-            check("verb without its cap -> nocap (every cap present; skipped)", True)
+            check("verb without its cap -> nocap", None, "every cap present")
 
         err = first(p.command("inspect_network"), Error)
         check("wrong arity -> code=badarg",
@@ -290,21 +290,27 @@ def mode_gate(port: str, baud: int, color: bool = True) -> int:
     finally:
         p.close()
 
+    return report(checks, "P1 probe exit gate", color)
+
+
+def report(checks: list, title: str, color: bool) -> int:
+    """ok is True (PASS), False (FAIL) or None (SKIP: not exercised, not a pass)."""
     width = max(len(n) for n, _, _ in checks)
-    failed = 0
     for name, ok, detail in checks:
-        mark = (paint("PASS", "green", enabled=color) if ok
-                else paint("FAIL", "red", "bold", enabled=color))
-        print(f"  {mark}  {name.ljust(width)}  "
-              f"{paint(detail, 'dim', enabled=color) if detail else ''}")
-        failed += not ok
+        mark = (paint("SKIP", "yellow", enabled=color) if ok is None else
+                paint("PASS", "green", enabled=color) if ok else
+                paint("FAIL", "red", "bold", enabled=color))
+        print(f"  {mark}  {name.ljust(width)}  {paint(detail, 'dim', enabled=color) if detail else ''}")
+    failed = sum(ok is False for _, ok, _ in checks)
+    skipped = sum(ok is None for _, ok, _ in checks)
+    passed = len(checks) - failed - skipped
+    tail = f", {skipped} skipped" if skipped else ""
     print()
     if failed:
-        print(paint(f"{failed}/{len(checks)} checks FAILED", "red", "bold", enabled=color))
-        return 1
-    print(paint(f"all {len(checks)} checks passed — P1 probe exit gate",
-                "green", "bold", enabled=color))
-    return 0
+        print(paint(f"{failed} FAILED, {passed} passed{tail} — {title}", "red", "bold", enabled=color))
+    else:
+        print(paint(f"{passed} passed{tail} — {title}", "green", "bold", enabled=color))
+    return 1 if failed else 0
 
 
 def wait_for(p: "Probe", pred, timeout: float) -> list:
@@ -323,7 +329,7 @@ def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
     checks: list[tuple[str, bool, str]] = []
 
     def check(name, ok, detail=""):
-        checks.append((name, bool(ok), detail))
+        checks.append((name, None if ok is None else bool(ok), detail))
 
     def frames(items, tag):
         return [i for i in items if isinstance(i, Frame) and i.tag == tag]
@@ -382,6 +388,81 @@ def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
             e = errors(p.command("show_scan_results 0"))
             check("page 0 -> badarg (indices are 1-based)", e and e[0].code == "badarg")
 
+            # inspect_network: one AP per band, cross-checked against the scan row.
+            by_band = {}
+            for r in rows:
+                by_band.setdefault(r[6], r)
+            targets = sorted(by_band.items())
+            # Also the first WPA3-only AP: the one case that must report mfp_required=1.
+            wpa3 = next((r for r in rows if r[4] in (b"WPA3", b"WPA3-EAP", b"WPA3-EAP192")), None)
+            if wpa3 is not None and all(wpa3[0] != r[0] for _, r in targets):
+                targets.append((wpa3[6], wpa3))
+            if wpa3 is None:
+                check("WPA3-only AP in range (mfp_required path)", None, "none in range")
+            for band, r in targets:
+                idx = int(r[0])
+                t1 = time.time()
+                p.send(f"inspect_network {idx}")
+                mid = p.command("status", 0.6)
+                # The reply may already be in `mid`: don't wait for what has arrived.
+                got = [] if frames(mid, "[INSPECT]") else \
+                    wait_for(p, lambda it: frames(it, "[INSPECT]") or errors(it), 6)
+                elapsed = time.time() - t1
+                ins = frames(mid + got, "[INSPECT]")
+                label = f"{band.decode()} GHz{' WPA3' if r is wpa3 else ''}"
+                st = frames(mid, "[STATUS]")
+                check(f"[{label}] status mid-inspect reports owner=wifi",
+                      st and st[0].get("owner") == "wifi")
+                check(f"[{label}] inspect replies with [INSPECT]", ins, f"<= {elapsed:.1f}s")
+                if not ins:
+                    continue
+                f = ins[0]
+                check(f"[{label}] idx/bssid/ch/band match the scan row",
+                      f.get("idx") == str(idx) and f.get("bssid", "").encode() == r[2]
+                      and f.get("ch", "").encode() == r[3] and f.get("band", "").encode() == r[6])
+                kv = f.row_kvs()[0] if f.rows else {}
+                beacons = int(kv.get("beacons", b"-1"))
+                check(f"[{label}] beacons heard", beacons > 0, f"beacons={beacons}")
+                if beacons > 0:
+                    rsn = kv.get("rsn"); cap = kv.get("mfp_capable"); req = kv.get("mfp_required")
+                    check(f"[{label}] rsn/mfp fields are 0 or 1",
+                          {rsn, cap, req} <= {b"0", b"1"})
+                    check(f"[{label}] interval_ms plausible (10-1000)",
+                          10 <= int(kv.get("interval_ms", b"0")) <= 1000, kv.get("interval_ms", b"").decode())
+                    auth = r[4].decode()
+                    if auth == "OPEN":
+                        check(f"[{label}] OPEN network has no RSN", rsn == b"0")
+                    elif auth in ("WPA3", "WPA3-EAP", "WPA3-EAP192"):
+                        check(f"[{label}] WPA3-only network requires MFP", req == b"1")
+                    elif auth.startswith("WPA2/WPA3"):
+                        check(f"[{label}] WPA2/WPA3 transition network is MFP-capable", cap == b"1")
+                    else:
+                        check(f"[{label}] RSN present for {auth}", rsn == b"1" or auth in ("WEP", "UNKNOWN"), auth)
+                check(f"[{label}] PHY released after inspect",
+                      frames(p.command("status"), "[STATUS]")[0].get("owner") == "none")
+
+            e = errors(p.command("inspect_network 0"))
+            check("inspect idx 0 -> badarg", e and e[0].code == "badarg")
+            e = errors(p.command(f"inspect_network {total + 1}"))
+            check("inspect idx past the results -> badarg", e and e[0].code == "badarg")
+
+            # A capture can finish in ~0.3 s, so stop may win or lose the race.
+            # Either outcome must be consistent; the abort path must be seen.
+            aborts, consistent = 0, True
+            for _ in range(3):
+                p.send("inspect_network 1")
+                p.send("stop")
+                got = wait_for(p, lambda it: frames(it, "[STOP]"), 5)
+                order = [i.tag for i in got if isinstance(i, Frame) and i.tag in ("[INSPECT]", "[STOP]")]
+                ins, st = frames(got, "[INSPECT]"), frames(got, "[STOP]")
+                aborted = bool(ins) and ins[0].get("aborted") == "1"
+                running = bool(st) and st[0].get("running") == "1"
+                consistent &= order == ["[INSPECT]", "[STOP]"] and aborted == running
+                aborts += aborted
+                p.collect(0.3)
+            check("stop vs inspect: [INSPECT] always before [STOP], aborted <=> running=1", consistent)
+            check("stop mid-inspect takes the abort path", aborts > 0, f"{aborts}/3 aborted")
+
         # stop mid-scan: aborted [SCAN] then [STOP] running=1, in that order.
         p.send("scan_networks")
         time.sleep(2.0)
@@ -401,15 +482,7 @@ def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
     finally:
         p.close()
 
-    width = max(len(n) for n, _, _ in checks)
-    failed = sum(not ok for _, ok, _ in checks)
-    for name, ok, detail in checks:
-        mark = paint("PASS", "green", enabled=color) if ok else paint("FAIL", "red", "bold", enabled=color)
-        print(f"  {mark}  {name.ljust(width)}  {paint(detail, 'dim', enabled=color) if detail else ''}")
-    print()
-    print(paint(f"{failed}/{len(checks)} checks FAILED", "red", "bold", enabled=color) if failed
-          else paint(f"all {len(checks)} checks passed — P2 Wi-Fi", "green", "bold", enabled=color))
-    return 1 if failed else 0
+    return report(checks, "P2 Wi-Fi", color)
 
 
 AUTH_LABELS = {v for k, v in ocp.read_header_defines().items() if k.startswith("OCP_AUTH_")}

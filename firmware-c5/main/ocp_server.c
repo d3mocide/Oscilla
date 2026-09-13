@@ -9,6 +9,7 @@
 #include "ocp_transport.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_inspect.h"
 #include "wifi_recon.h"
 
 #include "freertos/FreeRTOS.h"
@@ -115,6 +116,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SHOW_SCAN_RESULTS:
         wifi_cmd_show_results(argc, argv);
+        break;
+
+    case OCP_VID_INSPECT_NETWORK:
+        wifi_cmd_inspect(argc, argv);
         break;
 
     case OCP_VID_REBOOT:

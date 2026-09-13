@@ -35,7 +35,14 @@
   - The boot log showed **8 MB flash, but we built for 2 MB since P0**. Fixed.
   - Bytes left over from an esptool reset prefixed the first command (`unknown verb`). Tools and the deck client now send a newline first, which the spec says is ignored. That exposed a deck client bug: the junk's `[ERR]` would have cancelled a pending `hello`. Now only `[HELLO]` resolves `hello`, with a test mutation-checked.
   - P1 gate's "radio verb → nocap" broke once Wi-Fi existed. It now picks a verb the advertised caps don't cover, read from `ocp.h` (`scan_bt` today).
-- **Next:** `inspect_network` (passive beacon capture → MFP, uptime), then the deck's Sweep/Trace views.
+- **`inspect_network`** (`wifi_inspect.c`): tunes to the AP's channel and captures its beacons in promiscuous mode, parsing them with the fuzzed `beacon_parse`. The capture ends after 3 beacons or 2 s. The driver-task callback only matches, parses and records; the reply comes from a timer or `stop`, and `finish()` is idempotent so they can race.
+- **On hardware, `--gate-wifi` passes 41, skips 1.** Inspect works on both bands: 3 beacons each, 102 ms interval (100 TU), reply ≤ 0.6 s, idx/bssid/ch/band match the scan row. **Security semantics cross-checked against real APs**: a WPA2/WPA3 transition network reports MFP-capable, an open network reports no RSN. **No WPA3-only AP is in range, so `mfp_required=1` is only covered by the host known-answer test, not on hardware.**
+- **Three gate bugs of mine, fixed:**
+  - A reply that arrived inside the `status` window made `wait_for` sit out its full timeout, reporting 6.6 s for a sub-0.6 s reply.
+  - The stop-vs-inspect check was racy, because a 3-beacon capture can finish before `stop` lands. It now requires the ordering and aborted⇔running=1 to agree every time, and the abort path at least once (3/3).
+  - **Skipped checks were printing `PASS`.** Reports now have a separate SKIP state, never counted as passed.
+- My first two attempts at that report refactor aborted mid-script. Each validated its edits before writing, so neither touched the file. The third validated every edit up front, then applied them.
+- **Next:** the deck's Sweep/Trace views over real frames, then the P2 exit gate on the deck.
 
 ---
 

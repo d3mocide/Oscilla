@@ -12,6 +12,7 @@
 #include "ocp_transport.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_inspect.h"
 #include "wifi_recon.h"
 
 #include "esp_log.h"
@@ -34,6 +35,7 @@ void app_main(void)
     /* A radio that fails to come up stays local: the probe still answers, it
      * just doesn't advertise that cap. */
     err = wifi_recon_init();
+    if (err == ESP_OK) err = wifi_inspect_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     ESP_ERROR_CHECK(ocp_transport_init());
