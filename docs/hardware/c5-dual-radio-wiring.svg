@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1040" viewBox="0 0 1800 1040" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100" role="img" aria-labelledby="title desc">
   <title id="title">Oscilla C5 dual-radio backpack wiring reference</title>
   <desc id="desc">A shared SPI bus connects the XIAO ESP32-C5 to a Wio-SX1262 and a CC1101. Each radio has an independent chip select and a dedicated 915 MHz antenna.</desc>
   <style>
@@ -44,12 +44,12 @@
   <path class="cs" d="M570 525 H420"/><path class="cs" d="M1030 580 H1170"/>
   <text class="muted small" x="440" y="205">shared SPI bus</text><text class="muted small" x="1080" y="205">shared SPI bus</text>
 
-  <rect class="power" x="220" y="760" rx="18" width="1360" height="150"/>
-  <text class="txt head" x="655" y="815">3.3 V POWER + CLEAN BOOT</text>
-  <text class="txt body" x="310" y="862">Both radios: 100 nF + 10 µF local decoupling · Wio NSS and CC CSn: 10 kΩ pull-up to 3V3</text>
-  <text class="warn body" x="415" y="892">No shared antenna / splitter. One active sub-GHz receiver at a time.</text>
-  <text class="warn body" x="490" y="924">5 V Grove remains disconnected and insulated during bench work.</text>
+  <rect class="power" x="220" y="740" rx="18" width="1360" height="190"/>
+  <text class="txt head" x="655" y="795">3.3 V POWER + CLEAN BOOT</text>
+  <text class="txt body" x="310" y="842">Both radios: 100 nF + 10 µF local decoupling · Wio NSS and CC CSn: 10 kΩ pull-up to 3V3</text>
+  <text class="warn body" x="415" y="880">No shared antenna / splitter. One active sub-GHz receiver at a time.</text>
+  <text class="warn body" x="490" y="912">5 V Grove remains disconnected and insulated during bench work.</text>
 
-  <rect class="panel" x="170" y="950" rx="12" width="1460" height="54"/>
-  <text class="txt small" x="290" y="985">Sequence: deselect both → lock SPI → select exactly one radio → bounded receive/poll → deselect → report status/fault</text>
+  <rect class="panel" x="170" y="980" rx="12" width="1460" height="54"/>
+  <text class="txt small" x="290" y="1015">Sequence: deselect both → lock SPI → select exactly one radio → bounded receive/poll → deselect → report status/fault</text>
 </svg>
