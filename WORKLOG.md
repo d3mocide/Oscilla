@@ -1,3 +1,10 @@
+## 2026-09-13 — Version bump: 0.2.0, deck now tracks a version too
+
+- `firmware-c5` PROJECT_VER 0.1.0 → 0.2.0 to mark P3 (LoRa RX). `firmware-cardputer` had no version string at all until now — added `OSCILLA_DECK_VER` as a build flag (platformio.ini), since the deck is an OCP client and has no verb of its own to report one over. Both now shown side by side in the Info view's DECK/PROBE sections (the probe's own `ver` wasn't displayed there before either — added for symmetry).
+- Flashed both boards, full `check_protocol.sh` suite still green.
+
+---
+
 ## 2026-09-13 — Deck Sub-GHz view: lora_model + subghz_view, flashed and live
 
 **Phase:** P3 · **By:** Will + Claude

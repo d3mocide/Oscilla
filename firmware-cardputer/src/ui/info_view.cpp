@@ -45,6 +45,8 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
 
     d.setTextColor(TFT_MAGENTA, TFT_BLACK);
     d.println("DECK");
+    label(d, "ver");
+    d.println(OSCILLA_DECK_VER);
     label(d, "heap");
     d.printf("%lu KB free\n", (unsigned long)(ESP.getFreeHeap() / 1024));
 
@@ -77,6 +79,8 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
         d.setTextColor(TFT_DARKGREY, TFT_BLACK);
         d.println("  waiting for status...");
     } else {
+        label(d, "ver");
+        d.println(client.probe().ver.c_str());
         label(d, "heap");
         d.printf("%lu KB free\n", (unsigned long)(probe_heap / 1024));
         label(d, "uptime");
