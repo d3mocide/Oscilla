@@ -1,177 +1,151 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1320" viewBox="0 0 1800 1320" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" role="img" aria-labelledby="title desc">
   <title id="title">Oscilla C5 dual-radio wiring diagram</title>
-  <desc id="desc">Exact build reference for a XIAO ESP32-C5 sharing an SPI bus with a Wio-SX1262 and CC1101, including independent chip selects, Wio control signals, required pull resistors, local decoupling capacitors, common 3.3 volt power and ground, open CC1101 GDO pins, and separate 915 megahertz antennas.</desc>
+  <desc id="desc">Exact dual-radio build reference for a XIAO ESP32-C5 connected to a Wio-SX1262 and CC1101 over shared SPI, with independent chip selects, Wio control signals, required independent pull resistors and decoupling capacitors, common 3.3 volt power and ground, open CC1101 GDO pins, and separate 915 megahertz antennas.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0a1220"/><stop offset="1" stop-color="#101c2d"/>
-    </linearGradient>
-    <linearGradient id="c5fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#17395b"/><stop offset="1" stop-color="#112b47"/>
-    </linearGradient>
-    <linearGradient id="wiofill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#282d55"/><stop offset="1" stop-color="#1d2444"/>
-    </linearGradient>
-    <linearGradient id="ccfill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#49361c"/><stop offset="1" stop-color="#332819"/>
-    </linearGradient>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07111f"/><stop offset=".55" stop-color="#0c1828"/><stop offset="1" stop-color="#101a2a"/></linearGradient>
+    <linearGradient id="wio" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#303463"/><stop offset="1" stop-color="#202847"/></linearGradient>
+    <linearGradient id="c5" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#214a70"/><stop offset="1" stop-color="#173451"/></linearGradient>
+    <linearGradient id="cc" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#503a1d"/><stop offset="1" stop-color="#352918"/></linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#9db8d8" stroke-width="1" opacity=".035"/></pattern>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur in="SourceAlpha" stdDeviation="9" result="blur"/><feOffset dy="8" result="off"/><feColorMatrix in="off" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .42 0" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <style>
-      text{font-family:Inter,"Segoe UI",Arial,sans-serif;fill:#eef6ff} .title{font-size:42px;font-weight:800;letter-spacing:1px}.sub{font-size:21px;fill:#b8cae1}.head{font-size:31px;font-weight:800}.role{font-size:18px;fill:#b8cae1}.pin{font-size:20px;font-weight:650}.small{font-size:16px;fill:#bfd0e6}.tiny{font-size:14px;fill:#aebfd4}.net{font-size:15px;font-weight:800;letter-spacing:.5px}.value{font-size:15px;font-weight:700}.wire{fill:none;stroke:#78c7ff;stroke-width:4;stroke-linecap:round}.wioWire{fill:none;stroke:#b397ff;stroke-width:4;stroke-linecap:round}.ccWire{fill:none;stroke:#f2ba55;stroke-width:4;stroke-linecap:round}.miso{fill:none;stroke:#eef6ff;stroke-width:4;stroke-linecap:round}.power{fill:none;stroke:#55e1a4;stroke-width:5;stroke-linecap:round}.gnd{fill:none;stroke:#63dcb0;stroke-width:5;stroke-linecap:round}.node{stroke:none}.box{stroke-width:3}.passive{fill:#0e1827;stroke-width:2}.res{fill:#121d2d;stroke:#eef6ff;stroke-width:3}.cap{stroke:#eef6ff;stroke-width:3}.nc{stroke:#b7c6d9;stroke-width:3;stroke-dasharray:7 7}.labelBox{fill:#0d1827;stroke-width:2}.warn{font-size:20px;font-weight:800;letter-spacing:.5px}.foot{font-size:15px;fill:#b5c7dc}
+      text{font-family:Inter,"Segoe UI",Arial,sans-serif;fill:#f1f7ff}.title{font-size:39px;font-weight:850;letter-spacing:1px}.subtitle{font-size:19px;fill:#b7c9e0}.cardTitle{font-size:29px;font-weight:850}.role{font-size:17px;fill:#c0cee2}.pin{font-size:19px;font-weight:700}.gpio{font-size:18px;font-weight:650}.mini{font-size:13px;fill:#b8c8dc}.small{font-size:15px;fill:#c3d0e2}.tag{font-size:13px;font-weight:850;letter-spacing:.4px}.value{font-size:13px;font-weight:750}.wire{fill:none;stroke:#75c8ff;stroke-width:4;stroke-linecap:round}.wioWire{fill:none;stroke:#b798ff;stroke-width:4;stroke-linecap:round}.ccWire{fill:none;stroke:#ffc259;stroke-width:4;stroke-linecap:round}.miso{fill:none;stroke:#f3f7ff;stroke-width:4;stroke-linecap:round}.power{fill:none;stroke:#5ce3ad;stroke-width:5;stroke-linecap:round}.ground{fill:none;stroke:#67ddb4;stroke-width:5;stroke-linecap:round}.passiveLine{fill:none;stroke:#dce7f4;stroke-width:3;stroke-linecap:round}.node{stroke:none}.nc{fill:none;stroke:#bdcadd;stroke-width:3;stroke-dasharray:7 7}.card{stroke-width:3}.panel{fill:#0b1523;fill-opacity:.68;stroke-width:2}.resistor{fill:#101b2a;stroke:#edf5ff;stroke-width:3}.warning{font-size:18px;font-weight:850;letter-spacing:.6px}.footer{font-size:14px;fill:#afc1d7}
     </style>
   </defs>
 
-  <rect width="1800" height="1320" fill="url(#bg)"/>
-  <text id="title" class="title" x="55" y="62">OSCILLA · C5 DUAL-RADIO WIRING</text>
-  <text class="sub" x="57" y="98">Receive-only prototype · shared SPI · independent chip selects · exact harness passives</text>
-  <rect x="1368" y="40" width="375" height="54" rx="12" fill="#123328" stroke="#55e1a4" stroke-width="2"/>
-  <text x="1556" y="74" text-anchor="middle" font-size="18" font-weight="700" fill="#91f1c5">3.3 V LOGIC + MODULE POWER ONLY</text>
+  <rect width="1600" height="1100" fill="#000"/>
+  <rect x="20" y="20" width="1560" height="1060" rx="48" fill="url(#canvas)" stroke="#1e3148" stroke-width="2"/>
+  <rect x="20" y="20" width="1560" height="1060" rx="48" fill="url(#grid)"/>
 
-  <!-- global rails -->
-  <text class="head" x="58" y="157" fill="#55e1a4">3V3</text>
-  <path class="power" d="M125 148H1742"/>
-  <circle class="node" cx="250" cy="148" r="7" fill="#55e1a4"/><path class="power" d="M250 148V205"/>
-  <circle class="node" cx="900" cy="148" r="7" fill="#55e1a4"/><path class="power" d="M900 148V205"/>
-  <circle class="node" cx="1550" cy="148" r="7" fill="#55e1a4"/><path class="power" d="M1550 148V205"/>
+  <!-- Header -->
+  <text id="title" class="title" x="62" y="72">OSCILLA · C5 DUAL-RADIO WIRING</text>
+  <text class="subtitle" x="64" y="105">Receive-only prototype · shared SPI · independent chip selects · exact passive networks</text>
+  <rect x="1214" y="45" width="310" height="46" rx="11" fill="#103126" stroke="#61e8b2" stroke-width="2"/>
+  <text x="1369" y="74" text-anchor="middle" font-size="16" font-weight="800" fill="#99f3cf">3.3 V LOGIC + POWER ONLY</text>
 
-  <!-- radio/controller cards -->
-  <rect class="box" x="58" y="205" width="502" height="625" rx="24" fill="url(#wiofill)" stroke="#b397ff"/>
-  <rect class="box" x="649" y="205" width="502" height="625" rx="24" fill="url(#c5fill)" stroke="#78c7ff"/>
-  <rect class="box" x="1240" y="205" width="502" height="625" rx="24" fill="url(#ccfill)" stroke="#f2ba55"/>
+  <!-- Shared power rail -->
+  <text x="60" y="157" font-size="25" font-weight="850" fill="#6ceab8">3V3</text>
+  <path class="power" d="M122 149H1535"/>
+  <circle cx="280" cy="149" r="7" fill="#5ce3ad"/><path class="power" d="M280 149V184"/>
+  <circle cx="800" cy="149" r="7" fill="#5ce3ad"/><path class="power" d="M800 149V184"/>
+  <circle cx="1320" cy="149" r="7" fill="#5ce3ad"/><path class="power" d="M1320 149V184"/>
 
-  <text class="head" x="309" y="249" text-anchor="middle">Wio-SX1262</text>
-  <text class="role" x="309" y="278" text-anchor="middle">LoRa RX · 862–930 MHz</text>
-  <text class="head" x="900" y="249" text-anchor="middle">XIAO ESP32-C5</text>
-  <text class="role" x="900" y="278" text-anchor="middle">shared SPI controller + radio arbiter</text>
-  <text class="head" x="1491" y="249" text-anchor="middle">CC1101</text>
-  <text class="role" x="1491" y="278" text-anchor="middle">Legacy OOK / FSK / GFSK RX</text>
+  <!-- Main cards -->
+  <g filter="url(#softShadow)">
+    <rect class="card" x="50" y="184" width="470" height="680" rx="24" fill="url(#wio)" stroke="#b798ff"/>
+    <rect class="card" x="565" y="184" width="470" height="680" rx="24" fill="url(#c5)" stroke="#75c8ff"/>
+    <rect class="card" x="1080" y="184" width="470" height="680" rx="24" fill="url(#cc)" stroke="#ffc259"/>
+  </g>
+  <text class="cardTitle" x="285" y="229" text-anchor="middle">Wio-SX1262</text>
+  <text class="role" x="285" y="258" text-anchor="middle">LoRa receive · 862–930 MHz</text>
+  <text class="cardTitle" x="800" y="229" text-anchor="middle">XIAO ESP32-C5</text>
+  <text class="role" x="800" y="258" text-anchor="middle">shared SPI controller + radio arbiter</text>
+  <text class="cardTitle" x="1315" y="229" text-anchor="middle">CC1101</text>
+  <text class="role" x="1315" y="258" text-anchor="middle">Legacy OOK / FSK / GFSK receive</text>
+  <circle cx="280" cy="184" r="7" fill="#5ce3ad"/><text class="tag" x="297" y="206" fill="#86efc8">3V3</text>
+  <circle cx="800" cy="184" r="7" fill="#5ce3ad"/><text class="tag" x="817" y="206" fill="#86efc8">3V3</text>
+  <circle cx="1320" cy="184" r="7" fill="#5ce3ad"/><text class="tag" x="1337" y="206" fill="#86efc8">VCC / 3V3</text>
 
-  <!-- power endpoints -->
-  <circle cx="250" cy="205" r="7" fill="#55e1a4"/><text class="net" x="269" y="223" fill="#7cebbd">3V3</text>
-  <circle cx="900" cy="205" r="7" fill="#55e1a4"/><text class="net" x="920" y="223" fill="#7cebbd">3V3</text>
-  <circle cx="1550" cy="205" r="7" fill="#55e1a4"/><text class="net" x="1570" y="223" fill="#7cebbd">VCC / 3V3</text>
+  <!-- Wio passive inset: every branch is electrically independent -->
+  <rect class="panel" x="74" y="286" width="258" height="405" rx="16" stroke="#b798ff" stroke-dasharray="8 6"/>
+  <text x="94" y="315" font-size="17" font-weight="850" fill="#d4c8ff">LOCAL PASSIVES</text>
+  <text class="mini" x="94" y="337">Independent branches · required functions</text>
+  <!-- C1 -->
+  <text class="tag" x="124" y="366" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M124 373V388"/>
+  <path class="passiveLine" d="M110 391H138M110 402H138"/><path class="ground" d="M124 402V428"/>
+  <path d="M108 428h32m-25 7h18m-11 7h5" stroke="#67ddb4" stroke-width="3"/>
+  <text class="value" x="124" y="463" text-anchor="middle">C1 · 100 nF</text>
+  <!-- C2 -->
+  <text class="tag" x="276" y="366" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M276 373V388"/>
+  <path class="passiveLine" d="M262 391H290M262 402H290"/><path class="ground" d="M276 402V428"/>
+  <path d="M260 428h32m-25 7h18m-11 7h5" stroke="#67ddb4" stroke-width="3"/>
+  <text class="value" x="276" y="463" text-anchor="middle">C2 · 10 µF</text>
+  <!-- R1 -->
+  <text class="tag" x="124" y="496" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M124 502V512"/>
+  <rect class="resistor" x="114" y="512" width="20" height="43"/><path class="wioWire" d="M124 555V566"/>
+  <rect x="94" y="566" width="60" height="25" rx="6" fill="#15172c" stroke="#b798ff" stroke-width="2"/><text class="tag" x="124" y="584" text-anchor="middle" fill="#ddd3ff">NSS</text>
+  <text class="value" x="124" y="611" text-anchor="middle">R1 · 10 kΩ</text><text class="mini" x="124" y="629" text-anchor="middle">PULL-UP</text>
+  <!-- R2 -->
+  <text class="tag" x="276" y="496" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M276 502V512"/>
+  <rect class="resistor" x="266" y="512" width="20" height="43"/><path class="wioWire" d="M276 555V566"/>
+  <rect x="244" y="566" width="64" height="25" rx="6" fill="#15172c" stroke="#b798ff" stroke-width="2"/><text class="tag" x="276" y="584" text-anchor="middle" fill="#ddd3ff">RST</text>
+  <text class="value" x="276" y="611" text-anchor="middle">R2 · 10 kΩ</text><text class="mini" x="276" y="629" text-anchor="middle">PULL-UP</text>
+  <!-- R3 -->
+  <rect x="113" y="646" width="77" height="25" rx="6" fill="#15172c" stroke="#b798ff" stroke-width="2"/><text class="tag" x="151" y="664" text-anchor="middle" fill="#ddd3ff">RF_SW</text>
+  <path class="wioWire" d="M151 671V678"/><rect class="resistor" x="141" y="678" width="20" height="43"/><path class="ground" d="M151 721V735"/>
+  <path d="M135 735h32m-25 7h18m-11 7h5" stroke="#67ddb4" stroke-width="3"/>
+  <text class="value" x="243" y="704" text-anchor="middle">R3 · 10 kΩ</text><text class="mini" x="243" y="725" text-anchor="middle">PULL-DOWN</text>
 
-  <!-- shared SPI -->
-  <text class="pin" x="516" y="337" text-anchor="end">SCK</text><circle cx="560" cy="330" r="7" fill="#78c7ff"/>
-  <path class="wire" d="M560 330H649"/><circle cx="649" cy="330" r="7" fill="#78c7ff"/>
-  <text class="pin" x="687" y="337">D8 / GPIO8</text><text class="small" x="1110" y="337" text-anchor="end">SCK</text>
-  <circle cx="1151" cy="330" r="7" fill="#78c7ff"/><path class="wire" d="M1151 330H1240"/><circle cx="1240" cy="330" r="7" fill="#78c7ff"/>
-  <text class="pin" x="1284" y="337">SCK</text>
-
-  <text class="pin" x="516" y="387" text-anchor="end">MOSI</text><circle cx="560" cy="380" r="7" fill="#78c7ff"/>
-  <path class="wire" d="M560 380H649"/><circle cx="649" cy="380" r="7" fill="#78c7ff"/>
-  <text class="pin" x="687" y="387">D10 / GPIO10</text><text class="small" x="1110" y="387" text-anchor="end">MOSI</text>
-  <circle cx="1151" cy="380" r="7" fill="#78c7ff"/><path class="wire" d="M1151 380H1240"/><circle cx="1240" cy="380" r="7" fill="#78c7ff"/>
-  <text class="pin" x="1284" y="387">SI / MOSI</text>
-
-  <text class="pin" x="516" y="437" text-anchor="end">MISO</text><circle cx="560" cy="430" r="7" fill="#eef6ff"/>
-  <path class="miso" d="M560 430H649"/><circle cx="649" cy="430" r="7" fill="#eef6ff"/>
-  <text class="pin" x="687" y="437">D9 / GPIO9</text><text class="small" x="1110" y="437" text-anchor="end">MISO</text>
-  <circle cx="1151" cy="430" r="7" fill="#eef6ff"/><path class="miso" d="M1151 430H1240"/><circle cx="1240" cy="430" r="7" fill="#eef6ff"/>
-  <text class="pin" x="1284" y="437">SO / MISO</text>
-  <rect x="742" y="452" width="316" height="34" rx="8" fill="#0c1a2a" stroke="#6b829c"/>
-  <text class="tiny" x="900" y="474" text-anchor="middle">DESELECTED RADIO MUST RELEASE MISO</text>
-
-  <!-- independent chip selects -->
-  <text class="pin" x="516" y="517" text-anchor="end" fill="#d0bdff">NSS</text><circle cx="560" cy="510" r="7" fill="#b397ff"/>
-  <path class="wioWire" d="M560 510H649"/><circle cx="649" cy="510" r="7" fill="#b397ff"/>
-  <text class="pin" x="687" y="517" fill="#d0bdff">D4 / GPIO23</text>
-  <text class="pin" x="1113" y="517" text-anchor="end" fill="#ffd37c">D3 / GPIO7</text><circle cx="1151" cy="510" r="7" fill="#f2ba55"/>
-  <path class="ccWire" d="M1151 510H1240"/><circle cx="1240" cy="510" r="7" fill="#f2ba55"/>
-  <text class="pin" x="1284" y="517" fill="#ffd37c">CSn</text>
-
-  <!-- Wio-only control lines -->
+  <!-- Shared SPI and dedicated control wiring -->
   <g>
-    <text class="pin" x="516" y="567" text-anchor="end">RST</text><circle cx="560" cy="560" r="7" fill="#b397ff"/><path class="wioWire" d="M560 560H649"/><circle cx="649" cy="560" r="7" fill="#b397ff"/><text class="pin" x="687" y="567">D0 / GPIO1</text>
-    <text class="pin" x="516" y="617" text-anchor="end">DIO1</text><circle cx="560" cy="610" r="7" fill="#b397ff"/><path class="wioWire" d="M560 610H649"/><circle cx="649" cy="610" r="7" fill="#b397ff"/><text class="pin" x="687" y="617">D1 / GPIO0</text>
-    <text class="pin" x="516" y="667" text-anchor="end">BUSY</text><circle cx="560" cy="660" r="7" fill="#b397ff"/><path class="wioWire" d="M560 660H649"/><circle cx="649" cy="660" r="7" fill="#b397ff"/><text class="pin" x="687" y="667">D5 / GPIO24</text>
-    <text class="pin" x="516" y="717" text-anchor="end">RF_SW</text><circle cx="560" cy="710" r="7" fill="#b397ff"/><path class="wioWire" d="M560 710H649"/><circle cx="649" cy="710" r="7" fill="#b397ff"/><text class="pin" x="687" y="717">D2 / GPIO25</text>
+    <text class="pin" x="481" y="321" text-anchor="end">SCK</text><circle cx="520" cy="314" r="7" fill="#75c8ff"/><path class="wire" d="M520 314H565"/><circle cx="565" cy="314" r="7" fill="#75c8ff"/><text class="gpio" x="601" y="321">D8 / GPIO8</text>
+    <text class="small" x="999" y="321" text-anchor="end">SCK</text><circle cx="1035" cy="314" r="7" fill="#75c8ff"/><path class="wire" d="M1035 314H1080"/><circle cx="1080" cy="314" r="7" fill="#75c8ff"/><text class="pin" x="1116" y="321">SCK</text>
+
+    <text class="pin" x="481" y="366" text-anchor="end">MOSI</text><circle cx="520" cy="359" r="7" fill="#75c8ff"/><path class="wire" d="M520 359H565"/><circle cx="565" cy="359" r="7" fill="#75c8ff"/><text class="gpio" x="601" y="366">D10 / GPIO10</text>
+    <text class="small" x="999" y="366" text-anchor="end">MOSI</text><circle cx="1035" cy="359" r="7" fill="#75c8ff"/><path class="wire" d="M1035 359H1080"/><circle cx="1080" cy="359" r="7" fill="#75c8ff"/><text class="pin" x="1116" y="366">SI / MOSI</text>
+
+    <text class="pin" x="481" y="411" text-anchor="end">MISO</text><circle cx="520" cy="404" r="7" fill="#f3f7ff"/><path class="miso" d="M520 404H565"/><circle cx="565" cy="404" r="7" fill="#f3f7ff"/><text class="gpio" x="601" y="411">D9 / GPIO9</text>
+    <text class="small" x="999" y="411" text-anchor="end">MISO</text><circle cx="1035" cy="404" r="7" fill="#f3f7ff"/><path class="miso" d="M1035 404H1080"/><circle cx="1080" cy="404" r="7" fill="#f3f7ff"/><text class="pin" x="1116" y="411">SO / MISO</text>
+    <rect x="666" y="426" width="268" height="32" rx="8" fill="#0c1a2a" stroke="#6f829a"/><text class="mini" x="800" y="447" text-anchor="middle">DESELECTED RADIO MUST RELEASE MISO</text>
+
+    <text class="pin" x="481" y="486" text-anchor="end" fill="#dacfff">NSS</text><circle cx="520" cy="479" r="7" fill="#b798ff"/><path class="wioWire" d="M520 479H565"/><circle cx="565" cy="479" r="7" fill="#b798ff"/><text class="gpio" x="601" y="486" fill="#dacfff">D4 / GPIO23</text>
+    <text class="gpio" x="999" y="486" text-anchor="end" fill="#ffd47f">D3 / GPIO7</text><circle cx="1035" cy="479" r="7" fill="#ffc259"/><path class="ccWire" d="M1035 479H1080"/><circle cx="1080" cy="479" r="7" fill="#ffc259"/><text class="pin" x="1116" y="486" fill="#ffd47f">CSn</text>
+
+    <text class="pin" x="481" y="536" text-anchor="end">RST</text><circle cx="520" cy="529" r="7" fill="#b798ff"/><path class="wioWire" d="M520 529H565"/><circle cx="565" cy="529" r="7" fill="#b798ff"/><text class="gpio" x="601" y="536">D0 / GPIO1</text>
+    <text class="pin" x="481" y="586" text-anchor="end">DIO1</text><circle cx="520" cy="579" r="7" fill="#b798ff"/><path class="wioWire" d="M520 579H565"/><circle cx="565" cy="579" r="7" fill="#b798ff"/><text class="gpio" x="601" y="586">D1 / GPIO0</text>
+    <text class="pin" x="481" y="636" text-anchor="end">BUSY</text><circle cx="520" cy="629" r="7" fill="#b798ff"/><path class="wioWire" d="M520 629H565"/><circle cx="565" cy="629" r="7" fill="#b798ff"/><text class="gpio" x="601" y="636">D5 / GPIO24</text>
+    <text class="pin" x="481" y="686" text-anchor="end">RF_SW</text><circle cx="520" cy="679" r="7" fill="#b798ff"/><path class="wioWire" d="M520 679H565"/><circle cx="565" cy="679" r="7" fill="#b798ff"/><text class="gpio" x="601" y="686">D2 / GPIO25</text>
   </g>
 
-  <!-- CC1101 unconnected GDO -->
-  <circle cx="1240" cy="575" r="7" fill="#f2ba55"/><text class="pin" x="1284" y="582">GDO0</text><path class="nc" d="M1382 575H1437"/><path d="M1437 567l12 8-12 8z" fill="#b7c6d9"/><text class="small" x="1462" y="582">NC · polling first</text>
-  <circle cx="1240" cy="625" r="7" fill="#f2ba55"/><text class="pin" x="1284" y="632">GDO2</text><path class="nc" d="M1382 625H1437"/><path d="M1437 617l12 8-12 8z" fill="#b7c6d9"/><text class="small" x="1462" y="632">NC · leave open</text>
-  <rect x="1300" y="671" width="382" height="42" rx="8" fill="#271e13" stroke="#866b3d"/>
-  <text class="small" x="1491" y="698" text-anchor="middle">No reset wire · reset by SPI strobe</text>
+  <!-- Controller policy inset -->
+  <rect class="panel" x="602" y="729" width="396" height="96" rx="14" stroke="#75c8ff"/>
+  <text x="800" y="755" text-anchor="middle" font-size="16" font-weight="850">RADIO ARBITER</text>
+  <text class="small" x="800" y="781" text-anchor="middle">Deselect both → lock SPI → select one receiver</text>
+  <text class="small" x="800" y="806" text-anchor="middle">bounded receive/poll → deselect → report status</text>
 
-  <!-- separate antenna endpoints -->
-  <text class="net" x="91" y="773" fill="#d2c3ff">ANT</text><path class="wioWire" d="M135 767H205"/>
-  <path d="M205 797V742M205 754l-26-27M205 754l26-27" fill="none" stroke="#b397ff" stroke-width="4" stroke-linecap="round"/>
-  <text class="small" x="249" y="773">Dedicated 915 MHz antenna</text>
-  <text class="net" x="1284" y="773" fill="#ffd37c">ANT</text><path class="ccWire" d="M1330 767H1400"/>
-  <path d="M1400 797V742M1400 754l-26-27M1400 754l26-27" fill="none" stroke="#f2ba55" stroke-width="4" stroke-linecap="round"/>
-  <text class="small" x="1444" y="773">Dedicated 915 MHz antenna</text>
-
-  <!-- module grounds to common rail -->
-  <circle cx="250" cy="830" r="7" fill="#63dcb0"/><path class="gnd" d="M250 830V1122"/><text class="net" x="268" y="817" fill="#7cebbd">GND</text>
-  <circle cx="900" cy="830" r="7" fill="#63dcb0"/><path class="gnd" d="M900 830V1122"/><text class="net" x="920" y="817" fill="#7cebbd">GND</text>
-  <circle cx="1550" cy="830" r="7" fill="#63dcb0"/><path class="gnd" d="M1550 830V1122"/><text class="net" x="1570" y="817" fill="#7cebbd">GND</text>
-
-  <!-- Wio exact passive panel -->
-  <rect class="passive" x="58" y="858" width="502" height="240" rx="18" stroke="#b397ff"/>
-  <text x="82" y="887" font-size="18" font-weight="800" fill="#d5c9ff">WIO REQUIRED LOCAL PASSIVES</text>
-  <text class="tiny" x="82" y="909">Independent branches · place capacitors at the module header.</text>
-  <!-- C1 -->
-  <text class="net" x="105" y="934" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M105 941V955"/>
-  <path class="cap" d="M92 958H118M92 968H118"/><path class="gnd" d="M105 968V1000"/>
-  <path d="M90 1000h30m-24 7h18m-12 7h6" stroke="#63dcb0" stroke-width="3"/>
-  <text class="value" x="105" y="1042" text-anchor="middle">C1</text><text class="tiny" x="105" y="1063" text-anchor="middle">100 nF</text>
-  <!-- C2 -->
-  <text class="net" x="195" y="934" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M195 941V955"/>
-  <path class="cap" d="M182 958H208M182 968H208"/><path class="gnd" d="M195 968V1000"/>
-  <path d="M180 1000h30m-24 7h18m-12 7h6" stroke="#63dcb0" stroke-width="3"/>
-  <text class="value" x="195" y="1042" text-anchor="middle">C2</text><text class="tiny" x="195" y="1063" text-anchor="middle">10 µF</text>
-  <!-- R1 -->
-  <text class="net" x="300" y="934" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M300 941V950"/>
-  <rect class="res" x="291" y="950" width="18" height="40"/><path class="wioWire" d="M300 990V1002"/>
-  <rect class="labelBox" x="272" y="1002" width="56" height="24" rx="6" stroke="#b397ff"/><text class="net" x="300" y="1019" text-anchor="middle" fill="#d5c9ff">NSS</text>
-  <text class="value" x="300" y="1052" text-anchor="middle">R1 · 10 kΩ</text><text class="tiny" x="300" y="1074" text-anchor="middle">PULL-UP</text>
-  <!-- R2 -->
-  <text class="net" x="400" y="934" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M400 941V950"/>
-  <rect class="res" x="391" y="950" width="18" height="40"/><path class="wioWire" d="M400 990V1002"/>
-  <rect class="labelBox" x="369" y="1002" width="62" height="24" rx="6" stroke="#b397ff"/><text class="net" x="400" y="1019" text-anchor="middle" fill="#d5c9ff">RST</text>
-  <text class="value" x="400" y="1052" text-anchor="middle">R2 · 10 kΩ</text><text class="tiny" x="400" y="1074" text-anchor="middle">PULL-UP</text>
-  <!-- R3 -->
-  <rect class="labelBox" x="463" y="927" width="74" height="24" rx="6" stroke="#b397ff"/><text class="net" x="500" y="944" text-anchor="middle" fill="#d5c9ff">RF_SW</text>
-  <path class="wioWire" d="M500 951V958"/><rect class="res" x="491" y="958" width="18" height="40"/><path class="gnd" d="M500 998V1007"/>
-  <path d="M485 1007h30m-24 7h18m-12 7h6" stroke="#63dcb0" stroke-width="3"/>
-  <text class="value" x="500" y="1052" text-anchor="middle">R3 · 10 kΩ</text><text class="tiny" x="500" y="1074" text-anchor="middle">PULL-DOWN</text>
-
-  <!-- center build notes -->
-  <rect x="649" y="858" width="502" height="240" rx="18" fill="#0e2032" stroke="#4f7ba4" stroke-width="2"/>
-  <text x="900" y="890" text-anchor="middle" font-size="18" font-weight="800">BUILD NOTES</text>
-  <text class="small" x="681" y="922">• Start shared SPI at 1 MHz; keep the harness under 10 cm.</text>
-  <text class="small" x="681" y="953">• Keep a nearby ground return alongside the SPI wires.</text>
-  <text class="small" x="681" y="984">• Inspect modules for onboard passives; preserve each function.</text>
-  <text class="small" x="681" y="1015">• Bench-check CC1101 MISO high-Z while CSn is high.</text>
-
-  <!-- CC1101 exact passive panel -->
-  <rect class="passive" x="1240" y="858" width="502" height="240" rx="18" stroke="#f2ba55"/>
-  <text x="1264" y="887" font-size="18" font-weight="800" fill="#ffd37c">CC1101 REQUIRED LOCAL PASSIVES</text>
-  <text class="tiny" x="1264" y="909">Independent branches · place capacitors close to VCC.</text>
+  <!-- CC1101 exact passive inset -->
+  <rect class="panel" x="1287" y="286" width="239" height="405" rx="16" stroke="#ffc259" stroke-dasharray="8 6"/>
+  <text x="1306" y="315" font-size="17" font-weight="850" fill="#ffd98f">LOCAL PASSIVES</text>
+  <text class="mini" x="1306" y="337">Independent branches</text>
   <!-- C3 -->
-  <text class="net" x="1305" y="934" text-anchor="middle" fill="#7cebbd">VCC</text><path class="power" d="M1305 941V955"/>
-  <path class="cap" d="M1292 958H1318M1292 968H1318"/><path class="gnd" d="M1305 968V1000"/>
-  <path d="M1290 1000h30m-24 7h18m-12 7h6" stroke="#63dcb0" stroke-width="3"/>
-  <text class="value" x="1305" y="1042" text-anchor="middle">C3</text><text class="tiny" x="1305" y="1063" text-anchor="middle">100 nF</text>
+  <text class="tag" x="1332" y="366" text-anchor="middle" fill="#7cebbd">VCC</text><path class="power" d="M1332 373V388"/>
+  <path class="passiveLine" d="M1318 391H1346M1318 402H1346"/><path class="ground" d="M1332 402V428"/>
+  <path d="M1316 428h32m-25 7h18m-11 7h5" stroke="#67ddb4" stroke-width="3"/>
+  <text class="value" x="1332" y="463" text-anchor="middle">C3 · 100 nF</text>
   <!-- C4 -->
-  <text class="net" x="1430" y="934" text-anchor="middle" fill="#7cebbd">VCC</text><path class="power" d="M1430 941V955"/>
-  <path class="cap" d="M1417 958H1443M1417 968H1443"/><path class="gnd" d="M1430 968V1000"/>
-  <path d="M1415 1000h30m-24 7h18m-12 7h6" stroke="#63dcb0" stroke-width="3"/>
-  <text class="value" x="1430" y="1042" text-anchor="middle">C4</text><text class="tiny" x="1430" y="1063" text-anchor="middle">10 µF</text>
+  <text class="tag" x="1479" y="366" text-anchor="middle" fill="#7cebbd">VCC</text><path class="power" d="M1479 373V388"/>
+  <path class="passiveLine" d="M1465 391H1493M1465 402H1493"/><path class="ground" d="M1479 402V428"/>
+  <path d="M1463 428h32m-25 7h18m-11 7h5" stroke="#67ddb4" stroke-width="3"/>
+  <text class="value" x="1479" y="463" text-anchor="middle">C4 · 10 µF</text>
   <!-- R4 -->
-  <text class="net" x="1580" y="934" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M1580 941V950"/>
-  <rect class="res" x="1571" y="950" width="18" height="40"/><path class="ccWire" d="M1580 990V1002"/>
-  <rect class="labelBox" x="1547" y="1002" width="66" height="24" rx="6" stroke="#f2ba55"/><text class="net" x="1580" y="1019" text-anchor="middle" fill="#ffd37c">CSn</text>
-  <text class="value" x="1580" y="1052" text-anchor="middle">R4 · 10 kΩ</text><text class="tiny" x="1580" y="1074" text-anchor="middle">PULL-UP</text>
-  <rect x="1640" y="930" width="76" height="90" rx="10" fill="#241c12" stroke="#806234"/>
-  <text class="tiny" x="1678" y="955" text-anchor="middle">GDO0</text><text class="tiny" x="1678" y="976" text-anchor="middle">GDO2</text><text class="net" x="1678" y="1001" text-anchor="middle" fill="#ffd37c">OPEN</text>
+  <text class="tag" x="1406" y="500" text-anchor="middle" fill="#7cebbd">3V3</text><path class="power" d="M1406 506V516"/>
+  <rect class="resistor" x="1396" y="516" width="20" height="43"/><path class="ccWire" d="M1406 559V571"/>
+  <rect x="1372" y="571" width="68" height="25" rx="6" fill="#2a1f11" stroke="#ffc259" stroke-width="2"/><text class="tag" x="1406" y="589" text-anchor="middle" fill="#ffe0a1">CSn</text>
+  <text class="value" x="1406" y="619" text-anchor="middle">R4 · 10 kΩ</text><text class="mini" x="1406" y="638" text-anchor="middle">PULL-UP</text>
+  <text class="mini" x="1406" y="669" text-anchor="middle">Place C3/C4 close to VCC</text>
 
-  <!-- common ground rail -->
-  <circle class="node" cx="250" cy="1122" r="7" fill="#63dcb0"/><circle class="node" cx="900" cy="1122" r="7" fill="#63dcb0"/><circle class="node" cx="1550" cy="1122" r="7" fill="#63dcb0"/>
-  <path class="gnd" d="M125 1122H1742"/>
-  <text class="head" x="58" y="1131" fill="#63dcb0">GND</text>
+  <!-- CC1101 open GPIOs and reset behavior -->
+  <circle cx="1080" cy="544" r="7" fill="#ffc259"/><text class="pin" x="1116" y="551">GDO0</text><path class="nc" d="M1189 544H1224"/><path d="M1224 536l12 8-12 8z" fill="#bdcadd"/><text class="small" x="1248" y="551">NC</text>
+  <circle cx="1080" cy="594" r="7" fill="#ffc259"/><text class="pin" x="1116" y="601">GDO2</text><path class="nc" d="M1189 594H1224"/><path d="M1224 586l12 8-12 8z" fill="#bdcadd"/><text class="small" x="1248" y="601">NC</text>
+  <rect x="1108" y="621" width="165" height="72" rx="10" fill="#2a1f12" stroke="#88683a"/>
+  <text class="mini" x="1191" y="643" text-anchor="middle">POLLING FIRST</text><text class="mini" x="1191" y="664" text-anchor="middle">NO RESET WIRE</text><text class="mini" x="1191" y="685" text-anchor="middle">RESET BY SPI STROBE</text>
 
-  <!-- warning and footer -->
-  <rect x="58" y="1160" width="1684" height="72" rx="16" fill="#251925" stroke="#ff6977" stroke-width="3"/>
-  <text class="warn" x="900" y="1203" text-anchor="middle" fill="#ff8390">SEPARATE ANTENNAS · NO PASSIVE RF SPLITTER · ONE ACTIVE RECEIVER AT A TIME</text>
-  <text class="foot" x="900" y="1283" text-anchor="middle">PROTOTYPE WIRING · BENCH VALIDATION REQUIRED · GROVE 5 V DISCONNECTED AND INSULATED DURING BRING-UP</text>
+  <!-- Independent antennas -->
+  <text class="tag" x="79" y="795" fill="#ddd3ff">ANT</text><path class="wioWire" d="M116 789H158"/><path d="M158 824V761M158 775l-26-27M158 775l26-27" fill="none" stroke="#b798ff" stroke-width="4" stroke-linecap="round"/>
+  <text class="small" x="198" y="795">Dedicated 915 MHz antenna</text>
+  <text class="tag" x="1108" y="795" fill="#ffe0a1">ANT</text><path class="ccWire" d="M1146 789H1188"/><path d="M1188 824V761M1188 775l-26-27M1188 775l26-27" fill="none" stroke="#ffc259" stroke-width="4" stroke-linecap="round"/>
+  <text class="small" x="1228" y="795">Dedicated 915 MHz antenna</text>
+
+  <!-- Common ground rail -->
+  <circle cx="280" cy="864" r="7" fill="#67ddb4"/><path class="ground" d="M280 864V917"/>
+  <circle cx="800" cy="864" r="7" fill="#67ddb4"/><path class="ground" d="M800 864V917"/>
+  <circle cx="1320" cy="864" r="7" fill="#67ddb4"/><path class="ground" d="M1320 864V917"/>
+  <text class="tag" x="299" y="849" fill="#86efc8">GND</text><text class="tag" x="819" y="849" fill="#86efc8">GND</text><text class="tag" x="1339" y="849" fill="#86efc8">GND</text>
+  <text x="60" y="927" font-size="25" font-weight="850" fill="#6ceab8">GND</text><path class="ground" d="M122 918H1535"/>
+  <circle cx="280" cy="918" r="7" fill="#67ddb4"/><circle cx="800" cy="918" r="7" fill="#67ddb4"/><circle cx="1320" cy="918" r="7" fill="#67ddb4"/>
+
+  <!-- Warnings -->
+  <rect x="61" y="958" width="1478" height="66" rx="15" fill="#271723" stroke="#ff6877" stroke-width="3"/>
+  <text class="warning" x="800" y="998" text-anchor="middle" fill="#ff8792">SEPARATE ANTENNAS · NO PASSIVE RF SPLITTER · ONE ACTIVE RECEIVER AT A TIME</text>
+  <text class="footer" x="800" y="1056" text-anchor="middle">BENCH-GATED PROTOTYPE · BEGIN SPI AT 1 MHz · HARNESS &lt; 10 cm · GROVE 5 V DISCONNECTED DURING BRING-UP</text>
 </svg>
