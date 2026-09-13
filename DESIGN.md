@@ -265,6 +265,10 @@ Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
 | `ocp_frame.c` | Marker-frame emission; one whole line per write, under a lock |
 | `ocp_server.c` | Line assembly, command table dispatch, system verbs |
 | `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity / fault; dark if dispatch stalls |
+| `radio_arbiter.c` | Single PHY owner + teardown hooks (§6.2); power interlock stub until P6 |
+| `wifi_recon.c` | **Passive** dual-band scan, RSSI-sorted store, paging (OCP-SPEC §10) |
+| `wifi_inspect.c` | Passive beacon capture from one AP → MFP, uptime, interval |
+| `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
 | `radio_arbiter.c` | **Single-owner PHY arbitration** + power interlock. The load-bearing safety invariant. |
 | `wifi_recon.c` | Managed scan; promiscuous sniffer + inspect + channel views; manual hop (optionally D-UCB) |
 | `ble_recon.c` | NimBLE passive scan; device table; tracker classification |
@@ -325,7 +329,11 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 
 | Module | Layer | Responsibility |
 |---|---|---|
-| `src/main.cpp` | wiring | M5 + Grove UART + client + view; reconnect and keepalive policy |
+| `src/main.cpp` | wiring | M5 + Grove UART (16 KB, drained before drawing) + keyboard + app |
+| `src/app/deck_app` | app | Screen flow Link → Sweep → Trace, command orchestration, auto-paging, reconnect/keepalive |
+| `src/model/scan_model` | model | Validated scan rows (never trusted), paging, 512-row cap, inspect result |
+| `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
+| `src/ui/sweep_view` · `src/ui/trace_view` | view | AP list; one AP in depth |
 | `src/ocp/ocp_parser` | OCP client | Byte-exact line reader; mirrors `tools/ocp.py`, diffed on the fuzz corpus |
 | `src/ocp/ocp_client` | OCP client | Handshake, one-at-a-time commands, reply/event routing, timeouts, reset detection |
 | `src/ocp/ocp_item.h` | OCP client | Parsed item type |

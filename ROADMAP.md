@@ -5,7 +5,7 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P1 complete → **P2 — Probe sees Wi-Fi** |
+| **Current phase** | P2 complete → **P3 — LoRa (RX)** / **P4 — GNSS** (parallel) |
 | **Last updated** | 2026-09-12 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
@@ -18,7 +18,7 @@
 |---|---|---|---|
 | **P0** | Reconcile & scaffold | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
-| **P2** | Probe sees Wi-Fi | 🟡 In progress | — |
+| **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | ⚪ Not started | — |
 | **P4** | GNSS on the deck | ⚪ Not started | — |
 | **P5** | External TFT | ⚪ Not started | — |
@@ -97,9 +97,11 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 - [x] `wifi_recon.c` / `wifi_inspect.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ✅.
 - [x] Frame emission: `[SCAN]` CSV rows, `[INSPECT]`.
 - [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 41 live checks + 1 skip (no WPA3-only AP in range).
-- [ ] Deck: **Sweep** + **Trace** views over real frames.
+- [x] Deck: **Sweep** + **Trace** views over real frames — `app/deck_app`, `model/scan_model`, `ui/sweep_view`, `ui/trace_view`; auto-paging; 16 KB drained RX buffer.
 
 **Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Sweep/Trace on the deck. `stop` always returns to idle.
+
+**✅ Met 2026-09-12.** `ocp_repl.py --gate-wifi`: 41 passed, 1 skipped (no WPA3-only AP in range). On the deck over Grove, Will ran the walkthrough: scans of 134 and 125 APs arrived **with 0 malformed rows**, 4 inspects rendered MFP/uptime/interval (one AP with RSN and MFP off, one MFP-capable), and `stop` mid-scan aborted within ~0.2 s twice, with the next scan working normally.
 
 ---
 

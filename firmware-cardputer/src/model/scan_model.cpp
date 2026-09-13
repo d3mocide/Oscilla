@@ -72,6 +72,12 @@ void ScanModel::begin()
     elapsed_ms_ = 0;
 }
 
+void ScanModel::clear()
+{
+    begin();
+    scanning_ = false;
+}
+
 uint16_t ScanModel::absorbPage(const ocp::Item &frame)
 {
     if (!scanning_ || frame.tag != OCP_MARK_SCAN) return 0;

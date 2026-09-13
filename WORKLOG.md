@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-09-12 — P2 complete: Sweep and Trace on the deck
+**Phase:** P2 → P3/P4 · **By:** Will + Claude
+
+- **P2 exit gate met.** Will drove the deck over Grove: Sweep, scroll, Trace, re-inspect, stop mid-scan (twice), back. The deck log (counts only, no SSIDs/BSSIDs): scans of **134 and 125 APs, 0 malformed rows**, in a single page each at ~10.5 s. Four inspects rendered. `stop` during the listening countdown aborted within ~0.2 s both times, and the next scan worked. Earlier on the probe: `--gate-wifi` 41 passed, 1 skipped.
+- **Deck app:** `app/deck_app` owns the screen flow (Link → Sweep → Trace, `` ` `` = stop + back), auto-pages, and clears the list on a probe reset, since the probe's stored indices died with it. Views only draw. `main.cpp` is wiring again.
+- **Two defects caught before they ran:**
+  - Trace would have shown "listening" whenever a keepalive ping was pending, and could have shown the *previous* AP's inspect result. It now keys on a pending `inspect_network` and a matching `idx`.
+  - The Grove RX buffer was 2 KB, about 180 ms of data, against a ~20 KB page burst and full-screen redraws. It's now 16 KB and drained before drawing. The 0-malformed result above is the evidence it's enough; a full 256-row page hasn't been exercised on the deck yet.
+- **Open thread:** one of four deck inspects took ~5 s end to end; the others took ≤0.6 s. The probe's capture window is at most 2 s, so ~3 s is unaccounted for. It could be a sparsely beaconing AP plus deck-side timing, or a keypress landing while a keepalive was pending. Not reproduced; I'm recording it rather than guessing.
+- **What P2 leaves unproven:** `mfp_required=1` on a real WPA3-only AP (none in range; host test only), and paging beyond one frame on hardware (never more than 256 APs here; host tests only).
+
+---
+
 ## 2026-09-12 — P2: the probe scans Wi-Fi, passively
 **Phase:** P2 · **By:** Will + Claude
 

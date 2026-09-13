@@ -73,7 +73,7 @@ void drawLinkView(const ocp::Client &client, const std::string &last_reply,
 
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - 10);
-    d.print("h hello p ping s status v ver r reboot");
+    d.print("w sweep  h hello  p ping  s status");
 }
 
 }  // namespace ui

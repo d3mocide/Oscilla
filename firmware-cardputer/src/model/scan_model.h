@@ -45,6 +45,9 @@ public:
     /* A scan was requested: forget the old one. */
     void begin();
 
+    /* Probe rebooted: its stored indices are gone, so ours are meaningless. */
+    void clear();
+
     /* Absorb a [SCAN] frame. Returns the `first` to request next, or 0 when
      * the survey is complete (all pages, aborted, or kMaxRows reached). */
     uint16_t absorbPage(const ocp::Item &frame);
