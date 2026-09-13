@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1400" viewBox="0 0 1200 1400" role="img" aria-labelledby="title desc">
+  <title id="title">Oscilla C5 dual-radio backpack wiring reference</title>
+  <desc id="desc">A compact vertical reference showing one shared SPI bus from the XIAO ESP32-C5 to Wio-SX1262 and CC1101 radios, their independent chip selects, passives, antennas, and receive-only scheduling constraint.</desc>
+  <style>
+    .bg { fill:#0f1723; } .c5 { fill:#203957; stroke:#79c7ff; stroke-width:4; } .wio { fill:#2a3859; stroke:#b5a0ff; stroke-width:4; }
+    .cc { fill:#3c3221; stroke:#f3bd5c; stroke-width:4; } .note { fill:#183a31; stroke:#6ed3a1; stroke-width:3; }
+    .wire { fill:none; stroke:#c3d4eb; stroke-width:4; } .cs { fill:none; stroke:#ffcb67; stroke-width:5; }
+    .title { fill:#edf5ff; font:700 38px Arial,sans-serif; } .sub { fill:#b9cae1; font:23px Arial,sans-serif; }
+    .head { fill:#edf5ff; font:700 30px Arial,sans-serif; } .txt { fill:#edf5ff; font:25px Arial,sans-serif; }
+    .muted { fill:#b9cae1; font:22px Arial,sans-serif; } .accent { fill:#ffcd6c; font:24px Arial,sans-serif; }
+    .tiny { fill:#b9cae1; font:19px Arial,sans-serif; }
+  </style>
+  <rect class="bg" width="1200" height="1400"/>
+  <text class="title" x="60" y="70">OSCILLA · C5 DUAL-RADIO BACKPACK</text>
+  <text class="sub" x="60" y="108">Build reference · proposed, bench-gated · receive-only</text>
+
+  <rect class="c5" x="120" y="160" rx="22" width="960" height="310"/>
+  <text class="head" x="455" y="215">XIAO ESP32-C5</text>
+  <text class="sub" x="395" y="250">shared SPI controller + radio arbiter</text>
+  <text class="txt" x="220" y="315">D8 / GPIO8</text><text class="muted" x="510" y="315">SCK → both radios</text>
+  <text class="txt" x="220" y="365">D10 / GPIO10</text><text class="muted" x="510" y="365">MOSI → both radios</text>
+  <text class="txt" x="220" y="415">D9 / GPIO9</text><text class="muted" x="510" y="415">MISO ← selected radio only</text>
+  <text class="accent" x="220" y="455">D4 / GPIO23 → Wio NSS</text><text class="accent" x="655" y="455">D3 / GPIO7 → CC1101 CSn</text>
+
+  <text class="tiny" x="178" y="520">One shared SPI bus. Select exactly one radio before every transaction; the non-selected CS stays high.</text>
+  <path class="wire" d="M380 470 V560 H310 V610"/><path class="wire" d="M450 470 V575 H310 V610"/><path class="wire" d="M520 470 V590 H310 V610"/>
+  <path class="wire" d="M680 470 V560 H890 V610"/><path class="wire" d="M750 470 V575 H890 V610"/><path class="wire" d="M820 470 V590 H890 V610"/>
+  <path class="cs" d="M350 470 V610"/><path class="cs" d="M870 470 V610"/>
+
+  <rect class="wio" x="50" y="610" rx="22" width="520" height="460"/>
+  <text class="head" x="187" y="670">Wio-SX1262</text>
+  <text class="sub" x="132" y="710">LoRa receive · 862–930 MHz</text>
+  <text class="txt" x="92" y="770">SCK / MOSI / MISO · NSS GPIO23</text>
+  <text class="muted" x="92" y="812">RST GPIO1 · DIO1 GPIO0</text>
+  <text class="muted" x="92" y="848">BUSY GPIO24 · RF_SW GPIO25</text>
+  <text class="accent" x="92" y="905">Required passives</text>
+  <text class="tiny" x="92" y="940">10 kΩ: NSS → 3V3 · RST → 3V3</text>
+  <text class="tiny" x="92" y="970">10 kΩ: RF_SW → GND</text>
+  <text class="tiny" x="92" y="1000">100 nF + 10 µF: 3V3 → GND</text>
+  <text class="txt" x="92" y="1042">Dedicated 915 MHz antenna</text>
+
+  <rect class="cc" x="630" y="610" rx="22" width="520" height="460"/>
+  <text class="head" x="797" y="670">CC1101</text>
+  <text class="sub" x="720" y="710">Legacy OOK / FSK / GFSK RX</text>
+  <text class="txt" x="670" y="770">SCK / SI / SO · CSn GPIO7</text>
+  <text class="muted" x="670" y="812">GDO0 / GDO2 open · polling first</text>
+  <text class="muted" x="670" y="848">Reset by SPI strobe · no reset wire</text>
+  <text class="accent" x="670" y="905">Required passives</text>
+  <text class="tiny" x="670" y="940">10 kΩ: CSn → 3V3</text>
+  <text class="tiny" x="670" y="970">100 nF + 10 µF: 3V3 → GND</text>
+  <text class="tiny" x="670" y="1000">Confirm SO/MISO releases when CSn is high</text>
+  <text class="txt" x="670" y="1042">Dedicated 915 MHz antenna</text>
+
+  <rect class="note" x="80" y="1120" rx="18" width="1040" height="190"/>
+  <text class="head" x="386" y="1175">OPERATING RULE</text>
+  <text class="txt" x="210" y="1220">One active receiver · separate antennas · no passive splitter</text>
+  <text class="accent" x="150" y="1260">Deselect both → lock SPI → select one radio → bounded receive/poll</text>
+  <text class="accent" x="376" y="1295">→ deselect → report status/fault</text>
+  <text class="tiny" x="100" y="1350">Bench power: separate Cardputer/XIAO USB · Grove 5 V disconnected · validate MISO isolation and 3V3 rail margin.</text>
+</svg>

@@ -1,3 +1,10 @@
+## 2026-09-13 — proposed CC1101 dual-radio wiring addendum
+
+- Added `docs/hardware/c5-dual-radio-wiring.md` as the proposed, bench-gated authority for adding a CC1101 to the C5 backpack, and `docs/hardware/c5-dual-radio-wiring.svg` as its visual harness reference.
+- Allocation: CC1101 shares C5 SPI GPIO8/9/10; C5 GPIO7 / XIAO D3 is a dedicated CC1101 CSn with a 10 kΩ pull-up. GDO0/GDO2 remain open initially; driver polling avoids inventing a second interrupt pin.
+- Preserved receive-only scope: Wio-SX1262 remains the LoRa observer, CC1101 is limited to compatible legacy OOK/FSK/GFSK receive, separate antennas, and one active sub-GHz engine at a time.
+- **Not bench-validated:** continuity, MISO release, boot state, radio receive, coexistence, and 3.3 V rail margin remain required gates before field use.
+
 # Oscilla — Worklog
 
 > Append-only, newest first. One entry per working session or notable event: what was done, what was decided, what surprised us, what the bench showed. Keep it factual — this is the project's memory. Cross-reference `D-n` ([`docs/DECISIONS.md`](docs/DECISIONS.md)) and phases ([`ROADMAP.md`](ROADMAP.md)).
