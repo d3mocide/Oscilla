@@ -1,5 +1,7 @@
 # C5 dual-radio backpack — wiring handoff
 
+[![Oscilla C5 dual-radio wiring diagram](c5-dual-radio-wiring.png)](c5-dual-radio-wiring.svg)
+
 **Revision:** E-CC1101 addendum  
 **Date:** 2026-09-13  
 **Status:** Proposed wiring; electrical and RF bench validation pending  
