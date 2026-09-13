@@ -157,6 +157,9 @@ class Probe:
         self._stop = threading.Event()
         self._t = threading.Thread(target=self._read, daemon=True)
         self._t.start()
+        # A reset can leave half a line in the probe's buffer; end it so it
+        # cannot prefix our first command (OCP-SPEC §2: blank lines are ignored).
+        self.ser.write(b"\n")
 
     def _read(self) -> None:
         while not self._stop.is_set():
@@ -253,9 +256,14 @@ def mode_gate(port: str, baud: int, color: bool = True) -> int:
         check("unknown verb -> code=unknown",
               err is not None and err.code == "unknown", err.code if err else "")
 
-        err = first(p.command("scan_networks"), Error)
-        check("radio verb with no caps -> code=nocap",
-              err is not None and err.code == "nocap", err.code if err else "")
+        caps = set(filter(None, (hello.get("caps") or "").split(","))) if hello else set()
+        absent = ocp.verb_unsupported_by(caps)
+        if absent:
+            err = first(p.command(absent), Error)
+            check(f"verb without its cap ({absent}) -> code=nocap",
+                  err is not None and err.code == "nocap", err.code if err else "")
+        else:
+            check("verb without its cap -> nocap (every cap present; skipped)", True)
 
         err = first(p.command("inspect_network"), Error)
         check("wrong arity -> code=badarg",
@@ -297,6 +305,114 @@ def mode_gate(port: str, baud: int, color: bool = True) -> int:
     print(paint(f"all {len(checks)} checks passed — P1 probe exit gate",
                 "green", "bold", enabled=color))
     return 0
+
+
+def wait_for(p: "Probe", pred, timeout: float) -> list:
+    """Collect items until pred(items) is true or timeout; returns all items."""
+    got, deadline = [], time.time() + timeout
+    while time.time() < deadline:
+        got.extend(p.collect(0.2))
+        if pred(got):
+            break
+    return got
+
+
+def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
+    """P2 Wi-Fi checks against a live probe. Prints counts only, never SSIDs
+    or BSSIDs: scan results are field data (SECURITY.md)."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name, ok, detail=""):
+        checks.append((name, bool(ok), detail))
+
+    def frames(items, tag):
+        return [i for i in items if isinstance(i, Frame) and i.tag == tag]
+
+    def errors(items):
+        return [i for i in items if isinstance(i, Error)]
+
+    p = Probe(port, baud)
+    try:
+        p.collect(0.5)
+        hello = frames(p.command("hello", 1.5), "[HELLO]")
+        caps = hello[0].get("caps", "") if hello else ""
+        check("probe advertises wifi24 and wifi5", "wifi24" in caps and "wifi5" in caps, caps)
+
+        # A full scan.
+        t0 = time.time()
+        p.send("scan_networks")
+        mid = p.command("status", 1.0)
+        got = wait_for(p, lambda it: frames(it, "[SCAN]") or errors(it), 60)
+        scan = frames(mid + got, "[SCAN]")
+        status_mid = frames(mid, "[STATUS]")
+        busy = [e for e in errors(mid) if e.code == "busy"]
+        check("status during a scan reports owner=wifi (or busy)",
+              (status_mid and status_mid[0].get("owner") == "wifi") or busy,
+              status_mid[0].get("owner") if status_mid else "busy")
+        check("scan_networks replies with [SCAN]", scan, f"{time.time() - t0:.1f}s")
+        if scan:
+            f = scan[0]
+            n, total, first = int(f.get("n", "-1")), int(f.get("total", "-1")), int(f.get("first", "-1"))
+            rows = f.csv_rows()
+            check("n matches the rows delivered", n == len(rows), f"n={n} rows={len(rows)}")
+            check("first page starts at 1, n <= total, n <= cap",
+                  first == 1 and n <= total and n <= ocp.MAX_FRAME_ROWS, f"total={total}")
+            check("every row has 7 columns", all(len(r) == 7 for r in rows))
+            check("rows are numbered consecutively from first",
+                  [int(r[0]) for r in rows] == list(range(first, first + n)))
+            check("rows are in descending RSSI order",
+                  all(int(a[5]) >= int(b[5]) for a, b in zip(rows, rows[1:])))
+            check("band column agrees with channel",
+                  all((r[6] == b"2.4") == (int(r[3]) <= 14) for r in rows))
+            check("auth column is always a known label",
+                  all(r[4].decode() in AUTH_LABELS for r in rows))
+            bands = {r[6] for r in rows}
+            check("both bands heard", bands >= {b"2.4", b"5"}, f"{sum(r[6]==b'2.4' for r in rows)} / {sum(r[6]==b'5' for r in rows)}")
+            check("no leftover PHY owner after the scan",
+                  frames(p.command("status"), "[STATUS]")[0].get("owner") == "none")
+
+            if total >= 2:
+                mid_idx = total // 2 + 1
+                page = frames(p.command(f"show_scan_results {mid_idx}", 2.0), "[SCAN]")
+                ok = page and int(page[0].get("first")) == mid_idx and \
+                     int(page[0].get("n")) == min(total - mid_idx + 1, ocp.MAX_FRAME_ROWS)
+                check("show_scan_results <first> returns the right page", ok)
+            e = errors(p.command(f"show_scan_results {total + 1}"))
+            check("page past the end -> badarg", e and e[0].code == "badarg")
+            e = errors(p.command("show_scan_results 0"))
+            check("page 0 -> badarg (indices are 1-based)", e and e[0].code == "badarg")
+
+        # stop mid-scan: aborted [SCAN] then [STOP] running=1, in that order.
+        p.send("scan_networks")
+        time.sleep(2.0)
+        e = errors(p.command("scan_networks", 1.0))
+        check("second scan while scanning -> busy", e and e[0].code == "busy")
+        p.send("stop")
+        got = wait_for(p, lambda it: frames(it, "[STOP]"), 5)
+        order = [i.tag for i in got if isinstance(i, Frame) and i.tag in ("[SCAN]", "[STOP]")]
+        sc, st = frames(got, "[SCAN]"), frames(got, "[STOP]")
+        check("stop mid-scan: aborted [SCAN] arrives before [STOP]", order == ["[SCAN]", "[STOP]"], str(order))
+        check("aborted frame is flagged and empty",
+              sc and sc[0].get("aborted") == "1" and sc[0].get("n") == "0")
+        check("[STOP] running=1", st and st[0].get("running") == "1")
+        st = frames(p.command("stop"), "[STOP]")
+        check("stop when idle -> running=0", st and st[0].get("running") == "0")
+        check("probe still answers after all that", any(isinstance(i, Pong) for i in p.command("ping")))
+    finally:
+        p.close()
+
+    width = max(len(n) for n, _, _ in checks)
+    failed = sum(not ok for _, ok, _ in checks)
+    for name, ok, detail in checks:
+        mark = paint("PASS", "green", enabled=color) if ok else paint("FAIL", "red", "bold", enabled=color)
+        print(f"  {mark}  {name.ljust(width)}  {paint(detail, 'dim', enabled=color) if detail else ''}")
+    print()
+    print(paint(f"{failed}/{len(checks)} checks FAILED", "red", "bold", enabled=color) if failed
+          else paint(f"all {len(checks)} checks passed — P2 Wi-Fi", "green", "bold", enabled=color))
+    return 1 if failed else 0
+
+
+AUTH_LABELS = {v for k, v in ocp.read_header_defines().items() if k.startswith("OCP_AUTH_")}
 
 
 def mode_serial(port: str, baud: int, color: bool = True) -> int:
@@ -591,6 +707,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="run a command non-interactively (repeatable)")
     ap.add_argument("--gate", action="store_true",
                     help="drive a live probe through the P1 exit-gate checks")
+    ap.add_argument("--gate-wifi", action="store_true",
+                    help="P2 Wi-Fi checks against a live probe (prints counts, never SSIDs)")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
     color = not args.no_color and sys.stdout.isatty()
@@ -599,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
         return mode_selftest(color)
     if args.replay:
         return mode_replay(args.replay, color)
+    if args.port and args.gate_wifi:
+        return mode_gate_wifi(args.port, args.baud, color)
     if args.port and args.gate:
         return mode_gate(args.port, args.baud, color)
     if args.port and args.exec_cmds:

@@ -64,7 +64,8 @@ int main()
         check(!r.c.send("ping", r.now), "no commands before the handshake");
 
         r.c.connect(r.now);
-        check(r.takeWire() == "hello\n" && r.c.state() == S::HelloSent, "connect sends hello");
+        check(r.takeWire() == "\nhello\n" && r.c.state() == S::HelloSent,
+              "connect flushes a partial line, then sends hello");
 
         r.probe(kHello);
         check(r.c.state() == S::Ready, "[HELLO] -> Ready");
@@ -145,6 +146,17 @@ int main()
         r.c.send("reboot", r.now);
         r.advance(ocp::Client::kRebootTimeoutMs);
         check(r.c.state() == S::Disconnected, "probe that never returns from reboot -> Disconnected");
+    }
+
+    {
+        /* Seen on hardware: junk from an esptool reset, ended by our flush
+         * newline, draws [ERR] unknown before our hello is answered. */
+        Rig r;
+        r.c.connect(r.now);
+        r.probe("[ERR] code=unknown msg=\"unknown verb\"\n");
+        check(r.c.pending() && r.c.state() == S::HelloSent, "an [ERR] does not cancel a pending hello");
+        r.probe(kHello);
+        check(r.c.state() == S::Ready, "the real [HELLO] still completes the handshake");
     }
 
     {

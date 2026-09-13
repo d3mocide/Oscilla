@@ -1,8 +1,10 @@
 /*
  * ocp_frame.h — marker-frame emission (OCP-SPEC.md §3).
  *
- * Every emitter here writes one complete line under a lock, so frames from
- * the dispatch task and events from engine tasks cannot interleave mid-line.
+ * Every emitter writes whole lines under a lock. A block frame also holds a
+ * frame lock from BEGIN to END, so another task's reply cannot land between
+ * its rows; [EVT] lines skip that lock, as the spec allows (OCP-SPEC §5.1).
+ * Always pair ocp_emit_begin() with ocp_emit_end().
  *
  * SPDX-License-Identifier: MIT
  */

@@ -18,7 +18,7 @@
 |---|---|---|---|
 | **P0** | Reconcile & scaffold | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
-| **P2** | Probe sees Wi-Fi | ⚪ Not started | — |
+| **P2** | Probe sees Wi-Fi | 🟡 In progress | — |
 | **P3** | LoRa (RX) | ⚪ Not started | — |
 | **P4** | GNSS on the deck | ⚪ Not started | — |
 | **P5** | External TFT | ⚪ Not started | — |
@@ -93,9 +93,10 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 **Entry gate:** P1 exit met.
 
 **Work:**
-- [ ] `radio_arbiter.c` — PHY-lane single-owner mutex + teardown hooks + the (conservative) power interlock stub.
-- [ ] `wifi_recon.c` — managed `scan_networks`, `show_scan_results`, passive `inspect_network <i>` (MFP + uptime).
-- [ ] Frame emission: `[SCAN]` CSV rows, `[INSPECT]`.
+- [x] `radio_arbiter.c` — PHY-lane single-owner mutex + teardown hooks. *Power interlock stays a stub until P6 (no LoRa lane yet).*
+- [ ] `wifi_recon.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ⏳.
+- [ ] Frame emission: `[SCAN]` CSV rows ✅, `[INSPECT]` ⏳.
+- [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 21 live checks.
 - [ ] Deck: **Sweep** + **Trace** views over real frames.
 
 **Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Sweep/Trace on the deck. `stop` always returns to idle.

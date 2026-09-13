@@ -2,7 +2,7 @@
  * main.c — oscilla-c5 (the probe).
  *
  * Boot order (DESIGN §6.1): NVS -> arbiter -> platform -> OCP server.
- * Arbiter and radio engines land in P2-P3.
+ * LoRa lands in P3.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -10,7 +10,9 @@
 #include "ocp_frame.h"
 #include "ocp_server.h"
 #include "ocp_transport.h"
+#include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_recon.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -27,6 +29,13 @@ void app_main(void)
     ESP_ERROR_CHECK(err);
 
     ESP_ERROR_CHECK(status_led_start());    /* first, so boot is visible */
+    ESP_ERROR_CHECK(arbiter_init());
+
+    /* A radio that fails to come up stays local: the probe still answers, it
+     * just doesn't advertise that cap. */
+    err = wifi_recon_init();
+    if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
+
     ESP_ERROR_CHECK(ocp_transport_init());
     ESP_ERROR_CHECK(ocp_frame_init());
     ESP_ERROR_CHECK(ocp_server_start());

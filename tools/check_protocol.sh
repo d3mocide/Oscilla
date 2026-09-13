@@ -42,6 +42,11 @@ python3 tools/ocp_fuzz.py --iterations 1000 | grep -E 'FAIL|reproduce|fuzz:' | s
 # The deck's C++ parser must agree with the reference, item for item.
 python3 tools/check_deck_parser.py --count 150
 
+# Probe beacon parser: known answers + mutation fuzz under ASan/UBSan.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/beacon_test" firmware-c5/test/host/beacon_test.c firmware-c5/main/beacon_parse.c
+"$out/beacon_test" 100000 | tail -1 | sed 's/^/  /'
+
 # The deck's connection client against a scripted probe.
 "${CC:-gcc}" -std=c99 "${warn[@]}" -Iprotocol -c -o "$out/ocp_text.o" protocol/ocp_text.c
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/client_test" \

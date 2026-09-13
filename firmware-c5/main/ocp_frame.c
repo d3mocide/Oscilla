@@ -9,6 +9,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "ocp.h"
 #include "ocp_text.h"
@@ -17,12 +18,29 @@
 #include <stdio.h>
 #include <string.h>
 
-static SemaphoreHandle_t s_lock;
+static SemaphoreHandle_t s_lock;         /* one line at a time */
+static SemaphoreHandle_t s_frame_lock;   /* BEGIN..END from one task at a time */
+
+/* A task that never sends END must not wedge the probe: wait, then emit anyway. */
+#define FRAME_LOCK_WAIT_MS 2000
 
 esp_err_t ocp_frame_init(void)
 {
     s_lock = xSemaphoreCreateMutex();
-    return s_lock ? ESP_OK : ESP_ERR_NO_MEM;
+    s_frame_lock = xSemaphoreCreateRecursiveMutex();
+    return (s_lock && s_frame_lock) ? ESP_OK : ESP_ERR_NO_MEM;
+}
+
+static void frame_take(void)
+{
+    if (s_frame_lock) xSemaphoreTakeRecursive(s_frame_lock, pdMS_TO_TICKS(FRAME_LOCK_WAIT_MS));
+}
+
+static void frame_give(void)
+{
+    if (s_frame_lock && xSemaphoreGetMutexHolder(s_frame_lock) == xTaskGetCurrentTaskHandle()) {
+        xSemaphoreGiveRecursive(s_frame_lock);
+    }
 }
 
 static void write_line(char *line, size_t cap, int n)
@@ -79,7 +97,9 @@ void ocp_emit_compact(const char *tag, const char *fmt, ...)
     va_start(ap, fmt);
     char prefix[OCP_MAX_VERB_LEN + 2];
     snprintf(prefix, sizeof prefix, "%s ", tag);
+    frame_take();
     emit(prefix, fmt, ap, " " OCP_KW_END);
+    frame_give();
     va_end(ap);
 }
 
@@ -87,6 +107,7 @@ void ocp_emit_begin(const char *tag, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
+    frame_take();   /* held until ocp_emit_end() */
     emit_tagged(tag, OCP_KW_BEGIN " ", fmt, ap, "");
     va_end(ap);
 }
@@ -106,6 +127,7 @@ void ocp_emit_end(const char *tag)
     char prefix[OCP_MAX_VERB_LEN + 8];
     snprintf(prefix, sizeof prefix, "%s %s", tag, OCP_KW_END);
     emit_plain(prefix, "");
+    frame_give();
 }
 
 void ocp_emit_event(const char *kind, const char *fmt, ...)
@@ -126,10 +148,14 @@ void ocp_emit_error(const char *code, const char *msg)
     char prefix[OCP_MAX_LINE_LEN];
     snprintf(prefix, sizeof prefix, "%s %s=%s %s=%s",
              OCP_MARK_ERR, OCP_K_CODE, code, OCP_K_MSG, escaped);
+    frame_take();
     emit_plain(prefix, "");
+    frame_give();
 }
 
 void ocp_emit_literal(const char *text)
 {
+    frame_take();
     emit_plain(text, "");
+    frame_give();
 }

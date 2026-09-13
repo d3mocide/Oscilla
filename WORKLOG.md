@@ -13,6 +13,32 @@
 
 ---
 
+## 2026-09-12 — P2: the probe scans Wi-Fi, passively
+**Phase:** P2 · **By:** Will + Claude
+
+- **Contract first** (`48983fc`), OCP-SPEC §10:
+  - **Scans are passive**, because ESP-IDF's default active scan transmits probe requests and D-8 forbids that.
+  - Paging via `show_scan_results <first>` with `n`/`total`/`first` on `[SCAN] BEGIN`, since the 256-row cap binds here.
+  - The `[INSPECT]` shape.
+  - `stop` may be sent while a command is pending; the cancelled command replies with `aborted=1` before `[STOP]`.
+- **`tools/check_rx_only.py`**: the verb table rules out a transmit *verb*; this rules out a transmit-capable *driver API* behind an innocent verb. 22 APIs are banned on the probe, and every radio API on the deck. It strips comments first. Mutation-tested, which caught one hole in it: quoted `#include "esp_wifi.h"` slipped past because string stripping erased it. Fixed.
+- **Beacon parser** (`beacon_parse.c`, pure C): reads over-the-air bytes any nearby transmitter controls. 22 known answers plus a 100k-frame fuzz under **ASan/UBSan** in `check_protocol.sh`. Removing each bounds check found one gap: the RSN-capabilities length check was missed, because known-answer frames lived in a 512-byte stack buffer (invisible to ASan) and the fuzzer never made an element's length disagree with the frame end. Known answers now parse exact-size heap copies, and the fuzzer corrupts element lengths; all three removals are caught. UBSan also caught a division by zero in my own fuzzer.
+- **Probe:**
+  - `radio_arbiter` (single PHY owner, teardown on `stop`).
+  - `wifi_recon`: passive dual-band scan, 250 ms dwell, results sorted by RSSI, up to 512 stored, paged at the cap.
+  - `ocp_frame` now holds a frame lock across `BEGIN..END`, so another task's reply can't split a `[SCAN]`.
+  - Caps are advertised only if Wi-Fi actually initialised.
+  - Unimplemented verbs now answer `unknown` rather than `nocap`.
+- **On hardware:** passive scans find ~100–130 APs in ~10.5 s across both bands, channels 1–157. **`--gate-wifi` 21/21, twice**: owner=wifi mid-scan and none after, RSSI order, band/channel agreement, known auth labels, paging, badarg on page 0 and past the end, busy on a second scan, stop mid-scan giving aborted `[SCAN]` before `[STOP] running=1`. The gate prints counts only: scan results are field data and stay out of the repo and this log (SECURITY.md).
+- **Found on the way:**
+  - `esp_wifi_set_band_mode` returns `ESP_ERR_WIFI_NOT_STARTED` before `esp_wifi_start()`. The log only said "wifi unavailable: NOT_STARTED", so init steps are now named in errors.
+  - The boot log showed **8 MB flash, but we built for 2 MB since P0**. Fixed.
+  - Bytes left over from an esptool reset prefixed the first command (`unknown verb`). Tools and the deck client now send a newline first, which the spec says is ignored. That exposed a deck client bug: the junk's `[ERR]` would have cancelled a pending `hello`. Now only `[HELLO]` resolves `hello`, with a test mutation-checked.
+  - P1 gate's "radio verb → nocap" broke once Wi-Fi existed. It now picks a verb the advertised caps don't cover, read from `ocp.h` (`scan_bt` today).
+- **Next:** `inspect_network` (passive beacon capture → MFP, uptime), then the deck's Sweep/Trace views.
+
+---
+
 ## 2026-09-12 — P1 complete: the deck drives the probe
 **Phase:** P1 → P2 · **By:** Will + Claude
 

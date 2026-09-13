@@ -75,6 +75,9 @@ void Client::finishPending()
 void Client::connect(uint32_t now_ms)
 {
     finishPending();
+    /* End any half-line a reset left in the probe's buffer, so it can't
+     * prefix hello (blank lines are ignored, OCP-SPEC §2). */
+    write_(OCP_LINE_TERM, 1);
     writeLine(OCP_V_HELLO);
     pending_verb_ = OCP_V_HELLO;
     pending_reply_ = OCP_MARK_HELLO;
@@ -165,7 +168,9 @@ void Client::onItem(Item &&it)
 
     case ItemKind::Error:
         stats_.errors++;
-        if (pending()) {
+        /* hello exists in every probe: an [ERR] now answers something else,
+         * e.g. junk the probe had buffered before our hello. */
+        if (pending() && pending_verb_ != OCP_V_HELLO) {
             finishPending();
             if (on_reply_) on_reply_(it);
         }

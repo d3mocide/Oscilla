@@ -491,6 +491,36 @@ def header_verbs(path: Path | None = None) -> list[str]:
     return verbs
 
 
+# Capability class -> the cap strings that satisfy it (ocp.h ocp_cap_class_t).
+CAP_CLASS_CAPS = {
+    "OCP_CC_NONE": set(),
+    "OCP_CC_WIFI": {"wifi24", "wifi5"},
+    "OCP_CC_BLE": {"ble"},
+    "OCP_CC_IEEE802154": {"ieee802154"},
+    "OCP_CC_LORA_RX": {"lora_rx"},
+}
+
+
+def header_verb_table(path: Path | None = None) -> list[tuple[str, str, int, int]]:
+    """(verb, cap_class, min_args, max_args) for every OCP_VERB_TABLE row."""
+    src = (path or HEADER_PATH).read_text(encoding="utf-8")
+    table = src.split("#define OCP_VERB_TABLE(X)", 1)[1]
+    defines = read_header_defines(path)
+    rows = []
+    for m in re.finditer(r"^\s*X\((\w+),\s*(\w+),\s*(\w+),\s*(\d+),\s*(\d+),", table, re.M):
+        rows.append((defines[m.group(2)], m.group(3), int(m.group(4)), int(m.group(5))))
+    return rows
+
+
+def verb_unsupported_by(caps: set[str]) -> str | None:
+    """A zero-argument verb whose capability class these caps don't satisfy."""
+    for verb, cc, lo, _ in header_verb_table():
+        need = CAP_CLASS_CAPS.get(cc, set())
+        if need and not (need & caps) and lo == 0:
+            return verb
+    return None
+
+
 def check_against_header(path: Path | None = None) -> list[str]:
     """Return drift complaints; empty means this file matches ocp.h."""
     d = read_header_defines(path)

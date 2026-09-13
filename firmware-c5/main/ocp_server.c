@@ -7,7 +7,9 @@
 #include "ocp_server.h"
 #include "ocp_frame.h"
 #include "ocp_transport.h"
+#include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_recon.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -25,9 +27,6 @@
 #define OCP_TASK_PRIO       10      /* above any engine task (DESIGN §6.4) */
 #define OCP_READ_TIMEOUT_MS 100
 
-/* No radio engine exists yet, so this build advertises nothing. Phases add
- * caps here as their engines land. */
-#define OSCILLA_C5_CAPS ""
 
 #define X(id, verb, cc, mn, mx, reply) OCP_VID_##id,
 typedef enum { OCP_VERB_TABLE(X) OCP_VID_COUNT } ocp_verb_id_t;
@@ -42,7 +41,11 @@ static const struct {
 } k_verbs[] = { OCP_VERB_TABLE(X) };
 #undef X
 
-const char *ocp_server_caps(void) { return OSCILLA_C5_CAPS; }
+/* Advertise only engines that actually came up: caps are a promise (§4). */
+const char *ocp_server_caps(void)
+{
+    return wifi_recon_ready() ? OCP_CAP_WIFI24 OCP_CAP_SEP OCP_CAP_WIFI5 : "";
+}
 
 static void emit_hello(void)
 {
@@ -70,7 +73,7 @@ static int cap_available(ocp_cap_class_t cc)
     return 0;
 }
 
-static void handle(ocp_verb_id_t id)
+static void handle(ocp_verb_id_t id, int argc, char **argv)
 {
     switch (id) {
     case OCP_VID_HELLO:
@@ -92,16 +95,26 @@ static void handle(ocp_verb_id_t id)
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
                          "%s=%s lora=absent link=%s %s=%llu heap=%u",
-                         OCP_K_OWNER, OCP_OWNER_NONE, ocp_transport_name(),
+                         OCP_K_OWNER, arbiter_owner_name(arbiter_owner()), ocp_transport_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          (unsigned)esp_get_free_heap_size());
         break;
 
-    case OCP_VID_STOP:
-        /* Always acked, even when idle, so the deck can wait for a known
-         * state. Nothing can be running yet. */
-        ocp_emit_compact(OCP_MARK_STOP, "%s=0", OCP_K_RUNNING);
+    case OCP_VID_STOP: {
+        /* Always acked, even when idle. A cancelled owner emits its own
+         * aborted frame during teardown, so [STOP] comes last (§2.1). */
+        bool running = arbiter_stop_all();
+        ocp_emit_compact(OCP_MARK_STOP, "%s=%d", OCP_K_RUNNING, running ? 1 : 0);
+        break;
+    }
+
+    case OCP_VID_SCAN_NETWORKS:
+        wifi_cmd_scan();
+        break;
+
+    case OCP_VID_SHOW_SCAN_RESULTS:
+        wifi_cmd_show_results(argc, argv);
         break;
 
     case OCP_VID_REBOOT:
@@ -110,8 +123,8 @@ static void handle(ocp_verb_id_t id)
         break;
 
     default:
-        /* Registered in the contract, no engine in this build. */
-        ocp_emit_error(OCP_ERR_NOCAP, "not implemented in this build");
+        /* In the contract and its cap is present, but no handler yet. */
+        ocp_emit_error(OCP_ERR_UNKNOWN, "not implemented in this build");
         break;
     }
 }
@@ -170,7 +183,7 @@ static void dispatch(char *line)
             return;
         }
         status_led_activity();
-        handle((ocp_verb_id_t)i);
+        handle((ocp_verb_id_t)i, argc, argv);
         return;
     }
 
