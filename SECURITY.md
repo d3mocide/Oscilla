@@ -13,7 +13,7 @@ Report privately — please do not open a public issue for a security problem.
 - **GitHub Security Advisories** — *Security → Report a vulnerability* on
   [d3mocide/Oscilla](https://github.com/d3mocide/Oscilla) (preferred; keeps the
   discussion attached to the repo)
-- **Email** — <info@d3mo.us>
+- **Email** — <d3mo@threathunt.cc>
 
 Useful in a report: what you did, what happened, which commit, and which target
 (probe, deck, or the host tools). A serial capture or a byte stream that
