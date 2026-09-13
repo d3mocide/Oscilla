@@ -153,6 +153,10 @@ result; this repo's culture is that a claim without evidence is a defect.
   edit.** Either one reverts to the last *commit*, discarding every
   uncommitted change in that file, not just your test edit. To break
   something on purpose, copy the file first and restore from the copy.
+- **Stage what you changed, not whatever is dirty.** Read `git status` before
+  committing; a file you didn't touch may hold the user's own edit.
+  `git add -A` once buried a change to the disclosure email inside an
+  unrelated commit. Commit someone else's change separately, and say so.
 - **Prove a check catches the bug.** After fixing something, put the bug back
   (on a copy) and confirm the check fails. A green check that can't go red
   proves nothing.
