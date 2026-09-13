@@ -118,7 +118,7 @@ int main()
         Rig r;
         r.c.connect(r.now); r.probe(kHello);
 
-        r.c.send("scan_networks", r.now);
+        r.c.send("version", r.now);   /* generic timeout; scans have their own */
         r.advance(ocp::Client::kReplyTimeoutMs - 1);
         check(r.c.pending(), "not timed out one ms early");
         r.advance(1);
@@ -146,6 +146,32 @@ int main()
         r.c.send("reboot", r.now);
         r.advance(ocp::Client::kRebootTimeoutMs);
         check(r.c.state() == S::Disconnected, "probe that never returns from reboot -> Disconnected");
+    }
+
+    {
+        Rig r;
+        r.c.connect(r.now); r.probe(kHello); r.takeWire();
+
+        r.c.send("scan_networks", r.now);
+        r.advance(ocp::Client::kReplyTimeoutMs + 100);
+        check(r.c.pending() && r.c.stats().timeouts == 0, "a passive scan outlives the generic 2 s timeout");
+        r.advance(ocp::Client::kScanTimeoutMs);
+        check(!r.c.pending() && r.c.stats().timeouts == 1 && r.c.state() == S::Ready,
+              "but still times out, to Ready, at the scan timeout");
+
+        /* stop while a scan is pending (OCP-SPEC §2.1). */
+        r.c.send("scan_networks", r.now); r.takeWire();
+        check(r.c.send("stop", r.now) && r.takeWire() == "stop\n", "stop is sent despite a pending command");
+        check(r.c.stopPending() && r.c.pending(), "scan and stop both pending");
+        check(!r.c.stop(r.now), "a second stop is not sent while one is pending");
+        size_t before = r.replies.size();
+        r.probe("[SCAN] BEGIN n=0 total=0 first=1 aborted=1\n[SCAN] END\n[STOP] running=1 END\n");
+        check(!r.c.pending() && !r.c.stopPending(), "aborted [SCAN] answers the scan, [STOP] answers the stop");
+        check(r.replies.size() == before + 2 && r.c.stats().stray == 0, "two replies, nothing stray");
+
+        r.c.stop(r.now);
+        r.advance(ocp::Client::kStopTimeoutMs);
+        check(r.c.state() == S::Disconnected, "a stop nobody answers -> Disconnected");
     }
 
     {

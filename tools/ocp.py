@@ -202,14 +202,14 @@ def split_csv_row(text: str) -> list[bytes]:
             in_quote = True
             cur.append(c)
         elif c == ",":
-            fields.append(decode_field("".join(cur).strip()))
+            fields.append(decode_field("".join(cur).strip(" \t")))   # SP/HT only (§2)
             cur = []
         else:
             cur.append(c)
         i += 1
     if in_quote:
         raise OcpFramingError("unterminated quoted field in CSV row")
-    fields.append(decode_field("".join(cur).strip()))
+    fields.append(decode_field("".join(cur).strip(" \t")))
     return fields
 
 

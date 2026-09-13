@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "ocp/ocp_csv.h"
 #include "ocp/ocp_parser.h"
 
 namespace {
@@ -72,9 +73,27 @@ std::vector<std::string> run(const std::vector<uint8_t> &data, size_t chunk, boo
 
 }  // namespace
 
+/* --csv FILE: one hex-encoded row per line -> JSON list of hex fields, or null. */
+int csvMode(const char *path)
+{
+    std::ifstream f(path);
+    std::string line;
+    while (std::getline(f, line)) {
+        std::string row;
+        for (size_t i = 0; i + 1 < line.size(); i += 2) row += (char)std::stoi(line.substr(i, 2), nullptr, 16);
+        std::vector<std::string> fields;
+        if (!ocp::splitCsvRow(row, fields)) { std::printf("null\n"); continue; }
+        std::string out = "[";
+        for (size_t i = 0; i < fields.size(); ++i) out += (i ? ",\"" : "\"") + hex(fields[i]) + "\"";
+        std::printf("%s]\n", out.c_str());
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
-    if (argc != 2) { std::fprintf(stderr, "usage: %s STREAM\n", argv[0]); return 2; }
+    if (argc == 3 && std::string(argv[1]) == "--csv") return csvMode(argv[2]);
+    if (argc != 2) { std::fprintf(stderr, "usage: %s STREAM | --csv ROWS\n", argv[0]); return 2; }
     std::ifstream f(argv[1], std::ios::binary);
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 

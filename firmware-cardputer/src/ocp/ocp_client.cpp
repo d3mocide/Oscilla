@@ -32,6 +32,13 @@ const char *expectedReply(const std::string &verb)
     return nullptr;
 }
 
+uint32_t replyTimeout(const std::string &verb)
+{
+    if (verb == OCP_V_SCAN_NETWORKS)   return Client::kScanTimeoutMs;
+    if (verb == OCP_V_INSPECT_NETWORK) return Client::kInspectTimeoutMs;
+    return Client::kReplyTimeoutMs;
+}
+
 /* Liveness probes: if these time out, the probe isn't there. */
 bool isLiveness(const std::string &verb)
 {
@@ -86,11 +93,21 @@ void Client::connect(uint32_t now_ms)
     setState(LinkState::HelloSent);
 }
 
+bool Client::stop(uint32_t now_ms)
+{
+    if (state_ != LinkState::Ready || stop_pending_) return false;
+    writeLine(OCP_V_STOP);
+    stop_pending_ = true;
+    stop_sent_at_ = now_ms;
+    return true;
+}
+
 bool Client::send(const std::string &line, uint32_t now_ms)
 {
+    std::string verb = line.substr(0, line.find(' '));
+    if (verb == OCP_V_STOP) return stop(now_ms);
     if (state_ != LinkState::Ready || pending()) return false;
 
-    std::string verb = line.substr(0, line.find(' '));
     const char *reply = expectedReply(verb);
     if (!reply) return false;   /* not in the contract: never put it on the wire */
 
@@ -107,7 +124,7 @@ bool Client::send(const std::string &line, uint32_t now_ms)
     }
     pending_verb_ = verb;
     pending_reply_ = reply;
-    timeout_ms_ = kReplyTimeoutMs;
+    timeout_ms_ = replyTimeout(verb);
     return true;
 }
 
@@ -120,6 +137,12 @@ void Client::feed(const uint8_t *data, size_t len, uint32_t now_ms)
 void Client::tick(uint32_t now_ms)
 {
     now_ = now_ms;
+    if (stop_pending_ && now_ms - stop_sent_at_ >= kStopTimeoutMs) {
+        stats_.timeouts++;
+        stop_pending_ = false;
+        setState(LinkState::Disconnected);   /* a probe that ignores stop is gone */
+        return;
+    }
     if (!pending() || now_ms - sent_at_ < timeout_ms_) return;   /* wrap-safe */
 
     stats_.timeouts++;
@@ -145,6 +168,7 @@ void Client::handleHello(const Item &it)
 
     /* Anything in flight will never be answered by a probe that rebooted. */
     finishPending();
+    stop_pending_ = false;
     parser_.abandonOpenFrame();
 
     if (!solicited && state_ == LinkState::Ready) {
@@ -188,6 +212,11 @@ void Client::onItem(Item &&it)
     case ItemKind::Frame:
         if (it.tag == OCP_MARK_HELLO) {
             handleHello(it);
+            if (on_reply_) on_reply_(it);
+            return;
+        }
+        if (it.tag == OCP_MARK_STOP && stop_pending_) {
+            stop_pending_ = false;
             if (on_reply_) on_reply_(it);
             return;
         }

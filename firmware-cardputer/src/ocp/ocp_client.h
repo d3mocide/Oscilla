@@ -45,6 +45,9 @@ public:
     static constexpr uint32_t kHelloTimeoutMs  = 1500;
     static constexpr uint32_t kReplyTimeoutMs  = 2000;
     static constexpr uint32_t kRebootTimeoutMs = 6000;
+    static constexpr uint32_t kScanTimeoutMs   = 30000;   /* passive dual-band ~10.5 s */
+    static constexpr uint32_t kInspectTimeoutMs = 6000;   /* 2 s capture + margin */
+    static constexpr uint32_t kStopTimeoutMs   = 3000;
 
     using Write = std::function<void(const char *data, size_t len)>;
     using ItemSink = std::function<void(const Item &)>;
@@ -66,11 +69,17 @@ public:
     /* Send `hello` and wait for the handshake. */
     void connect(uint32_t now_ms);
 
-    /* One command line, no terminator. False if not Ready or one is pending. */
+    /* One command line, no terminator. False if not Ready or one is pending.
+     * `stop` is routed to stop(). */
     bool send(const std::string &line, uint32_t now_ms);
+
+    /* Allowed while a command is pending (OCP-SPEC §2.1): the cancelled
+     * command still gets its aborted reply, then [STOP]. */
+    bool stop(uint32_t now_ms);
 
     LinkState state() const { return state_; }
     bool pending() const { return !pending_verb_.empty(); }
+    bool stopPending() const { return stop_pending_; }
     const std::string &pendingVerb() const { return pending_verb_; }
     const ProbeInfo &probe() const { return probe_; }
     const ClientStats &stats() const { return stats_; }
@@ -93,6 +102,9 @@ private:
     uint32_t sent_at_ = 0;
     uint32_t timeout_ms_ = 0;
     uint32_t now_ = 0;
+
+    bool stop_pending_ = false;
+    uint32_t stop_sent_at_ = 0;
 
     ItemSink on_reply_, on_event_;
     StateSink on_state_;

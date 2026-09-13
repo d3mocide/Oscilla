@@ -42,6 +42,11 @@
   - The stop-vs-inspect check was racy, because a 3-beacon capture can finish before `stop` lands. It now requires the ordering and aborted⇔running=1 to agree every time, and the abort path at least once (3/3).
   - **Skipped checks were printing `PASS`.** Reports now have a separate SKIP state, never counted as passed.
 - My first two attempts at that report refactor aborted mid-script. Each validated its edits before writing, so neither touched the file. The third validated every edit up front, then applied them.
+- **Deck groundwork for Sweep/Trace, all host-tested and mutation-checked:**
+  - `ocp_csv`: a C++ `[SCAN]` row splitter, diffed against Python on 3,000 rows (377 malformed, rejected identically). Mirroring it found **the Unicode-strip bug again, in `split_csv_row`**: `.strip()` also removed `\x1c`/`\xa0` around fields. Now SP/HT only.
+  - `ocp_client`: per-verb timeouts (scan 30 s, inspect 6 s, else 2 s). A passive scan would have died at the old 2 s. `stop` is tracked separately so it can be sent while a command is pending: the aborted frame answers the command, `[STOP]` answers the stop. 43 tests. One old test changed on purpose: it expected `scan_networks` to time out at 2 s.
+  - `model/scan_model`: validates every row (7 fields, idx exactly in sequence, channel and RSSI in range, known band, 17-char BSSID) and counts rather than trusts malformed ones. Pages automatically, ignores stale pages, caps at 512 rows and shows it. 17 tests.
+  - My first `absorbInspect` hand-rolled a second k=v parser, dead code included. Replaced with the tested parser before it was ever run. It now also parses `uptime_s` as 64-bit, since `long` is 32-bit on the S3.
 - **Next:** the deck's Sweep/Trace views over real frames, then the P2 exit gate on the deck.
 
 ---

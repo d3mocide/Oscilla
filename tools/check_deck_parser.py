@@ -28,6 +28,7 @@ def build(out: Path) -> Path:
                     f"-I{ROOT / 'protocol'}", f"-I{ROOT / 'firmware-cardputer/src'}",
                     str(ROOT / "firmware-cardputer/test/host/parser_corpus.cpp"),
                     str(ROOT / "firmware-cardputer/src/ocp/ocp_parser.cpp"),
+                    str(ROOT / "firmware-cardputer/src/ocp/ocp_csv.cpp"),
                     str(text_o), "-o", str(exe)], check=True)
     return exe
 
@@ -64,7 +65,40 @@ def main() -> int:
                 return 1
             items += len(expected)
 
+        # CSV rows: valid encodings, near-misses, and garbage.
+        import random
+        sys.path.insert(0, str(ROOT / "tools"))
+        import ocp
+        rng = random.Random(args.seed)
+        rows = []
+        for _ in range(3000):
+            k = rng.random()
+            fields = [bytes(rng.randrange(256) for _ in range(rng.randint(0, 12))) for _ in range(rng.randint(1, 8))]
+            row = ",".join(ocp.encode_field(f) for f in fields)
+            if k < 0.25:
+                row = row.replace(",", rng.choice([" , ", "\t,", ",\x1c", ", "]), rng.randint(0, 3))
+            elif k < 0.45:
+                cut = rng.randrange(len(row) + 1)
+                row = row[:cut] + rng.choice(['"', "\\", "\\q", "\\x+f", ",", "\xa0", ""]) + row[cut:]
+            elif k < 0.55:
+                row = "".join(chr(rng.randrange(256)) for _ in range(rng.randint(0, 40)))
+            rows.append(row.encode("latin-1"))
+        csv_file = tmp / "rows.hex"
+        csv_file.write_text("\n".join(r.hex() for r in rows) + "\n")
+        res = subprocess.run([str(exe), "--csv", str(csv_file)], capture_output=True, text=True, check=True)
+        got = [json.loads(l) for l in res.stdout.splitlines()]
+        for i, row in enumerate(rows):
+            try:
+                want = [f.hex() for f in ocp.split_csv_row(row.decode("latin-1"))]
+            except ocp.OcpFramingError:
+                want = None
+            if got[i] != want:
+                print(f"FAIL csv row {i}: {row!r}\n  py : {want}\n  c++: {got[i]}")
+                return 1
+        bad = sum(g is None for g in got)
+
     print(f"  deck parser matches ocp.py: {args.count} streams, {items} items, byte-wise chunking identical")
+    print(f"  deck CSV splitter matches ocp.py: {len(rows)} rows ({bad} malformed, rejected identically)")
     return 0
 
 

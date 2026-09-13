@@ -54,4 +54,10 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/client_test" | tail -1 | sed 's/^/  /'
 
+# The deck's scan model: paging, validation, caps.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/model_test" \
+    firmware-cardputer/test/host/model_test.cpp firmware-cardputer/src/model/scan_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/model_test" | tail -1 | sed 's/^/  /'
+
 echo "protocol contract OK"
