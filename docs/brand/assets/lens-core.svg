@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Oscilla Lens Core</title>
+  <desc id="desc">Green hexagonal field and orbital geometry around a cream observation lens with a yellow focal dot.</desc>
+  <g stroke="#A8DF65" stroke-width="3">
+    <path d="M150 24 258 86v128l-108 62L42 214V86z"/>
+    <ellipse cx="150" cy="150" rx="101" ry="43"/>
+    <ellipse cx="150" cy="150" rx="43" ry="101" opacity=".68"/>
+  </g>
+  <path d="M102 150c15-35 81-35 96 0-15 35-81 35-96 0Z" stroke="#F4ECD9" stroke-width="5"/>
+  <circle cx="150" cy="150" r="16" fill="#F5D658"/>
+</svg>
