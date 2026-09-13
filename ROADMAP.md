@@ -175,7 +175,9 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 **Work:**
 - [ ] `ble_recon.c` — NimBLE passive scan, device table, tracker classification; **Beacons** view.
 - [ ] `zig_recon/` lifted verbatim (MIT) + `[ZIG]` frames; **Mesh** view.
-- [ ] Sniffer/spectrum: `start_sniffer`, `show_clients/probes`, `channel_view`, `packet_monitor`, `deauth_detector`; **Contacts** + **Spectrum** views with `[EVT]` streaming.
+- [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12); host-verified only, not yet exercised over real RF or on hardware. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md), open).
+- [x] `deauth_detector` + a Deauth card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG); host-verified only, not yet exercised over real RF or on hardware.
+- [x] `channel_view`, `packet_monitor` + **Spectrum** view — same early/out-of-sequence batch; host-verified and both firmwares build, not yet seen live on the deck's display.
 - [ ] Wardrive: stream observations, deck-side geotag against local fix + age, write WigleWifi CSV + KML; **Drive** view.
 - [ ] `start_antisurveillance` (deck correlates BLE sightings with its own movement).
 

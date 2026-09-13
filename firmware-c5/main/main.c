@@ -12,8 +12,11 @@
 #include "ocp_transport.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_deauth.h"
 #include "wifi_inspect.h"
 #include "wifi_recon.h"
+#include "wifi_sniff.h"
+#include "wifi_spectrum.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -36,6 +39,9 @@ void app_main(void)
      * just doesn't advertise that cap. */
     err = wifi_recon_init();
     if (err == ESP_OK) err = wifi_inspect_init();
+    if (err == ESP_OK) err = wifi_sniff_init();
+    if (err == ESP_OK) err = wifi_deauth_init();
+    if (err == ESP_OK) err = wifi_spectrum_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     ESP_ERROR_CHECK(ocp_transport_init());

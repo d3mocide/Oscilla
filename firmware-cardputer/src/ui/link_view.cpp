@@ -8,6 +8,8 @@
 
 #include <M5Cardputer.h>
 
+#include "ui/canvas.h"
+
 namespace ui {
 
 std::string printable(const std::string &s, size_t max_len)
@@ -38,7 +40,7 @@ uint16_t stateColour(ocp::LinkState s)
 void drawLinkView(const ocp::Client &client, const std::string &last_reply,
                   const std::string &notice)
 {
-    auto &d = M5Cardputer.Display;
+    auto &d = ui::canvas();
     const auto &p = client.probe();
     const auto &st = client.stats();
 
@@ -73,7 +75,7 @@ void drawLinkView(const ocp::Client &client, const std::string &last_reply,
 
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - 10);
-    d.print("w sweep  h hello  p ping  s status");
+    d.print(", / cards  w sweep  h/p/s system");
 }
 
 }  // namespace ui

@@ -9,6 +9,7 @@
 
 #include "app/deck_app.h"
 #include "ocp.h"
+#include "ui/canvas.h"
 
 namespace {
 
@@ -27,6 +28,7 @@ void setup()
     Serial.begin(115200);   /* USB: deck diagnostics only */
     M5Cardputer.begin(M5.config(), true);
     M5Cardputer.Display.setRotation(1);
+    ui::initCanvas();
 
     /* A 256-row [SCAN] page is ~20 KB in ~2 s; a redraw must not overflow the buffer. */
     Serial1.setRxBufferSize(16384);

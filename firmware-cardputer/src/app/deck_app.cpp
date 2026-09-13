@@ -6,8 +6,15 @@
 
 #include "app/deck_app.h"
 
+#include <cstdlib>
+
 #include "ocp.h"
+#include "ui/canvas.h"
+#include "ui/contacts_view.h"
+#include "ui/deauth_view.h"
+#include "ui/info_view.h"
 #include "ui/link_view.h"
+#include "ui/spectrum_view.h"
 #include "ui/sweep_view.h"
 #include "ui/trace_view.h"
 
@@ -18,6 +25,28 @@ constexpr uint32_t kRetryMs = 2000;       /* reconnect while Disconnected */
 constexpr uint32_t kKeepaliveMs = 3000;   /* ping when idle, to notice a lost probe */
 constexpr uint32_t kRedrawMs = 200;
 constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
+constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
+constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
+
+/* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
+ * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
+ * drill-down from Link instead (DESIGN §7.3), not part of this cycle. */
+constexpr Screen kCards[] = { Screen::Link, Screen::Contacts, Screen::Info, Screen::Spectrum, Screen::Deauth };
+constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
+
+bool isHomeCard(Screen s)
+{
+    for (Screen c : kCards) if (c == s) return true;
+    return false;
+}
+
+Screen cycleCard(Screen s, int dir)
+{
+    int i = 0;
+    for (; i < kNumCards; i++) if (kCards[i] == s) break;
+    i = (i + dir + kNumCards) % kNumCards;
+    return kCards[i];
+}
 }  // namespace
 
 DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
@@ -32,12 +61,15 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         log("probe-reset resets=" + std::to_string(st.resets) + " noise=" + std::to_string(st.noise) +
             " stray=" + std::to_string(st.stray));
         scan_.clear();
+        contacts_.clear();
+        spectrum_.clear();
+        deauth_.clear();
         next_page_ = 0;
-        if (screen_ != Screen::Link) screen_ = Screen::Sweep;
+        if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
         notice("probe rebooted - resynced");
     });
     client_.onReply([this](const ocp::Item &it) { onReply(it); });
-    client_.onEvent([this](const ocp::Item &) { dirty_ = true; });
+    client_.onEvent([this](const ocp::Item &it) { onEvent(it); });
 }
 
 void DeckApp::begin(uint32_t now_ms)
@@ -65,7 +97,34 @@ void DeckApp::onReply(const ocp::Item &it)
     }
 
     last_reply_ = it.tag;
-    if (it.tag == OCP_MARK_SCAN) {
+    if (it.tag == OCP_MARK_STATUS) {
+        const auto *heap = it.get(OCP_K_HEAP);
+        const auto *uptime = it.get(OCP_K_UPTIME_MS);
+        if (heap && uptime) {
+            probe_heap_ = static_cast<uint32_t>(std::strtoul(heap->c_str(), nullptr, 10));
+            probe_uptime_ms_ = std::strtoull(uptime->c_str(), nullptr, 10);
+            probe_status_valid_ = true;
+            last_status_reply_ms_ = now_;
+        }
+    } else if (it.tag == OCP_MARK_STOP) {
+        contacts_.stopSniffing();
+        spectrum_.stop();
+        deauth_.stop();
+    } else if (it.tag == OCP_MARK_SNIFF) {
+        log("sniffer started");
+    } else if (it.tag == OCP_MARK_CLIENTS) {
+        contacts_.absorbClients(it);
+    } else if (it.tag == OCP_MARK_PROBES) {
+        contacts_.absorbProbes(it);
+    } else if (it.tag == OCP_MARK_CHAN) {
+        log("channel_view started");
+    } else if (it.tag == OCP_MARK_CFG) {
+        /* Shared reply marker (packet_monitor and deauth_detector both use
+         * it): which verb it's for is whatever we just sent, not decodable
+         * from the frame itself — this is diagnostic-only, so "cfg" is fine. */
+        const auto *ch = it.get(OCP_K_CH);
+        log("cfg ack ch=" + (ch ? *ch : std::string("?")));
+    } else if (it.tag == OCP_MARK_SCAN) {
         next_page_ = scan_.absorbPage(it);   /* requested from tick(): not re-entrant here */
         const auto *first = it.get(OCP_K_FIRST);
         log("scan-page first=" + (first ? *first : std::string("?")) + " rows=" + std::to_string(it.rows.size()) +
@@ -86,6 +145,14 @@ void DeckApp::onReply(const ocp::Item &it)
             " rsn=" + std::to_string(in.rsn) + " mfp_capable=" + std::to_string(in.mfp_capable) +
             " mfp_required=" + std::to_string(in.mfp_required) + " aborted=" + std::to_string(in.aborted));
     }
+}
+
+void DeckApp::onEvent(const ocp::Item &it)
+{
+    dirty_ = true;
+    contacts_.absorbEvent(it);   /* ticker only: [CLIENTS]/[PROBES] stay the authority */
+    spectrum_.absorbEvent(it);   /* kind=chan is the only source of truth here, no dump verb */
+    deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
 }
 
 void DeckApp::startScan(uint32_t now_ms)
@@ -112,9 +179,58 @@ void DeckApp::startInspect(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::startSniffer(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_START_SNIFFER, now_ms)) { notice("busy"); return; }
+    contacts_.begin();
+    contacts_cursor_ = 0;
+    contacts_tab_ = ui::ContactsTab::Clients;
+    contacts_poll_clients_ = true;
+    last_contacts_poll_ms_ = now_ms;
+    screen_ = Screen::Contacts;
+    notice("");
+}
+
+void DeckApp::startChannelView(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_CHANNEL_VIEW, now_ms)) { notice("busy"); return; }
+    spectrum_.begin();
+    spectrum_cursor_ = 0;
+    notice("");
+}
+
+void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(std::string(OCP_V_PACKET_MONITOR) + " " + std::to_string(ch), now_ms)) {
+        notice("busy");
+        return;
+    }
+    spectrum_.beginLocked(ch);
+    notice("");
+}
+
+void DeckApp::startDeauthDetector(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_DEAUTH_DETECTOR, now_ms)) { notice("busy"); return; }
+    deauth_.begin();
+    deauth_cursor_ = 0;
+    notice("");
+}
+
 void DeckApp::back(uint32_t now_ms)
 {
-    if (client_.pending()) client_.stop(now_ms);
+    /* A live sniffer/spectrum mode has no pending command once its ack
+     * lands (it's a stream, not a blocking reply), so leaving the screen
+     * must send `stop` unconditionally rather than only when something is
+     * pending. */
+    if (client_.pending() || screen_ == Screen::Contacts || screen_ == Screen::Spectrum ||
+        screen_ == Screen::Deauth) {
+        client_.stop(now_ms);
+    }
     screen_ = screen_ == Screen::Trace ? Screen::Sweep : Screen::Link;
     dirty_ = true;
 }
@@ -125,6 +241,11 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     if (!keys.chars.empty() || keys.enter) log("keys=" + keys.chars + (keys.enter ? "<enter>" : ""));
     for (char c : keys.chars) {
         if (c == '`') { back(now_ms); continue; }
+        if ((c == ',' || c == '/') && isHomeCard(screen_)) {
+            screen_ = cycleCard(screen_, c == '/' ? 1 : -1);
+            dirty_ = true;
+            continue;
+        }
 
         switch (screen_) {
         case Screen::Link:
@@ -142,10 +263,47 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         case Screen::Trace:
             if (c == 'i') startInspect(now_ms);
             break;
+        case Screen::Contacts: {
+            size_t n = contacts_tab_ == ui::ContactsTab::Clients ? contacts_.clients().size()
+                                                                  : contacts_.probes().size();
+            if (c == ';' && contacts_cursor_ > 0) contacts_cursor_--;
+            else if (c == '.' && contacts_cursor_ + 1 < n) contacts_cursor_++;
+            else if (c == 'x') {
+                contacts_tab_ = contacts_tab_ == ui::ContactsTab::Clients ? ui::ContactsTab::Probes
+                                                                          : ui::ContactsTab::Clients;
+                contacts_cursor_ = 0;
+            } else if (c == 's') {
+                if (contacts_.sniffing()) client_.stop(now_ms);
+                else startSniffer(now_ms);
+            }
+            break;
+        }
+        case Screen::Info:
+            break;   /* nothing but card-cycling and back here */
+        case Screen::Spectrum:
+            if (c == ';' && spectrum_cursor_ > 0) spectrum_cursor_--;
+            else if (c == '.' && spectrum_cursor_ + 1 < spectrum_.readings().size()) spectrum_cursor_++;
+            else if (c == 's') {
+                if (spectrum_.active()) client_.stop(now_ms);
+                else startChannelView(now_ms);
+            }
+            break;
+        case Screen::Deauth:
+            if (c == ';' && deauth_cursor_ > 0) deauth_cursor_--;
+            else if (c == '.' && deauth_cursor_ + 1 < deauth_.events().size()) deauth_cursor_++;
+            else if (c == 's') {
+                if (deauth_.active()) client_.stop(now_ms);
+                else startDeauthDetector(now_ms);
+            }
+            break;
         }
         dirty_ = true;
     }
     if (keys.enter && screen_ == Screen::Sweep && !scan_.scanning()) startInspect(now_ms);
+    if (keys.enter && screen_ == Screen::Spectrum && !spectrum_.locked() &&
+        spectrum_cursor_ < spectrum_.readings().size()) {
+        startPacketMonitor(now_ms, spectrum_.readings()[spectrum_cursor_].ch);
+    }
 }
 
 void DeckApp::tick(uint32_t now_ms)
@@ -165,6 +323,18 @@ void DeckApp::tick(uint32_t now_ms)
     if (st == ocp::LinkState::Disconnected && now_ms - last_attempt_ms_ >= kRetryMs) {
         last_attempt_ms_ = now_ms;
         client_.connect(now_ms);
+    }
+    if (screen_ == Screen::Contacts && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_contacts_poll_ms_ >= kContactsPollMs) {
+        last_contacts_poll_ms_ = now_ms;
+        const char *verb = contacts_poll_clients_ ? OCP_V_SHOW_CLIENTS : OCP_V_SHOW_PROBES;
+        contacts_poll_clients_ = !contacts_poll_clients_;
+        client_.send(verb, now_ms);
+    }
+    if (screen_ == Screen::Info && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_status_poll_ms_ >= kInfoPollMs) {
+        last_status_poll_ms_ = now_ms;
+        client_.send(OCP_V_STATUS, now_ms);
     }
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
         now_ms - last_keepalive_ms_ >= kKeepaliveMs) {
@@ -200,7 +370,21 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawTraceView(row, in, listening, notice_);
         break;
     }
+    case Screen::Contacts:
+        ui::drawContactsView(contacts_, contacts_tab_, contacts_cursor_, notice_);
+        break;
+    case Screen::Info:
+        ui::drawInfoView(client_, probe_status_valid_, probe_heap_, probe_uptime_ms_,
+                         now_ms - last_status_reply_ms_, notice_);
+        break;
+    case Screen::Spectrum:
+        ui::drawSpectrumView(spectrum_, spectrum_cursor_, notice_);
+        break;
+    case Screen::Deauth:
+        ui::drawDeauthView(deauth_, deauth_cursor_, notice_);
+        break;
     }
+    ui::present();
     dirty_ = false;
     last_draw_ms_ = now_ms;
 }

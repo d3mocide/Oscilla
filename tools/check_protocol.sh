@@ -47,6 +47,22 @@ python3 tools/check_deck_parser.py --count 150
     -Ifirmware-c5/main -o "$out/beacon_test" firmware-c5/test/host/beacon_test.c firmware-c5/main/beacon_parse.c
 "$out/beacon_test" 100000 | tail -1 | sed 's/^/  /'
 
+# Probe request parser (sniffer's SSID-tracking path): same treatment.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/probe_parse_test" firmware-c5/test/host/probe_parse_test.c firmware-c5/main/probe_parse.c
+"$out/probe_parse_test" 100000 | tail -1 | sed 's/^/  /'
+
+# Sniffer tracking tables (AP<->client, probe SSIDs): dedup/overflow/address
+# classification, with no radio or hardware needed.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/sniff_track_test" firmware-c5/test/host/sniff_track_test.c firmware-c5/main/sniff_track.c
+"$out/sniff_track_test" 100000 | tail -1 | sed 's/^/  /'
+
+# Deauth/disassoc frame parser (deauth_detector's classification path).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/deauth_parse_test" firmware-c5/test/host/deauth_parse_test.c firmware-c5/main/deauth_parse.c
+"$out/deauth_parse_test" 100000 | tail -1 | sed 's/^/  /'
+
 # The deck's connection client against a scripted probe.
 "${CC:-gcc}" -std=c99 "${warn[@]}" -Iprotocol -c -o "$out/ocp_text.o" protocol/ocp_text.c
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/client_test" \
@@ -59,5 +75,23 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/model_test.cpp firmware-cardputer/src/model/scan_model.cpp \
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/model_test" | tail -1 | sed 's/^/  /'
+
+# The deck's contacts model: [CLIENTS]/[PROBES] snapshots vs. the event ticker.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contacts_model_test" \
+    firmware-cardputer/test/host/contacts_model_test.cpp firmware-cardputer/src/model/contacts_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/contacts_model_test" | tail -1 | sed 's/^/  /'
+
+# The deck's spectrum model: channel_view/packet_monitor event absorption.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/spectrum_model_test" \
+    firmware-cardputer/test/host/spectrum_model_test.cpp firmware-cardputer/src/model/spectrum_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/spectrum_model_test" | tail -1 | sed 's/^/  /'
+
+# The deck's deauth model: kind=deauth event log, capped and validated.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/deauth_model_test" \
+    firmware-cardputer/test/host/deauth_model_test.cpp firmware-cardputer/src/model/deauth_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/deauth_model_test" | tail -1 | sed 's/^/  /'
 
 echo "protocol contract OK"

@@ -8,6 +8,7 @@
 
 #include <M5Cardputer.h>
 
+#include "ui/canvas.h"
 #include "ui/link_view.h"
 
 namespace ui {
@@ -38,7 +39,7 @@ const char *shortAuth(const std::string &a)
 void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scanning_ms,
                    const std::string &notice)
 {
-    auto &d = M5Cardputer.Display;
+    auto &d = ui::canvas();
     d.fillScreen(TFT_BLACK);
     d.setTextSize(1);
     d.setCursor(0, 0);
@@ -72,7 +73,7 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
         d.setTextColor(r.ssid.empty() ? TFT_DARKGREY : TFT_WHITE, bg);
         d.printf("%-15s", name.c_str());
         d.setTextColor(TFT_LIGHTGREY, bg);
-        d.printf(" %3u%s %-4s ", r.ch, r.band5 ? "5" : "2", shortAuth(r.auth));
+        d.printf(" %3u %-2s %-4s ", r.ch, r.band5 ? "5G" : "2G", shortAuth(r.auth));
         d.setTextColor(rssiColour(r.rssi), bg);
         d.printf("%4d", r.rssi);
     }

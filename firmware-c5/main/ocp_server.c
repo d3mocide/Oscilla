@@ -9,8 +9,11 @@
 #include "ocp_transport.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_deauth.h"
 #include "wifi_inspect.h"
 #include "wifi_recon.h"
+#include "wifi_sniff.h"
+#include "wifi_spectrum.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -95,11 +98,11 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=absent link=%s %s=%llu heap=%u",
+                         "%s=%s lora=absent link=%s %s=%llu %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()), ocp_transport_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
-                         (unsigned)esp_get_free_heap_size());
+                         OCP_K_HEAP, (unsigned)esp_get_free_heap_size());
         break;
 
     case OCP_VID_STOP: {
@@ -120,6 +123,30 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_INSPECT_NETWORK:
         wifi_cmd_inspect(argc, argv);
+        break;
+
+    case OCP_VID_START_SNIFFER:
+        wifi_cmd_start_sniffer();
+        break;
+
+    case OCP_VID_SHOW_CLIENTS:
+        wifi_cmd_show_clients();
+        break;
+
+    case OCP_VID_SHOW_PROBES:
+        wifi_cmd_show_probes();
+        break;
+
+    case OCP_VID_DEAUTH_DETECTOR:
+        wifi_cmd_deauth_detector();
+        break;
+
+    case OCP_VID_CHANNEL_VIEW:
+        wifi_cmd_channel_view();
+        break;
+
+    case OCP_VID_PACKET_MONITOR:
+        wifi_cmd_packet_monitor(argc, argv);
         break;
 
     case OCP_VID_REBOOT:

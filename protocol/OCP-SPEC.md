@@ -252,8 +252,7 @@ The verb table is not the whole story: an innocent verb could still call a trans
 [INSPECT] mfp_capable=1 mfp_required=0 uptime=1042311
 [INSPECT] END
 > start_sniffer
-[SNIFF] BEGIN ch=1
-[SNIFF] END
+[SNIFF] ch=1 END
 [EVT] kind=sniff pkts=118 ch=1
 [EVT] kind=sniff pkts=349 ch=6
 > lora_listen
@@ -331,3 +330,134 @@ Passively captures beacons from one scanned AP on its channel:
 - `rsn=0` means no RSN element (open or WEP); `mfp_*` are then `0`.
 - `uptime_s` is the beacon TSF in seconds. Most APs reset it at boot, so it is uptime; some randomise it, so treat it as a hint.
 - An `idx` outside the stored results is `code=badarg`.
+
+### 10.4 `start_sniffer`, `show_clients`, `show_probes`
+
+Passively hops a fixed channel list — 2.4 GHz 1–13 plus the non-DFS 5 GHz
+channels (36/40/44/48, 149/153/157/161/165), `SNIFF_DWELL_MS` each, plain
+round-robin (D-UCB dwell weighting is deferred to P8, D-6; DFS channels are
+excluded pending [D-14](../docs/DECISIONS.md) — see `wifi_sniff.c`'s header
+comment) — and builds
+two in-RAM tables from what it overhears, **transmitting nothing**: which
+client MAC talks to which AP BSSID, and which MAC has sent a probe request
+for which SSID — the latter is a device revealing its saved-network list
+even when it isn't associated to anything, which is the point of running
+this passively rather than only scanning associated traffic.
+
+`start_sniffer` replies immediately and the mode continues until `stop`:
+
+```
+> start_sniffer
+[SNIFF] ch=1 END
+[EVT] kind=sniff pkts=118 ch=1
+[EVT] kind=client bssid=aa:bb:cc:dd:ee:01 mac=f4:12:34:56:78:9a ch=1 rssi=-54
+[EVT] kind=probe mac=f4:12:34:56:78:9a ssid="HomeNet" rssi=-61
+[EVT] kind=sniff pkts=349 ch=2
+> stop
+[STOP] running=1 END
+```
+
+| `[EVT] kind=` | Meaning | Keys |
+|---|---|---|
+| `sniff` | emitted once per channel hop | `pkts` (session total, any accepted frame), `ch` (channel just finished) |
+| `client` | a new (not previously seen) AP↔client pairing | `bssid`, `mac`, `ch`, `rssi` |
+| `probe` | a new (not previously seen) mac+SSID probe-request pairing; `ssid=""` is a wildcard/broadcast probe | `mac`, `ssid`, `rssi` |
+
+These events fire only on first sighting of a pairing — they are a live feed
+of *new* discoveries, not a packet-by-packet trace, and like all events they
+are lossy by design (§5.1): a dropped one only delays the deck learning about
+it, because `show_clients` / `show_probes` return the full table on demand:
+
+```
+[CLIENTS] BEGIN n=1 total=1 elapsed_ms=15234
+[CLIENTS] "aa:bb:cc:dd:ee:01","f4:12:34:56:78:9a","1","2.4","-54","128"
+[CLIENTS] END
+
+[PROBES] BEGIN n=1 total=1 elapsed_ms=15234
+[PROBES] "f4:12:34:56:78:9a","HomeNet","-61","3"
+[PROBES] END
+```
+
+Columns: `[CLIENTS]` is `bssid`, `mac`, `ch`, `band`, `rssi` (most recent),
+`pkts`. `[PROBES]` is `mac`, `ssid`, `rssi` (most recent), `pkts`. Both tables
+persist across `stop` (so a session can still be read back afterwards) and
+reset on the next `start_sniffer`. Both are capped (`SNIFF_CLIENTS_MAX` /
+`SNIFF_PROBES_MAX`) well under `OCP_MAX_FRAME_ROWS`, so unlike `[SCAN]` there
+is no paging: once full, new pairings are dropped rather than replacing old
+ones — lossy the same way events are, and for the same reason (bounded RAM,
+no blocking).
+
+### 10.5 `deauth_detector`
+
+Passively hops the same channel list as `start_sniffer` (§10.4) watching for
+802.11 deauthentication and disassociation management frames — receive-only,
+defensive monitoring, not to be confused with *sending* a deauth frame (an
+offensive, transmit-requiring action this project never does, §7). Replies
+immediately and streams for the rest of the session, same shape as
+`start_sniffer`:
+
+```
+> deauth_detector
+[CFG] ch=1 END
+[EVT] kind=deauth bssid=aa:bb:cc:dd:ee:01 mac=f4:12:34:56:78:9a reason=7 disassoc=0 rssi=-58 ch=6 n=1
+[EVT] kind=deauth bssid=aa:bb:cc:dd:ee:01 mac=f4:12:34:56:78:9a reason=7 disassoc=0 rssi=-59 ch=6 n=2
+> stop
+[STOP] running=1 END
+```
+
+Unlike the sniffer's client/probe events (new sightings only), **every**
+deauth/disassoc frame produces an event — occurrences, especially a sudden
+burst from one `bssid`, are themselves the signal an operator watches for,
+not something to deduplicate away. There is no snapshot-dump verb here (no
+`show_deauths`): the stream *is* the record, and like all events it is lossy
+under load (§5.1) — a real flood will still read as an obvious flood even if
+individual frames are dropped from a full queue.
+
+| Key | Meaning |
+|---|---|
+| `bssid` | addr3 — the network identity the frame claims |
+| `mac` | addr1 — the client being dropped (`ff:ff:ff:ff:ff:ff` for a broadcast deauth) |
+| `reason` | the reason code exactly as sent — attacker-controlled, not a trustworthy enum |
+| `disassoc` | `1` = disassociation, `0` = deauthentication (same detector, both subtypes) |
+| `ch` | channel the frame was heard on |
+| `n` | running count for this session, so a dropped event doesn't hide *that* something is happening |
+
+### 10.6 `channel_view`, `packet_monitor <ch>`
+
+Both just count frames — `WIFI_PROMIS_FILTER_MASK_ALL`, no address/IE
+parsing, no content ever read — so there's nothing here to fuzz the way
+`sniff_track`/`deauth_parse` are. Neither has a snapshot-dump verb: the
+`[EVT] kind=chan` stream is the whole story, and it's self-healing under
+drops, unlike the sniffer's new-pairing-only events — every channel gets a
+fresh reading again next cycle, so a lost event just means a stale reading
+briefly, not a gap that never fills in.
+
+`channel_view` hops the same list as `start_sniffer`/`deauth_detector`
+(§10.4), reporting one live count per channel each time its dwell ends:
+
+```
+> channel_view
+[CHAN] ch=1 n=22 END
+[EVT] kind=chan ch=1 pkts=42
+[EVT] kind=chan ch=2 pkts=3
+...
+> stop
+[STOP] running=1 END
+```
+
+`packet_monitor <ch>` locks onto one channel instead of hopping, reporting
+packets/s on a 1 s window:
+
+```
+> packet_monitor 6
+[CFG] ch=6 END
+[EVT] kind=chan ch=6 pkts=118
+[EVT] kind=chan ch=6 pkts=94
+> stop
+[STOP] running=1 END
+```
+
+`ch` must be one of the channels this build actually hops (2.4 GHz 1-13,
+non-DFS 5 GHz) — anything else is `code=badarg`, checked against the same
+list `start_sniffer` uses rather than handed straight to the radio, so an
+unsupported channel never silently mislabels frames the way D-14 describes.

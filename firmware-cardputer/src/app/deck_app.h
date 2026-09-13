@@ -1,7 +1,14 @@
 /*
  * deck_app.h — screen flow and command orchestration for the deck.
  *
- *   Link --w--> Sweep --enter--> Trace          ` = stop + back (DESIGN §7.3)
+ *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> Deauth <-,/-> (wraps)
+ *   Link --w--> Sweep --enter--> Trace                               drill-down
+ *   Spectrum --enter--> (locks to one channel, same screen)
+ *   ` = stop + back (DESIGN §7.3)
+ *
+ * Deauth has no DESIGN §7.2 view of its own yet — added ahead of the UI
+ * rework DESIGN will eventually need for a growing card set (deliberate,
+ * not an oversight: see WORKLOG).
  *
  * SPDX-License-Identifier: MIT
  */
@@ -12,12 +19,16 @@
 #include <functional>
 #include <string>
 
+#include "model/contacts_model.h"
+#include "model/deauth_model.h"
 #include "model/scan_model.h"
+#include "model/spectrum_model.h"
 #include "ocp/ocp_client.h"
+#include "ui/contacts_view.h"
 
 namespace app {
 
-enum class Screen : uint8_t { Link, Sweep, Trace };
+enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, Deauth };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -44,16 +55,36 @@ public:
 
 private:
     void onReply(const ocp::Item &it);
+    void onEvent(const ocp::Item &it);
     void startScan(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
+    void startSniffer(uint32_t now_ms);
+    void startChannelView(uint32_t now_ms);
+    void startPacketMonitor(uint32_t now_ms, uint8_t ch);
+    void startDeauthDetector(uint32_t now_ms);
     void back(uint32_t now_ms);
     void notice(const std::string &text);
 
     ocp::Client client_;
     model::ScanModel scan_;
+    model::ContactsModel contacts_;
+    model::SpectrumModel spectrum_;
+    model::DeauthModel deauth_;
     Screen screen_ = Screen::Link;
     size_t cursor_ = 0;
     uint16_t trace_idx_ = 0;
+    size_t contacts_cursor_ = 0;
+    ui::ContactsTab contacts_tab_ = ui::ContactsTab::Clients;
+    bool contacts_poll_clients_ = true;
+    uint32_t last_contacts_poll_ms_ = 0;
+    size_t spectrum_cursor_ = 0;
+    size_t deauth_cursor_ = 0;
+
+    bool probe_status_valid_ = false;
+    uint32_t probe_heap_ = 0;
+    uint64_t probe_uptime_ms_ = 0;
+    uint32_t last_status_reply_ms_ = 0;
+    uint32_t last_status_poll_ms_ = 0;
 
     std::string last_reply_ = "-";
     std::string notice_;

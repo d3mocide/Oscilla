@@ -8,6 +8,7 @@
 
 #include <M5Cardputer.h>
 
+#include "ui/canvas.h"
 #include "ui/link_view.h"
 
 namespace ui {
@@ -18,7 +19,7 @@ constexpr int kLineH = 10;
 
 void label(const char *text)
 {
-    auto &d = M5Cardputer.Display;
+    auto &d = ui::canvas();
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.printf("%-8s", text);
     d.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -29,7 +30,7 @@ void label(const char *text)
 void drawTraceView(const model::ApRow *row, const model::Inspect &in, bool listening,
                    const std::string &notice)
 {
-    auto &d = M5Cardputer.Display;
+    auto &d = ui::canvas();
     d.fillScreen(TFT_BLACK);
     d.setTextSize(1);
     d.setCursor(0, 0);

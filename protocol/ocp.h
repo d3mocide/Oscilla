@@ -215,6 +215,12 @@ typedef enum {
 #define OCP_K_RUNNING           "running"
 #define OCP_K_UPTIME_MS         "uptime_ms"
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
+#define OCP_K_HEAP              "heap"     /* [STATUS]: free heap, bytes  */
+#define OCP_K_PKTS              "pkts"
+#define OCP_K_MAC               "mac"
+#define OCP_K_SSID              "ssid"
+#define OCP_K_REASON            "reason"    /* deauth/disassoc reason code, as sent */
+#define OCP_K_DISASSOC          "disassoc"  /* 1 = disassociation, 0 = deauthentication */
 
 /* Wi-Fi survey frames (OCP-SPEC §10). */
 #define OCP_K_TOTAL             "total"    /* results stored on the probe  */
@@ -259,6 +265,12 @@ typedef enum {
 /* Escaping rules: OCP-SPEC §6. */
 #define OCP_SCAN_CSV_HEADER     "\"idx\",\"ssid\",\"bssid\",\"ch\",\"auth\",\"rssi\",\"band\""
 #define OCP_SCAN_CSV_FIELDS     7
+
+/* [CLIENTS] / [PROBES] rows (OCP-SPEC §10.4). */
+#define OCP_CLIENTS_CSV_HEADER  "\"bssid\",\"mac\",\"ch\",\"band\",\"rssi\",\"pkts\""
+#define OCP_CLIENTS_CSV_FIELDS  6
+#define OCP_PROBES_CSV_HEADER   "\"mac\",\"ssid\",\"rssi\",\"pkts\""
+#define OCP_PROBES_CSV_FIELDS   4
 
 #define OCP_BAND_24             "24"
 #define OCP_BAND_5              "5"

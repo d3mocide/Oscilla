@@ -13,6 +13,222 @@
 
 ---
 
+## 2026-09-12 — Rest of the P7 sniffer suite: deauth_detector, Spectrum (channel_view/packet_monitor)
+**Phase:** P7 (same early/out-of-sequence batch) · **By:** Will + Claude
+
+Finished the remaining DESIGN §7.2 items from the sniffer/Contacts work above:
+`deauth_detector` and the **Spectrum** view (`channel_view` + `packet_monitor <ch>`).
+Same caveat as everything else in this batch: host-verified and both
+firmwares build clean, but P7's real exit gate (on hardware) isn't claimed.
+
+- **Shared the channel-hop list.** `wifi_sniff.c`'s channel array would have
+  been copy-pasted into three more engines; pulled it out to
+  `wifi_channels.c` (`wifi_channels(&count)`, D-14's DFS-exclusion reasoning
+  moved with it) so `wifi_sniff.c`, `wifi_deauth.c`, and `wifi_spectrum.c`
+  all hop the identical list and can't drift out of sync with each other.
+- **`deauth_detector`** (`wifi_deauth.c`, new): hops the shared list watching
+  for 802.11 deauthentication/disassociation frames — purely passive.
+  Checked this against DESIGN.md directly before building, since "deauth" is
+  also listed under "explicitly out of scope": that line means *sending* a
+  deauth frame (offensive, TX), while DESIGN's own defensive-capability table
+  lists "deauth-detector" as explicitly Included. New `deauth_parse.c`
+  (bounds-checked, same treatment as `beacon_parse.c`/`probe_parse.c` — 16
+  known answers + 100k-frame ASan/UBSan fuzz). Unlike the sniffer's
+  new-pairing-only events, **every** detected frame is reported: a burst is
+  the signal an operator watches for, not something to deduplicate away.
+- **`channel_view` / `packet_monitor <ch>`** (`wifi_spectrum.c`, new): both
+  just count frames (`WIFI_PROMIS_FILTER_MASK_ALL`, no parsing at all, so
+  there's no bounds risk to fuzz here) — `channel_view` hops and reports one
+  live reading per channel per lap, `packet_monitor` locks to one channel
+  and reports packets/s on a 1 s window. Neither has a snapshot-dump verb
+  (none was ever registered in `ocp.h` for them, which is what confirmed
+  this design rather than one I had to guess): the `[EVT] kind=chan` stream
+  is the whole story, and it's self-healing under a dropped event — every
+  channel gets a fresh reading again next cycle, unlike the sniffer's
+  new-pairing events which are gone for good if dropped.
+- **Deck: Spectrum card** (`model/spectrum_model`, `ui/spectrum_view`), added
+  to the `,`/`/` home-card cycle alongside Link/Contacts/Info. Broad mode
+  draws a live bar chart across every channel; `enter` on a selected bar
+  locks onto it via `packet_monitor`, showing one big packets/sec readout —
+  the same "list drills into detail" shape as Sweep→Trace, just folded into
+  one screen with a `locked()` flag instead of a second Screen enum value,
+  since the "detail" here is one number, not a multi-field record.
+- **Verified:** `check_protocol.sh` (all suites, three more new ones —
+  `deauth_parse_test` 16 assertions, `spectrum_model_test` 12 assertions,
+  plus `sniff_track_test` already covering the shared classification
+  patterns) and `build_firmware.sh` (both targets, clean). **Not verified:**
+  any of this over real RF, or on the actual Cardputer screen.
+
+---
+
+## 2026-09-12 — Deauth card, ahead of a UI rework DESIGN will need
+**Phase:** P7 (same early/out-of-sequence batch) · **By:** Will + Claude
+
+Will asked for a deauth_detector card on the deck, explicitly flagging that
+the card set is growing past what the current one-row-of-cards nav was
+designed for and a real rework is coming — "that's a tomorrow issue." Built
+it in today's pattern rather than blocking on a redesign that hasn't
+happened yet:
+
+- **`model/deauth_model` + `ui/deauth_view`**: a live, newest-first log
+  (capped at 64 rows) of deauth/disassoc detections, same shape as
+  `SpectrumModel` — no snapshot-dump verb exists for `deauth_detector`
+  either, so the `[EVT] kind=deauth` stream is the only source of truth.
+  Colour (not text) carries deauth-vs-disassoc to keep each row to one
+  line: mac, reason code, RSSI.
+- **Added as a 5th home card** (`,`/`/` now cycles Link → Contacts → Info →
+  Spectrum → Deauth → wraps). `s` starts/stops, `;`/`.` scrolls the log.
+- **Worth being honest about:** DESIGN §7.2's view table has no row for
+  `deauth_detector` — Sweep/Trace/Contacts/Spectrum all map to a verb there,
+  this doesn't. Given the explicit "rework later" framing, adding a 5th
+  card to the existing linear cycle now and letting the eventual redesign
+  reorganize all of them at once seemed better than either blocking this
+  feature on a redesign or inventing a one-off navigation pattern just for
+  this card. Flagged in `deck_app.h`'s screen-flow comment so this doesn't
+  read as DESIGN drift nobody noticed.
+- **Verified:** `check_protocol.sh` (`deauth_model_test`, 11 assertions) and
+  `build_firmware.sh` (both targets, clean). Not yet seen on the actual
+  display.
+
+---
+
+## 2026-09-12 — Deck: flicker fix, Info card, arrow-key cards; a real display bug found live
+**Phase:** P7 (deck UX, same early work) · **By:** Will + Claude
+
+- **Flicker fix.** Every view was drawing straight to `M5Cardputer.Display`: a `fillScreen()` then redraw is visible mid-SPI-transfer on every redraw, which is what read as "flashy." New `ui/canvas.h/.cpp` — a single full-screen `M5Canvas` sprite every view now draws onto — with one `pushSprite()` per frame in `DeckApp::draw()`. Compositing happens off-screen; the panel only ever sees a complete frame land atomically.
+- **Navigation: home cards + drill-down.** `,`/`/` (the physical arrow-key cluster on the Cardputer keyboard, already established for `;`/`.` scrolling) now cycle **Link → Contacts → Info → wraps**. Sweep/Trace stay a drill-down from Link (`w`, then `enter`), unchanged. Removed the `c`-from-Link sniffer shortcut since Contacts is reachable directly now; starting/stopping the sniffer is `s` from within the Contacts card, so just browsing there has no side effect (doesn't grab the PHY).
+- **New Info card** (`ui/info_view`): deck free heap (`ESP.getFreeHeap()`), battery % + charging state (`M5.Power`, "n/a" if the board reports no fuel gauge), deck uptime; probe free heap + uptime via a `status` poll every 2 s while the card is open, with a "Xs ago" staleness indicator since it's polled, not pushed. Needed one small protocol tidy-up: `[STATUS]`'s `heap=` key had never been given an `OCP_K_HEAP` constant in `ocp.h` (a P1-era gap) — added it and updated `ocp_server.c`'s one call site, since the deck is now a second reader of that key and literal drift is exactly what `ocp.h` exists to prevent.
+- **Real hardware round-trip, including a real bug find.** Reflashed both boards (see the BOOT+RESET saga below), connected them over Grove, and Will could see Contacts populate live. He immediately spotted `1575` in the channel column — turned out to be channel **157** (one of the new UNII-3 5 GHz channels) printed flush against the band digit `"5"` with no separator (`%3u%s` → `"157"` + `"5"`). **This exact bug was already sitting in Sweep**, just never noticed because 2.4 GHz channels are 1-2 digits and don't collide as legibly. Fixed both to print `"157 5G"`. Neither host tests nor the build could ever have caught this — it's a formatting-only defect, invisible until a human looked at the actual screen. Exactly the kind of thing "verified: builds and passes host tests" doesn't cover, and why the WORKLOG entry below stopped short of claiming the UI was checked.
+- **The BOOT+RESET saga, recorded because it's a real gotcha, not a one-off.** Reflashing the probe after `--gate-sniffer` hit AGENTS.md gotcha 6 for real: esptool's own RTS/DTR reset-into-bootloader toggle made the port hang (`Write timeout`, reproduced even with a bare `pyserial` write, no esptool involved) — the C5's native USB-Serial-JTAG peripheral, not an external CP210x/CH340 bridge, doesn't always tolerate the classic auto-reset dance. A plain BOOT+RESET button-press didn't clear it either, because a normal reset just re-enters the same stuck application state. What actually worked: a **full power-cycle while physically holding BOOT** (forces ROM bootloader entry independent of any running app), then `esptool --before no_reset` (skip its own toggle, since the chip is already sitting in bootloader). One clean cycle through that was enough to un-wedge `default_reset` for the actual flash. Worth remembering next time a C5 stops accepting writes: don't keep retrying the same reset flag, and don't assume BOOT+RESET alone fixes it if the hang is at the write level rather than the reset level.
+- **Current hardware state:** probe on `build-uart` (Grove), deck on `cardputer-adv` with all of the above. Confirmed live over Grove by Will. Not yet re-verified: the channel/band fix just flashed above — next look at the screen should confirm `1575` is gone.
+
+---
+
+## 2026-09-12 — Promiscuous sniffer (P7 work, started early/out of sequence)
+**Phase:** P7 (started ahead of P3-P6; see note) · **By:** Will + Claude
+
+- **Deliberately out of roadmap order.** ROADMAP.md gates P7 ("Passive suite
+  completion") behind both P2 *and* P6 (combined soak & power), and P3-P6
+  haven't started. Will asked to build the sniffer now anyway. Recording this
+  so the sequencing gap is visible rather than silently skipped: the P7 exit
+  gate (every DESIGN §7.2 view backed by real frames, on hardware) is **not**
+  claimed met by this entry, and P6's current-budget work still needs doing
+  before this can run alongside the other radios with a real interlock.
+- **`start_sniffer` / `show_clients` / `show_probes`** (`wifi_sniff.c`, new):
+  passive promiscuous capture — plain round-robin over 2.4 GHz channels 1-13
+  (`SNIFF_DWELL_MS` each; 5 GHz and D-UCB dwell weighting deferred to P8,
+  D-6). Builds two in-RAM tables from received frames only, transmitting
+  nothing: AP<->client pairings from data-frame address fields (ToDS/FromDS
+  disambiguates STA vs. BSSID; ad-hoc/WDS frames are skipped, not
+  misparsed), and mac+SSID probe-request pairings — the latter is the
+  "device-tracking goldmine": a phone reveals its saved-network list via
+  probe requests even while not associated to anything.
+  - New parser **`probe_parse.c`**, deliberately separate from
+    `beacon_parse.c`: a probe request has no 12-byte fixed field before its
+    IEs (beacons/probe responses do), so reusing `beacon_info_t` would carry
+    fields that don't apply. Same bounds-checked-against-attacker-bytes
+    treatment: 16 known answers + 100k-frame ASan/UBSan mutation fuzz,
+    wired into `check_protocol.sh` alongside the beacon test.
+  - `[EVT] kind=sniff|client|probe` fire only on *new* sightings (a
+    packet-count ticker and first-seen pairings), matching "events are
+    lossy by design" (OCP-SPEC §5.1) — `show_clients`/`show_probes` are the
+    authority, capped (128/192 rows) well under `OCP_MAX_FRAME_ROWS` so
+    unlike `[SCAN]` there's no paging.
+  - `ocp.h` grew three keys (`pkts`, `mac`, `ssid`) and CSV field-count
+    constants for `[CLIENTS]`/`[PROBES]`; OCP-SPEC.md §10.4 documents the
+    wire format and updates §8's worked example to the actual `[SNIFF]`
+    compact-frame shape.
+- **Deck: Contacts screen** (new `model/contacts_model`, `ui/contacts_view`,
+  wired into `deck_app`). Same split as Sweep/Trace: the model trusts only
+  `[CLIENTS]`/`[PROBES]` snapshots (polled every 1.5 s while the screen is
+  open, alternating the two verbs since only one command is in flight at a
+  time) for the shown table; `[EVT]` only updates a one-line ticker, so a
+  dropped event never desyncs the list from the probe's. `Link --c-->
+  Contacts`, `x` swaps the clients/probes tab, `s` starts or stops.
+  - **`back()` needed a real fix, not just a new case.** Sweep/Trace's
+    `` ` ``-to-stop only fires `client_.stop()` when a command is *pending*.
+    `start_sniffer` isn't like `scan_networks`: it replies immediately and
+    keeps streaming, so its pending flag clears the instant `[SNIFF]`
+    lands — leaving the screen would otherwise never send `stop` and the
+    probe would keep hopping and capturing after the deck moved on. `back()`
+    now also stops unconditionally when leaving the Contacts screen.
+- **Verified:** all host-side checks (`check_protocol.sh`, 15 new contacts-
+  model assertions, `ocp_repl.py --selftest`); both firmwares build clean
+  (`build_firmware.sh`) with the new object files confirmed present in the
+  probe binary. **Not verified:** anything over the air — no live AP/client
+  traffic exercised the promiscuous path, and the Contacts screen hasn't
+  been seen on the actual Cardputer display. `ocp_repl.py` has no
+  `--gate-sniffer` yet (mirroring `--gate-wifi` would need a live RF
+  environment to assert against); flagging rather than writing one blind.
+
+---
+
+## 2026-09-12 — Sniffer follow-up: 5 GHz, host-testable tracking, --gate-sniffer
+**Phase:** P7 (same early/out-of-sequence work as the entry below) · **By:** Will + Claude
+
+Three gaps Will caught in the first pass:
+
+- **5 GHz was missing.** The first cut hopped 2.4 GHz only, reasoning that
+  extending the channel list was future work. Wrong call for a chip whose
+  whole point is dual-band, and `inspect_network` already proves
+  `esp_wifi_set_channel()` accepts a 5 GHz channel number on this exact
+  hardware (P2's WORKLOG entry: a real WPA3 AP inspected on 5 GHz). Added
+  the non-DFS channels — UNII-1 (36/40/44/48) and UNII-3
+  (149/153/157/161/165) — to the round-robin. **Left out UNII-2/2e (DFS,
+  52-140)**: `esp_wifi_set_channel` silently fails on a channel the
+  configured regulatory domain doesn't permit tuning to, and on failure the
+  radio stays on its previous channel while the hop index still advances —
+  which would mislabel captured frames with the channel we *meant* to be
+  on, not the one we're actually sitting on. DFS also carries its own
+  radar-avoidance procedure that a passive listener still touches. Worth
+  a real look, not a default; documented in `wifi_sniff.c`'s header comment
+  and OCP-SPEC.md §10.4 rather than silently doing it.
+- **The tracking logic had no test.** `wifi_sniff.c` mixed IDF calls
+  (promiscuous callback registration, the arbiter, OCP framing) with the
+  actual logic worth getting wrong (ToDS/FromDS address classification,
+  dedup, table overflow) — which meant that logic was only ever exercised
+  by "the firmware compiles," never actually run. Split it into
+  **`sniff_track.c`** (pure C, no IDF dependency, same shape as
+  `beacon_parse.c`/`probe_parse.c`) and made `wifi_sniff.c` thin glue over
+  it. New `sniff_track_test.c`: known answers for STA-vs-AP direction from
+  ToDS/FromDS, IBSS/WDS frames correctly left untracked, multicast
+  rejection, dedup-in-place, table overflow at the cap, plus a 100k-round
+  ASan/UBSan fuzz of both the data-frame and probe-request paths — 342
+  assertions, wired into `check_protocol.sh`. This is genuinely the
+  no-hardware-needed half of verification: whether the classifier is
+  correct given address bytes. What it can't tell us is whether real
+  frames reach the callback at all — that's still the bench's job.
+- **`ocp_repl.py --gate-sniffer`**, mirroring `--gate-wifi`: drives a live
+  probe through `start_sniffer`/`show_clients`/`show_probes`/`stop`,
+  asserts framing and PHY-arbiter behavior (owner=wifi mid-sniff, busy on a
+  second `start_sniffer`, prompt `stop` with no aborted-frame race since a
+  stream has no open frame to abort), and validates `[CLIENTS]`/`[PROBES]`
+  row shape when populated. Real AP<->client and probe-request rows depend
+  on RF traffic actually happening during the ~12 s window the script
+  listens, so those checks SKIP rather than FAIL on an empty table instead
+  of asserting devices exist nearby.
+- **Run for real, on the bench** — both boards are attached to the dev
+  machine (probe `38:44:BE:1F:4F:A0`, deck `50:78:7D:CE:6D:64`), so this
+  didn't have to wait for Will. Built `--bench` (probe talks OCP over its
+  own USB-JTAG, no Grove needed), flashed with `--chip esp32c5` per gotcha
+  9, ran `--gate-sniffer`: **23/23 passed**, and not just the
+  structural ones — real traffic showed up inside the ~12 s window (6
+  client-link events, 1 probe-request event, 11 stored client rows, 7
+  probe rows) and the hop genuinely reached 5 GHz mid-run
+  (`[11, 12, 13, 36, 40, 44]` in one sample), which is real confirmation
+  that `esp_wifi_set_channel` accepts those channels on *this* board, not
+  just an inference from `inspect_network`'s earlier 5 GHz success.
+  `pkts` was non-decreasing throughout, `stop` landed in 0.2 s, PHY
+  released cleanly. **The probe is currently flashed with the `--bench`
+  (USB-transport) build, not the default Grove/UART one** — worth knowing
+  before reaching for the Grove cable next; say the word and I'll flash it
+  back to `build-uart`. The deck's Contacts screen still hasn't been seen
+  on the actual display — that's a visual check only Will can do.
+- Re-verified after all of the above: `check_protocol.sh` (all suites,
+  including the two new ones) and `build_firmware.sh` (both targets, clean).
+
+---
+
 ## 2026-09-12 — P2 complete: Sweep and Trace on the deck
 **Phase:** P2 → P3/P4 · **By:** Will + Claude
 

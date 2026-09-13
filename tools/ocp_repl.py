@@ -13,6 +13,7 @@ SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from pathlib import Path
@@ -485,6 +486,125 @@ def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
     return report(checks, "P2 Wi-Fi", color)
 
 
+MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
+
+
+def mode_gate_sniffer(port: str, baud: int, color: bool = True) -> int:
+    """Promiscuous-sniffer checks against a live probe (P7, started early —
+    see WORKLOG). Prints counts and channel/RSSI only, never MACs or SSIDs:
+    sniffer output is field data (SECURITY.md), more so than a scan result.
+
+    Table population (real client/probe rows) depends on real RF traffic
+    during a short automated run, so those checks SKIP rather than FAIL on
+    an empty table instead of asserting devices exist nearby."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name, ok, detail=""):
+        checks.append((name, None if ok is None else bool(ok), detail))
+
+    def frames(items, tag):
+        return [i for i in items if isinstance(i, Frame) and i.tag == tag]
+
+    def errors(items):
+        return [i for i in items if isinstance(i, Error)]
+
+    def events(items, kind):
+        return [i for i in items if isinstance(i, Event) and i.kind == kind]
+
+    def ev_int(e: "Event", key: str, default: int = -1) -> int:
+        v = e.kv.get(key)
+        return int(v) if v and v.isdigit() else default
+
+    p = Probe(port, baud)
+    try:
+        p.collect(0.5)
+
+        sniff = frames(p.command("start_sniffer", 1.5), "[SNIFF]")
+        check("start_sniffer replies with [SNIFF]", sniff, "")
+        if sniff:
+            ch = sniff[0].get("ch")
+            check("[SNIFF] ch is a plausible channel number",
+                  (ch or "").isdigit() and 1 <= int(ch) <= 196, ch or "")
+
+        st = frames(p.command("status", 0.6), "[STATUS]")
+        check("status mid-sniff reports owner=wifi", st and st[0].get("owner") == "wifi",
+              st[0].get("owner") if st else "")
+
+        e = errors(p.command("start_sniffer", 1.0))
+        check("start_sniffer while already running -> busy", e and e[0].code == "busy")
+
+        # Let it hop for a while: waiting for ~one full sweep of both bands
+        # (22 channels * SNIFF_DWELL_MS ~ 6.6s) gives the client/probe checks
+        # below a real, if still not guaranteed, chance at nearby traffic.
+        got = wait_for(p, lambda it: len(events(it, "sniff")) >= 20, 12.0)
+        sniffs = events(got, "sniff")
+        check("[EVT] kind=sniff arrives while hopping", sniffs, f"{len(sniffs)} in 10s")
+        if sniffs:
+            chans = [ev_int(e, "ch") for e in sniffs]
+            check("every sniff event's ch is a plausible channel number",
+                  all(1 <= c <= 196 for c in chans), str(chans[:6]))
+            pkts = [ev_int(e, "pkts") for e in sniffs]
+            check("pkts is a non-decreasing session counter",
+                  all(a <= b for a, b in zip(pkts, pkts[1:])), str(pkts[:6]))
+
+        clients = events(got, "client")
+        probes = events(got, "probe")
+        check("[EVT] kind=client seen (needs a real AP+client on an overlapping channel)",
+              None if not clients else True, f"{len(clients)} in the window")
+        check("[EVT] kind=probe seen (needs a real device probing nearby)",
+              None if not probes else True, f"{len(probes)} in the window")
+
+        cf = frames(p.command("show_clients", 1.5), "[CLIENTS]")
+        check("show_clients replies with [CLIENTS]", cf, "")
+        if cf:
+            n, rows = int(cf[0].get("n", "-1")), cf[0].csv_rows()
+            check("n matches the rows delivered", n == len(rows), f"n={n} rows={len(rows)}")
+            if rows:
+                check("every row has 6 columns", all(len(r) == 6 for r in rows))
+                check("bssid/mac columns look like MAC addresses",
+                      all(MAC_RE.match(r[0].decode()) and MAC_RE.match(r[1].decode()) for r in rows))
+                check("band column agrees with channel",
+                      all((r[3] == b"2.4") == (int(r[2]) <= 14) for r in rows))
+            else:
+                check("at least one AP<->client pairing captured", None, "none in range/window")
+
+        pf = frames(p.command("show_probes", 1.5), "[PROBES]")
+        check("show_probes replies with [PROBES]", pf, "")
+        if pf:
+            n, rows = int(pf[0].get("n", "-1")), pf[0].csv_rows()
+            check("n matches the rows delivered", n == len(rows), f"n={n} rows={len(rows)}")
+            if rows:
+                check("every row has 4 columns", all(len(r) == 4 for r in rows))
+                check("mac column looks like a MAC address", all(MAC_RE.match(r[0].decode()) for r in rows))
+            else:
+                check("at least one probe-request pairing captured", None, "none in range/window")
+
+        # stop: unlike scan/inspect there is no open frame to abort, so [STOP]
+        # should land quickly with no preceding aborted-frame race.
+        t0 = time.time()
+        p.send("stop")
+        got = wait_for(p, lambda it: frames(it, "[STOP]"), 5)
+        st = frames(got, "[STOP]")
+        check("stop lands promptly", st and time.time() - t0 < 3.0, f"{time.time() - t0:.1f}s")
+        check("[STOP] running=1", st and st[0].get("running") == "1")
+
+        st = frames(p.command("status"), "[STATUS]")
+        check("PHY released after stop (owner=none)", st and st[0].get("owner") == "none")
+
+        # A fresh session starts from an empty table, not the last session's.
+        frames(p.command("start_sniffer", 1.0), "[SNIFF]")
+        p.send("stop")
+        wait_for(p, lambda it: frames(it, "[STOP]"), 3)
+
+        st = frames(p.command("stop"), "[STOP]")
+        check("stop when idle -> running=0", st and st[0].get("running") == "0")
+        check("probe still answers after all that", any(isinstance(i, Pong) for i in p.command("ping")))
+    finally:
+        p.close()
+
+    return report(checks, "P7 sniffer (early)", color)
+
+
 AUTH_LABELS = {v for k, v in ocp.read_header_defines().items() if k.startswith("OCP_AUTH_")}
 
 
@@ -782,6 +902,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="drive a live probe through the P1 exit-gate checks")
     ap.add_argument("--gate-wifi", action="store_true",
                     help="P2 Wi-Fi checks against a live probe (prints counts, never SSIDs)")
+    ap.add_argument("--gate-sniffer", action="store_true",
+                    help="promiscuous-sniffer checks against a live probe (P7, started early; "
+                         "table checks SKIP rather than FAIL with no RF traffic nearby)")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
     color = not args.no_color and sys.stdout.isatty()
@@ -792,6 +915,8 @@ def main(argv: list[str] | None = None) -> int:
         return mode_replay(args.replay, color)
     if args.port and args.gate_wifi:
         return mode_gate_wifi(args.port, args.baud, color)
+    if args.port and args.gate_sniffer:
+        return mode_gate_sniffer(args.port, args.baud, color)
     if args.port and args.gate:
         return mode_gate(args.port, args.baud, color)
     if args.port and args.exec_cmds:
