@@ -1,3 +1,10 @@
+## 2026-09-13 — Minimal SD status indicator on the Link view
+
+- The brand docs (`docs/brand/README.md`) call for a full B/G/S/R status-dot cluster on every screen, but that's undesigned/unbuilt UI polish, and GNSS doesn't exist yet to feed a G dot anyway. Added just an `sd: ready/absent` line to the Link view instead (`link_view.cpp` reads `storage::ready()` directly, same precedent as `info_view.cpp` calling `ESP.getFreeHeap()` directly rather than threading it through `deck_app`). Full status-dot bar stays deferred to whenever P5/P7 UI polish happens for real.
+- Built clean, full `check_protocol.sh` suite green, flashed to hardware.
+
+---
+
 ## 2026-09-13 — SD logging foundation: LoRa session CSV, live on hardware
 
 **Phase:** P3/P7-early · **By:** Will + Claude

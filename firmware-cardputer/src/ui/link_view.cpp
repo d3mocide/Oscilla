@@ -8,6 +8,7 @@
 
 #include <M5Cardputer.h>
 
+#include "storage/sd_storage.h"
 #include "ui/canvas.h"
 
 namespace ui {
@@ -61,6 +62,10 @@ void drawLinkView(const ocp::Client &client, const std::string &last_reply,
                  printable(p.ver, 12).c_str(), p.proto);
     }
     d.printf("caps:  %s\n", p.caps.empty() ? "(none)" : printable(p.caps, 30).c_str());
+    d.print("sd:    ");
+    d.setTextColor(storage::ready() ? TFT_GREEN : TFT_RED, TFT_BLACK);
+    d.println(storage::ready() ? "ready" : "absent");
+    d.setTextColor(TFT_WHITE, TFT_BLACK);
     d.println();
 
     d.printf("resets %-4u timeouts %u\n", st.resets, st.timeouts);
