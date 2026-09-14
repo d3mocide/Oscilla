@@ -1,3 +1,15 @@
+## 2026-09-13 — 2h LoRa soak: heap is clean, but RX silently stalls (corrects the earlier read)
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Ran a ~2h15m LoRa-only soak (not ROADMAP's P6 — that needs GNSS/TFT too) to leak-hunt the new radio/recon/logger code. Added periodic deck heap logging (`main.cpp`, every 5 min, independent of which screen is shown) and captured the deck's diagnostic serial to a local file for the duration since nobody had a terminal open. **Heap held rock-stable at 237740 bytes for the final ~1h45m of the run, zero drift** — no leak in the code written tonight.
+- Initially reported this as a full clean result with the "quiet mesh" explaining why `log_0003.csv` only had rows in the session's first ~31 minutes. **That explanation was wrong, and I shouldn't have offered it without checking** — Will had an independent cross-reference available and asked for it.
+- Cross-referenced against Will's own MeshCore observer node (PyMC, `https://pymc.int.d3mo.us` — see `docs/hardware/lora-harness.md` for the resource and how it was queried). Result: the observer saw 935 packets at a steady ~8.9/min during the exact window Oscilla logged zero, versus ~9.45/min during Oscilla's own active window. The mesh never went quiet — **Oscilla's RX silently stopped receiving after roughly 30 minutes and never recovered**, while the rest of the firmware kept running fine (which is exactly why the heap number looked so clean).
+- Saved the PyMC API credentials to `tools/.env` (gitignored — verified with `git check-ignore -v`, not just assumed) per Will's authorization to use it for bench verification going forward. Documented in `docs/hardware/lora-harness.md`, key itself never in a doc or commit.
+- **Not resolved tonight:** root cause of the RX stall is unknown — candidates (SX126x continuous-RX quirks, a bug in our own IRQ clear/re-arm logic, unchecked `XOSC_START_ERR`) are listed in `lora-harness.md`, not yet checked against the datasheet or reproduced under instrumentation. **LoRa RX is not field-ready** until this is root-caused, even though tonight's earlier P3 exit-gate criteria were technically met before this was found.
+
+---
+
 ## 2026-09-13 — ILI9341 external display zero-overlap tactical layout redesign
 
 - Overhauled the ILI9341 320×240 external display cards in Section 05 of `docs/brand/oscilla-master-brand-ui-guide.html`, extending the zero-overlap tactical architecture established in Screen 3 (`Drive / Session Log`) across all viewports:

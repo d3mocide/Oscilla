@@ -121,6 +121,8 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 
 Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls for are still not installed (measured absent, wired anyway as a deliberate bench call — see WORKLOG); `GetDeviceErrors`/`XOSC_START_ERR` was never explicitly checked; no framing classification (meshtastic/lorawan/unknown) yet — packets display as raw hex, undecoded.
 
+🔴 **Found after the gate was marked met, same day — not yet fixed:** a 2h soak cross-referenced against an independent MeshCore observer showed real RX silently stops after ~30 minutes and never recovers, with zero errors logged (see `docs/hardware/lora-harness.md`, WORKLOG 2026-09-13). The gate's literal wording was satisfied before this was found, but **LoRa RX is not field-ready** until this is root-caused. Treat as the next required LoRa work, ahead of framing classification or any other polish.
+
 ---
 
 ## P4 — GNSS on the deck
