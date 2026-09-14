@@ -181,7 +181,7 @@ Framing classification (meshtastic/lorawan/unknown) exists now: `model::classify
 **Work:**
 - [ ] `ble_recon.c` — NimBLE passive scan, device table, tracker classification; **Beacons** view.
 - [ ] `zig_recon/` lifted verbatim (MIT) + `[ZIG]` frames; **Mesh** view.
-- [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12); host-verified only, not yet exercised over real RF or on hardware. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md), open).
+- [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12); host-verified only, not yet exercised over real RF or on hardware. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
 - [x] `deauth_detector` + a Deauth card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG); host-verified only, not yet exercised over real RF or on hardware.
 - [x] `channel_view`, `packet_monitor` + **Spectrum** view — same early/out-of-sequence batch; host-verified and both firmwares build, not yet seen live on the deck's display.
 - [ ] Wardrive: stream observations, deck-side geotag against local fix + age, write WigleWifi CSV + KML; **Drive** view.

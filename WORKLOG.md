@@ -1,3 +1,58 @@
+## 2026-09-14 — D-11 closed by practice, D-14 half-closed by research
+
+**Phase:** decisions housekeeping · **By:** Will + Claude
+
+Third off-bench task of the day: work through the two open decisions
+flagged as candidates, D-11 (SX1262 driver) and D-14 (5 GHz DFS channels).
+
+- **D-11 (SX1262 driver: lift vs. in-house) — moved 🔵 Leaning → ✅ Decided.**
+  Not new work: the decision was already made and bench-proven days ago
+  (`lora_radio.c`'s own header comment already cites the datasheet and
+  D-11), the register just never caught up. Checked `NOTICE` — no
+  third-party SX1262 driver listed anywhere — and re-read the evidence
+  trail: fault-free bring-up against the real chip, real MeshCore packets
+  decoded correctly, a found-and-fixed silent RX-stall bug confirmed dead
+  via a 66.8-minute soak. That's a real track record, not just "it
+  compiled". `docs/DECISIONS.md` and `DESIGN.md` §11's reuse table updated.
+
+- **D-14 (5 GHz DFS channels) — moved 🟠 Open → 🔵 Leaning.** The original
+  note had two explicit open questions; split them:
+  - **Regulatory obligation: resolved.** Fetched 47 CFR §15.407(h)(2)
+    (Cornell LII, since the official eCFR mirror redirected through an
+    unrecognized "unblock" host I didn't follow) — the DFS radar-detection
+    duty is defined via a device's "emission bandwidth", a
+    transmission-only concept. Cross-checked against ESP-IDF's own
+    regulatory database, installed locally at
+    `~/esp/esp-idf/components/esp_wifi/regulatory/esp_wifi_regulatory.txt`
+    (sourced from the Linux kernel's wireless-regdb project): the `DFS`
+    flag is a uniform per-country, transmitter-facing tag across every
+    entry, no receiver variant anywhere in the format. Closes the same way
+    D-9 closed for LoRa — receive-only (D-8) removes the obligation at its
+    root. Verified the FCC text word for word; didn't do the same for
+    ETSI/JP, so that part is "strong circumstantial evidence", not a
+    citation-grade confirmation for those two regions specifically.
+  - **Mechanical failure mode: narrowed, not resolved.** Confirmed the
+    current non-DFS list (36/40/44/48/149/153/157/161/165) is exactly
+    right against both the regulatory DB and the FCC's own US table.
+    Confirmed no radar-detection/CAC capability exists anywhere in the
+    ESP32-C5's SoC headers. **Found and corrected a stale claim while
+    researching this:** `wifi_channels.h`'s comment said
+    `esp_wifi_set_channel` "silently fails" on a disallowed channel — false
+    for the current code, which already logs (`ESP_LOGE`) on any error
+    return, in every hop callback (`wifi_sniff.c`, `wifi_deauth.c`,
+    `wifi_spectrum.c`). The real unresolved risk is narrower and specific:
+    whether a regulatory-disallowed channel always surfaces as that
+    checkable error, or can return `ESP_OK` while silently not moving —
+    that path genuinely isn't visible from any public header (the
+    enforcement lives in the closed-source Wi-Fi library) and needs one
+    specific bench test: request channel 52, log the return code, then
+    confirm via `esp_wifi_get_channel` whether the tune actually took.
+    Documented as a 5-minute test, not a redesign, in `docs/DECISIONS.md`
+    and `wifi_channels.h`.
+  - `ROADMAP.md`'s P2 section updated (was citing D-14 as flatly "open").
+
+---
+
 ## 2026-09-14 — P3 loose end closed: LoRa framing classifier
 
 **Phase:** P3 · **By:** Will + Claude

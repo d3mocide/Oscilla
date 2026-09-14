@@ -469,7 +469,7 @@ oscilla/
 | projectZero `frame_analyzer`, `sniffer`, `pcap_serializer`, `hccapx_serializer` | **Deferred** — needs frame streaming without a probe SD | — |
 | projectZero D-UCB, promiscuous hop, NimBLE params, band-mode | **Reference → reimplement** | `firmware-c5/main/` |
 | projectZero `main.c` monolith | **Do not copy** | — |
-| SX1262 driver | Evaluate existing MIT/Apache drivers vs. thin in-house layer ([D-11](docs/DECISIONS.md)) | `firmware-c5/main/lora_radio.c` |
+| SX1262 driver | **Thin in-house**, datasheet-transcribed, no third-party library ([D-11](docs/DECISIONS.md), decided) | `firmware-c5/main/lora_radio.c` |
 
 **Licensing:** projectZero and the risinek core are **MIT**. Oscilla ships under **MIT** and:
 - preserves original copyright/`@risinek` headers in any lifted file,
