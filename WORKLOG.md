@@ -1,3 +1,17 @@
+## 2026-09-13 — SD logging foundation: LoRa session CSV, live on hardware
+
+**Phase:** P3/P7-early · **By:** Will + Claude
+
+- Decided scope deliberately: Wi-Fi's real log format (WigleWifi CSV, DESIGN §9.2) needs lat/lon per row, and there's no GPS yet (P4 not started) — rather than fake coordinates or skip the row requirement, Wi-Fi wardrive logging stays deferred until GPS lands. LoRa's format has no such dependency ("CSV of packet observations with radio params"), so it's what got built.
+- Added `src/storage/` (new module, added to DESIGN §7.1's map in the same change per AGENTS.md): `sd_storage` (SD mount + the single shared bus lock DESIGN §7.4 already calls for, ready for when the external TFT eventually joins that bus — nothing here needs to change when it does), `lora_log_format` (pure CSV row shape, host-tested, no SD dependency — same split as `ocp_csv`), and `lora_logger` (opens a numbered session file per `lora_listen` start, appends+flushes a row per packet, closes on stop or probe reset).
+- Verified the exact SD init calls (`SPI.begin(sck,miso,mosi,cs)` then `SD.begin(cs,SPI,hz)`) against M5Stack's own Cardputer SD example rather than guessing — pins matched Rev D/`cardputer-adv.md`'s already-confirmed values (SCK 40, MISO 39, MOSI 14, CS 12) exactly.
+- `LoraModel::absorbEvent` now returns the new packet (or null) instead of void, unlike its siblings — a deliberate, commented difference so `deck_app` knows when to log a row without re-parsing the event itself.
+- Host test `lora_log_format_test.cpp` (3 checks: header shape, normal row, zero-length-payload/negative-SNR edge case) added to `check_protocol.sh`.
+- **Live-confirmed on hardware**, same session: flashed, watched the deck's diagnostic serial while starting a session on the physical keyboard — `lora log: recording` in the stream confirms SD mount, directory creation, and file open all succeeded, and packets were visibly pulling into the Sub-GHz view at the same time, meaning the per-packet append path is exercising too.
+- **Not yet verified:** haven't pulled the actual SD card to confirm the CSV file's on-disk contents byte-for-byte — the confirmation above is from the firmware's own success/failure reporting, not an external read of the file.
+
+---
+
 ## 2026-09-13 — Version bump: 0.2.0, deck now tracks a version too
 
 - `firmware-c5` PROJECT_VER 0.1.0 → 0.2.0 to mark P3 (LoRa RX). `firmware-cardputer` had no version string at all until now — added `OSCILLA_DECK_VER` as a build flag (platformio.ini), since the deck is an OCP client and has no verb of its own to report one over. Both now shown side by side in the Info view's DECK/PROBE sections (the probe's own `ver` wasn't displayed there before either — added for symmetry).

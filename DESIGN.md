@@ -338,6 +338,9 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ocp/ocp_client` | OCP client | Handshake, one-at-a-time commands, reply/event routing, timeouts, reset detection |
 | `src/ocp/ocp_item.h` | OCP client | Parsed item type |
 | `src/ui/link_view` | view | Link state, probe identity, counters; re-escapes probe text for display |
+| `src/storage/sd_storage` | services | Internal microSD mount + the single shared bus lock (§7.4) |
+| `src/storage/lora_log_format` | services | Pure CSV row shape for the LoRa session log (§9.2); no SD I/O, host-tested |
+| `src/storage/lora_logger` | services | Opens/writes/closes the LoRa session file on SD, under `sd_storage`'s lock |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
 
 ### 7.2 View set (v1)

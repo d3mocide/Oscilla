@@ -12,6 +12,7 @@
 #include "ui/canvas.h"
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
+#include "storage/lora_logger.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
 #include "ui/spectrum_view.h"
@@ -66,6 +67,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         contacts_.clear();
         spectrum_.clear();
         lora_.clear();
+        storage::loraLogEnd();
         deauth_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
@@ -113,6 +115,7 @@ void DeckApp::onReply(const ocp::Item &it)
         contacts_.stopSniffing();
         spectrum_.stop();
         lora_.stop();
+        storage::loraLogEnd();
         deauth_.stop();
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
@@ -161,7 +164,9 @@ void DeckApp::onEvent(const ocp::Item &it)
     dirty_ = true;
     contacts_.absorbEvent(it);   /* ticker only: [CLIENTS]/[PROBES] stay the authority */
     spectrum_.absorbEvent(it);   /* kind=chan is the only source of truth here, no dump verb */
-    lora_.absorbEvent(it);       /* kind=lora is the only source of truth here too */
+    if (const auto *p = lora_.absorbEvent(it)) {   /* kind=lora is the only source of truth here too */
+        storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
+    }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
 }
 
@@ -250,6 +255,7 @@ void DeckApp::startLoraListen(uint32_t now_ms)
     if (!client_.send(OCP_V_LORA_LISTEN, now_ms)) { notice("busy"); return; }
     lora_.begin();
     lora_cursor_ = 0;
+    log(storage::loraLogBegin() ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
     notice("");
 }
 

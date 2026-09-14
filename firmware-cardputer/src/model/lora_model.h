@@ -49,8 +49,11 @@ public:
     /* Probe rebooted: nothing here is trustworthy any more. */
     void clear();
 
-    /* Absorb an [EVT] kind=lora. */
-    void absorbEvent(const ocp::Item &evt);
+    /* Absorb an [EVT] kind=lora. Returns the new packet (a pointer into
+     * packets_[0]) on success, or nullptr if the event was a different kind
+     * or malformed — unlike its siblings' void return, callers need this to
+     * know when to write a log row without re-parsing the event themselves. */
+    const LoraPacket *absorbEvent(const ocp::Item &evt);
 
     bool active() const { return active_; }
     bool hasConfig() const { return has_config_; }

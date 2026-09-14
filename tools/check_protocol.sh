@@ -100,4 +100,10 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/lora_model_test" | tail -1 | sed 's/^/  /'
 
+# The deck's LoRa session log row format (no SD I/O - pure formatting only,
+# model::LoraPacket is a header-only struct so nothing else needs linking).
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/lora_log_format_test" \
+    firmware-cardputer/test/host/lora_log_format_test.cpp firmware-cardputer/src/storage/lora_log_format.cpp
+"$out/lora_log_format_test" | tail -1 | sed 's/^/  /'
+
 echo "protocol contract OK"

@@ -9,6 +9,7 @@
 
 #include "app/deck_app.h"
 #include "ocp.h"
+#include "storage/sd_storage.h"
 #include "ui/canvas.h"
 
 namespace {
@@ -29,6 +30,12 @@ void setup()
     M5Cardputer.begin(M5.config(), true);
     M5Cardputer.Display.setRotation(1);
     ui::initCanvas();
+
+    /* Brought up before any TFT traffic exists to contend with it, per
+     * DESIGN §7.4 — the external TFT isn't wired yet, but when it is, SD
+     * still needs to win this race. A missing/unreadable card just means
+     * logging is unavailable this boot; never block startup on it. */
+    if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
 
     /* A 256-row [SCAN] page is ~20 KB in ~2 s; a redraw must not overflow the buffer. */
     Serial1.setRxBufferSize(16384);
