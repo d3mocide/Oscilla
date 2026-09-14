@@ -13,6 +13,9 @@ firmware-c5/dependencies.lock
 .pio/
 firmware-cardputer/.pio/
 
+# IDE
+scratch/
+
 # ─── Local toolchain / editor state ──────────────────────────────────────────
 # Note the trailing /* rather than /: git cannot re-include a file whose
 # parent directory is excluded, so the negation below would not work.

@@ -1,45 +1,2684 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Oscilla — Master Brand & UI Guide</title>
-<style>
-:root{--void:#0b090d;--panel:#151018;--cream:#f4ecd9;--muted:#aaa0a5;--green:#a8df65;--dim:#51763d;--pink:#f05d9d;--yellow:#f5d658;--red:#ef514c;--line:#4b3c49;--mono:"IBM Plex Mono",Consolas,monospace;--display:"Chakra Petch","Arial Narrow",sans-serif}*{box-sizing:border-box}html{background:var(--void);scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 88% 0,#2b1728 0,transparent 31rem),var(--void);color:var(--cream);font:16px/1.5 var(--display)}main{max-width:1240px;margin:auto;padding:30px}header{padding:70px 0 55px;border-bottom:1px solid var(--line)}h1,h2,h3,p{margin-top:0}h1{font:700 clamp(3.5rem,10vw,8rem)/.78 var(--display);letter-spacing:-.09em;margin:16px 0 24px}h1 i{font-style:normal;color:var(--pink)}h2{font-size:clamp(2rem,4vw,3.6rem);line-height:.96;letter-spacing:-.06em;margin-bottom:16px}h3{font-size:1.18rem;margin-bottom:5px}.eyebrow{font:700 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--green)}.lead,.intro{max-width:830px;color:#d2c6c0;font-size:1.12rem}.hero-line{font:700 12px var(--mono);letter-spacing:.14em;color:var(--yellow)}nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}nav a{border:1px solid var(--line);padding:6px 9px;color:var(--cream);font:11px var(--mono);text-decoration:none}section{padding:70px 0;border-bottom:1px solid var(--line)}.grid2,.grid3,.gallery{display:grid;gap:20px}.grid2{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:repeat(3,1fr)}.card{border:1px solid var(--line);padding:20px;background:linear-gradient(135deg,#18121a,#0d0b10)}.tiny{font:12px/1.5 var(--mono);color:var(--muted)}.mark{display:grid;grid-template-columns:.85fr 1.15fr;gap:42px;align-items:center;margin-top:26px;padding:32px;border:1px solid var(--line);background:linear-gradient(135deg,#19121a,#0d0b10)}.mark svg{width:100%;max-width:370px;justify-self:center}.hero{font:700 clamp(3rem,7vw,6.4rem)/.8 var(--display);letter-spacing:-.09em}.hero small{display:block;margin-top:16px;color:var(--green);font:700 12px/1.5 var(--mono);letter-spacing:.13em}.tokens{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line)}.token{min-height:145px;padding:15px;border-right:1px solid var(--line);background:var(--panel)}.token:last-child{border:0}.swatch{height:54px;margin:-15px -15px 14px;background:var(--sw)}code{font-family:var(--mono);color:var(--green)}.route{display:grid;grid-template-columns:repeat(5,1fr);margin-top:26px}.route>div{min-height:140px;padding:17px;border:1px solid var(--line);border-right:0;background:var(--panel)}.route>div:last-child{border-right:1px solid var(--line)}.route span{display:block;margin-bottom:8px;color:var(--pink);font:11px var(--mono)}.route small{display:block;margin-top:7px;color:var(--muted);font:12px/1.35 var(--mono)}table{width:100%;border-collapse:collapse;font:13px/1.4 var(--mono)}th,td{padding:11px;border:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--green);font-size:11px}.keymap{padding:16px;border:1px solid var(--dim);background:#090b09;font:13px/1.65 var(--mono)}.gallery{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:28px}.mcard>p{min-height:34px;margin-bottom:10px;color:var(--muted);font:12px var(--mono)}.tag{float:right;padding:3px 7px;background:var(--yellow);color:var(--void);font:700 10px var(--mono);letter-spacing:.07em}.tag.future{background:var(--pink);color:var(--cream)}.device{padding:13px;border:1px solid #604d5b;background:#050507;box-shadow:8px 9px 0 #180e15}.screen{position:relative;aspect-ratio:240/135;overflow:hidden;background:#090b09;color:var(--cream);font-family:var(--mono)}.deck-top{height:15%;display:flex;align-items:center;padding:0 3%;border-bottom:1px solid var(--dim);font-size:clamp(10px,1.65vw,13px);font-weight:700}.view-name{letter-spacing:-.05em;white-space:nowrap}.instrument-state{display:flex;align-items:center;gap:4px;margin-left:auto;white-space:nowrap}.indicator-set{display:flex;align-items:center;gap:3px;margin-right:8px;font-size:.78em;color:#9daf96}.dot{display:inline-block;width:.74em;height:.74em;border-radius:50%;background:var(--green)}.dot.yellow{background:var(--yellow)}.dot.pink{background:var(--pink)}.dot.off{background:transparent;border:1px solid #9daf96}.battery{display:inline-block;position:relative;width:19px;height:9px;border:1px solid var(--cream)}.battery:after{position:absolute;right:-3px;top:2px;width:2px;height:3px;background:var(--cream);content:""}.battery i{display:block;width:65%;height:4px;margin:1px;background:var(--green)}.transport{height:13%;display:flex;align-items:center;padding:0 3%;border-bottom:1px solid var(--dim);color:var(--yellow);font-size:clamp(8px,1.35vw,10px);font-weight:700;white-space:nowrap}.screen-body{height:62%;padding:3.5% 4%}.screen-foot{height:10%;display:flex;align-items:center;padding:0 3%;border-top:1px solid var(--dim);color:#9daf96;font-size:clamp(7px,1.1vw,9px);white-space:nowrap}.screen-sub{margin:.35em 0 .7em;color:#9daf96;font-size:clamp(8px,1.25vw,10px)}.rows{display:grid;gap:5px;font-size:clamp(10px,1.55vw,12px)}.selected{color:var(--yellow)}.alert{margin-top:8px;color:var(--pink);font-size:clamp(8px,1.2vw,9px)}.split{display:grid;grid-template-columns:1.18fr .82fr;gap:7%;height:100%}.kv{font-size:clamp(8px,1.2vw,10px);line-height:1.6}.kv b{color:var(--cream)}.meter{height:5px;margin:3px 0 7px;background:#263528}.meter i{display:block;width:70%;height:100%;background:var(--green)}.tft{aspect-ratio:320/240}.tft .deck-top{font-size:clamp(9px,1.2vw,12px)}.tft .transport{font-size:clamp(8px,1vw,10px)}.chart,.field,.map{position:relative;height:72%;margin:4% 35% 0 5%;border:1px solid var(--dim)}.chart{background-image:linear-gradient(#315432 1px,transparent 1px),linear-gradient(90deg,#315432 1px,transparent 1px);background-size:16.7% 20%}.chart:after{position:absolute;inset:0;content:"";background:linear-gradient(162deg,transparent 0 40%,var(--pink) 40.5% 41.5%,transparent 42% 52%,var(--green) 52.5% 53.5%,transparent 54%)}.field{background:repeating-linear-gradient(45deg,transparent 0 18px,rgba(168,223,101,.09) 18px 19px),repeating-linear-gradient(-35deg,transparent 0 28px,rgba(168,223,101,.07) 28px 29px)}.field:before,.field:after{position:absolute;left:16%;width:70%;top:48%;border-top:2px solid var(--green);content:"";transform:rotate(31deg)}.field:after{transform:rotate(-31deg)}.map{background:repeating-linear-gradient(45deg,transparent 0 17px,rgba(168,223,101,.08) 17px 18px),repeating-linear-gradient(-35deg,transparent 0 29px,rgba(168,223,101,.07) 29px 30px)}.path{position:absolute;left:20%;top:18%;width:55%;height:57%;border:2px solid var(--pink);border-left-color:transparent;border-bottom-color:transparent;border-radius:48% 36% 53% 42%;transform:rotate(31deg)}.pin{position:absolute;left:54%;top:47%;width:9px;height:9px;border-radius:50%;background:var(--yellow)}.side-data{position:absolute;right:5%;top:30%;width:27%;border-left:1px solid var(--dim);padding-left:4%;font-size:clamp(8px,1vw,10px);line-height:1.75}.side-data b{color:var(--yellow);font-size:1.4em}.contract{margin-top:22px}.contract td:first-child{color:var(--green);white-space:nowrap}footer{padding:40px 0 10px;color:var(--muted);font:12px var(--mono)}@media(max-width:900px){main{padding:20px}.mark,.grid2,.grid3,.gallery{grid-template-columns:1fr}.route{grid-template-columns:1fr 1fr}.route>div:nth-child(2){border-right:1px solid var(--line)}.route>div:nth-child(-n+2){border-bottom:0}.tokens{grid-template-columns:repeat(3,1fr)}.token:nth-child(3){border-right:0}.token:nth-child(-n+3){border-bottom:1px solid var(--line)}}@media(max-width:500px){.tokens,.route{grid-template-columns:1fr}.token,.route>div{border-right:0!important;border-bottom:1px solid var(--line)!important}.token:last-child,.route>div:last-child{border-bottom:0!important}}
-</style></head>
-<body><style>
-/* External LCD: operational two-pane views sized to fit the real 320 × 240 canvas. */
-.tft .deck-top{height:12%;font-size:clamp(9px,1.2vw,12px)}.tft .transport{height:11%;font-size:clamp(8px,1vw,10px)}.tft-body{height:68%;padding:3.5% 4%;position:relative}.tft .screen-foot{height:9%;font-size:clamp(7px,1vw,9px)}.ext-grid{display:grid;grid-template-columns:64% 32%;gap:4%;height:100%}.ext-panel,.ext-inspector{overflow:hidden;border:1px solid var(--dim);background:#090b09}.ext-panel{padding:5%}.ext-inspector{padding:8%;border-width:0 0 0 1px}.ext-head{margin-bottom:7px;color:#9daf96;font-size:clamp(7px,1vw,9px);font-weight:700}.data-table{width:100%;font-size:clamp(7px,1vw,10px);line-height:1.65;border-collapse:collapse}.data-table th,.data-table td{padding:2px 4px;border:0;border-bottom:1px solid #263528;font-size:inherit;white-space:nowrap}.data-table th{color:#9daf96;font-weight:700}.data-table tr.selected{color:var(--yellow);background:#241f0d}.bar-list{display:grid;gap:5px}.bar-row{display:grid;grid-template-columns:22px 1fr 38px;gap:5px;align-items:center;font-size:clamp(7px,1vw,9px)}.bar-track{height:7px;background:#263528}.bar-fill{height:100%;background:var(--green)}.bar-fill.hot{background:var(--pink)}.ext-inspector b{display:block;margin-bottom:7px;color:var(--yellow);font-size:clamp(12px,1.7vw,16px);line-height:1}.ext-inspector p{margin:0 0 9px;font-size:clamp(7px,1vw,10px);line-height:1.55}.ext-inspector .state{color:var(--pink)}.track-list{display:grid;gap:5px;font-size:clamp(7px,1vw,10px);line-height:1.35}.track-list div{display:grid;grid-template-columns:42px 1fr 38px;gap:6px;padding-bottom:4px;border-bottom:1px solid #263528}.track-list .marker{color:var(--yellow)}.frame-list{font-size:clamp(7px,1vw,10px);line-height:1.8}.frame-list div{display:grid;grid-template-columns:47px 62px 26px 34px 1fr;gap:4px;border-bottom:1px solid #263528}.frame-list .selected{color:var(--yellow);background:#241f0d}.tft .chart,.tft .field,.tft .map,.tft .side-data{display:none}
-/* The external display is a clean data viewport. The Cardputer owns chrome, controls, and system status. */
-.tft .deck-top,.tft .transport,.tft .screen-foot{display:none}.tft .tft-body{height:100%;padding:5% 5% 4%}.tft .ext-grid{height:100%}.tft .ext-panel{padding:5.5%}.tft .ext-inspector{padding:9%}.tft .ext-head{font-size:clamp(8px,1.1vw,10px);letter-spacing:.06em}.tft .data-table,.tft .bar-row,.tft .track-list,.tft .frame-list{font-size:clamp(8px,1.15vw,11px)}.tft .ext-inspector b{font-size:clamp(14px,2vw,18px)}.tft .ext-inspector p{font-size:clamp(8px,1.15vw,11px)}
-/* External split: visualization above, selected-item detail below. */
-.tft .ext-grid{grid-template-columns:1fr;grid-template-rows:64% 36%;gap:0}.tft .ext-panel{border:1px solid var(--dim);border-bottom:0;padding:4.5%}.tft .ext-inspector{display:grid;grid-template-columns:.8fr 1.15fr .9fr;gap:5%;align-items:center;border:1px solid var(--dim);padding:4.5% 5%}.tft .ext-inspector b,.tft .ext-inspector p{margin:0}.tft .ext-inspector .state{justify-self:end}.tft .bar-list{gap:7px}.tft .bar-track{height:9px}
-</style><main>
-<header><div class="eyebrow">Oscilla / Master Brand & Interface Guide · v1.3</div><h1>OS<i>C</i>ILLA</h1><p class="lead">The implementation-facing guide for a receive-only Cardputer ADV and ESP32-C5 field instrument. It consolidates the settled brand, navigation, display grammar, current UI, and proposed roadmap surfaces.</p><p class="hero-line">OBSERVE THE NOISE.</p><nav><a href="#brand">brand</a><a href="#philosophy">philosophy</a><a href="#tokens">tokens</a><a href="#navigation">navigation</a><a href="#deck">deck</a><a href="#external">external</a><a href="#handoff">handoff</a></nav></header>
-<section id="philosophy"><div class="eyebrow">01B / Design philosophy</div><h2>Field instrument by way of a mystic observatory.</h2><p class="intro">Oscilla draws from retro-futurist technical diagrams, CRT-era reconnaissance interfaces, ASCII compositions, and sacred-geometric line art. The mood is an 80s science-fiction instrument confronting an invisible field: symmetric, luminous, slightly uncanny—but always factual and usable.</p><div class="grid3"><div class="card"><h3>Geometry has a job</h3><p>Orbital paths, hexes, grids and axial symmetry express orientation, relationships, and measured space. They frame information or reveal structure; they are never wallpaper behind a reading task.</p></div><div class="card"><h3>Signal before spectacle</h3><p>The visual language may feel esoteric, but every highlight maps to a real condition: green is ready, yellow is calibrated focus, pink is selected or notable, red is fault. Meaning survives when the flourish is removed.</p></div><div class="card"><h3>Intentional lo-fi</h3><p>Use blocky type, sparse phosphor color, crisp line art and bounded redraws—not faux damage, scanline nostalgia, noise texture, gradients or bloom. It should feel made for the hardware, not styled over it.</p></div></div><div class="grid2" style="margin-top:20px"><div class="card"><h3>Composition rule</h3><p>Build from a clear center, axis or field boundary. Pair measured asymmetry in live data with an underlying geometric order. Empty black space is part of the instrument, giving anomalies and focal points room to speak.</p></div><div class="card"><h3>Hierarchy rule</h3><p><b>Truth → action → context → atmosphere.</b> Data freshness and controls come first; selected detail comes second; geometry supplies orientation only after those needs are met.</p></div></div></section>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Oscilla — Master Brand &amp; UI Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --void: #0B090D;
+      --panel: #151018;
+      --cream: #F4ECD9;
+      --muted: #9DAF96;
+      --muted-dim: #6C5D69;
+      --green: #A8DF65;
+      --dim: #51763D;
+      --dim-dark: #263528;
+      --pink: #F05D9D;
+      --yellow: #F5D658;
+      --red: #EF514C;
+      --line: #4b3c49;
+      --chassis: #121116;
+      --chassis-border: #232029;
+      --key-bg: #18161d;
+      --key-border: #2e2a36;
+      --mono: "IBM Plex Mono", Consolas, monospace;
+      --display: "Chakra Petch", sans-serif;
+    }
 
-<section id="brand"><div class="eyebrow">01 / Brand</div><h2>Lens Core is the only mark.</h2><div class="mark"><svg viewBox="0 0 300 300" fill="none" aria-label="Oscilla Lens Core logo"><g stroke="#a8df65" stroke-width="3"><path d="M150 24 258 86v128l-108 62L42 214V86z"/><ellipse cx="150" cy="150" rx="101" ry="43"/><ellipse cx="150" cy="150" rx="43" ry="101" opacity=".68"/></g><path d="M102 150c15-35 81-35 96 0-15 35-81 35-96 0Z" stroke="#f4ecd9" stroke-width="5"/><circle cx="150" cy="150" r="16" fill="#f5d658"/></svg><div><div class="hero">OBSERVE<br>THE NOISE.<small>OSCILLA · PASSIVE FIELD INSTRUMENT</small></div><p style="margin-top:28px">Green describes the dimensional field, cream the observation lens, and yellow the measured focal point. Signal Pink is intentionally absent from the mark: it remains reserved for UI focus and notable detections.</p><p class="tiny">Clear space: retain at least one outer-orbit stroke width around the complete mark. Never crop the hex or orbit. Below 32 px, use the cream lens + yellow focal-dot glyph; at 32 px and above, use the full mark.</p></div></div><div class="grid3" style="margin-top:20px"><div class="card"><h3>Hero lockup</h3><p><b>Observe the noise.</b> pairs with the full Lens Core on boot, project pages, enclosure art, and launch material.</p></div><div class="card"><h3>Type</h3><p><b>Brand:</b> Chakra Petch Bold, uppercase.<br><b>Interface/data:</b> IBM Plex Mono Bold, or a crisp fixed-width M5GFX equivalent.</p></div><div class="card"><h3>Graphic field</h3><p>Wireframe dimensional geometry may frame a view or identify a mode. It never replaces actual data or sits beneath critical text.</p></div></div></section>
+    * { box-sizing: border-box; }
+    html { background: var(--void); scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 88% 0, #2b1728 0, transparent 31rem), var(--void);
+      color: var(--cream);
+      font: 16px/1.5 var(--display);
+    }
 
-<section id="tokens"><div class="eyebrow">02 / Tokens</div><h2>Phosphor orchard palette.</h2><p class="intro">Warm black, cream, green, pink, and yellow—not a blue terminal. Every color has a semantic role; words and icons still communicate state in monochrome conditions.</p><div class="tokens"><div class="token" style="--sw:#0b090d"><div class="swatch"></div><b>Void Ink</b><br><code>#0B090D</code><p class="tiny">Screen ground</p></div><div class="token" style="--sw:#f4ecd9"><div class="swatch"></div><b>Paper Phosphor</b><br><code>#F4ECD9</code><p class="tiny">Primary text / lens</p></div><div class="token" style="--sw:#a8df65"><div class="swatch"></div><b>Field Green</b><br><code>#A8DF65</code><p class="tiny">Ready / frame / grid</p></div><div class="token" style="--sw:#f05d9d"><div class="swatch"></div><b>Signal Pink</b><br><code>#F05D9D</code><p class="tiny">Focus / detection</p></div><div class="token" style="--sw:#f5d658"><div class="swatch"></div><b>Calibration Yellow</b><br><code>#F5D658</code><p class="tiny">Cursor / threshold</p></div><div class="token" style="--sw:#ef514c"><div class="swatch"></div><b>Fault Red</b><br><code>#EF514C</code><p class="tiny">Faults only</p></div></div><div class="grid2" style="margin-top:20px"><div class="card"><h3>Device rendering</h3><p>Solid 16-bit colors only. No gradients, transparency, glow, or hairlines in the shipped display UI. Preserve daylight and lowest-brightness legibility.</p></div><div class="card"><h3>Data truth</h3><p>Every observation declares <code>LIVE</code>, a concrete age, or <code>CACHED</code>. Stored data must never visually impersonate live RF.</p></div></div></section>
+    main { max-width: 1280px; margin: auto; padding: 30px; }
+    header { padding: 70px 0 55px; border-bottom: 1px solid var(--line); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      font: 700 clamp(3.5rem, 10vw, 8rem)/.78 var(--display);
+      letter-spacing: -.09em;
+      margin: 16px 0 24px;
+    }
+    h1 i { font-style: normal; color: var(--pink); }
+    h2 {
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: .96;
+      letter-spacing: -.06em;
+      margin-bottom: 16px;
+    }
+    h3 { font-size: 1.18rem; margin-bottom: 5px; }
+    .eyebrow {
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .lead, .intro { max-width: 860px; color: #d2c6c0; font-size: 1.12rem; }
+    .hero-line { font: 700 12px var(--mono); letter-spacing: .14em; color: var(--yellow); }
+    
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+    nav a {
+      border: 1px solid var(--line);
+      padding: 6px 9px;
+      color: var(--cream);
+      font: 11px var(--mono);
+      text-decoration: none;
+      transition: border-color .15s, color .15s;
+    }
+    nav a:hover { border-color: var(--green); color: var(--green); }
 
-<section id="navigation"><div class="eyebrow">03 / Navigation</div><h2>One shallow deck, focused instrument views.</h2><p class="intro">The future menu rework replaces the temporary flat early card loop while keeping keyboard-first operation. A user is never more than one top-level deck and one focused instrument view from an action.</p><div class="route"><div><span>01 / SYSTEM</span><b>Link & Info</b><small>Backpack transport, battery, GNSS, storage, capability truth</small></div><div><span>02 / OBSERVE</span><b>Survey modes</b><small>Wi-Fi · BLE · Mesh · Sub-GHz</small></div><div><span>03 / ANALYZE</span><b>Live analysis</b><small>Spectrum · Contacts · Guard · captures</small></div><div><span>04 / DRIVE</span><b>Session work</b><small>GNSS, markers, logging, session state</small></div><div><span>05 / LOGS</span><b>Offline review</b><small>Sessions, compare, preview, export</small></div></div><div class="grid2" style="margin-top:20px"><div><h3>Keyboard contract</h3><div class="keymap">[, /] move sibling cards or rows<br>[↵] open, select, lock, or start<br>[; .] scroll a list or move chart focus<br>[&grave;] global stop active work + back<br>[m] add Drive marker (Drive only)<br>[s] start/stop active session where offered</div></div><div><h3>Roadmap state</h3><table><thead><tr><th>Status</th><th>Views</th></tr></thead><tbody><tr><td style="color:var(--green)">Now / early</td><td>Link, Sweep, Trace; Contacts, Spectrum and Guard are built early but need complete live validation.</td></tr><tr><td style="color:var(--yellow)">P3–P5</td><td>Sub-GHz receive, GNSS states, external TFT integration.</td></tr><tr><td style="color:var(--pink)">P7–P8</td><td>BLE Beacons, Mesh, full Drive/Log workflow, persistence, configuration and field polish.</td></tr></tbody></table></div></div></section>
+    section { padding: 70px 0; border-bottom: 1px solid var(--line); }
+    .grid2, .grid3, .gallery { display: grid; gap: 24px; }
+    .grid2 { grid-template-columns: repeat(2, 1fr); }
+    .grid3 { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      border: 1px solid var(--line);
+      padding: 20px;
+      background: linear-gradient(135deg, #18121a, #0d0b10);
+    }
+    .tiny { font: 12px/1.5 var(--mono); color: var(--muted); }
+    
+    .mark {
+      display: grid;
+      grid-template-columns: .85fr 1.15fr;
+      gap: 42px;
+      align-items: center;
+      margin-top: 26px;
+      padding: 32px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #19121a, #0d0b10);
+    }
+    .mark svg { width: 100%; max-width: 370px; justify-self: center; }
+    .hero { font: 700 clamp(3rem, 7vw, 6.4rem)/.8 var(--display); letter-spacing: -.09em; }
+    .hero small {
+      display: block;
+      margin-top: 16px;
+      color: var(--green);
+      font: 700 12px/1.5 var(--mono);
+      letter-spacing: .13em;
+    }
 
-<section id="deck"><div class="eyebrow">04 / Cardputer ADV · 240 × 135</div><h2>Primary deck gallery.</h2><p class="intro">The card name is now the upper-left title—never “OSC.” The top-right cluster is fixed: Backpack, GNSS, SD and RF dots first; battery is the terminal, conventional far-right icon. The second strip carries live state and backpack telemetry. Each card is limited to large labels and a maximum of four list rows.</p><div class="gallery">
-<article class="mcard"><span class="tag">NOW</span><h3>System / Link</h3><p>System truth and capability state.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">SYSTEM / LINK</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot yellow"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · BPK PING 12ms ↔ PONG 14ms</div><div class="screen-body"><div class="split"><div class="kv"><b>LINK READY</b><br>probe C5 / v1<br>caps wifi / spectrum<br>uptime 03:18:02</div><div class="kv"><b>GNSS</b> acquiring<br><b>SD</b> ready<br><b>errors</b> 0</div></div><div class="alert">◇ no transport errors</div></div><div class="screen-foot">[,/.] cards · [↵] open · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag">NOW</span><h3>Observe / Wi-Fi Sweep</h3><p>Passive AP discovery; select a row to trace.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">OBSERVE / SWEEP</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · BPK PING 13ms ↔ PONG 13ms</div><div class="screen-body"><div class="screen-sub">134 APs · 5 GHz · page 1/3</div><div class="rows"><div class="selected">› HAWTHORNE_5G 149 −58</div><div> CAFE-GUEST 44 −67</div><div> (hidden) 36 −72</div><div> FIELD-LAB 157 −79</div></div></div><div class="screen-foot">[; .] scroll · [↵] trace · [&grave;] stop</div></div></div></article>
-<article class="mcard"><span class="tag">NOW</span><h3>Trace / AP detail</h3><p>Security and RF details for one selected AP.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">TRACE / AP</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · LAST FRAME 00:01 AGO</div><div class="screen-body"><div class="split"><div class="kv"><b>HAWTHORNE_5G</b><br>ch 149 / 5G<br>sec WPA3<br>MFP required</div><div class="kv"><b>RSSI</b> −58 dBm<div class="meter"><i></i></div>beacons 3<br>interval 102 ms</div></div></div><div class="screen-foot">[↵] inspect · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag">EARLY</span><h3>Analyze / Spectrum</h3><p>Deck summary; external panel gains the expanded chart.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">ANALYZE / SPECTRUM</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · BPK PING 12ms ↔ PONG 15ms</div><div class="screen-body"><div class="screen-sub">selected channel 149</div><div class="rows"><div class="selected">› 149 356 pkts/s −58</div><div> 48 188 pkts/s −68</div><div> 40 112 pkts/s −71</div></div><div class="alert">◇ density above baseline</div></div><div class="screen-foot">[; .] focus · [↵] lock · [&grave;] stop</div></div></div></article>
-<article class="mcard"><span class="tag">EARLY</span><h3>Analyze / Contacts + Guard</h3><p>Passive relationship and protective-event surfaces.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">ANALYZE / GUARD</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · STREAM 00:00 AGO · 12 EVENTS</div><div class="screen-body"><div class="screen-sub">clients 18 · probes 7</div><div class="rows"><div class="selected">› AP HAWTHORNE · 4 clients</div><div> CL 7C:8D:.. · −61</div><div> GUARD · burst ch 149</div></div><div class="alert">◇ passive protection event</div></div><div class="screen-foot">[↵] detail · [s] stop · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag future">P3</span><h3>Observe / Sub-GHz</h3><p>LoRa receive-only packet observation.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">OBSERVE / SUB-GHz</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · LORA LANE LISTENING · 00:01</div><div class="screen-body"><div class="screen-sub">RX ONLY · 915 MHz</div><div class="rows"><div class="selected">› MESHTASTIC −92 / 7.5</div><div> unknown −104 / 4.1</div><div> LoRaWAN −110 / 2.8</div></div></div><div class="screen-foot">[; .] scroll · [↵] frame · [s] stop</div></div></div></article>
-<article class="mcard"><span class="tag future">P4/P7</span><h3>Drive / Session</h3><p>GNSS freshness and deck-side logging state.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">DRIVE / SESSION</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot yellow"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · BPK 12ms ↔ 14ms · LOGGING</div><div class="screen-body"><div class="kv"><b>GNSS</b> 3D / ±4 m / age 01s<br><b>SESSION</b> 00:12:44<br><b>OBSERVED</b> 121 AP · 38 BLE<br><b>STORAGE</b> 84 MB / writing</div><div class="alert">◇ [m] adds field marker</div></div><div class="screen-foot">[m] mark · [s] stop log · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag future">P7/P8</span><h3>Logs / Offline review</h3><p>Stored sessions are explicitly non-live.</p><div class="device"><div class="screen"><div class="deck-top"><span class="view-name">LOGS / REVIEW</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot yellow"></span>S<span class="dot"></span>R<span class="dot off"></span></span><span class="battery"><i></i></span></span></div><div class="transport" style="color:var(--pink)">◇ CACHED · REVIEWING STORED FIELD DATA</div><div class="screen-body"><div class="rows"><div class="selected">› 09-13 21:44 DRIVE 84 MB</div><div> 09-13 20:16 SCOPE 6 MB</div><div> 09-12 18:52 CONTACTS 11 MB</div></div></div><div class="screen-foot">[,/.] browse · [↵] review · [&grave;] back</div></div></div></article>
-</div>
-<table class="contract"><thead><tr><th>Deck typography / layout rule</th><th>Implementation target</th></tr></thead><tbody><tr><td>Primary interaction labels</td><td>Render at roughly 14–16 physical px: view name, selected row, primary state, and active command. Do not use this tier for more than four rows.</td></tr><tr><td>Supporting values</td><td>Render at roughly 9–10 physical px for RSSI, age, counts, and the transport strip. Use fixed width and stable columns.</td></tr><tr><td>Footer / context</td><td>Render at 8–9 physical px and keep one short line. It may hint controls but does not carry essential live truth.</td></tr><tr><td>Chrome allocation</td><td>Top bar 20 px, transport 18 px, footer 14 px; the remaining ~83 px belongs to the view. The title is never duplicated in the body.</td></tr></tbody></table></section>
+    .tokens { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--line); }
+    .token { min-height: 145px; padding: 15px; border-right: 1px solid var(--line); background: var(--panel); }
+    .token:last-child { border: 0; }
+    .swatch { height: 54px; margin: -15px -15px 14px; background: var(--sw); }
+    code { font-family: var(--mono); color: var(--green); }
 
-<section id="external"><div class="eyebrow">05 / External display · ILI9341 landscape 320 × 240</div><h2>Secondary panel is a clean data viewport.</h2><p class="intro">The external display is horizontal and intentionally chrome-free: no duplicated top bar, status dots, battery, transport strip, or command footer. The Cardputer remains the control surface and source of all system status. This panel shows unique analysis, context, and selected-item detail only; it adds nothing required for operating the instrument. Touch and readback are not assumed.</p><div class="gallery">
-<article class="mcard"><span class="tag">P5</span><h3>Analyze / Spectrum field</h3><p>Channel occupancy comparison with a focused-channel inspector—not a decorative line chart.</p><div class="device"><div class="screen tft"><div class="deck-top"><span class="view-name">ANALYZE / SPECTRUM</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot yellow"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · BPK 12ms ↔ 14ms · 5 GHz FIELD</div><div class="tft-body"><div class="ext-grid"><div class="ext-panel"><div class="ext-head">CHANNEL ACTIVITY · pkts/s</div><div class="bar-list"><div class="bar-row"><span>36</span><span class="bar-track"><i class="bar-fill" style="display:block;width:22%"></i></span><span>112</span></div><div class="bar-row"><span>40</span><span class="bar-track"><i class="bar-fill" style="display:block;width:31%"></i></span><span>188</span></div><div class="bar-row"><span>44</span><span class="bar-track"><i class="bar-fill" style="display:block;width:27%"></i></span><span>164</span></div><div class="bar-row"><span class="selected">149</span><span class="bar-track"><i class="bar-fill hot" style="display:block;width:76%"></i></span><span class="selected">356</span></div><div class="bar-row"><span>153</span><span class="bar-track"><i class="bar-fill" style="display:block;width:45%"></i></span><span>218</span></div></div></div><div class="ext-inspector"><b>CH 149</b><p>−58 dBm<br>356 pkts/s<br>peak 712/s</p><p>baseline 184/s<br>+93% density</p><p class="state">◇ above threshold</p></div></div></div><div class="screen-foot">[; .] focus · [↵] lock · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag future">P7</span><h3>Analyze / Contacts</h3><p>Ranked AP table with the selected network’s useful relationship and guard state.</p><div class="device"><div class="screen tft"><div class="deck-top"><span class="view-name">ANALYZE / CONTACTS</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · 18 CLIENTS · 7 PROBES</div><div class="tft-body"><div class="ext-grid"><div class="ext-panel"><div class="ext-head">AP · CH · CLIENTS · RSSI · AGE</div><table class="data-table"><thead><tr><th>AP</th><th>CH</th><th>CLI</th><th>RSSI</th><th>AGE</th></tr></thead><tbody><tr class="selected"><td>› HAWTHORNE</td><td>149</td><td>4</td><td>−58</td><td>01s</td></tr><tr><td>CAFE-GUEST</td><td>44</td><td>2</td><td>−67</td><td>03s</td></tr><tr><td>FIELD-LAB</td><td>157</td><td>1</td><td>−79</td><td>01s</td></tr><tr><td>(hidden)</td><td>36</td><td>0</td><td>−72</td><td>05s</td></tr></tbody></table></div><div class="ext-inspector"><b>HAWTHORNE</b><p>WPA3 · MFP req.<br>ch 149 / 5 GHz<br>4 active clients</p><p>probe seen 01s<br>beacon 102 ms</p><p class="state">◇ guard burst ch 149</p></div></div></div><div class="screen-foot">[; .] focus · [↵] detail · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag future">P4/P7</span><h3>Drive / Session log</h3><p>Recent location and marker events are more useful than an unreferenced fake map.</p><div class="device"><div class="screen tft"><div class="deck-top"><span class="view-name">DRIVE / SESSION</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot yellow"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · GNSS 3D ±4 m · LOGGING</div><div class="tft-body"><div class="ext-grid"><div class="ext-panel"><div class="ext-head">RECENT TRACK / MARKER EVENTS</div><div class="track-list"><div><span>12:44:15</span><span>45.51810 / −122.67590</span><span>±4 m</span></div><div><span>12:44:10</span><span>45.51806 / −122.67581</span><span>±4 m</span></div><div class="marker"><span>12:44:07</span><span>MARK 03 · density rise</span><span>saved</span></div><div><span>12:44:05</span><span>45.51801 / −122.67574</span><span>±5 m</span></div></div></div><div class="ext-inspector"><b>00:12:44</b><p>121 AP · 38 BLE<br>84 MB writing</p><p>heading 282°<br>speed 1.8 m/s</p><p class="state">[m] marker ready</p></div></div></div><div class="screen-foot">[m] mark · [s] stop log · [&grave;] back</div></div></div></article>
-<article class="mcard"><span class="tag future">P3/P7</span><h3>Observe / Frame list</h3><p>Protocol-first receive-only frames with a selected-frame inspection panel.</p><div class="device"><div class="screen tft"><div class="deck-top"><span class="view-name">OBSERVE / FRAMES</span><span class="instrument-state"><span class="indicator-set">B<span class="dot"></span>G<span class="dot"></span>S<span class="dot"></span>R<span class="dot pink"></span></span><span class="battery"><i></i></span></span></div><div class="transport">● LIVE · RECEIVE ONLY · 00:00 AGE</div><div class="tft-body"><div class="ext-grid"><div class="ext-panel"><div class="ext-head">TIME · PROTOCOL · CH · RSSI · QUALITY</div><div class="frame-list"><div class="selected"><span>›12:44:03</span><span>MESHTASTIC</span><span>20</span><span>−92</span><span>7.5 SNR</span></div><div><span>12:44:02</span><span>BLE ADV</span><span>37</span><span>−71</span><span>01s</span></div><div><span>12:44:01</span><span>LORAWAN</span><span>64</span><span>−110</span><span>2.8 SNR</span></div><div><span>12:43:59</span><span>MESH NODE</span><span>20</span><span>−88</span><span>04s</span></div></div></div><div class="ext-inspector"><b>FRAME 0241</b><p>Meshtastic<br>915 MHz · ch 20<br>−92 dBm / 7.5 SNR</p><p>length 54 B<br>age 00s</p><p class="state">◇ capture available</p></div></div></div><div class="screen-foot">[; .] scroll · [↵] inspect · [&grave;] back</div></div></div></article>
-</div>
-<table class="contract"><thead><tr><th>External viewport</th><th>Unique information or visualization</th><th>Roadmap state</th></tr></thead><tbody><tr><td>Spectrum</td><td>Channel-occupancy bars, baseline comparison, selected-channel RF inspector. No controls or duplicated status.</td><td>P5 shell / early model exists</td></tr><tr><td>Contacts</td><td>Ranked network relationship data, client count, security/freshness detail, selected Guard event context.</td><td>P7 completion</td></tr><tr><td>Beacons</td><td>Dense device history, protocol/identity guess, RSSI trend and last-seen context.</td><td>P7 proposed</td></tr><tr><td>Mesh</td><td>Node relationship visualization, selected node signal quality and last-seen context.</td><td>P7 proposed</td></tr><tr><td>Sub-GHz</td><td>Receive-only protocol cadence, timestamped frame context, RSSI/SNR and selected-frame decode.</td><td>P3 proposed</td></tr><tr><td>Drive</td><td>GNSS breadcrumb and marker-event history, session counts, coordinate accuracy and movement context.</td><td>P4/P7 proposed</td></tr><tr><td>Logs</td><td>Session comparison, timeline or density overview, preview counts and explicit CACHED state.</td><td>P7/P8 proposed</td></tr></tbody></table></section>
+    .route { display: grid; grid-template-columns: repeat(5, 1fr); margin-top: 26px; }
+    .route > div {
+      min-height: 140px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-right: 0;
+      background: var(--panel);
+    }
+    .route > div:last-child { border-right: 1px solid var(--line); }
+    .route span { display: block; margin-bottom: 8px; color: var(--pink); font: 11px var(--mono); }
+    .route small { display: block; margin-top: 7px; color: var(--muted); font: 12px/1.35 var(--mono); }
 
-<section id="handoff"><div class="eyebrow">06 / Engineering handoff</div><h2>Implement shared rules before individual screens.</h2><table><thead><tr><th>Layer</th><th>Master rule</th><th>Implementation result</th></tr></thead><tbody><tr><td>Brand</td><td>Lens Core + “Observe the noise.” only.</td><td>Keep a complete SVG, a small lens/dot glyph, and the defined safe area. Pink stays out of the mark.</td></tr><tr><td>Deck chrome</td><td>Card/view name upper-left; B/G/S/R dots upper-right; battery always terminal far-right; transport below.</td><td>Build one shared renderer. LIVE, backpack state, ping/pong and age have stable meanings on every view.</td></tr><tr><td>External viewport</td><td>No top bar, status dots, battery, transport strip, footer, or controls.</td><td>Render only data visualization and selected-item context. The deck is authoritative for navigation, control, and system truth.</td></tr><tr><td>Readability</td><td>Large interaction labels; limited row count; no duplicate body title.</td><td>Set primary menu and state to 14–16 px, supporting values to 9–10 px, and avoid shrinking data below 8 px.</td></tr><tr><td>Truth</td><td>Show source and freshness everywhere.</td><td>Use live/age/cached strings plus dots; never let a recording appear current.</td></tr><tr><td>Rendering</td><td>240×135 primary; 320×240 landscape secondary.</td><td>Bounded redraws, Canvas on deck, fixed-width data type, and serialized SD/TFT transactions on shared SPI.</td></tr><tr><td>Scope</td><td>Receive-only on every radio.</td><td>Use Observe, Survey, Listen and Guard language; never add transmit-shaped controls in v1.</td></tr></tbody></table></section>
-<footer>OSCILLA / MASTER BRAND &amp; UI GUIDE · v1.3 · grounded in current DESIGN.md and ROADMAP.md (2026-09-12).</footer>
-</main></body></html>
+    table { width: 100%; border-collapse: collapse; font: 13px/1.4 var(--mono); }
+    th, td { padding: 11px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--green); font-size: 11px; }
+    .keymap { padding: 16px; border: 1px solid var(--dim); background: #090b09; font: 13px/1.65 var(--mono); }
+
+    .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 28px; }
+    .mcard > header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 0 6px;
+      border-bottom: 0;
+    }
+    .mcard h3 { margin: 0; }
+    .mcard > p { min-height: 34px; margin-bottom: 12px; color: var(--muted); font: 12px var(--mono); }
+    .tag {
+      padding: 3px 7px;
+      background: var(--yellow);
+      color: var(--void);
+      font: 700 10px var(--mono);
+      letter-spacing: .07em;
+    }
+    .tag.future { background: var(--pink); color: var(--cream); }
+    .tag.proto {
+      background: #1f1722;
+      border: 1px solid #4a384f;
+      color: var(--green);
+      text-decoration: none;
+      font: 700 10px var(--mono);
+      padding: 2px 7px;
+      margin-left: 8px;
+    }
+    .tag.proto:hover { border-color: var(--green); }
+
+    /* ==========================================================================
+       Cardputer ADV Handheld Chassis Enclosure Simulation
+       ========================================================================== */
+    .chassis-deck {
+      background: var(--chassis);
+      border: 2px solid var(--chassis-border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06);
+      position: relative;
+    }
+    .chassis-label-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 0 2px;
+      font-family: var(--display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--cream);
+      text-transform: uppercase;
+    }
+    .chassis-label-bar .left-id {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chassis-label-bar .sq-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--dim);
+      display: inline-block;
+    }
+    .chassis-label-bar .badge {
+      background: #090b09;
+      border: 1px solid var(--dim);
+      padding: 2px 7px;
+      border-radius: 3px;
+      color: var(--green);
+      font: 700 9px var(--mono);
+      letter-spacing: 0.08em;
+    }
+
+    /* Screen recess well */
+    .chassis-well {
+      background: #000;
+      border: 1px solid var(--key-border);
+      padding: 7px;
+      border-radius: 6px;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.85);
+    }
+
+    /* Screen 240x135 viewport: 2.2x Canvas / 1:1 Target (ST7789V2 240x135 SPI) */
+    .screen {
+      position: relative;
+      aspect-ratio: 240 / 135;
+      overflow: hidden;
+      background: #090b09;
+      color: var(--cream);
+      font-family: var(--mono);
+      border: 2px solid var(--dim);
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Screen Top Bar: 17px physical -> 38px at 2.2x scale */
+    .deck-top {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 2px solid var(--dim);
+      font-size: 21px;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .deck-top .view-name {
+      color: var(--cream);
+      letter-spacing: 0.04em;
+    }
+    .deck-top .status-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .deck-top .bgsr {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+    }
+    .deck-top .bgsr span.lbl { color: var(--cream); }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .dot.yellow { background: var(--yellow); }
+    .dot.pink { background: var(--pink); }
+    .dot.off { background: transparent; border: 2px solid #9daf96; }
+
+    .deck-top .bat-pct {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+      margin-right: -2px;
+    }
+
+    /* Battery icon: 28x14px at 2.2x */
+    .battery-icon {
+      position: relative;
+      width: 28px;
+      height: 15px;
+      border: 2px solid var(--cream);
+      padding: 1.5px;
+      display: inline-block;
+    }
+    .battery-icon::after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      top: 2.5px;
+      width: 3px;
+      height: 6px;
+      background: var(--cream);
+    }
+    .battery-fill {
+      height: 100%;
+      width: 75%;
+      background: var(--green);
+    }
+
+    /* Screen Body: 103px physical -> ~225px at 2.2x scale */
+    .screen-body {
+      flex: 1;
+      padding: 6px 14px 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      font-size: 20px;
+    }
+    .screen-subhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 700;
+      color: var(--cream);
+      border-bottom: 1.5px solid rgba(81, 118, 61, 0.5);
+      padding-bottom: 3px;
+      margin-bottom: 2px;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+    }
+    .screen-subhead .sub-muted { color: var(--muted); }
+
+    /* Screen budgeted rows */
+    .budget-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin: auto 0;
+    }
+    .budget-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 8px;
+      line-height: 1.25;
+      font-size: 20px;
+      border-radius: 2px;
+    }
+    .budget-row.selected {
+      border: 1.5px solid var(--yellow);
+      background: rgba(245, 214, 88, 0.15);
+      color: var(--yellow);
+      font-weight: 700;
+    }
+    .budget-row.anomaly {
+      border: 1.5px solid rgba(240, 93, 157, 0.7);
+      background: rgba(240, 93, 157, 0.2);
+      color: var(--pink);
+      font-weight: 700;
+    }
+    .row-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    /* Mini RSSI Bar at 2.2x */
+    .rssi-mini-bar {
+      width: 52px;
+      height: 10px;
+      background: var(--dim-dark);
+      display: inline-block;
+      vertical-align: middle;
+      position: relative;
+    }
+    .rssi-mini-fill {
+      height: 100%;
+      background: var(--green);
+    }
+    .rssi-mini-fill.yellow { background: var(--yellow); }
+
+    /* Segmented RSSI meter at 2.2x */
+    .seg-meter {
+      display: flex;
+      gap: 3px;
+      height: 12px;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .seg {
+      flex: 1;
+      background: var(--dim-dark);
+    }
+    .seg.on { background: var(--green); }
+    .seg.hot { background: var(--pink); }
+
+    /* Metric tile box for detail views */
+    .metric-tiles {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin: 4px 0;
+    }
+    .metric-tile {
+      border: 1.5px solid rgba(81, 118, 61, 0.55);
+      padding: 4px 6px;
+      background: rgba(0, 0, 0, 0.35);
+      text-align: left;
+    }
+    .metric-tile .tile-lbl {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .metric-tile .tile-val {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin: 1px 0;
+    }
+    .metric-tile .tile-sub {
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    /* Badge Pills inside rows at 2.2x */
+    .pill {
+      font-size: 16px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .pill.anomaly { background: var(--pink); color: var(--void); }
+    .pill.logged { color: var(--green); }
+
+    /* Alert line inside body at 2.2x */
+    .screen-alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--pink);
+      font-weight: 700;
+      padding-top: 3px;
+      border-top: 1.5px solid rgba(81, 118, 61, 0.5);
+      font-size: 17px;
+    }
+    .screen-alert .sub-mode {
+      color: var(--muted);
+      font-size: 15px;
+      letter-spacing: 0.06em;
+    }
+
+    /* Screen Footer: 15px physical -> 34px at 2.2x scale */
+    .screen-foot {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-top: 2px solid var(--dim);
+      font-size: 18px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      color: var(--muted);
+      line-height: 1;
+      background: rgba(18, 17, 22, 0.4);
+    }
+    .screen-foot .foot-telemetry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+    .screen-foot .live-dot {
+      color: var(--green);
+      font-size: 12px;
+      line-height: 1;
+    }
+    .screen-foot .live-tag {
+      color: var(--yellow);
+      font-weight: 700;
+    }
+    .deck-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .deck-logo .logo-txt {
+      font-family: var(--display);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--cream);
+    }
+
+    /* Chassis Physical Soft-Keys */
+    .chassis-keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .hw-btn {
+      background: var(--key-bg);
+      border: 1px solid var(--key-border);
+      border-radius: 4px;
+      padding: 6px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font: 700 8.5px var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 0 #08070a;
+      transition: background .15s, border-color .15s;
+    }
+    .hw-btn:hover {
+      background: var(--chassis);
+      border-color: var(--dim);
+      color: var(--cream);
+    }
+    .hw-btn .k-sym {
+      color: var(--yellow);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .chassis-foot-engraving {
+      margin-top: 10px;
+      text-align: center;
+      font: 700 8px var(--mono);
+      letter-spacing: 0.22em;
+      color: rgba(157, 175, 150, 0.4);
+      text-transform: uppercase;
+    }
+
+    /* ==========================================================================
+       Secondary ILI9341 Bezel (320 × 240 @ ~1.65x / 2x Canvas Scale)
+       ========================================================================== */
+    .ili-bezel {
+      background: #110E14;
+      border: 2px solid #2B212D;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06);
+      position: relative;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .ili-header-engraving {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font: 700 13px var(--display);
+      letter-spacing: 0.14em;
+      color: #8C7889;
+      text-transform: uppercase;
+    }
+    .ili-header-engraving .tag-pill {
+      background: #1F1722;
+      border: 1.5px solid #3E2F42;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: var(--green);
+      font: 700 11px var(--mono);
+      letter-spacing: 0.08em;
+    }
+    .ili-foot-engraving {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      font: 700 11.5px var(--mono);
+      letter-spacing: 0.12em;
+      color: #62535F;
+    }
+    .ili-foot-engraving .chip { color: #8C7889; }
+
+    /* Core ILI9341 Viewport: exactly 320x240 (4:3 aspect ratio), scaled 2x to match Cardputer ADV */
+    /* NO SCANLINES - Tack-sharp, vibrant, high-contrast embedded LCD rendering */
+    .ili-viewport {
+      width: 100%;
+      aspect-ratio: 320 / 240;
+      background: #060806;
+      border: 2px solid #1D2A1F;
+      position: relative;
+      overflow: hidden;
+      font-family: var(--mono);
+      color: var(--cream);
+      box-shadow: inset 0 0 16px rgba(0,0,0,0.9);
+      user-select: none;
+    }
+
+    /* CARD 1: Spectrum Waterfall & Envelope (2x scale) */
+    .ili-waterfall-card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 14px;
+      justify-content: space-between;
+      background: #060806;
+    }
+    .wf-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--muted);
+      border-bottom: 1.5px solid #1D2A1F;
+      padding-bottom: 5px;
+      line-height: 1;
+    }
+    .wf-header-row .wf-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--cream);
+    }
+    .wf-header-row .wf-title .dot {
+      width: 7px; height: 7px;
+      background: var(--pink);
+      border-radius: 1.5px;
+    }
+    .wf-top-canvas {
+      height: 48%;
+      width: 100%;
+      position: relative;
+      margin-top: 4px;
+    }
+    .wf-fft-canvas {
+      height: 25%;
+      width: 100%;
+      position: relative;
+      border-top: 1.5px dashed #1D2A1F;
+      margin-top: 2px;
+    }
+    .wf-hud-bottom {
+      display: grid;
+      grid-template-columns: 0.95fr 1.25fr 0.95fr;
+      gap: 8px;
+      background: #090D09;
+      border: 1.5px solid #1D2A1F;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      align-items: center;
+    }
+    .wf-hud-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .wf-hud-col.mid {
+      border-left: 1.5px solid #1D2A1F;
+      border-right: 1.5px solid #1D2A1F;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+    .wf-hero-badge {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--yellow);
+      line-height: 1.05;
+      margin: 1px 0;
+    }
+
+    /* CARD 2: Contacts Radar & Node Dossier (2x scale) */
+    .ili-radar-card {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      background: #060806;
+    }
+    .radar-pane {
+      height: 100%;
+      border-right: 1.5px solid #1D2A1F;
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-sizing: border-box;
+      background: #060906;
+    }
+    .radar-title-strip {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1.5px solid #1D2A1F;
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+    .radar-canvas-box {
+      flex: 1;
+      width: 100%;
+      position: relative;
+    }
+    .dossier-pane {
+      height: 100%;
+      padding: 10px 14px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #080B08;
+      box-sizing: border-box;
+    }
+    .dossier-target {
+      border-bottom: 1.5px solid #1D2A1F;
+      padding-bottom: 6px;
+    }
+    .dossier-target .d-lbl {
+      font-size: 11.5px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+    }
+    .dossier-target .d-name {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--yellow);
+      margin: 2px 0;
+      line-height: 1.1;
+    }
+    .dossier-target .d-meta {
+      font-size: 13px;
+      color: var(--cream);
+      display: flex;
+      gap: 10px;
+    }
+    .dossier-target .d-meta span { color: var(--green); }
+    .dossier-table {
+      width: 100%;
+      font-size: 13px;
+      border-collapse: collapse;
+      margin: 4px 0;
+    }
+    .dossier-table th {
+      color: var(--muted);
+      text-align: left;
+      border-bottom: 1.5px solid #1D2A1F;
+      padding: 3px 4px;
+      font-weight: 700;
+      font-size: 11.5px;
+    }
+    .dossier-table td {
+      padding: 3px 4px;
+    }
+    .dossier-table tr.active-probe {
+      color: var(--yellow);
+      background: rgba(245, 214, 88, 0.12);
+      font-weight: 700;
+    }
+    .dossier-guard-alert {
+      background: rgba(240, 93, 120, 0.14);
+      border: 1.5px solid rgba(240, 93, 120, 0.4);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--pink);
+      line-height: 1.4;
+    }
+    .dossier-guard-alert b { color: var(--yellow); }
+
+            /* CARD 3: Drive Tactical Breadcrumb Map (Sleek Widescreen Moving Map) */
+    .ili-drive-card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      background: #060806;
+      padding: 6px 10px;
+      justify-content: space-between;
+    }
+    .drive-top-ribbon {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1.05fr 1fr;
+      gap: 6px;
+      background: #080C08;
+      border: 1.5px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 5px 10px;
+      align-items: center;
+    }
+    .d-ribbon-tile {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .d-ribbon-tile:not(:first-child) {
+      border-left: 1.5px solid #1D2A1F;
+      padding-left: 6px;
+    }
+    .d-ribbon-tile .r-lbl {
+      font-size: 9.5px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1;
+    }
+    .d-ribbon-tile .r-val {
+      font-size: 15.5px;
+      font-weight: 700;
+      line-height: 1.1;
+      font-family: var(--mono);
+      white-space: nowrap;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .d-ribbon-tile .r-val.hero {
+      color: var(--yellow);
+    }
+    .d-ribbon-tile .r-val .unit {
+      font-size: 10.5px;
+      font-weight: 400;
+      color: #8C9E8A;
+    }
+
+    .drive-map-widescreen {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      background: #070A07;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      margin: 4px 0;
+      overflow: hidden;
+    }
+
+    .drive-bottom-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #080C08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      line-height: 1;
+      gap: 10px;
+    }
+    .drive-bottom-strip b {
+      color: var(--cream);
+      font-variant-numeric: tabular-nums;
+    }
+    .drive-bottom-strip .active-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--yellow);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .drive-bottom-strip .dot {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--green);
+    }
+
+    /* CARD 4: Frame Spectrogram & Dissector (2x scale) */
+    .ili-frame-card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 14px;
+      justify-content: space-between;
+      background: #060806;
+    }
+    .frame-top-raster {
+      height: 42%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .frame-raster-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      border-bottom: 1.5px solid #1D2A1F;
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+    .frame-dissector-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-top: 1.5px solid #1D2A1F;
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+    .proto-pills-bar {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+    }
+    .p-pill {
+      padding: 2.5px 5px;
+      font-size: 10.5px;
+      font-weight: 700;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    .p-pill.pre { background: #1C271E; color: #7CA67F; border: 1.5px solid #2C3E30; }
+    .p-pill.sync { background: #2B2616; color: var(--yellow); border: 1.5px solid #4D4421; }
+    .p-pill.hdr { background: #241A28; color: #BA9FC1; border: 1.5px solid #442F4B; }
+    .p-pill.pay { background: #152422; color: #87D5CB; border: 1.5px solid #234743; flex: 1; text-align: center; }
+    .p-pill.crc { background: #162B1A; color: var(--green); border: 1.5px solid #254F2D; }
+
+    .proto-decode-body {
+      background: #090D09;
+      border: 1.5px solid #1D2A1F;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .proto-decode-body .f-row {
+      display: flex;
+      justify-content: space-between;
+    }
+    .proto-decode-body .f-hex {
+      font-size: 11px;
+      color: #6C8A67;
+      letter-spacing: 0.08em;
+      border-top: 1px dashed #1B261D;
+      margin-top: 4px;
+      padding-top: 3px;
+      word-break: break-all;
+    }
+    .proto-decode-body .f-msg {
+      color: var(--yellow);
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+    .frame-rx-only-tag {
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .frame-rx-only-tag b { color: var(--green); }
+
+    footer { padding: 40px 0 10px; color: var(--muted); font: 12px var(--mono); }
+
+    @media (max-width: 980px) {
+      main { padding: 20px; }
+      .mark, .grid2, .grid3, .gallery { grid-template-columns: 1fr; }
+      .route { grid-template-columns: 1fr 1fr; }
+      .tokens { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .tokens, .route { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">Oscilla / Master Brand &amp; Interface Guide · v1.4</div>
+  <h1>OS<i>C</i>ILLA</h1>
+  <p class="lead">The implementation-facing guide for a receive-only Cardputer ADV and ESP32-C5 field instrument. It consolidates the settled brand, navigation, display grammar, current UI, and proposed roadmap surfaces.</p>
+  <p class="hero-line">OBSERVE THE NOISE.</p>
+  <nav>
+    <a href="#brand">brand</a>
+    <a href="#philosophy">philosophy</a>
+    <a href="#tokens">tokens</a>
+    <a href="#navigation">navigation</a>
+    <a href="#deck">deck (240×135)</a>
+    <a href="#external">external (320×240)</a>
+    <a href="#handoff">handoff</a>
+  </nav>
+</header>
+
+<section id="philosophy">
+  <div class="eyebrow">01B / Design philosophy</div>
+  <h2>Field instrument by way of a mystic observatory.</h2>
+  <p class="intro">Oscilla draws from retro-futurist technical diagrams, CRT-era reconnaissance interfaces, ASCII compositions, and sacred-geometric line art. The mood is an 80s science-fiction instrument confronting an invisible field: symmetric, luminous, slightly uncanny—but always factual and usable.</p>
+  
+  <div class="grid3">
+    <div class="card">
+      <h3>Geometry has a job</h3>
+      <p>Orbital paths, hexes, grids and axial symmetry express orientation, relationships, and measured space. They frame information or reveal structure; they are never wallpaper behind a reading task.</p>
+    </div>
+    <div class="card">
+      <h3>Signal before spectacle</h3>
+      <p>The visual language may feel esoteric, but every highlight maps to a real condition: green is ready, yellow is calibrated focus, pink is selected or notable, red is fault. Meaning survives when the flourish is removed.</p>
+    </div>
+    <div class="card">
+      <h3>Intentional lo-fi</h3>
+      <p>Use blocky type, sparse phosphor color, crisp line art and bounded redraws—not faux damage, scanline nostalgia, noise texture, gradients or bloom. It should feel made for the hardware, not styled over it.</p>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:20px">
+    <div class="card">
+      <h3>Composition rule</h3>
+      <p>Build from a clear center, axis or field boundary. Pair measured asymmetry in live data with an underlying geometric order. Empty black space is part of the instrument, giving anomalies and focal points room to speak.</p>
+    </div>
+    <div class="card">
+      <h3>Hierarchy rule</h3>
+      <p><b>Truth → action → context → atmosphere.</b> Data freshness and controls come first; selected detail comes second; geometry supplies orientation only after those needs are met.</p>
+    </div>
+  </div>
+</section>
+
+<section id="brand">
+  <div class="eyebrow">01 / Brand</div>
+  <h2>Lens Core is the only mark.</h2>
+  <div class="mark">
+    <svg viewBox="0 0 300 300" fill="none" aria-label="Oscilla Lens Core logo">
+      <g stroke="#a8df65" stroke-width="3">
+        <path d="M150 24 258 86v128l-108 62L42 214V86z"/>
+        <ellipse cx="150" cy="150" rx="101" ry="43"/>
+        <ellipse cx="150" cy="150" rx="43" ry="101" opacity=".68"/>
+      </g>
+      <path d="M102 150c15-35 81-35 96 0-15 35-81 35-96 0Z" stroke="#f4ecd9" stroke-width="5"/>
+      <circle cx="150" cy="150" r="16" fill="#f5d658"/>
+    </svg>
+    <div>
+      <div class="hero">OBSERVE<br>THE NOISE.<small>OSCILLA · PASSIVE FIELD INSTRUMENT</small></div>
+      <p style="margin-top:28px">Green describes the dimensional field, cream the observation lens, and yellow the measured focal point. Signal Pink is intentionally absent from the mark: it remains reserved for UI focus and notable detections.</p>
+      <p class="tiny">Clear space: retain at least one outer-orbit stroke width around the complete mark. Never crop the hex or orbit. Below 32 px, use the cream lens + yellow focal-dot glyph; at 32 px and above, use the full mark.</p>
+    </div>
+  </div>
+  <div class="grid3" style="margin-top:20px">
+    <div class="card">
+      <h3>Hero lockup</h3>
+      <p><b>Observe the noise.</b> pairs with the full Lens Core on boot, project pages, enclosure art, and launch material.</p>
+    </div>
+    <div class="card">
+      <h3>Type</h3>
+      <p><b>Brand / chassis:</b> Chakra Petch Bold, uppercase.<br><b>Interface / telemetry:</b> IBM Plex Mono Bold, or crisp fixed-width M5GFX equivalent.</p>
+    </div>
+    <div class="card">
+      <h3>Graphic field</h3>
+      <p>Wireframe dimensional geometry may frame a view or identify a mode. It never replaces actual data or sits beneath critical text.</p>
+    </div>
+  </div>
+</section>
+
+<section id="tokens">
+  <div class="eyebrow">02 / Tokens</div>
+  <h2>Phosphor orchard palette.</h2>
+  <p class="intro">Warm black, cream, green, pink, and yellow—not a blue terminal. Every color has a semantic role; words and icons still communicate state in monochrome conditions.</p>
+  <div class="tokens">
+    <div class="token" style="--sw:#0b090d"><div class="swatch"></div><b>Void Ink</b><br><code>#0B090D</code><p class="tiny">Screen ground</p></div>
+    <div class="token" style="--sw:#f4ecd9"><div class="swatch"></div><b>Paper Phosphor</b><br><code>#F4ECD9</code><p class="tiny">Primary text / lens</p></div>
+    <div class="token" style="--sw:#a8df65"><div class="swatch"></div><b>Field Green</b><br><code>#A8DF65</code><p class="tiny">Ready / frame / grid</p></div>
+    <div class="token" style="--sw:#f05d9d"><div class="swatch"></div><b>Signal Pink</b><br><code>#F05D9D</code><p class="tiny">Focus / detection / RX</p></div>
+    <div class="token" style="--sw:#f5d658"><div class="swatch"></div><b>Calibration Yellow</b><br><code>#F5D658</code><p class="tiny">Cursor / threshold</p></div>
+    <div class="token" style="--sw:#ef514c"><div class="swatch"></div><b>Fault Red</b><br><code>#EF514C</code><p class="tiny">Faults only</p></div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
+    <div class="card">
+      <h3>Device rendering</h3>
+      <p>Solid 16-bit colors only. No gradients, transparency, glow, or hairlines in the shipped display UI. Preserve daylight and lowest-brightness legibility.</p>
+    </div>
+    <div class="card">
+      <h3>Data truth</h3>
+      <p>Every observation declares <code>LIVE</code>, a concrete age, or <code>CACHED</code>. Stored data must never visually impersonate live RF.</p>
+    </div>
+  </div>
+</section>
+
+<section id="navigation">
+  <div class="eyebrow">03 / Navigation</div>
+  <h2>One shallow deck, focused instrument views.</h2>
+  <p class="intro">The menu rework preserves keyboard-first operation while enforcing the four-key physical deck contract. A user is never more than one top-level deck and one focused instrument view from an action.</p>
+  <div class="route">
+    <div><span>01 / SYSTEM</span><b>Link &amp; Info</b><small>Backpack transport, battery, GNSS, storage, capability truth</small></div>
+    <div><span>02 / OBSERVE</span><b>Survey modes</b><small>Wi-Fi · BLE · Mesh · Sub-GHz</small></div>
+    <div><span>03 / ANALYZE</span><b>Live analysis</b><small>Spectrum · Contacts · Guard · captures</small></div>
+    <div><span>04 / DRIVE</span><b>Session work</b><small>GNSS, markers, logging, session state</small></div>
+    <div><span>05 / LOGS</span><b>Offline review</b><small>Sessions, compare, preview, export</small></div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
+    <div>
+      <h3>Keyboard contract</h3>
+      <div class="keymap">
+        [, /] move sibling cards or rows<br>
+        [↵] open, select, lock, or start<br>
+        [; .] scroll a list or move chart focus<br>
+        [&grave;] global stop active work + back<br>
+        [m] add Drive marker (Drive only)<br>
+        [s] start/stop active session or lock AP where offered
+      </div>
+    </div>
+    <div>
+      <h3>Roadmap state</h3>
+      <table>
+        <thead><tr><th>Status</th><th>Views</th></tr></thead>
+        <tbody>
+          <tr><td style="color:var(--green)">Now / early</td><td>Link, Sweep, Trace; Contacts, Spectrum and Guard are built early but need complete live validation.</td></tr>
+          <tr><td style="color:var(--yellow)">P3–P5</td><td>Sub-GHz receive, GNSS states, external TFT integration.</td></tr>
+          <tr><td style="color:var(--pink)">P7–P8</td><td>BLE Beacons, Mesh, full Drive/Log workflow, persistence, configuration and field polish.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     SECTION 04: PRIMARY DECK (CARDPUTER ADV · 240 × 135)
+     ========================================================================== -->
+<section id="deck">
+  <div class="eyebrow">04 / Cardputer ADV · 240 × 135</div>
+  <h2>Primary deck gallery.</h2>
+  <p class="intro">The Cardputer ADV is the primary operator console. The screen header is fixed: View title upper-left; <code>B ● G ● S ● R ●</code> status dots and battery upper-right. The transport strip carries live telemetry. Each card strictly honors the four-row budget, keyboard soft keys, and the mandatory <code>◇ RX-ONLY</code> footer tripwire.</p>
+
+  <div class="gallery">
+
+    <!-- Card 1: System / Link -->
+    <article class="mcard">
+      <header>
+        <h3>System / Link</h3>
+        <span class="tag">NOW</span>
+      </header>
+      <p>Backpack transport health, GNSS status, and probe capability matrix.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">ESP32-C5 DUAL-BAND RX</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">SYSTEM / LINK</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot yellow"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">84%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>PROBE C5 / v1 · DUAL-BAND</span>
+                <span class="sub-muted">UP 03:18:02</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row selected">
+                  <span>› PROBE LINK (C5)</span>
+                  <span class="row-meta"><span class="pill logged">[ACTIVE]</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  GNSS 3D (12 SATS)</span>
+                  <span class="row-meta" style="color:var(--green)">SYNC ±4m</span>
+                </div>
+                <div class="budget-row">
+                  <span>  SD CARD LOGGING</span>
+                  <span class="row-meta">84 MB READY</span>
+                </div>
+                <div class="budget-row">
+                  <span>  BUS INTEGRITY</span>
+                  <span class="row-meta" style="color:var(--green)">0 FAULTS</span>
+                </div>
+              </div>
+              <div class="screen-alert" style="color:var(--green)">
+                <span>◇ PASSIVE PROBE TELEMETRY OK</span>
+                <span class="sub-mode">LINK ACTIVE</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>BPK PING 12ms ↔ PONG 15ms</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>PING C5</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>SYNC RTC</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>NEXT VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SYS INFO</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 2: Observe / Wi-Fi Sweep -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Observe / Wi-Fi Sweep</h3>
+        </div>
+        <div>
+          <span class="tag">NOW</span>
+        </div>
+      </header>
+      <p>Passive AP discovery with selected highlight and live RSSI meter bars.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">ESP32-C5 DUAL-BAND RX</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">OBSERVE / SWEEP</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">82%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>TOTAL <b style="color:var(--yellow)">134 APs</b> · 5G</span>
+                <span class="sub-muted">PAGE 1/34</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row selected">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">› HAWTHORNE_5G</span>
+                  <span class="row-meta">
+                    <span>149</span>
+                    <span>−58</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill yellow" style="display:block;width:78%"></i></span>
+                  </span>
+                </div>
+                <div class="budget-row">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; CAFE-GUEST</span>
+                  <span class="row-meta">
+                    <span style="color:var(--muted)">44</span>
+                    <span>−67</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:58%"></i></span>
+                  </span>
+                </div>
+                <div class="budget-row" style="color:var(--muted)">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; &lt;hidden&gt;</span>
+                  <span class="row-meta">
+                    <span>36</span>
+                    <span style="color:var(--cream)">−72</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:44%"></i></span>
+                  </span>
+                </div>
+                <div class="budget-row">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; FIELD-LAB</span>
+                  <span class="row-meta">
+                    <span style="color:var(--muted)">157</span>
+                    <span>−79</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:28%"></i></span>
+                  </span>
+                </div>
+              </div>
+              <div class="screen-alert" style="color:var(--muted)">
+                <span>◇ ACTIVE SWEEP 2.4 + 5 GHz</span>
+                <span class="sub-mode">PASSIVE RX</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>BPK 13ms ↔ 13ms · 45ms DWELL</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>; PREV</span><span class="k-sym">;</span></div>
+          <div class="hw-btn"><span>. NEXT</span><span class="k-sym">.</span></div>
+          <div class="hw-btn"><span>TRACE AP</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>STOP</span><span class="k-sym">`</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 3: Trace / AP Detail -->
+    <article class="mcard">
+      <header>
+        <h3>Trace / AP Detail</h3>
+        <span class="tag">NOW</span>
+      </header>
+      <p>Single-target RF lock, beacon timing, client density, and Guard burst alert.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">ESP32-C5 DUAL-BAND RX</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">TRACE / AP DETAIL</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">80%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <!-- AP Header + Segmented RSSI -->
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div style="font-size:26px;font-weight:700;color:var(--yellow);letter-spacing:0.02em">› HAWTHORNE_5G</div>
+                <div style="width:40%">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+                    <span style="color:var(--muted);font-size:14px;font-weight:700">RSSI</span>
+                    <b style="color:var(--yellow);font-size:22px;font-variant-numeric:tabular-nums">−58 dBm</b>
+                  </div>
+                  <div class="seg-meter">
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg on"></span>
+                    <span class="seg hot"></span>
+                    <span class="seg"></span>
+                  </div>
+                </div>
+              </div>
+              <!-- Hardware Metric Tiles (1:1 with ST7789V2 reference mockup) -->
+              <div class="metric-tiles">
+                <div class="metric-tile">
+                  <div class="tile-lbl">CHANNEL</div>
+                  <div class="tile-val" style="color:var(--green)">149</div>
+                  <div class="tile-sub" style="color:var(--muted)">5.745 GHz</div>
+                </div>
+                <div class="metric-tile">
+                  <div class="tile-lbl">SECURITY</div>
+                  <div class="tile-val" style="color:var(--cream)">WPA3</div>
+                  <div class="tile-sub" style="color:var(--green)">MFP REQ</div>
+                </div>
+                <div class="metric-tile">
+                  <div class="tile-lbl">CLIENTS</div>
+                  <div class="tile-val" style="color:var(--green)">4</div>
+                  <div class="tile-sub" style="color:var(--cream)">3 bcn/s</div>
+                </div>
+              </div>
+              <!-- Guard burst banner -->
+              <div class="screen-alert">
+                <span>◇ GUARD · BURST ON CH 149 (+93%)</span>
+                <span class="sub-mode" style="color:var(--pink)">ANOMALY</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>FRAME 00:01 AGO · 356 pkts/s</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>INSPECT EXT</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>LOCK AP</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 4: Analyze / Spectrum -->
+    <article class="mcard">
+      <header>
+        <h3>Analyze / Spectrum</h3>
+        <span class="tag">EARLY</span>
+      </header>
+      <p>Deck channel density summary; secondary LCD renders the full spectrum field.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">ESP32-C5 DUAL-BAND RX</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">ANALYZE / SPECTRUM</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot yellow"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">82%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>5 GHz FIELD DENSITY</span>
+                <span class="sub-muted">PEAK 712 pkts/s</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row anomaly">
+                  <span>› CH 149 · 356 pkts/s</span>
+                  <span class="row-meta">
+                    <span>−58 dBm</span>
+                    <span class="pill anomaly">+93%</span>
+                  </span>
+                </div>
+                <div class="budget-row">
+                  <span>  CH 48 · 226 pkts/s</span>
+                  <span class="row-meta">
+                    <span>−68 dBm</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:55%"></i></span>
+                  </span>
+                </div>
+                <div class="budget-row">
+                  <span>  CH 153 · 218 pkts/s</span>
+                  <span class="row-meta">
+                    <span>−64 dBm</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:52%"></i></span>
+                  </span>
+                </div>
+                <div class="budget-row" style="color:var(--muted)">
+                  <span>  CH 40 · 188 pkts/s</span>
+                  <span class="row-meta">
+                    <span>−71 dBm</span>
+                    <span class="rssi-mini-bar"><i class="rssi-mini-fill" style="display:block;width:40%"></i></span>
+                  </span>
+                </div>
+              </div>
+              <div class="screen-alert">
+                <span>◇ DENSITY ABOVE BASELINE (+93%)</span>
+                <span class="sub-mode">TFT MIRRORED</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>BPK 12ms ↔ 15ms · CH 149</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>FOCUS CH</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>LOCK CH</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 5: Analyze / Guard -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Analyze / Guard</h3>
+        </div>
+        <div>
+          <span class="tag">EARLY</span>
+        </div>
+      </header>
+      <p>Autonomous passive anomaly detection, probe flood logging, and signature alerts.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">ESP32-C5 DUAL-BAND RX</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">ANALYZE / GUARD</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot yellow"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">85%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>CLIENTS <b style="color:var(--cream)">18</b> · PROBES <b style="color:var(--cream)">7</b></span>
+                <span style="color:var(--green)">GUARD ACTIVE</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row anomaly">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">› BURST CH 149 (+93%)</span>
+                  <span class="row-meta"><span class="pill anomaly">ANOMALY</span></span>
+                </div>
+                <div class="budget-row">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; AP HAWTHORNE_5G</span>
+                  <span class="row-meta" style="color:var(--green)">−58 dBm</span>
+                </div>
+                <div class="budget-row" style="color:var(--muted)">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; CL 7C:8D:09:A4 (WPA3)</span>
+                  <span class="row-meta">−61 dBm</span>
+                </div>
+                <div class="budget-row" style="color:var(--yellow)">
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&nbsp; PROBE FLOOD 00:02 AGO</span>
+                  <span class="row-meta"><span class="pill logged">[LOGGED]</span></span>
+                </div>
+              </div>
+              <div class="screen-alert">
+                <span>◇ PASSIVE PROTECTION ACTIVE</span>
+                <span class="sub-mode">ARMED</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>STREAM 00:00 AGO · 12 EVENTS</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>DETAIL</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>LOCK AP</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 6: Observe / Sub-GHz -->
+    <article class="mcard">
+      <header>
+        <h3>Observe / Sub-GHz</h3>
+        <span class="tag future">P3</span>
+      </header>
+      <p>SX1262 LoRa 915 MHz receive-only protocol cadence and frame detection.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">SX1262 RX-ONLY</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">OBSERVE / SUB-GHz</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">84%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>SX1262 · 915.000 MHz</span>
+                <span style="color:var(--green)">BW250 / SF11</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row selected">
+                  <span>› MESHTASTIC CH 20</span>
+                  <span class="row-meta"><span>−92 dBm</span><span style="color:var(--yellow)">7.5 SNR</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  LORAWAN CH 64</span>
+                  <span class="row-meta"><span>−110 dBm</span><span>2.8 SNR</span></span>
+                </div>
+                <div class="budget-row" style="color:var(--muted)">
+                  <span>  MESH NODE 84F1</span>
+                  <span class="row-meta"><span>−88 dBm</span><span>8.1 SNR</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  FSK BURST</span>
+                  <span class="row-meta" style="color:var(--muted)"><span>−104 dBm</span><span>4.1 SNR</span></span>
+                </div>
+              </div>
+              <div class="screen-alert" style="color:var(--green)">
+                <span>◇ BOUNDED TCXO WAIT · ZERO TX</span>
+                <span class="sub-mode">HARDWARE OK</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>LORA 915 MHz · LISTENING</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>FRAME DETAIL</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>PAUSE</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 7: Drive / Session -->
+    <article class="mcard">
+      <header>
+        <h3>Drive / Session</h3>
+        <span class="tag future">P4/P7</span>
+      </header>
+      <p>GNSS precision, movement cadence, and coordinated SD session telemetry.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">SESSION RECORDER</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">DRIVE / SESSION</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot"></span>
+                  <span class="lbl">S</span><span class="dot yellow"></span>
+                  <span class="lbl">R</span><span class="dot pink"></span>
+                </div>
+                <span class="bat-pct">82%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>45.5181°N / 122.6759°W</span>
+                <span class="sub-muted">SPD 1.8 m/s</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row">
+                  <span>  TARGETS LOGGED</span>
+                  <span class="row-meta"><b style="color:var(--cream)">121 AP</b> · <b style="color:var(--yellow)">38 BLE</b></span>
+                </div>
+                <div class="budget-row selected">
+                  <span>› MARK 03 DENSITY BURST</span>
+                  <span class="row-meta"><span class="pill logged">[SAVED]</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  SD BUFFER RATE</span>
+                  <span class="row-meta">84 MB (READY)</span>
+                </div>
+                <div class="budget-row">
+                  <span>  HEADING / TRACK</span>
+                  <span class="row-meta">282° NW NOMINAL</span>
+                </div>
+              </div>
+              <div class="screen-alert" style="color:var(--yellow)">
+                <span>◇ [m] DROPS GEOTAGGED MARKER</span>
+                <span class="sub-mode">DRIVE ACTIVE</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry">
+                <span class="live-dot">●</span>
+                <span class="live-tag">LIVE</span>
+                <span style="color:var(--muted)">·</span>
+                <span>GNSS 3D ±4m · HDG 282°</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>ADD MARK</span><span class="k-sym">m</span></div>
+          <div class="hw-btn"><span>STOP LOG</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+    <!-- Card 8: Logs / Offline review -->
+    <article class="mcard">
+      <header>
+        <h3>Logs / Offline review</h3>
+        <span class="tag future">P7/P8</span>
+      </header>
+      <p>Stored session inspection; strictly declares CACHED state, never mimics live RF.</p>
+      <div class="chassis-deck">
+        <div class="chassis-label-bar">
+          <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
+          <div class="badge">SD REPLAY / ARCHIVE</div>
+        </div>
+        <div class="chassis-well">
+          <div class="screen">
+            <div class="deck-top">
+              <span class="view-name">LOGS / REVIEW</span>
+              <div class="status-cluster">
+                <div class="bgsr">
+                  <span class="lbl">B</span><span class="dot"></span>
+                  <span class="lbl">G</span><span class="dot yellow"></span>
+                  <span class="lbl">S</span><span class="dot"></span>
+                  <span class="lbl">R</span><span class="dot off"></span>
+                </div>
+                <span class="bat-pct">82%</span>
+                <div class="battery-icon"><div class="battery-fill"></div></div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="screen-subhead">
+                <span>SD ARCHIVE (3 SESSIONS)</span>
+                <span class="sub-muted">CACHED</span>
+              </div>
+              <div class="budget-rows">
+                <div class="budget-row selected">
+                  <span>› 21:44 DRIVE SURVEY</span>
+                  <span class="row-meta"><span>84 MB</span><span class="pill logged">[VALID]</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  20:16 SPECTRUM SCOPE</span>
+                  <span class="row-meta"><span>6 MB</span><span>2.4G</span></span>
+                </div>
+                <div class="budget-row">
+                  <span>  18:52 CONTACTS SWEEP</span>
+                  <span class="row-meta"><span>11 MB</span><span>5G</span></span>
+                </div>
+                <div class="budget-row" style="color:var(--muted)">
+                  <span>  SD FREE CAPACITY</span>
+                  <span class="row-meta">28.4 GB FREE</span>
+                </div>
+              </div>
+              <div class="screen-alert" style="color:var(--muted)">
+                <span>◇ REPLAY IMMUTABLE · NO RF</span>
+                <span class="sub-mode">STANDALONE</span>
+              </div>
+            </div>
+            <div class="screen-foot">
+              <div class="foot-telemetry" style="color:var(--pink)">
+                <span>◇</span>
+                <span style="font-weight:700">CACHED</span>
+                <span style="color:var(--muted)">·</span>
+                <span style="color:var(--cream)">STORED FIELD DATA</span>
+              </div>
+              <div class="deck-logo" title="Oscilla Lens Core">
+                <span class="logo-txt">OSCILLA</span>
+                <svg width="24" height="14" viewBox="0 0 26 16" fill="none">
+                  <ellipse cx="13" cy="8" rx="12" ry="6.5" stroke="#a8df65" stroke-width="1.2" opacity="0.65"/>
+                  <path d="M4 8 C7.5 3, 18.5 3, 22 8 C18.5 13, 7.5 13, 4 8 Z" stroke="#f4ecd9" stroke-width="1.6"/>
+                  <circle cx="13" cy="8" r="2.4" fill="#f5d658"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chassis-keys">
+          <div class="hw-btn"><span>OPEN LOG</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>EXPORT</span><span class="k-sym">s</span></div>
+          <div class="hw-btn"><span>PREV VIEW</span><span class="k-sym">`</span></div>
+          <div class="hw-btn"><span>SWEEP DECK</span><span class="k-sym">,</span></div>
+        </div>
+        <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
+      </div>
+    </article>
+
+  </div>
+
+  <table class="contract" style="margin-top:28px">
+    <thead>
+      <tr>
+        <th>Deck typography &amp; layout contract</th>
+        <th>Implementation target (ST7789V2 240 × 135 @ 2.2× Canvas)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Primary interaction &amp; hero numbers</td>
+        <td>Render at 20–26 physical px (44–58 px at 2.2× scale): active targets, RSSI (−58 dBm), frequency (915 MHz), and key metric counters.</td>
+      </tr>
+      <tr>
+        <td>Standard row typography &amp; view labels</td>
+        <td>Render at 10–12 physical px (21–26 px at 2.2× scale): view title, subheads, AP names, channel tags, and telemetry readout.</td>
+      </tr>
+      <tr>
+        <td>Micro indicators &amp; badges</td>
+        <td>Render at 8–9 physical px (17–20 px at 2.2× scale): battery status, pill badges ([ACTIVE], [SAVED]), and alert sub-modes.</td>
+      </tr>
+      <tr>
+        <td>Chrome budget</td>
+        <td>Top bar 38 px (17 physical px), footer 34 px (15 physical px); remaining 225 px (103 physical px) belongs strictly to view body. Physical soft keys live on the chassis exterior; Oscilla Lens Core mark anchors the footer right.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==========================================================================
+     SECTION 05: SECONDARY EXTERNAL DISPLAY (ILI9341 · 320 × 240)
+     ========================================================================== -->
+<section id="external">
+  <div class="eyebrow">05 / External display · ILI9341 landscape 320 × 240 @ 2× Canvas</div>
+  <h2>Secondary panel is a clean, crisp data viewport.</h2>
+  <p class="intro">The external display is horizontal and intentionally chrome-free: no duplicated top bar, status dots, battery, transport strip, or command footer. Displayed at 2× canvas scale matching the Cardputer ADV console, every pixel is dedicated to high-density tactical visualizers, spatial RF radar, and packet stream dissection.</p>
+
+  <div class="gallery">
+
+    <!-- Screen 1: Analyze / Spectrum Field (2x Scale) -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Analyze / Spectrum Field</h3>
+        </div>
+        <div>
+          <span class="tag">P5</span>
+        </div>
+      </header>
+      <p>Continuous RF waterfall cascade and real-time channel occupancy FFT envelope with 60% burst threshold.</p>
+      <div class="ili-bezel">
+        <div class="ili-header-engraving">
+          <div>VIEWPORT B // ILI9341 320×240 (4:3)</div>
+          <div class="tag-pill">SPI SLAVE · READ-ONLY VIEWPORT</div>
+        </div>
+        <div class="ili-viewport">
+          <div class="ili-waterfall-card">
+            <!-- Header strip -->
+            <div class="wf-header-row">
+              <div class="wf-title"><span class="dot"></span>SPECTRAL WATERFALL · 5 GHz DUAL-BAND</div>
+              <div>T-30s ROLLING CASCADE</div>
+            </div>
+
+            <!-- Full-Bleed Waterfall Canvas (viewBox 320 100) -->
+            <div class="wf-top-canvas">
+              <svg viewBox="0 0 320 100" width="100%" height="100%" style="display:block">
+                <defs>
+                  <linearGradient id="burstGlow2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#F05D78"/>
+                    <stop offset="35%" stop-color="#F5D658"/>
+                    <stop offset="70%" stop-color="#85E37D"/>
+                    <stop offset="100%" stop-color="#2D4C2B"/>
+                  </linearGradient>
+                  <linearGradient id="sparseGlow2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#85E37D" stop-opacity="0.85"/>
+                    <stop offset="100%" stop-color="#1A2E1C" stop-opacity="0.2"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- Full Channel Matrix Columns -->
+                <!-- UNII-1 Channels: 36, 40, 44, 48 -->
+                <rect x="26" y="0" width="18" height="100" fill="#0A0E0B"/>
+                <rect x="47" y="0" width="18" height="100" fill="#0D130E"/>
+                <rect x="68" y="0" width="18" height="100" fill="#0A0E0B"/>
+                <rect x="89" y="0" width="18" height="100" fill="#0D130E"/>
+
+                <!-- UNII-2 Mid: 56, 64 -->
+                <rect x="110" y="0" width="18" height="100" fill="#0A0E0B"/>
+                <rect x="131" y="0" width="18" height="100" fill="#0D130E"/>
+                <rect x="152" y="0" width="18" height="100" fill="#0A0E0B"/>
+
+                <!-- UNII-3 Channels: 149 (Focused), 153, 157, 161, 165 -->
+                <rect x="174" y="0" width="34" height="100" fill="#1C1820" stroke="#4A2F47" stroke-width="1"/>
+                <rect x="212" y="0" width="18" height="100" fill="#0D130E"/>
+                <rect x="233" y="0" width="18" height="100" fill="#0A0E0B"/>
+                <rect x="254" y="0" width="18" height="100" fill="#0D130E"/>
+                <rect x="275" y="0" width="18" height="100" fill="#0A0E0B"/>
+                <rect x="296" y="0" width="18" height="100" fill="#0D130E"/>
+
+                <!-- Horizontal Time Ticks -->
+                <line x1="0" y1="22" x2="320" y2="22" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
+                <line x1="0" y1="46" x2="320" y2="46" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
+                <line x1="0" y1="70" x2="320" y2="70" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
+                <line x1="0" y1="92" x2="320" y2="92" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
+
+                <text x="2" y="11" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">00s</text>
+                <text x="2" y="32" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-10s</text>
+                <text x="2" y="56" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-20s</text>
+                <text x="2" y="80" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-30s</text>
+
+                <!-- Active Activity Across the Channels -->
+                <!-- CH 36 -->
+                <rect x="28" y="8" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
+                <rect x="27" y="40" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
+                <rect x="28" y="76" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
+
+                <!-- CH 40 -->
+                <rect x="49" y="20" width="14" height="7" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+                <rect x="48" y="62" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
+
+                <!-- CH 44 -->
+                <rect x="70" y="14" width="14" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
+                <rect x="69" y="50" width="16" height="7" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+                <rect x="70" y="84" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
+
+                <!-- CH 48 -->
+                <rect x="90" y="6" width="16" height="9" fill="#85E37D" fill-opacity="0.8" rx="1.5"/>
+                <rect x="91" y="30" width="14" height="11" fill="#F5D658" fill-opacity="0.85" rx="1.5"/>
+                <rect x="90" y="56" width="16" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+                <rect x="91" y="82" width="14" height="9" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+
+                <!-- CH 56 / 64 radar chirps -->
+                <rect x="112" y="34" width="14" height="4" fill="#6C8A67" rx="1"/>
+                <rect x="154" y="68" width="14" height="4" fill="#6C8A67" rx="1"/>
+
+                <!-- CH 149 (HERO BURST CASCADE) -->
+                <rect x="176" y="3" width="30" height="16" fill="#F05D78" rx="2.5"/>
+                <rect x="177" y="21" width="28" height="19" fill="#F5D658" rx="2.5"/>
+                <rect x="176" y="42" width="30" height="23" fill="url(#burstGlow2)" rx="2.5"/>
+                <rect x="177" y="67" width="28" height="21" fill="url(#burstGlow2)" rx="2.5"/>
+                <rect x="179" y="90" width="24" height="9" fill="#2E4C2C" rx="1.5"/>
+
+                <!-- Burst Callout Reticle -->
+                <line x1="170" y1="11" x2="210" y2="11" stroke="#FFF" stroke-width="1" stroke-dasharray="2 2"/>
+                <text x="214" y="14" fill="#F05D78" font-size="10" font-weight="700" font-family="monospace">712/s PEAK</text>
+
+                <!-- CH 153 -->
+                <rect x="214" y="10" width="14" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+                <rect x="213" y="38" width="16" height="9" fill="#F5D658" fill-opacity="0.75" rx="1.5"/>
+                <rect x="214" y="70" width="14" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
+
+                <!-- CH 157 -->
+                <rect x="235" y="26" width="14" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
+                <rect x="234" y="74" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
+
+                <!-- CH 161 -->
+                <rect x="256" y="46" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
+              </svg>
+            </div>
+
+            <!-- Full-Bleed FFT Curve Canvas (viewBox 320 54) -->
+            <div class="wf-fft-canvas">
+              <svg viewBox="0 0 320 54" width="100%" height="100%" style="display:block">
+                <defs>
+                  <linearGradient id="fftFill2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#85E37D" stop-opacity="0.55"/>
+                    <stop offset="100%" stop-color="#85E37D" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- Threshold line (60% = y: 17) -->
+                <line x1="14" y1="17" x2="315" y2="17" stroke="#F05D78" stroke-width="1.2" stroke-dasharray="4 3"/>
+                <text x="236" y="14" fill="#F05D78" font-size="9.5" font-weight="700" font-family="monospace">60% BURST THR</text>
+
+                <!-- Full FFT Spectrum Envelope -->
+                <path d="M 18,44 Q 27,33 35,40 T 56,31 T 77,37 T 98,22 T 119,39 T 140,41 T 161,41 T 180,36 Q 191,3 202,36 T 222,25 T 243,35 T 264,41 T 285,41 T 310,44 L 310,48 L 18,48 Z" fill="url(#fftFill2)"/>
+                <path d="M 18,44 Q 27,33 35,40 T 56,31 T 77,37 T 98,22 T 119,39 T 140,41 T 161,41 T 180,36 Q 191,3 202,36 T 222,25 T 243,35 T 264,41 T 285,41 T 310,44" fill="none" stroke="#85E37D" stroke-width="2"/>
+                <!-- Peak Hold Envelope (Amber Dashed) -->
+                <path d="M 18,42 Q 27,29 35,38 T 56,27 T 77,33 T 98,18 T 119,37 T 140,39 T 161,39 T 180,32 Q 191,1 202,32 T 222,21 T 243,31 T 264,39 T 285,39 T 310,42" fill="none" stroke="#F5D658" stroke-width="1.5" stroke-dasharray="3 2"/>
+
+                <!-- Peak marker point on CH 149 -->
+                <circle cx="191" cy="4" r="3" fill="#F05D78"/>
+                <circle cx="191" cy="4" r="6" fill="none" stroke="#F05D78" stroke-width="1"/>
+
+                <!-- Frequency Labels across the X-axis -->
+                <text x="28" y="52" fill="#6C8A67" font-size="9" font-family="monospace">36</text>
+                <text x="49" y="52" fill="#6C8A67" font-size="9" font-family="monospace">40</text>
+                <text x="70" y="52" fill="#6C8A67" font-size="9" font-family="monospace">44</text>
+                <text x="91" y="52" fill="#6C8A67" font-size="9" font-family="monospace">48</text>
+                <text x="114" y="52" fill="#50664E" font-size="9" font-family="monospace">56</text>
+                <text x="148" y="52" fill="#50664E" font-size="9" font-family="monospace">64</text>
+                <text x="180" y="52" fill="#F5D658" font-weight="700" font-size="10.5" font-family="monospace">› 149</text>
+                <text x="214" y="52" fill="#6C8A67" font-size="9" font-family="monospace">153</text>
+                <text x="235" y="52" fill="#6C8A67" font-size="9" font-family="monospace">157</text>
+                <text x="256" y="52" fill="#6C8A67" font-size="9" font-family="monospace">161</text>
+                <text x="296" y="52" fill="#50664E" font-size="9" font-family="monospace">165</text>
+              </svg>
+            </div>
+
+            <!-- Bottom Tactical HUD (3 cols, 2x Scale) -->
+            <div class="wf-hud-bottom">
+              <div class="wf-hud-col">
+                <span style="font-size:10px;color:var(--muted);letter-spacing:0.1em;font-weight:700">TARGET CHANNEL</span>
+                <div class="wf-hero-badge">CH 149</div>
+                <span style="font-size:11.5px;color:var(--green)">UNII-3 · 5.745 GHz · 76% OCC</span>
+              </div>
+              <div class="wf-hud-col mid">
+                <div style="display:flex;justify-content:space-between"><span>ACTIVE RSSI</span><b style="color:var(--cream)">−58 dBm</b></div>
+                <div style="display:flex;justify-content:space-between"><span>INTERVAL PEAK</span><b style="color:var(--yellow)">712 pkts/s</b></div>
+                <div style="display:flex;justify-content:space-between"><span>DELTA OVER BASE</span><b style="color:var(--pink)">+93.4%</b></div>
+              </div>
+              <div class="wf-hud-col">
+                <div style="color:var(--pink);font-weight:700;font-size:11.5px">◇ BURST THRESHOLD</div>
+                <div style="font-size:12px;color:var(--muted)">HAWTHORNE_5G <b>356/s</b></div>
+                <div style="font-size:11px;color:#85E37D">Dwell: 18.2ms · Jitter: ±1.4ms</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ili-foot-engraving">
+          <div class="chip">CHIPSET // ILI9341 SPI (PARALLEL DMA)</div>
+          <div>PURE DATA VIEWPORT · NO CONTROL REDUNDANCY</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Screen 2: Analyze / Contacts (2x Scale) -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Analyze / Contacts</h3>
+        </div>
+        <div>
+          <span class="tag future">P7</span>
+        </div>
+      </header>
+      <p>Polar RSSI proximity reticle, client constellation filaments, and target security dossier.</p>
+      <div class="ili-bezel">
+        <div class="ili-header-engraving">
+          <div>VIEWPORT B // ILI9341 320×240 (4:3)</div>
+          <div class="tag-pill">SPI SLAVE · READ-ONLY VIEWPORT</div>
+        </div>
+        <div class="ili-viewport">
+          <div class="ili-radar-card">
+            <!-- Left Pane: Polar Radar Scope with 4-Corner Telemetry -->
+            <div class="radar-pane">
+              <div class="radar-title-strip">
+                <span>POLAR RSSI PROXIMITY</span>
+                <span>18 CLI · 7 PROBES</span>
+              </div>
+              <div class="radar-canvas-box">
+                <svg viewBox="0 0 160 205" width="100%" height="100%" style="display:block">
+                  <defs>
+                    <radialGradient id="radarGlow2" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stop-color="#85E37D" stop-opacity="0.16"/>
+                      <stop offset="80%" stop-color="#85E37D" stop-opacity="0.04"/>
+                      <stop offset="100%" stop-color="#85E37D" stop-opacity="0"/>
+                    </radialGradient>
+                  </defs>
+
+                  <!-- 4-Corner Telemetry HUD (Bold 9px) -->
+                  <text x="4" y="12" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace">MODE: PASSIVE</text>
+                  <text x="156" y="12" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace" text-anchor="end">RANGE: -95dBm</text>
+                  <text x="4" y="198" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace">SWEEP: 1.2s</text>
+                  <text x="156" y="198" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace" text-anchor="end">FILTER: DUAL</text>
+
+                  <!-- Radar Scope Background -->
+                  <circle cx="80" cy="105" r="76" fill="url(#radarGlow2)"/>
+
+                  <!-- Concentric RSSI Rings -->
+                  <circle cx="80" cy="105" r="22" fill="none" stroke="#1D2A1F" stroke-width="1.2"/>
+                  <circle cx="80" cy="105" r="44" fill="none" stroke="#1D2A1F" stroke-width="1.2"/>
+                  <circle cx="80" cy="105" r="64" fill="none" stroke="#253627" stroke-width="1.2"/>
+                  <circle cx="80" cy="105" r="76" fill="none" stroke="#38543C" stroke-width="1.5" stroke-dasharray="3 2"/>
+
+                  <!-- Crosshairs -->
+                  <line x1="80" y1="18" x2="80" y2="192" stroke="#1A271B" stroke-width="1.2"/>
+                  <line x1="4" y1="105" x2="156" y2="105" stroke="#1A271B" stroke-width="1.2"/>
+
+                  <!-- Ring labels -->
+                  <text x="82" y="85" fill="#6C8A67" font-size="8" font-family="monospace">-40</text>
+                  <text x="82" y="63" fill="#6C8A67" font-size="8" font-family="monospace">-60</text>
+                  <text x="82" y="43" fill="#6C8A67" font-size="8" font-family="monospace">-80</text>
+                  <text x="82" y="31" fill="#6C8A67" font-size="8" font-family="monospace">-95</text>
+
+                  <!-- Center Deck Position -->
+                  <circle cx="80" cy="105" r="3" fill="#F5D658"/>
+                  <text x="85" y="113" fill="#F5D658" font-size="8.5" font-weight="700" font-family="monospace">DECK</text>
+
+                  <!-- Network Relationships / Filaments -->
+                  <!-- HAWTHORNE_5G and Clients -->
+                  <line x1="114" y1="76" x2="128" y2="64" stroke="#4C6E4F" stroke-width="1.2"/>
+                  <line x1="114" y1="76" x2="134" y2="78" stroke="#4C6E4F" stroke-width="1.2"/>
+                  <line x1="114" y1="76" x2="124" y2="92" stroke="#4C6E4F" stroke-width="1.2"/>
+                  <line x1="114" y1="76" x2="102" y2="58" stroke="#F05D78" stroke-width="1.5" stroke-dasharray="3 2"/>
+
+                  <circle cx="128" cy="64" r="2.8" fill="#85E37D"/>
+                  <circle cx="134" cy="78" r="2.8" fill="#85E37D"/>
+                  <circle cx="124" cy="92" r="2.8" fill="#85E37D"/>
+
+                  <!-- Rogue Anomaly Client (Signal Pink) -->
+                  <circle cx="102" cy="58" r="3.5" fill="#F05D78"/>
+                  <circle cx="102" cy="58" r="7" fill="none" stroke="#F05D78" stroke-width="1"/>
+
+                  <!-- Focused AP: HAWTHORNE (Amber diamond) -->
+                  <polygon points="114,69 121,76 114,83 107,76" fill="#F5D658"/>
+                  <circle cx="114" cy="76" r="10" fill="none" stroke="#F5D658" stroke-width="1" stroke-dasharray="3 2"/>
+                  <text x="92" y="68" fill="#F5D658" font-size="9" font-weight="700" font-family="monospace">HAWTHORNE</text>
+
+                  <!-- CAFE-GUEST AP -->
+                  <polygon points="46,137 51,142 46,147 41,142" fill="#85E37D"/>
+                  <line x1="46" y1="142" x2="36" y2="150" stroke="#4C6E4F" stroke-width="1"/>
+                  <line x1="46" y1="142" x2="54" y2="154" stroke="#4C6E4F" stroke-width="1"/>
+                  <circle cx="36" cy="150" r="2.5" fill="#85E37D"/>
+                  <circle cx="54" cy="154" r="2.5" fill="#85E37D"/>
+                  <text x="14" y="137" fill="#85E37D" font-size="8.5" font-family="monospace">CAFE-GUEST</text>
+
+                  <!-- FIELD-LAB AP -->
+                  <polygon points="132,143 137,148 132,153 127,148" fill="#85E37D"/>
+                  <circle cx="140" cy="156" r="2.5" fill="#85E37D"/>
+                  <line x1="132" y1="148" x2="140" y2="156" stroke="#4C6E4F" stroke-width="1"/>
+                  <text x="104" y="163" fill="#85E37D" font-size="8.5" font-family="monospace">FIELD-LAB</text>
+
+                  <!-- HIDDEN AP -->
+                  <polygon points="40,65 45,70 40,75 35,70" fill="#6C8A67"/>
+                  <text x="14" y="65" fill="#6C8A67" font-size="8.5" font-family="monospace">&lt;HIDDEN&gt;</text>
+
+                  <!-- 5th Node (OFFICE-MESH) -->
+                  <polygon points="78,167 83,172 78,177 73,172" fill="#85E37D"/>
+                  <text x="52" y="184" fill="#6C8A67" font-size="8" font-family="monospace">OFFICE-MESH</text>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Right Pane: Target Dossier & Packed Probes (2x Scale) -->
+            <div class="dossier-pane">
+              <div class="dossier-target">
+                <div class="d-lbl">SELECTED TARGET PROFILE</div>
+                <div class="d-name">› HAWTHORNE_5G</div>
+                <div class="d-meta"><span>WPA3-SAE</span> · 802.11w PMF REQ</div>
+                <div style="font-size:11.5px;color:var(--muted);margin-top:3px">BSSID: AA:BB:CC:84:19:01 · CH 149 · ESPRESSIF</div>
+              </div>
+
+              <!-- 5-Row Packed Probe Table -->
+              <table class="dossier-table">
+                <thead>
+                  <tr>
+                    <th>CLIENT / MAC</th>
+                    <th>RSSI</th>
+                    <th>RELATION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="active-probe">
+                    <td>› C4:22:A1:09</td>
+                    <td>−61</td>
+                    <td style="color:var(--pink)">ROGUE ANOM</td>
+                  </tr>
+                  <tr>
+                    <td>38:F9:B4:82</td>
+                    <td>−69</td>
+                    <td>ASSOC [P2]</td>
+                  </tr>
+                  <tr>
+                    <td>A0:76:88:1C</td>
+                    <td>−82</td>
+                    <td>HUNTING</td>
+                  </tr>
+                  <tr>
+                    <td>E4:5F:01:9B</td>
+                    <td>−74</td>
+                    <td>ASSOC [P3]</td>
+                  </tr>
+                  <tr style="color:var(--muted)">
+                    <td>72:11:0C:44</td>
+                    <td>−85</td>
+                    <td>PROBE IDLE</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Guard Alert Box -->
+              <div class="dossier-guard-alert">
+                <div style="display:flex;justify-content:space-between;font-weight:700">
+                  <span>◇ GUARD ANOMALY</span>
+                  <span>BURST DETECT</span>
+                </div>
+                <div>Client <b>C4:22:A1:09</b> probe storm. Beacon interval: <b>102ms</b> (jitter ±1.2ms).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ili-foot-engraving">
+          <div class="chip">CHIPSET // ILI9341 SPI (PARALLEL DMA)</div>
+          <div>PURE DATA VIEWPORT · NO CONTROL REDUNDANCY</div>
+        </div>
+      </div>
+    </article>
+
+        <!-- Screen 3: Drive / Session Log (Widescreen Tactical Moving Map) -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Drive / Session Log</h3>
+        </div>
+        <div>
+          <span class="tag future">P4/P7</span>
+        </div>
+      </header>
+      <p>Dynamic N/W geospatial vector breadcrumb track, heading rose, GPS accuracy error reticle, wide rolling 60s under-axis RF density sparkline, serialized SD write telemetry.</p>
+      <div class="ili-bezel">
+        <div class="ili-header-engraving">
+          <div>VIEWPORT B // ILI9341 320×240 (4:3)</div>
+          <div class="tag-pill">SPI SLAVE · READ-ONLY VIEWPORT</div>
+        </div>
+        <div class="ili-viewport">
+          <div class="ili-drive-card">
+
+                        <!-- Top Telemetry Ribbon (Thinner, Clean, Zero-Wrap 2-Row Grid) -->
+            <div class="drive-top-ribbon">
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">SESSION DURATION</span>
+                <div class="r-val hero">00:12:44 <span class="unit">1.38km</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">COURSE · SPEED</span>
+                <div class="r-val" style="color:var(--cream)">282° NW <span class="unit">1.8m/s</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">GNSS ACCURACY</span>
+                <div class="r-val" style="color:var(--green)">3D ±4m <span class="unit">0.8 HDOP</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">BURST PEAK (60s)</span>
+                <div class="r-val" style="color:var(--pink)">48 APs <span class="unit">[M3]</span></div>
+              </div>
+            </div>
+
+            <!-- Center Widescreen Vector Moving Map Canvas (Dynamic N/W Geospatial Plotter) -->
+            <div class="drive-map-widescreen">
+              <svg viewBox="0 0 320 200" width="100%" height="100%" preserveAspectRatio="none" style="display:block">
+                <defs>
+                  <linearGradient id="trackGradWide" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#85E37D"/>
+                    <stop offset="40%" stop-color="#F5D658"/>
+                    <stop offset="85%" stop-color="#F05D78"/>
+                    <stop offset="100%" stop-color="#F05D78"/>
+                  </linearGradient>
+                  <pattern id="gridTactical" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#101711" stroke-width="0.5" stroke-dasharray="1 3"/>
+                  </pattern>
+                  <linearGradient id="densityWideGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#F05D78" stop-opacity="0.35"/>
+                    <stop offset="50%" stop-color="#F5D658" stop-opacity="0.18"/>
+                    <stop offset="100%" stop-color="#85E37D" stop-opacity="0.02"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- 25m Tactical Grid Pattern -->
+                <rect width="320" height="200" fill="url(#gridTactical)"/>
+
+                <!-- DYNAMIC GEOSPATIAL COORDINATE AXES (N / W Grid) -->
+                <!-- Y-Axis (North / Latitude): left margin x=42 -->
+                <line x1="42" y1="10" x2="42" y2="156" stroke="#253D28" stroke-width="1"/>
+                <text x="42" y="14" fill="#4B6349" font-size="6.5" font-weight="700" font-family="monospace" text-anchor="middle">▲ N</text>
+
+                <!-- Latitude Grid Lines & Ticks -->
+                <line x1="38" y1="28" x2="44" y2="28" stroke="#253D28" stroke-width="1"/>
+                <line x1="42" y1="28" x2="316" y2="28" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="38" y="30.5" fill="#6C8A67" font-size="5.8" font-family="monospace" text-anchor="end">45.5182°N</text>
+
+                <line x1="38" y1="58" x2="44" y2="58" stroke="#85E37D" stroke-width="1.2"/>
+                <line x1="42" y1="58" x2="316" y2="58" stroke="#1A2D1C" stroke-width="0.75" stroke-dasharray="3 3"/>
+                <text x="38" y="60.5" fill="#85E37D" font-size="6" font-weight="700" font-family="monospace" text-anchor="end">45.5181°N</text>
+
+                <line x1="38" y1="88" x2="44" y2="88" stroke="#253D28" stroke-width="1"/>
+                <line x1="42" y1="88" x2="316" y2="88" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="38" y="90.5" fill="#6C8A67" font-size="5.8" font-family="monospace" text-anchor="end">45.5180°N</text>
+
+                <line x1="38" y1="118" x2="44" y2="118" stroke="#85E37D" stroke-width="1.2"/>
+                <line x1="42" y1="118" x2="316" y2="118" stroke="#1A2D1C" stroke-width="0.75" stroke-dasharray="3 3"/>
+                <text x="38" y="120.5" fill="#85E37D" font-size="6" font-weight="700" font-family="monospace" text-anchor="end">45.5178°N</text>
+
+                <line x1="38" y1="146" x2="44" y2="146" stroke="#253D28" stroke-width="1"/>
+                <line x1="42" y1="146" x2="316" y2="146" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="38" y="148.5" fill="#6C8A67" font-size="5.8" font-family="monospace" text-anchor="end">45.5176°N</text>
+
+                <!-- X-Axis (West / Longitude): baseline y=156 -->
+                <line x1="42" y1="156" x2="316" y2="156" stroke="#253D28" stroke-width="1"/>
+                <text x="316" y="154" fill="#4B6349" font-size="6" font-weight="700" font-family="monospace" text-anchor="end">W ▶</text>
+
+                <!-- Longitude Grid Lines & Ticks -->
+                <line x1="64" y1="153" x2="64" y2="159" stroke="#85E37D" stroke-width="1.2"/>
+                <line x1="64" y1="16" x2="64" y2="156" stroke="#1A2D1C" stroke-width="0.75" stroke-dasharray="3 3"/>
+                <text x="64" y="154" fill="#85E37D" font-size="5.6" font-weight="700" font-family="monospace" text-anchor="middle">-122.6772°W</text>
+
+                <line x1="120" y1="153" x2="120" y2="159" stroke="#253D28" stroke-width="1"/>
+                <line x1="120" y1="16" x2="120" y2="156" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="120" y="154" fill="#6C8A67" font-size="5.6" font-family="monospace" text-anchor="middle">-122.6768°W</text>
+
+                <line x1="176" y1="153" x2="176" y2="159" stroke="#253D28" stroke-width="1"/>
+                <line x1="176" y1="16" x2="176" y2="156" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="176" y="154" fill="#6C8A67" font-size="5.6" font-family="monospace" text-anchor="middle">-122.6764°W</text>
+
+                <line x1="232" y1="153" x2="232" y2="159" stroke="#85E37D" stroke-width="1.2"/>
+                <line x1="232" y1="16" x2="232" y2="156" stroke="#1A2D1C" stroke-width="0.75" stroke-dasharray="3 3"/>
+                <text x="232" y="154" fill="#85E37D" font-size="5.6" font-weight="700" font-family="monospace" text-anchor="middle">-122.6760°W</text>
+
+                <line x1="288" y1="153" x2="288" y2="159" stroke="#253D28" stroke-width="1"/>
+                <line x1="288" y1="16" x2="288" y2="156" stroke="#142115" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="288" y="154" fill="#6C8A67" font-size="5.6" font-family="monospace" text-anchor="middle">-122.6756°W</text>
+
+                <!-- TOP-RIGHT: Dedicated Compass Rose Indicator (Clean Dial, Moved Up) -->
+                <g transform="translate(300, 18)">
+                  <circle cx="0" cy="0" r="13" fill="#0A0E0A" stroke="#253A27" stroke-width="1"/>
+                  <circle cx="0" cy="0" r="10" fill="none" stroke="#162217" stroke-width="0.75" stroke-dasharray="2 2"/>
+                  <line x1="0" y1="10" x2="0" y2="-10" stroke="#85E37D" stroke-width="1.2"/>
+                  <polygon points="0,-10 -3,-5 3,-5" fill="#F05D78"/>
+                  <text x="0" y="-12" fill="#FFF" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="middle">N</text>
+                </g>
+
+                <!-- DYNAMIC VECTOR BREADCRUMB TRACK (From Origin to Vehicle) -->
+                <path d="M 64,136 Q 115,126 160,104 T 210,84 T 244,66" fill="none" stroke="url(#trackGradWide)" stroke-width="3.5" stroke-linecap="round"/>
+
+                <!-- START Node & Callout (At Origin: 45.51782°N, -122.67720°W) -->
+                <circle cx="64" cy="136" r="3.5" fill="#85E37D"/>
+                <rect x="46" y="112" width="34" height="12" fill="#0E1A0F" stroke="#3D6E42" stroke-width="0.75" rx="2"/>
+                <text x="63" y="121" fill="#85E37D" font-size="6.5" font-weight="700" font-family="monospace" text-anchor="middle">START</text>
+                <line x1="63" y1="124" x2="64" y2="136" stroke="#3D6E42" stroke-width="0.75"/>
+
+                <!-- M1 [NOISE FLOOR] Node & Callout -->
+                <circle cx="115" cy="126" r="3" fill="#85E37D"/>
+                <rect x="88" y="138" width="54" height="12" fill="#0A120B" stroke="#254228" stroke-width="0.75" rx="2"/>
+                <text x="115" y="147" fill="#85E37D" font-size="6.5" font-weight="700" font-family="monospace" text-anchor="middle">M1: -96dBm</text>
+                <line x1="115" y1="126" x2="115" y2="138" stroke="#254228" stroke-width="0.75"/>
+
+                <!-- M2 [BLE CLUSTER] Node & Callout (Yellow Highlighted Card) -->
+                <circle cx="160" cy="104" r="3" fill="#F5D658"/>
+                <rect x="132" y="118" width="58" height="12" fill="#161306" stroke="#8A7320" stroke-width="1" rx="2"/>
+                <text x="161" y="127" fill="#F5D658" font-size="6.5" font-weight="700" font-family="monospace" text-anchor="middle">M2: 8 BLE APs</text>
+                <line x1="160" y1="104" x2="160" y2="118" stroke="#8A7320" stroke-width="0.75"/>
+
+                <!-- M3 [GEO BURST] Node & Callout (Pink Highlighted Card) -->
+                <polygon points="210,78 216,84 210,90 204,84" fill="#F05D78"/>
+                <circle cx="210" cy="84" r="7" fill="none" stroke="#F05D78" stroke-width="0.75" stroke-dasharray="2 2"/>
+                <rect x="180" y="48" width="62" height="12" fill="#1A0C12" stroke="#8C2C40" stroke-width="1" rx="2"/>
+                <text x="211" y="57" fill="#F05D78" font-size="6.5" font-weight="700" font-family="monospace" text-anchor="middle">M3: 712/s BURST</text>
+                <line x1="210" y1="60" x2="210" y2="78" stroke="#8C2C40" stroke-width="0.75"/>
+
+                <!-- Current Vehicle Heading & Dynamic Reticle (At 45.51810°N, -122.67590°W) -->
+                <circle cx="244" cy="66" r="9" fill="#85E37D" fill-opacity="0.12" stroke="#85E37D" stroke-width="0.75" stroke-dasharray="2 2"/>
+                <polygon points="244,60 240,69 244,67 248,69" fill="#F5D658" stroke="#000" stroke-width="0.5" transform="rotate(-78 244 66)"/>
+                <line x1="251" y1="60" x2="290" y2="24" stroke="#F5D658" stroke-width="0.75" stroke-dasharray="1 2"/>
+
+                <!-- =================================================================
+                     UNDER-AXIS TELEMETRY: FULL-WIDTH 60s ROLLING RF DENSITY STRIP
+                     ================================================================= -->
+                <g id="underAxisSparkline">
+                  <!-- Full-Width Bounding Dock (Spans from left edge x=4 to right edge x=316) -->
+                  <rect x="4" y="161" width="312" height="36" fill="#060906" stroke="#1D2A1F" stroke-width="0.8" rx="2"/>
+                  
+                  <!-- Left Telemetry Label & Metrics -->
+                  <text x="8" y="170" fill="#6C8A67" font-size="5.2" font-weight="700" font-family="monospace">RF DENSITY (60s)</text>
+                  <text x="8" y="180" fill="#F05D78" font-size="8.8" font-weight="700" font-family="monospace">48 <tspan font-size="5.6" font-weight="400" fill="#F5D658">APs [M3]</tspan></text>
+                  <text x="8" y="190" fill="#4B6349" font-size="4.8" font-family="monospace">PEAK 712/s BURST</text>
+
+                  <!-- Subtle Divider -->
+                  <line x1="78" y1="163" x2="78" y2="195" stroke="#162417" stroke-width="0.75" stroke-dasharray="2 2"/>
+
+                  <!-- Time Baseline & Horizontal Level Guides -->
+                  <line x1="82" y1="172" x2="312" y2="172" stroke="#101711" stroke-width="0.5" stroke-dasharray="1 3"/>
+                  <line x1="82" y1="181" x2="312" y2="181" stroke="#101711" stroke-width="0.5" stroke-dasharray="1 3"/>
+                  <line x1="82" y1="190" x2="312" y2="190" stroke="#162417" stroke-width="0.6"/>
+
+                  <!-- Time Markers Along Bottom -->
+                  <text x="84" y="195" fill="#3D543B" font-size="4.5" font-family="monospace">-60s</text>
+                  <text x="140" y="195" fill="#3D543B" font-size="4.5" font-family="monospace">-45s</text>
+                  <text x="198" y="195" fill="#3D543B" font-size="4.5" font-family="monospace">-30s</text>
+                  <text x="254" y="195" fill="#3D543B" font-size="4.5" font-family="monospace">-15s</text>
+                  <text x="312" y="195" fill="#85E37D" font-size="4.6" font-weight="700" font-family="monospace" text-anchor="end">LIVE</text>
+
+                  <!-- 60s Rolling Density Area Fill (Wide, High-Resolution: 230px Span) -->
+                  <path d="M 82,190 L 82,188 Q 98,187 114,188 T 142,184 T 170,186 T 198,178 T 226,181 T 254,172 Q 268,166 274,166 Q 280,166 288,174 T 312,179 L 312,190 Z" fill="url(#densityWideGrad)"/>
+
+                  <!-- Smooth High-Res Sparkline Stroke -->
+                  <path d="M 82,188 Q 98,187 114,188 T 142,184 T 170,186 T 198,178 T 226,181 T 254,172 Q 268,166 274,166 Q 280,166 288,174 T 312,179" fill="none" stroke="#F05D78" stroke-width="1.2" stroke-linecap="round"/>
+
+                  <!-- Peak Callout Marker Dot & Annotation (Synchronized with M3) -->
+                  <circle cx="274" cy="166" r="2" fill="#F05D78"/>
+                  <circle cx="274" cy="166" r="3.8" fill="none" stroke="#F05D78" stroke-width="0.5" stroke-dasharray="1 2"/>
+                  <text x="274" y="164" fill="#F05D78" font-size="4.8" font-weight="700" font-family="monospace" text-anchor="middle">▲ 48 APs</text>
+                </g>
+              </svg>
+            </div>
+
+            <!-- Bottom Storage & Action Strip -->
+            <div class="drive-bottom-strip">
+              <div>OBS: <b>121 AP</b> · <b>38 BLE</b> · <b>3 MARKS</b></div>
+              <div>EXT-SD: <b>84 MB</b> <span style="color:var(--green)">[SYNC]</span></div>
+              <div class="active-indicator">
+                <span class="dot"></span>
+                <span>REC ACTIVE · [m] MARK</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="ili-foot-engraving">
+          <div class="chip">CHIPSET // ILI9341 SPI (PARALLEL DMA)</div>
+          <div>PURE DATA VIEWPORT · NO CONTROL REDUNDANCY</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Screen 4: Observe / Frame List (2x Scale) -->
+    <article class="mcard">
+      <header>
+        <div>
+          <h3>Observe / Frame List</h3>
+        </div>
+        <div>
+          <span class="tag future">P3/P7</span>
+        </div>
+      </header>
+      <p>LoRa chirp modulation spectrogram, packet bitstream dissector, and live Protobuf payload decode.</p>
+      <div class="ili-bezel">
+        <div class="ili-header-engraving">
+          <div>VIEWPORT B // ILI9341 320×240 (4:3)</div>
+          <div class="tag-pill">SPI SLAVE · READ-ONLY VIEWPORT</div>
+        </div>
+        <div class="ili-viewport">
+          <div class="ili-frame-card">
+            <!-- Top Raster: LoRa Chirp Spectrogram (2x Scale) -->
+            <div class="frame-top-raster">
+              <div class="frame-raster-header">
+                <span>RF SPECTROGRAM · LORA SF11 / BW250</span>
+                <span>915.000 MHz · Δt 142ms</span>
+              </div>
+              <div style="flex:1;width:100%;position:relative">
+                <svg viewBox="0 0 320 80" width="100%" height="100%" style="display:block">
+                  <rect width="320" height="80" fill="#080C08"/>
+                  <line x1="0" y1="20" x2="320" y2="20" stroke="#162217" stroke-width="1"/>
+                  <line x1="0" y1="40" x2="320" y2="40" stroke="#162217" stroke-width="1"/>
+                  <line x1="0" y1="60" x2="320" y2="60" stroke="#162217" stroke-width="1"/>
+
+                  <!-- Frequency bounds labels -->
+                  <text x="3" y="12" fill="#6C8A67" font-size="8.5" font-family="monospace">+125 kHz</text>
+                  <text x="3" y="44" fill="#6C8A67" font-size="8.5" font-family="monospace">Fc 915M</text>
+                  <text x="3" y="74" fill="#6C8A67" font-size="8.5" font-family="monospace">-125 kHz</text>
+
+                  <!-- 8 Upward Preamble Chirps (Green) -->
+                  <g stroke="#85E37D" stroke-width="2">
+                    <line x1="42" y1="66" x2="54" y2="14"/>
+                    <line x1="56" y1="66" x2="68" y2="14"/>
+                    <line x1="70" y1="66" x2="82" y2="14"/>
+                    <line x1="84" y1="66" x2="96" y2="14"/>
+                    <line x1="98" y1="66" x2="110" y2="14"/>
+                    <line x1="112" y1="66" x2="124" y2="14"/>
+                    <line x1="126" y1="66" x2="138" y2="14"/>
+                    <line x1="140" y1="66" x2="152" y2="14"/>
+                  </g>
+                  <text x="56" y="75" fill="#85E37D" font-size="8.5" font-weight="700" font-family="monospace">[8 PREAMBLE CHIRPS]</text>
+
+                  <!-- 2 Sync Downchirps (Amber) -->
+                  <g stroke="#F5D658" stroke-width="2">
+                    <line x1="156" y1="14" x2="168" y2="66"/>
+                    <line x1="170" y1="14" x2="182" y2="66"/>
+                  </g>
+                  <text x="158" y="75" fill="#F5D658" font-size="8.5" font-weight="700" font-family="monospace">[SYNC]</text>
+
+                  <!-- Modulated Payload Chirps (Phase wrapped) -->
+                  <g stroke="#87D5CB" stroke-width="2">
+                    <line x1="186" y1="42" x2="193" y2="14"/>
+                    <line x1="193" y1="66" x2="200" y2="42"/>
+                    <line x1="202" y1="26" x2="210" y2="14"/>
+                    <line x1="210" y1="66" x2="216" y2="26"/>
+                    <line x1="218" y1="54" x2="224" y2="14"/>
+                    <line x1="224" y1="66" x2="232" y2="54"/>
+                    <line x1="234" y1="32" x2="242" y2="14"/>
+                    <line x1="242" y1="66" x2="248" y2="32"/>
+                  </g>
+                  <text x="194" y="75" fill="#87D5CB" font-size="8.5" font-weight="700" font-family="monospace">[PAYLOAD MODULATION]</text>
+
+                  <!-- RF Metrics Callout HUD -->
+                  <g transform="translate(254, 5)">
+                    <rect width="62" height="70" fill="#0A0E0A" stroke="#253D28" stroke-width="1" rx="3"/>
+                    <text x="5" y="13" fill="#6C8A67" font-size="8" font-family="monospace">RSSI</text>
+                    <text x="5" y="25" fill="#F5D658" font-weight="700" font-size="11.5" font-family="monospace">−92 dBm</text>
+                    <text x="5" y="38" fill="#6C8A67" font-size="8" font-family="monospace">SNR</text>
+                    <text x="5" y="50" fill="#85E37D" font-weight="700" font-size="11.5" font-family="monospace">+7.5 dB</text>
+                    <text x="5" y="62" fill="#87D5CB" font-size="8.5" font-family="monospace">CRC: OK</text>
+                  </g>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Bottom: Protocol Dissector (2x Scale) -->
+            <div class="frame-dissector-box">
+              <div class="proto-pills-bar">
+                <div class="p-pill pre">PREAMBLE 8B</div>
+                <div class="p-pill sync">SYNC 0x2B</div>
+                <div class="p-pill hdr">HDR !A4F108</div>
+                <div class="p-pill pay">PAYLOAD 54 BYTES [PROTOBUF]</div>
+                <div class="p-pill crc">CRC16: OK</div>
+              </div>
+
+              <!-- High-Density Payload Inspection Tree -->
+              <div class="proto-decode-body">
+                <div class="f-row">
+                  <span style="color:var(--yellow);font-weight:700">PROTO: MESHTASTIC (TEXT_APP)</span>
+                  <span style="color:var(--muted)">HOP: 3/3 · WANT_ACK: 0 · CH_IDX: 0</span>
+                </div>
+                <div class="f-row">
+                  <span>FROM: <b style="color:var(--cream)">!a4f108 [NODE_ECHO]</b></span>
+                  <span>TO: <b style="color:var(--cream)">!ffffffff [BROADCAST]</b></span>
+                </div>
+                <div class="f-msg">
+                  › PAYLOAD: "PING [GATEWAY_NORTH] SNR:+7.5dB LAT:45.518"
+                </div>
+                <div class="f-hex">
+                  HEX: 08 01 12 1F 50 49 4E 47 20 5B 47 41 54 45 57 41 59 5F 4E 4F 52 54 48 5D 20 53 4E 52 3A 2B 37 2E 35 ...
+                </div>
+              </div>
+
+              <!-- Invariant Tag -->
+              <div class="frame-rx-only-tag">
+                <span>RECEIVE-ONLY RF DISSECTION · <b>ZERO TRANSMIT VERBS</b></span>
+                <span style="color:var(--green)">[STORAGE BUFFERED]</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ili-foot-engraving">
+          <div class="chip">CHIPSET // ILI9341 SPI (PARALLEL DMA)</div>
+          <div>PURE DATA VIEWPORT · NO CONTROL REDUNDANCY</div>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <table class="contract" style="margin-top:28px">
+    <thead>
+      <tr>
+        <th>External viewport</th>
+        <th>Unique information or visualization</th>
+        <th>Roadmap state</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Spectrum</td>
+        <td>Continuous RF waterfall cascade, real-time channel occupancy FFT envelope, 60% burst threshold line, focused-channel RF metrics. No controls or duplicated status.</td>
+        <td>P5 shell / early model exists</td>
+      </tr>
+      <tr>
+        <td>Contacts</td>
+        <td>Polar RSSI proximity reticle, AP-client constellation filaments, rogue anomaly beacon tracking, target security dossier.</td>
+        <td>P7 completion</td>
+      </tr>
+      <tr>
+        <td>Drive Log</td>
+        <td>Dynamic N/W geospatial vector breadcrumb track, heading rose, GPS accuracy error reticle, wide rolling 60s under-axis RF density sparkline, serialized SD write telemetry.</td>
+        <td>P4/P7 proposed</td>
+      </tr>
+      <tr>
+        <td>Frame List</td>
+        <td>LoRa chirp modulation spectrogram (preamble/sync/payload ramps), visual packet dissector strip, decoded Protobuf payload, SNR/RSSI telemetry.</td>
+        <td>P3 proposed</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==========================================================================
+     SECTION 06: ENGINEERING HANDOFF
+     ========================================================================== -->
+<section id="handoff">
+  <div class="eyebrow">06 / Engineering handoff</div>
+  <h2>Implement shared rules before individual screens.</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>Master rule</th><th>Implementation result</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Brand</td>
+        <td>Lens Core + “Observe the noise.” only.</td>
+        <td>Keep a complete SVG, a small lens/dot glyph, and the defined safe area. Pink stays out of the mark.</td>
+      </tr>
+      <tr>
+        <td>Deck chrome</td>
+        <td>Card/view name upper-left; B/G/S/R dots upper-right; battery always terminal far-right; transport below.</td>
+        <td>Build one shared renderer. LIVE, backpack state, ping/pong and age have stable meanings on every view.</td>
+      </tr>
+      <tr>
+        <td>External viewport</td>
+        <td>No top bar, status dots, battery, transport strip, footer, or controls.</td>
+        <td>Render only data visualization and selected-item context. The deck is authoritative for navigation, control, and system truth.</td>
+      </tr>
+      <tr>
+        <td>Readability &amp; Rows</td>
+        <td>Large interaction labels; strict 4-row budget; no duplicate body title.</td>
+        <td>Set primary menu and state to 14–16 px, supporting values to 9–10 px, and avoid shrinking data below 8 px.</td>
+      </tr>
+      <tr>
+        <td>Truth &amp; Invariants</td>
+        <td>Show source and freshness everywhere. Strict receive-only tripwire.</td>
+        <td>Use live/age/cached strings plus dots; every deck footer carries the <code>◇ RX-ONLY</code> tag. Zero transmit verbs ([AGENTS.md §3.1](file:///d:/Projects/Oscilla/AGENTS.md)).</td>
+      </tr>
+      <tr>
+        <td>Rendering</td>
+        <td>240×135 primary; 320×240 landscape secondary.</td>
+        <td>Bounded redraws, Canvas on deck, fixed-width data type, and serialized SD/TFT transactions on shared SPI.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>OSCILLA / MASTER BRAND &amp; UI GUIDE · v1.4 · grounded in current DESIGN.md, AGENTS.md and hardware design reference (2026-09-13).</footer>
+
+</main>
+</body>
+</html>

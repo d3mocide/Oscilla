@@ -1,3 +1,38 @@
+## 2026-09-13 — Drive Session mockup card placement & tactical layout fix
+
+- Rebalanced floating HUD docks and waypoint callout badges in Screen 3 (`Drive / Session Log`) of `docs/brand/oscilla-master-brand-ui-guide.html`:
+  - Eliminated top and bottom dead letterboxing black bands (~98px of dead space) by adjusting SVG viewBox to full-bleed `0 0 320 200` with `preserveAspectRatio="none"`.
+  - Replaced redundant floating coordinate boxes with a dynamic geospatial coordinate system: calibrated vertical **▲ N (Latitude)** axis (`45.5182°N` to `45.5176°N`) and horizontal **W ▶ (Longitude)** axis (`-122.6772°W` to `-122.6756°W`) plotting the actual movement of the device from Origin to vehicle.
+  - Converted the crowded top-right NAV box into a standalone **Compass Rose dial** in the top-right corner without text or box clutter.
+  - Relocated the RF density sparkline from the top ribbon down to a dedicated **full-width under-axis telemetry strip** (`y=161` to `y=197`, `x=4` to `x=316`, 312×36 px) beneath the horizontal axis (`y=156`):
+    - Extended the dock all the way to the left screen margin (`x=4`), expanding the waveform to a 230px wide, high-resolution rolling 60s RF activity timeline.
+    - Features calibrated temporal steps (`-60s`, `-45s`, `-30s`, `-15s`, `LIVE`), reference level guides, dynamic gradient area fill, and an explicit `▲ 48 APs` peak burst callout synchronized with the `M3` waypoint.
+    - Left telemetry compartment (`x=8..78`) provides clean, uncrowded spacing for `RF DENSITY (60s)`, `48 APs [M3]`, and `PEAK 712/s BURST`.
+    - Restores the top ribbon's `BURST PEAK (60s)` tile (`48 APs [M3]`) to uniform typography matching the other 3 ribbon tiles.
+    - Leaves 100% of the geospatial plotting canvas (`x=42..316, y=10..156`) completely unobstructed.
+  - Removed duplicate Recon Matrix and Origin footer text lines from the SVG canvas, keeping the canvas edge-to-edge clean and utilizing the deck's authoritative bottom hardware strip (`OBS: 121 AP · 38 BLE · 3 MARKS`).
+  - Preserved highlighted waypoint cards (**M2** yellow, **M3** pink) along the calibrated vector trajectory with zero collisions.
+  - Verified visual rendering live in browser at 2560×1305; ran `ocp_repl.py --selftest` (27/27 pass) and `check_rx_only.py` (80 files clean).
+
+---
+
+## 2026-09-13 — Cardputer ADV 1:1 hardware typography & ILI9341 external display contract
+
+- Scaled Cardputer ADV (ST7789V2 240×135 SPI) console cards in `docs/brand/oscilla-master-brand-ui-guide.html` to physical 1:1 hardware proportion at 2.2× canvas scale (~528×297 px).
+- Replaced microscopic desktop web typography (11px–14px) with authentic high-contrast firmware typography (20px–22px row labels, 38px header with tabular battery, and 34px footer carrying live telemetry and vector Lens Core logo).
+- Rebuilt `Trace / AP Detail` with dedicated hardware metric tiles (Channel, Security, Clients, RSSI) matching physical field instrument mockups.
+- Rebuilt Section 05 ILI9341 external display cards into crisp, high-density tactical visualizers scaled 2× to match the Cardputer ADV treatment:
+  - Eliminated retro CRT scanline overlays completely in favor of tack-sharp modern embedded LCD rendering.
+  - Scaled up to 2× canvas proportion (full gallery card width, ~530×398 px) with bold, high-contrast firmware typography (22px–26px hero readouts, 12px–14px data rows).
+  - Packed every quadrant to eliminate dead space:
+    - `Analyze / Spectrum Field`: Full 16-channel waterfall matrix across UNII-1 to UNII-3, real-time FFT curve with amber peak-hold, and single-line 3-column tactical HUD.
+    - `Analyze / Contacts`: 360° polar radar with 4-corner telemetry HUD, 5 AP nodes, client constellation filaments, 5-row probe matrix, and Guard alert box.
+    - `Drive / Session Log`: Redesigned into a full widescreen tactical moving map with top telemetry ribbon (4 tiles: duration, heading/speed, GNSS accuracy, burst peak), edge-to-edge 2D vector breadcrumb plotter with floating RF density sparkline, and bottom SD storage/action strip. Refined ribbon into an ultra-thin 2-row grid with razor 1px borders, single-line data pairings, and zero line-wrapping or orphaned text. Streamlined bottom action strip to prevent overflow/clipping. Zero dead space.
+    - `Observe / Frame List`: High-density LoRa chirp modulation spectrogram (preamble/sync/payload ramps), signal HUD, single-line 5-pill visual protocol dissector strip, and decoded Protobuf tree.
+- Selftest passed (27/27 conformance checks) with zero transmit verbs.
+
+---
+
 ## 2026-09-13 — Version bump: 0.2.0, deck now tracks a version too
 
 - `firmware-c5` PROJECT_VER 0.1.0 → 0.2.0 to mark P3 (LoRa RX). `firmware-cardputer` had no version string at all until now — added `OSCILLA_DECK_VER` as a build flag (platformio.ini), since the deck is an OCP client and has no verb of its own to report one over. Both now shown side by side in the Info view's DECK/PROBE sections (the probe's own `ver` wasn't displayed there before either — added for symmetry).
