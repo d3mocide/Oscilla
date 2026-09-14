@@ -1,3 +1,74 @@
+## 2026-09-14 — P3 loose end closed: LoRa framing classifier
+
+**Phase:** P3 · **By:** Will + Claude
+
+Second off-bench task of the day. ROADMAP's P3 section has said "no framing
+classification (meshtastic/lorawan/unknown) yet — packets display as raw
+hex, undecoded" since the exit gate was met; picked it up next since, like
+the NMEA parser, it's pure structural logic over already-captured bytes and
+needs no radio.
+
+- **Verified the Meshtastic header against their actual source before
+  writing anything**, not from memory — same "cite the datasheet" posture
+  as D-10. Fetched `meshtastic/firmware`'s `src/mesh/RadioInterface.h` and
+  `MeshTypes.h` directly: confirmed `PacketHeader` is exactly 16 bytes
+  (`to`,`from`,`id` as LE `uint32_t`, then `flags`/`channel`/`next_hop`/
+  `relay_node`), `MAX_LORA_PAYLOAD_LEN=255`, and `NODENUM_BROADCAST =
+  UINT32_MAX`. Good thing I checked — I'd have gotten the header length
+  wrong from memory (older firmware used a 14-byte header without
+  `next_hop`/`relay_node`; the constant that matters is the current one).
+- **`model/lora_framing.{h,cpp}`** — `classifyLoraFrame()`, a structural
+  best-effort guess, deliberately conservative:
+  - **Meshtastic:** `to == 0xFFFFFFFF` (broadcast) plus a length inside
+    `[16, 255]`. Computed, not guessed, false-positive rate on random bytes:
+    ~2^-32 (needs all four `to` bytes to land 0xFF by chance). Real but
+    narrow — it only catches broadcast traffic (route discovery, telemetry,
+    announcements are common; direct unicast messages aren't caught and
+    correctly read as `unknown`, a documented limitation, not a bug).
+  - **LoRaWAN:** MHDR byte (RFU=0, Major=0, MType ∈ {Join Request, Join
+    Accept, Un/Confirmed Data Up/Down}) plus exact/derived length
+    invariants — Join Request is exactly 23 bytes, Join Accept 17 or 33,
+    data frames use FCtrl's low nibble (`FOptsLen`) to compute a minimum
+    length. Computed false-positive rate on random bytes of the right
+    length: ~2.3% (the MHDR gate alone), which is why it's checked *after*
+    the much stronger Meshtastic marker.
+  - Checked both against DESIGN's own naming: it's `framing_guess`, not
+    `framing` — a guess with a bounded, cited error rate is the honest
+    target here, not a decoder.
+- **30 host tests**, all fixtures built directly from the cited structures
+  (not from this same code): exact-length Join Request/Accept boundaries
+  (off-by-one on both sides), FOptsLen-consistent and -inconsistent data
+  frames, RFU/Proprietary MType rejection, and a deliberately-constructed
+  opaque payload (not a real capture — none exists locally, see below) that
+  fails both gates by construction to prove `unknown` is the safe default.
+- **Caught my own test gap via the "prove a check catches the bug" step**:
+  reintroduced a real bug (FCtrl's FOptsLen read without masking to 4 bits)
+  and the suite stayed green — none of the fixtures exercised FCtrl's upper
+  nibble. Added a case that does (`FCtrl=0x85`: ADR bit + FOptsLen=5); the
+  same reintroduced bug then correctly went red (29/30, the one case that
+  should fail, fails). Left in as permanent coverage, not just a one-off
+  check.
+- **Wired in:** `LoraModel::absorbEvent` now sets `LoraPacket::framing` at
+  absorb time (deck-side, from the `hex` it already has — no `ocp.h`/wire
+  change, no probe firmware touched, nothing here needed hardware to
+  verify). `lora_log_format.cpp`'s CSV gained a trailing `framing` column
+  (DESIGN §9.1's record already specified this field). `subghz_view.cpp`
+  gained a one-letter tag (`M`/`L`/`-`) before the hex dump. `pio run -e
+  cardputer-adv` builds clean (611725 B flash) — the on-screen result is
+  unseen, no board attached this session.
+- **Known gap, flagged rather than quietly left:** the only real traffic
+  this project has ever received is MeshCore (see `lora-harness.md`), which
+  DESIGN's `meshtastic|lorawan|unknown` set doesn't include at all — expected
+  to correctly land on `unknown`, but that expectation is arithmetic
+  (the ~2^-32 Meshtastic false-positive bound) plus a synthetic
+  stand-in test, not a bench observation against a real captured MeshCore
+  payload. Worth specifically checking next time real traffic is flowing.
+  ROADMAP's P3 section updated with this and a small unrelated correction
+  (its `GetDeviceErrors`/`XOSC_START_ERR` line had gone stale — that was
+  closed yesterday, noted here since it was found in passing).
+
+---
+
 ## 2026-09-14 — P4 off-bench groundwork: NMEA parser + GNSS fix model
 
 **Phase:** P4 · **By:** Will + Claude

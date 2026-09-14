@@ -24,6 +24,26 @@ uint16_t snrColour(float snr)
     return TFT_ORANGE;   /* still decoded (it passed CRC), just a weak/marginal link */
 }
 
+/* One-letter framing_guess tag (model/lora_framing.h): a guess, so kept
+ * visually secondary to RSSI/SNR, not asserted as a decode. */
+char framingChar(model::Framing f)
+{
+    switch (f) {
+    case model::Framing::Meshtastic: return 'M';
+    case model::Framing::LoRaWAN: return 'L';
+    default: return '-';
+    }
+}
+
+uint16_t framingColour(model::Framing f)
+{
+    switch (f) {
+    case model::Framing::Meshtastic: return TFT_MAGENTA;
+    case model::Framing::LoRaWAN: return TFT_CYAN;
+    default: return TFT_DARKGREY;
+    }
+}
+
 }  // namespace
 
 void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const std::string &notice)
@@ -64,8 +84,10 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const std::stri
         d.printf(" %5.1f", static_cast<double>(p.snr));
         d.setTextColor(TFT_LIGHTGREY, bg);
         d.printf(" %3u ", p.len);
+        d.setTextColor(framingColour(p.framing), bg);
+        d.printf("%c ", framingChar(p.framing));
         d.setTextColor(TFT_DARKGREY, bg);
-        d.print(printable(p.hex, 22).c_str());
+        d.print(printable(p.hex, 20).c_str());
     }
 
     if (packets.empty()) {

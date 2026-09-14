@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "model/lora_framing.h"
 #include "ocp/ocp_item.h"
 
 namespace model {
@@ -29,7 +30,8 @@ struct LoraPacket {
     int rssi = 0;
     float snr = 0.0f;
     uint16_t len = 0;
-    std::string hex;   /* undecoded application payload; no framing classifier yet */
+    std::string hex;         /* undecoded application payload */
+    Framing framing = Framing::Unknown;   /* best-effort guess; see lora_framing.h */
 };
 
 class LoraModel {

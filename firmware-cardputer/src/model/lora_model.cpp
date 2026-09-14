@@ -85,6 +85,7 @@ const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt)
     p.snr = snr;
     p.len = static_cast<uint16_t>(len);
     p.hex = *hex;
+    p.framing = classifyLoraFrameHex(p.hex);
 
     total_++;
     packets_.insert(packets_.begin(), p);
