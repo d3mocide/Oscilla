@@ -121,7 +121,7 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 
 Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls for are still not installed (measured absent, wired anyway as a deliberate bench call — see WORKLOG); `GetDeviceErrors`/`XOSC_START_ERR` was never explicitly checked; no framing classification (meshtastic/lorawan/unknown) yet — packets display as raw hex, undecoded.
 
-🔴 **Found after the gate was marked met, same day — not yet fixed:** a 2h soak cross-referenced against an independent MeshCore observer showed real RX silently stops after ~30 minutes and never recovers, with zero errors logged (see `docs/hardware/lora-harness.md`, WORKLOG 2026-09-13). The gate's literal wording was satisfied before this was found, but **LoRa RX is not field-ready** until this is root-caused. Treat as the next required LoRa work, ahead of framing classification or any other polish.
+🟢 **Found, root-caused, and fixed, same day:** a 2h soak cross-referenced against an independent MeshCore observer showed real RX silently stalling after ~30 minutes with zero errors logged — a `GetIrqStatus` off-by-one that could leave a fired IRQ bit uncleared, and since DIO1 is edge-triggered, stuck-high forever. Fixed and bench-confirmed: a 66.8-minute retest logged 524 packets with the largest gap between any two consecutive packets at 55.1s (zero gaps over 60s, anywhere). See `docs/hardware/lora-harness.md` and WORKLOG 2026-09-13 for both the finding and the confirmation.
 
 ---
 

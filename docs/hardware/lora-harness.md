@@ -76,17 +76,26 @@ combination the real fired IRQ bit was never actually cleared in the chip.
 Since DIO1 is edge-triggered (`GPIO_INTR_POSEDGE`), a stuck-set bit means no
 further rising edge ever arrives — a silent, permanent stall with nothing to
 log, matching every symptom observed. Fixed: request/reconstruct the correct
-2 bytes. Flashed to the probe; **awaiting Will's bench retest** before this
-is considered closed.
+2 bytes. Flashed to the probe.
+
+**Bench-confirmed fixed, 2026-09-13.** Retest: 66.8-minute session,
+524 packets logged, **largest gap between any two consecutive received
+packets: 55.1s — zero gaps over 60s, zero over 120s, anywhere in the run.**
+No stall, anywhere, well past the ~30 minute mark that killed the previous
+attempt. Cross-checked against PyMC for the same window: observer saw only
+156 packets there (vs. our 524), but verified as a real RF/topology
+difference, not a bug — 524 unique hex payloads and 524 unique timestamps,
+zero duplicates, evenly spread across the whole session. MeshCore floods a
+message through multiple repeaters; different listeners legitimately hear
+different physical retransmission counts of the same logical traffic
+depending on which repeaters they're closest to.
 
 Still worth checking regardless of whether the fix holds:
 - `GetDeviceErrors`/`XOSC_START_ERR` was never polled during the original run
   (noted as an open gap in D-10) — a slow clock drift is plausible and still
   unchecked, independent of the IRQ bug above.
 
-**Do not consider LoRa RX field-ready until the fix above is bench-confirmed.**
-The P3 exit gate's literal wording (real packets observed, `stop` releases
-cleanly, zero TX verbs) was met before this was discovered — this finding
-doesn't unmet it, but it is a real reliability problem sitting on top of an
-otherwise-working RX path, and needs to close before this goes beyond bench
-testing.
+**Resolved.** One hour is real evidence but not unlimited evidence — a longer
+soak (and the still-open `XOSC_START_ERR` check above) is worth doing before
+this goes anywhere near the field, but the specific silent-stall failure mode
+is fixed and confirmed, not just theorized.

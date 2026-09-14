@@ -1,3 +1,14 @@
+## 2026-09-13 — RX-stall fix bench-confirmed: 66.8 min, zero gaps over 55s
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Retested the `GetIrqStatus` fix (previous entry, below) on the bench: 66.8-minute session, 524 packets logged, **largest gap between any two consecutive received packets: 55.1s — zero gaps over 60s, anywhere in the run.** No stall, well past the ~30-minute mark that killed the previous attempt.
+- Cross-checked against PyMC for the same window and got a real discrepancy worth investigating before trusting it: observer saw only 156 packets to our 524. Verified it wasn't a duplicate-logging bug before calling it benign — 524 unique hex payloads, 524 unique timestamps, zero duplicates, evenly spread across the whole session. Concluded it's a real RF/mesh-topology effect (MeshCore floods through multiple repeaters; different listeners hear different physical retransmission counts of the same logical traffic depending on proximity) rather than assuming that and moving on.
+- Noticed and worth a future cleanup, not fixed tonight: `startLoraListen()` on the deck optimistically calls `lora_.begin()`/`storage::loraLogBegin()` before the probe confirms it accepted the command, so a rejected `lora_listen` (e.g. sent before `lora_config`, as happened at the start of this retest) still creates a near-empty session file on the SD card. Harmless clutter, not a correctness bug, but should wait for the real ack before committing to a new file.
+- `docs/hardware/lora-harness.md` updated to **Resolved** for the silent-stall failure mode specifically. `GetDeviceErrors`/`XOSC_START_ERR` remains an open, separate gap.
+
+---
+
 ## 2026-09-13 — RX-stall root cause found: GetIrqStatus off-by-one, candidate fix flashed
 
 **Phase:** P3 · **By:** Will + Claude
