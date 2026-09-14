@@ -1,3 +1,85 @@
+## 2026-09-14 — Wardrive CSV/KML format writers (P7, started early)
+
+**Phase:** P7 (early/out of sequence, same pattern as Contacts/Deauth/
+Spectrum) · **By:** Will + Claude
+
+Fourth off-bench task of the day: format-only writers for the wardrive
+log DESIGN §9.2 already specifies (WigleWifi CSV + KML), building directly
+on this afternoon's GnssModel work.
+
+- **Verified the CSV format against a real source before writing anything.**
+  WiGLE's own Android app repo (`wiglenet/wigle-wifi-wardriving`) has a
+  reader (`NetworkCsv`/`LocationCsv`) for an older, shorter 11-column
+  format with no version header at all in its own client source. DESIGN.md
+  already committed to calling this "WigleWifi-1.6" specifically, and the
+  only place that exact tag exists with a concrete column layout is
+  Kismet's `kis_wiglecsvlogfile.cc` (fetched from `kismetwireless/kismet`)
+  — a 14-column layout adding RCOIs/MfgrId. Went with Kismet's, since it's
+  the only source that actually matches DESIGN's own version string.
+  **Found a real bug in Kismet's own shipped code while reading it**: their
+  Wi-Fi row's `fmt::print` only emits 12 of the 14 declared columns
+  (RCOIs/MfgrId silently missing), while their own BT/BLE rows correctly
+  emit all 14 blank. Didn't copy the bug — Oscilla's rows always emit all
+  14, consistent with the declared header.
+- **`storage/wardrive_csv.{h,cpp}`**: `wardriveCsvHeader`/
+  `wardriveCsvColumnHeader`/`wardriveCsvRow`. Ports Kismet's `munge_for_csv`
+  octal-escape scheme exactly (this format has no field quoting, so it's
+  the only thing between a hostile SSID — AGENTS.md "decoded bytes stay
+  hostile" — and a corrupted row). `authModeTag()` maps Oscilla's own
+  `OCP_AUTH_*` strings (protocol/ocp.h) to WigleWifi bracket tags at the
+  method level (no cipher-suite detail like CCMP/TKIP — Oscilla's model
+  doesn't track that), with an explicit `[UNKNOWN][ESS]` tag for anything
+  unrecognized rather than silently defaulting to something that reads as
+  open. 15 host tests: channel->frequency conversion including channel 14's
+  documented 2484 MHz exception, every auth bucket, a hostile SSID
+  (comma/quote/control byte) with the exact expected octal escape
+  precomputed independently in Python, negative lat/lon, hidden (empty)
+  SSID, exact column count.
+- **Verified the KML format too**: fetched Google's own KML reference for
+  the `<color>` byte order — it's `aabbggrr` (alpha,blue,green,red),
+  reversed from web `rrggbb`, a classic and easy mistake to make silently.
+  Coordinate order is `lon,lat[,alt]`, also easy to get backwards.
+- **`storage/wardrive_kml.{h,cpp}`**: `kmlHeader`/`kmlTrackPoint`/
+  `kmlCloseTrack`/`kmlApPlacemark`/`kmlFooter`. Handles DESIGN's "crash-
+  tolerant, flushed incrementally" requirement the way incremental XML
+  loggers usually do: the header opens `<Document>` and the track's
+  `<LineString><coordinates>` and deliberately never closes them in that
+  call; each track point is a self-contained line inside that still-open
+  element, each AP placemark is a fully self-closing element safe to
+  append any time. A session that ends without `kmlFooter()` is a
+  well-formed *prefix* missing only its closing tags, repairable by
+  appending fixed text later rather than rewriting anything — the actual
+  repair-on-next-open step is left as future work, this only produces the
+  pieces. Five security-tier style buckets (own bucketing of `OCP_AUTH_*`,
+  not something DESIGN specifies further) plus a track line style.
+  XML-escapes hostile SSID bytes properly — and unlike the CSV munge
+  scheme, XML 1.0 forbids most C0 control bytes in a document outright,
+  not rescuable by any entity escape, so those get substituted rather than
+  "escaped" into something still invalid.
+- **20 host tests, plus a real cross-language check**: `wardrive_kml_test
+  --sample` prints one fully-assembled document, and `tools/
+  check_wardrive_kml.py` parses it with Python's `xml.etree` to confirm
+  it's *actually* well-formed XML — string-equality checks on each function
+  can't catch a mismatched tag between two of them the way a real parser
+  can (same role `check_ocp_text.py` plays for the C field encoder).
+  Proved it catches a real bug: broke `kmlCloseTrack()`'s tag order on a
+  copy and both the unit test and the XML parser caught it independently.
+- **Also proved a bug in the CSV munge**: shifted the octal-escape bit math
+  by one on a copy of `wardrive_csv.cpp`; exactly the hostile-SSID test
+  went red.
+- **Scope, stated plainly**: these are formatters only, mirroring
+  `lora_log_format.cpp`'s split — no SD file I/O (`wardrive_logger.cpp`,
+  the `lora_logger.cpp` equivalent, doesn't exist), nothing wired to
+  `ScanModel`/`GnssModel`, no **Drive** view. Also surfaced a real
+  follow-up: `GnssModel` doesn't parse NMEA RMC's date field yet, so there
+  isn't actually a calendar timestamp anywhere to hand `wardriveCsvRow()`'s
+  FirstSeen column — the row writer takes it as an explicit parameter for
+  now, same clock-injection convention as `loraLogRow`'s `ts_ms`. `pio run
+  -e cardputer-adv` builds clean (612725 B flash). ROADMAP's P7 section
+  updated.
+
+---
+
 ## 2026-09-14 — LoRa framing classifier extended to MeshCore
 
 **Phase:** P3 · **By:** Will + Claude

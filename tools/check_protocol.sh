@@ -123,4 +123,17 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/src/model/gnss_model.cpp
 "$out/gnss_model_test" | tail -1 | sed 's/^/  /'
 
+# The deck's WigleWifi-1.6 CSV row formatting for the wardrive log.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wardrive_csv_test" \
+    firmware-cardputer/test/host/wardrive_csv_test.cpp firmware-cardputer/src/storage/wardrive_csv.cpp
+"$out/wardrive_csv_test" | tail -1 | sed 's/^/  /'
+
+# The deck's KML track/placemark formatting for the wardrive log.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wardrive_kml_test" \
+    firmware-cardputer/test/host/wardrive_kml_test.cpp firmware-cardputer/src/storage/wardrive_kml.cpp
+"$out/wardrive_kml_test" | tail -1 | sed 's/^/  /'
+# Cross-checked against a real XML parser, not just string equality (same
+# role check_ocp_text.py plays for the C field encoder).
+python3 tools/check_wardrive_kml.py "$out/wardrive_kml_test"
+
 echo "protocol contract OK"
