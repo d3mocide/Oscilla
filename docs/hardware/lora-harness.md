@@ -96,9 +96,9 @@ entering `STDBY_XOSC`, logs whether `XOSC_START_ERR` was set (expected on a
 TCXO cold start per the datasheet's own note — not treated as a fault), and
 clears it via `ClearDeviceErrors` either way. Non-fatal, doesn't gate
 bring-up — it's the positive confirmation the TCXO started within the
-chosen 10ms delay that D-10 was missing, not a pass/fail check. Flashed;
-not yet observed live (the log line lands on the Grove-mixed console under
-the `uart` build, not something watched directly yet).
+chosen 10ms delay that D-10 was missing, not a pass/fail check. Flashed and
+live-confirmed working on the bench (2026-09-14), along with the
+optimistic-file fix above.
 
 **Resolved.** One hour is real evidence but not unlimited evidence — a
 longer soak is worth doing before this goes anywhere near the field, but the

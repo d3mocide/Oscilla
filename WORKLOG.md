@@ -4,7 +4,8 @@
 
 - **D-10's `XOSC_START_ERR` gap, closed:** `lora_radio_rx_start()` now calls `GetDeviceErrors` right after entering `STDBY_XOSC`, logs whether `XOSC_START_ERR` fired (expected on a TCXO cold start per the datasheet's own note, not a fault), and clears it via `ClearDeviceErrors` regardless. Non-fatal, doesn't gate bring-up — gives D-10 the positive confirmation the TCXO actually started within the chosen 10ms delay, instead of just inferring it from nothing else faulting.
 - **Deck's optimistic session-file bug, fixed:** `startLoraListen()` used to call `lora_.begin()`/`storage::loraLogBegin()` right after queuing the send, before the probe had actually confirmed anything — so a rejected `lora_listen` still created a near-empty file on the card. Moved both calls into the actual `[LORA]` reply handler, gated on a new `lora_listen_pending_` flag (cleared on error, and on any drop out of `Ready` — a reply *timeout* skips `onReply()` entirely, so that path needed covering too or the flag could stick).
-- Both fixed the exact way the earlier bugs got found — read the datasheet/sequencing first, didn't guess. Built clean, full `check_protocol.sh` green, flashed both boards. `docs/hardware/lora-harness.md` updated for the `XOSC_START_ERR` closure. **Not yet live-verified** — the `XOSC_START_ERR` log line lands on the Grove-mixed console under the `uart` build, not something watched directly this session, and the file-creation fix hasn't been exercised against a real rejected `lora_listen` since the flash.
+- Both fixed the exact way the earlier bugs got found — read the datasheet/sequencing first, didn't guess. Built clean, full `check_protocol.sh` green, flashed both boards. `docs/hardware/lora-harness.md` updated for the `XOSC_START_ERR` closure.
+- **Live-confirmed on the bench, same day** — Will reports both working as expected.
 
 ---
 
