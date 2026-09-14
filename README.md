@@ -15,8 +15,10 @@ human-readable line protocol over it.
 > guarantee is about *reachable code paths* — stated that way deliberately.
 > See [DESIGN.md §8](DESIGN.md) and [D-8](docs/DECISIONS.md).
 
-Status: **P0 — scaffold.** No phase has met its exit gate on hardware yet.
-See [ROADMAP.md](ROADMAP.md).
+Status: **P3 complete.** The protocol contract, the Grove link, passive Wi-Fi
+scanning, and LoRa RX (Wio-SX1262, real MeshCore traffic decoded end to end)
+are all proven on hardware. GNSS (P4) is next. See [ROADMAP.md](ROADMAP.md)
+for phase-by-phase detail and exit-gate evidence.
 
 ## Why two machines
 
@@ -46,6 +48,8 @@ from the probe's job entirely.
 | [`firmware-c5/`](firmware-c5/) | The probe — ESP-IDF |
 | [`firmware-cardputer/`](firmware-cardputer/) | The deck — PlatformIO / Arduino |
 | [`tools/`](tools/) | Host-side client, parser, and tests. No hardware required |
+| [`docs/hardware/`](docs/hardware/) | Bench notes — what real hardware actually showed, allowed to contradict the plan |
+| [`docs/brand/`](docs/brand/) | Visual/UI design system for the deck and external panel |
 
 Both firmwares add `protocol/` to their include path and `#include "ocp.h"`, so
 a change to the contract breaks both builds until both are fixed. The contract
