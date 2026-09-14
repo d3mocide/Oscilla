@@ -67,17 +67,17 @@ void LoraModel::clear()
     packets_.clear();
 }
 
-void LoraModel::absorbEvent(const ocp::Item &evt)
+const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt)
 {
     const auto *kind = evt.get(OCP_K_KIND);
-    if (!kind || *kind != OCP_EVT_KIND_LORA) return;
+    if (!kind || *kind != OCP_EVT_KIND_LORA) return nullptr;
 
     const auto *hex = evt.get(OCP_K_HEX);
     long len = kvLong(evt, OCP_K_LEN, 0, 255, -1);
     float snr = 0.0f;
     if (!hex || len < 0 || hex->size() != static_cast<size_t>(len) * 2 ||
         !kvFloat(evt, OCP_K_SNR, -128.0f, 127.0f, &snr)) {
-        return;   /* malformed: never trust a partial event */
+        return nullptr;   /* malformed: never trust a partial event */
     }
 
     LoraPacket p;
@@ -89,6 +89,7 @@ void LoraModel::absorbEvent(const ocp::Item &evt)
     total_++;
     packets_.insert(packets_.begin(), p);
     if (packets_.size() > kMaxRows) packets_.resize(kMaxRows);
+    return &packets_.front();
 }
 
 }  // namespace model

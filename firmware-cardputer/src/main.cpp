@@ -9,6 +9,7 @@
 
 #include "app/deck_app.h"
 #include "ocp.h"
+#include "storage/sd_storage.h"
 #include "ui/canvas.h"
 
 namespace {
@@ -30,6 +31,12 @@ void setup()
     M5Cardputer.Display.setRotation(1);
     ui::initCanvas();
 
+    /* Brought up before any TFT traffic exists to contend with it, per
+     * DESIGN §7.4 — the external TFT isn't wired yet, but when it is, SD
+     * still needs to win this race. A missing/unreadable card just means
+     * logging is unavailable this boot; never block startup on it. */
+    if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
+
     /* A 256-row [SCAN] page is ~20 KB in ~2 s; a redraw must not overflow the buffer. */
     Serial1.setRxBufferSize(16384);
     Serial1.begin(OCP_BAUD_DEFAULT, SERIAL_8N1, kGroveRxPin, kGroveTxPin);
@@ -38,9 +45,23 @@ void setup()
     g_app.begin(millis());
 }
 
+namespace {
+/* Diagnostic only, not tied to any view: a slow leak shows up as a trend in
+ * this number over hours, not as a crash. Independent of which screen is
+ * shown, since info_view's own heap readout only samples while you're
+ * looking at it. */
+constexpr uint32_t kHeapLogMs = 5UL * 60UL * 1000UL;
+uint32_t g_last_heap_log_ms = 0;
+}  // namespace
+
 void loop()
 {
     uint32_t now = millis();
+
+    if (now - g_last_heap_log_ms >= kHeapLogMs) {
+        g_last_heap_log_ms = now;
+        Serial.printf("deck heap=%u uptime_s=%lu\n", (unsigned)ESP.getFreeHeap(), (unsigned long)(now / 1000));
+    }
 
     /* Drain the link completely before any drawing. */
     uint8_t buf[512];
