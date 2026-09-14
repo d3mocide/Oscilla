@@ -52,6 +52,48 @@ bool looksLoRaWAN(const uint8_t *p, size_t len)
     }
 }
 
+constexpr size_t kMeshCoreMaxPathSize = 64;    /* MAX_PATH_SIZE */
+constexpr size_t kMeshCoreMaxPayload = 184;    /* MAX_PACKET_PAYLOAD */
+constexpr size_t kMeshCoreMaxTransUnit = 255;  /* MAX_TRANS_UNIT */
+
+bool meshCoreHasTransportCodes(uint8_t route)
+{
+    /* ROUTE_TYPE_TRANSPORT_FLOOD=0x00, ROUTE_TYPE_TRANSPORT_DIRECT=0x03. */
+    return route == 0x00 || route == 0x03;
+}
+
+bool looksMeshCore(const uint8_t *p, size_t len)
+{
+    if (len < 2 || len > kMeshCoreMaxTransUnit) return false;
+
+    uint8_t header = p[0];
+    uint8_t route = header & 0x03;
+    uint8_t ptype = (header >> 2) & 0x0F;
+    uint8_t pver = (header >> 6) & 0x03;
+    if (pver != 0) return false;                         /* only PAYLOAD_VER_1 exists today */
+    if (ptype >= 0x0C && ptype <= 0x0E) return false;     /* gap: not a defined payload type */
+
+    size_t i = 1;
+    if (meshCoreHasTransportCodes(route)) {
+        if (len < i + 4) return false;
+        i += 4;
+    }
+    if (len < i + 1) return false;
+    uint8_t path_len_byte = p[i];
+    i += 1;
+
+    uint8_t hash_size = (path_len_byte >> 6) + 1;
+    uint8_t hash_count = path_len_byte & 0x3F;
+    if (hash_size == 4) return false;   /* isValidPathLen: reserved for future */
+    size_t path_bytes = static_cast<size_t>(hash_count) * hash_size;
+    if (path_bytes > kMeshCoreMaxPathSize) return false;
+    if (len < i + path_bytes) return false;
+    i += path_bytes;
+
+    size_t payload_len = len - i;
+    return payload_len <= kMeshCoreMaxPayload;
+}
+
 int hexNibble(char c)
 {
     if (c >= '0' && c <= '9') return c - '0';
@@ -67,6 +109,7 @@ const char *framingName(Framing f)
     switch (f) {
     case Framing::Meshtastic: return "meshtastic";
     case Framing::LoRaWAN: return "lorawan";
+    case Framing::MeshCore: return "meshcore";
     default: return "unknown";
     }
 }
@@ -74,9 +117,11 @@ const char *framingName(Framing f)
 Framing classifyLoraFrame(const uint8_t *payload, size_t len)
 {
     /* Checked in order of ascending false-positive rate (see header):
-     * Meshtastic's broadcast marker first, LoRaWAN's MHDR gate second. */
+     * Meshtastic's broadcast marker first, LoRaWAN's MHDR gate second,
+     * MeshCore's weaker header+length-consistency gate last. */
     if (looksMeshtastic(payload, len)) return Framing::Meshtastic;
     if (looksLoRaWAN(payload, len)) return Framing::LoRaWAN;
+    if (looksMeshCore(payload, len)) return Framing::MeshCore;
     return Framing::Unknown;
 }
 

@@ -1,3 +1,67 @@
+## 2026-09-14 — LoRa framing classifier extended to MeshCore
+
+**Phase:** P3 · **By:** Will + Claude
+
+Will asked to extend this afternoon's classifier to the one protocol that
+actually matters on the bench right now — the only real traffic Oscilla has
+ever received is MeshCore, and it wasn't in DESIGN's original
+meshtastic/lorawan/unknown set at all.
+
+- **Fetched MeshCore's actual wire format before writing anything**, same
+  discipline as the Meshtastic work: `meshcore-dev/MeshCore`'s
+  `src/Packet.h` and `.cpp` (`writeTo`/`readFrom`/`getRawLength`, the code
+  that actually defines the wire bytes, not just the in-RAM struct). Header
+  byte is route(2 bits, all 4 values defined)/payload-type(4 bits, 0x00-0x0B
+  and 0x0F defined today, 0x0C-0x0E an open gap)/payload-version(2 bits,
+  only `PAYLOAD_VER_1`=0 implemented — 1-3 are `FUTURE` in their own
+  source). `TRANSPORT_FLOOD`/`TRANSPORT_DIRECT` routes carry 4 bytes of
+  transport codes; then a packed `path_len` byte (`hash_size-1`:`hash_count`,
+  `hash_size==4` explicitly rejected by their own `isValidPathLen` as
+  reserved) fixes the path byte count, and whatever's left is payload,
+  capped by `MAX_PACKET_PAYLOAD`=184 and `MAX_TRANS_UNIT`=255.
+- **Added `Framing::MeshCore`** to `model/lora_framing.{h,cpp}`:
+  `looksMeshCore()` checks the header gate (pver==0, ptype not in the
+  0x0C-0x0E gap) then walks the length chain (transport codes → path_len →
+  path bytes → payload) and requires it to exactly consume the frame — the
+  same "structural, not statistical" posture as the other two, extended with
+  a real length-consistency check the header comment estimates (not fully
+  quantified) is stronger than the ~20% the header-byte gate alone implies.
+  Checked *last* in `classifyLoraFrame()`, after Meshtastic and LoRaWAN,
+  since it's the weakest of the three gates and most likely to fire on
+  bytes that aren't actually MeshCore.
+- **16 new host tests** — valid frames across all four route-type/transport
+  combinations, the exact 2-byte minimum, each individual invalid-field
+  case (bad version, the payload-type gap, the reserved `hash_size==4`,
+  length-inconsistent path, over-max payload and over-max total), and the
+  `0xFF` `markDoNotRetransmit()` sentinel value (correctly reads as
+  `unknown`, not a real frame — its version bits land in the reserved
+  range).
+- **Found real cross-talk while writing fixtures, not hypothetically**: five
+  of the *existing* LoRaWAN-negative fixtures (built as mostly-zero bytes to
+  isolate one MHDR bit) turned out to also be structurally valid MeshCore
+  frames at their given length — an actual demonstration of the
+  precedence-order risk the header comment already flags, not a bug in
+  either classifier. Fixed by setting each fixture's `path_len` byte to an
+  explicitly-invalid `0xC0` (`hash_size=4`), which breaks the MeshCore match
+  without touching what each test was actually built to check. Verified
+  against the real compiled output at each step rather than trusting the
+  arithmetic on paper — caught all five this way, on the first pass.
+- **Proved the check catches a bug again**: removed the `hash_size==4`
+  rejection on a copy and 6 of 46 tests went red (not just the one direct
+  test — the guard turned out to be load-bearing for a few of the
+  length-consistency cases too, which is itself useful information about
+  how tightly coupled that check is to the others).
+- **Wired in**: `subghz_view.cpp` gained a `C` tag (green) alongside the
+  existing `M`/`L`. `lora_log_format.cpp`'s CSV column and `LoraModel`
+  needed no changes — both already call `model::framingName()` generically.
+  `pio run -e cardputer-adv` builds clean (611893 B flash).
+- **Still not hardware-confirmed**: same caveat as this afternoon's original
+  classifier work, now specifically about whether real MeshCore traffic
+  actually lands on `meshcore` rather than `unknown` or (the new risk)
+  `lorawan`. ROADMAP's P3 section updated.
+
+---
+
 ## 2026-09-14 — D-11 closed by practice, D-14 half-closed by research
 
 **Phase:** decisions housekeeping · **By:** Will + Claude

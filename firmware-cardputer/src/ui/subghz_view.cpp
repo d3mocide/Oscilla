@@ -31,6 +31,7 @@ char framingChar(model::Framing f)
     switch (f) {
     case model::Framing::Meshtastic: return 'M';
     case model::Framing::LoRaWAN: return 'L';
+    case model::Framing::MeshCore: return 'C';
     default: return '-';
     }
 }
@@ -39,6 +40,7 @@ uint16_t framingColour(model::Framing f)
 {
     switch (f) {
     case model::Framing::Meshtastic: return TFT_MAGENTA;
+    case model::Framing::MeshCore: return TFT_GREEN;
     case model::Framing::LoRaWAN: return TFT_CYAN;
     default: return TFT_DARKGREY;
     }
