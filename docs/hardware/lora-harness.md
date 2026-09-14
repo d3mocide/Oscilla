@@ -90,12 +90,17 @@ message through multiple repeaters; different listeners legitimately hear
 different physical retransmission counts of the same logical traffic
 depending on which repeaters they're closest to.
 
-Still worth checking regardless of whether the fix holds:
-- `GetDeviceErrors`/`XOSC_START_ERR` was never polled during the original run
-  (noted as an open gap in D-10) — a slow clock drift is plausible and still
-  unchecked, independent of the IRQ bug above.
+**`GetDeviceErrors`/`XOSC_START_ERR` gap closed, 2026-09-14** (was open in
+D-10): `lora_radio_rx_start()` now reads `GetDeviceErrors` right after
+entering `STDBY_XOSC`, logs whether `XOSC_START_ERR` was set (expected on a
+TCXO cold start per the datasheet's own note — not treated as a fault), and
+clears it via `ClearDeviceErrors` either way. Non-fatal, doesn't gate
+bring-up — it's the positive confirmation the TCXO started within the
+chosen 10ms delay that D-10 was missing, not a pass/fail check. Flashed;
+not yet observed live (the log line lands on the Grove-mixed console under
+the `uart` build, not something watched directly yet).
 
-**Resolved.** One hour is real evidence but not unlimited evidence — a longer
-soak (and the still-open `XOSC_START_ERR` check above) is worth doing before
-this goes anywhere near the field, but the specific silent-stall failure mode
-is fixed and confirmed, not just theorized.
+**Resolved.** One hour is real evidence but not unlimited evidence — a
+longer soak is worth doing before this goes anywhere near the field, but the
+specific silent-stall failure mode is fixed and confirmed, not just
+theorized.

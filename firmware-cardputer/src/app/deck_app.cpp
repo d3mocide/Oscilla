@@ -56,6 +56,12 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
 {
     client_.onState([this](ocp::LinkState s) {
         log(std::string("state=") + ocp::linkStateName(s));
+        /* A reply timeout skips onReply() entirely (Client::tick() clears
+         * pending state internally without calling it), so a lora_listen
+         * that never gets answered would leave lora_listen_pending_ stuck
+         * true otherwise. Any drop out of Ready means whatever was pending
+         * is moot. */
+        if (s != ocp::LinkState::Ready) lora_listen_pending_ = false;
         dirty_ = true;
     });
     client_.onReset([this] {
@@ -94,6 +100,7 @@ void DeckApp::onReply(const ocp::Item &it)
     if (it.kind == ocp::ItemKind::Pong) { last_reply_ = "pong"; return; }
 
     if (it.kind == ocp::ItemKind::Error) {
+        lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
         notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
@@ -128,8 +135,17 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_LORA) {
         /* Shared by lora_listen and lora_status; params are already known
          * locally (startLoraListen set them), same reasoning as OCP_MARK_CFG
-         * below, so this is diagnostic-only. */
-        log("lora reply");
+         * below. lora_listen_pending_ (set only by startLoraListen, cleared
+         * here or on error) is what tells the two apart, since this marker
+         * alone doesn't say which verb it's answering. */
+        if (lora_listen_pending_) {
+            lora_listen_pending_ = false;
+            lora_.begin();
+            lora_cursor_ = 0;
+            log(storage::loraLogBegin() ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
+        } else {
+            log("lora reply");
+        }
     } else if (it.tag == OCP_MARK_CFG) {
         /* Shared reply marker (packet_monitor and deauth_detector both use
          * it): which verb it's for is whatever we just sent, not decodable
@@ -253,9 +269,7 @@ void DeckApp::startLoraListen(uint32_t now_ms)
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!lora_.hasConfig()) { notice("config first (c)"); return; }
     if (!client_.send(OCP_V_LORA_LISTEN, now_ms)) { notice("busy"); return; }
-    lora_.begin();
-    lora_cursor_ = 0;
-    log(storage::loraLogBegin() ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
+    lora_listen_pending_ = true;   /* [LORA]/error reply decides whether to actually start (below) */
     notice("");
 }
 

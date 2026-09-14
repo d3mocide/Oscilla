@@ -67,6 +67,8 @@ static const char *TAG = "lora_radio";
 #define OP_GET_PACKET_STATUS      0x14
 #define OP_READ_BUFFER            0x1E
 #define OP_GET_STATUS             0xC0
+#define OP_GET_DEVICE_ERRORS      0x17
+#define OP_CLEAR_DEVICE_ERRORS    0x07
 
 #define STDBY_RC    0x00
 #define STDBY_XOSC  0x01
@@ -79,6 +81,9 @@ static const char *TAG = "lora_radio";
 #define IRQ_CRC_ERR     (1u << 6)
 #define IRQ_TIMEOUT     (1u << 9)
 #define IRQ_RX_MASK     (IRQ_RX_DONE | IRQ_HEADER_ERR | IRQ_CRC_ERR | IRQ_TIMEOUT)
+
+/* OpError bits, Table 13-85. */
+#define OPERR_XOSC_START_ERR  (1u << 5)
 
 #define FXTAL_HZ  32000000ULL   /* Wio-SX1262 module datasheet §2: 32 MHz TCXO */
 
@@ -335,6 +340,29 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
     if (err == ESP_OK) {
         uint8_t standby_xosc = STDBY_XOSC;
         err = cmd_write(OP_SET_STANDBY, &standby_xosc, 1);
+    }
+
+    /* D-10: XOSC_START_ERR is *expected* here on a cold start with a TCXO
+     * (datasheet §13.3.6's own note) — the chip doesn't yet know it's
+     * TCXO-clocked until this point. This isn't a pass/fail gate, it's the
+     * positive confirmation D-10 was missing: the TCXO actually started
+     * within our chosen 10ms delay, not just inferred from nothing else
+     * faulting. Non-fatal either way — logged, then cleared per the
+     * datasheet's explicit instruction ("simply clear this flag with
+     * ClearDeviceErrors"), never blocks bring-up. */
+    if (err == ESP_OK) {
+        uint8_t errs_raw[2];
+        if (cmd_read(OP_GET_DEVICE_ERRORS, errs_raw, sizeof errs_raw) == ESP_OK) {
+            uint16_t op_err = ((uint16_t)errs_raw[0] << 8) | errs_raw[1];
+            if (op_err & OPERR_XOSC_START_ERR) {
+                ESP_LOGI(TAG, "XOSC_START_ERR set at cold start (expected) — clearing");
+            }
+            if (op_err & ~(uint16_t)OPERR_XOSC_START_ERR) {
+                ESP_LOGW(TAG, "unexpected device error bits: 0x%04x", op_err);
+            }
+        }
+        uint8_t clear_errs[2] = { 0x00, 0x00 };
+        cmd_write(OP_CLEAR_DEVICE_ERRORS, clear_errs, sizeof clear_errs);
     }
 
     if (err == ESP_OK) {
