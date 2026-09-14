@@ -595,166 +595,162 @@
       user-select: none;
     }
 
-    /* CARD 1: Spectrum Waterfall & Envelope (2x scale) */
+    /* CARD 1: Spectrum Waterfall & Envelope (2x scale) - Redesigned for Zero-Overlap Tactical Clarity */
     .ili-waterfall-card {
       display: flex;
       flex-direction: column;
       height: 100%;
       width: 100%;
       box-sizing: border-box;
-      padding: 10px 14px;
-      justify-content: space-between;
       background: #060806;
-    }
-    .wf-header-row {
-      display: flex;
+      padding: 6px 10px;
       justify-content: space-between;
-      align-items: center;
-      font-size: 13.5px;
-      font-weight: 700;
-      color: var(--muted);
-      border-bottom: 1.5px solid #1D2A1F;
-      padding-bottom: 5px;
-      line-height: 1;
     }
-    .wf-header-row .wf-title {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      color: var(--cream);
-    }
-    .wf-header-row .wf-title .dot {
-      width: 7px; height: 7px;
-      background: var(--pink);
-      border-radius: 1.5px;
-    }
-    .wf-top-canvas {
-      height: 48%;
-      width: 100%;
-      position: relative;
-      margin-top: 4px;
-    }
-    .wf-fft-canvas {
-      height: 25%;
-      width: 100%;
-      position: relative;
-      border-top: 1.5px dashed #1D2A1F;
-      margin-top: 2px;
-    }
-    .wf-hud-bottom {
+    .wf-top-ribbon {
       display: grid;
-      grid-template-columns: 0.95fr 1.25fr 0.95fr;
-      gap: 8px;
-      background: #090D09;
+      grid-template-columns: 1.15fr 1fr 1.05fr 1fr;
+      gap: 6px;
+      background: #080C08;
       border: 1.5px solid #1D2A1F;
-      padding: 8px 12px;
       border-radius: 4px;
-      font-size: 13px;
+      padding: 5px 10px;
       align-items: center;
     }
-    .wf-hud-col {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .wf-hud-col.mid {
-      border-left: 1.5px solid #1D2A1F;
-      border-right: 1.5px solid #1D2A1F;
-      padding: 0 8px;
-      font-size: 12px;
-    }
-    .wf-hero-badge {
-      font-family: var(--display);
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--yellow);
-      line-height: 1.05;
-      margin: 1px 0;
-    }
-
-    /* CARD 2: Contacts Radar & Node Dossier (2x scale) */
-    .ili-radar-card {
-      display: grid;
-      grid-template-columns: 50% 50%;
-      height: 100%;
-      width: 100%;
-      box-sizing: border-box;
-      background: #060806;
-    }
-    .radar-pane {
-      height: 100%;
-      border-right: 1.5px solid #1D2A1F;
-      padding: 10px 10px 8px;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      box-sizing: border-box;
-      background: #060906;
-    }
-    .radar-title-strip {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--muted);
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1.5px solid #1D2A1F;
-      padding-bottom: 4px;
-      margin-bottom: 4px;
-    }
-    .radar-canvas-box {
+    .wf-screen-widescreen {
       flex: 1;
       width: 100%;
       position: relative;
+      background: #070A07;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      margin: 4px 0;
+      overflow: hidden;
     }
-    .dossier-pane {
+    .wf-bottom-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #080C08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      line-height: 1;
+      gap: 6px;
+    }
+    .wf-bottom-strip b {
+      color: var(--cream);
+      font-variant-numeric: tabular-nums;
+    }
+    .wf-bottom-strip .active-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--yellow);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .wf-bottom-strip .dot {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--green);
+    }
+
+    /* CARD 2: Contacts Radar & Node Dossier (2x scale) - Redesigned for Zero-Overlap Tactical Clarity */
+    .ili-radar-card {
+      display: flex;
+      flex-direction: column;
       height: 100%;
-      padding: 10px 14px 8px;
+      width: 100%;
+      box-sizing: border-box;
+      background: #060806;
+      padding: 6px 10px;
+      justify-content: space-between;
+    }
+    .contacts-top-ribbon {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1.05fr 1fr;
+      gap: 6px;
+      background: #080C08;
+      border: 1.5px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 5px 10px;
+      align-items: center;
+    }
+    .contacts-main-split {
+      flex: 1;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin: 4px 0;
+      overflow: hidden;
+    }
+    .contacts-radar-box {
+      background: #070A07;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .contacts-dossier-box {
+      background: #080B08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 6px 10px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      background: #080B08;
+      overflow: hidden;
       box-sizing: border-box;
     }
     .dossier-target {
-      border-bottom: 1.5px solid #1D2A1F;
-      padding-bottom: 6px;
+      border-bottom: 1px solid #1D2A1F;
+      padding-bottom: 4px;
     }
     .dossier-target .d-lbl {
-      font-size: 11.5px;
+      font-size: 9.5px;
       color: var(--muted);
-      letter-spacing: 0.12em;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      text-transform: uppercase;
     }
     .dossier-target .d-name {
       font-family: var(--display);
-      font-size: 22px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--yellow);
-      margin: 2px 0;
+      margin: 1px 0;
       line-height: 1.1;
     }
     .dossier-target .d-meta {
-      font-size: 13px;
+      font-size: 10.5px;
       color: var(--cream);
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
     .dossier-target .d-meta span { color: var(--green); }
     .dossier-table {
       width: 100%;
-      font-size: 13px;
+      font-size: 10.5px;
       border-collapse: collapse;
-      margin: 4px 0;
+      margin: 2px 0;
     }
     .dossier-table th {
       color: var(--muted);
       text-align: left;
-      border-bottom: 1.5px solid #1D2A1F;
-      padding: 3px 4px;
+      border-bottom: 1px solid #1D2A1F;
+      padding: 2px 4px;
       font-weight: 700;
-      font-size: 11.5px;
+      font-size: 9.5px;
+      letter-spacing: 0.06em;
     }
     .dossier-table td {
-      padding: 3px 4px;
+      padding: 2px 4px;
+      line-height: 1.15;
     }
     .dossier-table tr.active-probe {
       color: var(--yellow);
@@ -763,14 +759,46 @@
     }
     .dossier-guard-alert {
       background: rgba(240, 93, 120, 0.14);
-      border: 1.5px solid rgba(240, 93, 120, 0.4);
-      padding: 6px 10px;
+      border: 1px solid rgba(240, 93, 120, 0.4);
+      padding: 4px 8px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 9.5px;
       color: var(--pink);
-      line-height: 1.4;
+      line-height: 1.3;
     }
     .dossier-guard-alert b { color: var(--yellow); }
+    .contacts-bottom-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #080C08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      line-height: 1;
+      gap: 6px;
+    }
+    .contacts-bottom-strip b {
+      color: var(--cream);
+      font-variant-numeric: tabular-nums;
+    }
+    .contacts-bottom-strip .active-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--yellow);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .contacts-bottom-strip .dot {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--green);
+    }
 
             /* CARD 3: Drive Tactical Breadcrumb Map (Sleek Widescreen Moving Map) */
     .ili-drive-card {
@@ -878,97 +906,121 @@
       box-shadow: 0 0 4px var(--green);
     }
 
-    /* CARD 4: Frame Spectrogram & Dissector (2x scale) */
+    /* CARD 4: Frame Spectrogram & Dissector (2x scale) - Redesigned for Zero-Overlap Tactical Clarity */
     .ili-frame-card {
       display: flex;
       flex-direction: column;
       height: 100%;
       width: 100%;
       box-sizing: border-box;
-      padding: 10px 14px;
-      justify-content: space-between;
       background: #060806;
-    }
-    .frame-top-raster {
-      height: 42%;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-    .frame-raster-header {
-      display: flex;
+      padding: 6px 10px;
       justify-content: space-between;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--muted);
-      border-bottom: 1.5px solid #1D2A1F;
-      padding-bottom: 4px;
-      margin-bottom: 4px;
     }
-    .frame-dissector-box {
+    .frame-top-ribbon {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1.05fr 1fr;
+      gap: 6px;
+      background: #080C08;
+      border: 1.5px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 5px 10px;
+      align-items: center;
+    }
+    .frame-screen-widescreen {
       flex: 1;
+      width: 100%;
+      position: relative;
+      background: #070A07;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      margin: 4px 0;
+      padding: 6px 8px;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      border-top: 1.5px solid #1D2A1F;
-      padding-top: 6px;
-      margin-top: 4px;
+      overflow: hidden;
     }
     .proto-pills-bar {
       display: flex;
-      gap: 3px;
+      gap: 4px;
       width: 100%;
+      margin: 2px 0;
     }
     .p-pill {
-      padding: 2.5px 5px;
-      font-size: 10.5px;
+      padding: 2px 4px;
+      font-size: 9px;
       font-weight: 700;
       border-radius: 3px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       white-space: nowrap;
     }
-    .p-pill.pre { background: #1C271E; color: #7CA67F; border: 1.5px solid #2C3E30; }
-    .p-pill.sync { background: #2B2616; color: var(--yellow); border: 1.5px solid #4D4421; }
-    .p-pill.hdr { background: #241A28; color: #BA9FC1; border: 1.5px solid #442F4B; }
-    .p-pill.pay { background: #152422; color: #87D5CB; border: 1.5px solid #234743; flex: 1; text-align: center; }
-    .p-pill.crc { background: #162B1A; color: var(--green); border: 1.5px solid #254F2D; }
+    .p-pill.pre { background: #1C271E; color: #7CA67F; border: 1px solid #2C3E30; }
+    .p-pill.sync { background: #2B2616; color: var(--yellow); border: 1px solid #4D4421; }
+    .p-pill.hdr { background: #241A28; color: #BA9FC1; border: 1px solid #442F4B; }
+    .p-pill.pay { background: #152422; color: #87D5CB; border: 1px solid #234743; flex: 1; text-align: center; }
+    .p-pill.crc { background: #162B1A; color: var(--green); border: 1px solid #254F2D; }
 
     .proto-decode-body {
       background: #090D09;
-      border: 1.5px solid #1D2A1F;
-      padding: 6px 10px;
+      border: 1px solid #1D2A1F;
+      padding: 5px 8px;
       border-radius: 4px;
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 10px;
+      line-height: 1.35;
     }
     .proto-decode-body .f-row {
       display: flex;
       justify-content: space-between;
     }
     .proto-decode-body .f-hex {
-      font-size: 11px;
+      font-size: 8.5px;
       color: #6C8A67;
       letter-spacing: 0.08em;
       border-top: 1px dashed #1B261D;
-      margin-top: 4px;
-      padding-top: 3px;
+      margin-top: 3px;
+      padding-top: 2px;
       word-break: break-all;
     }
     .proto-decode-body .f-msg {
       color: var(--yellow);
       font-weight: 700;
-      font-size: 13.5px;
+      font-size: 10.5px;
     }
-    .frame-rx-only-tag {
-      font-size: 11.5px;
-      color: var(--muted);
+    .frame-bottom-strip {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 4px;
+      background: #080C08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+      line-height: 1;
+      gap: 6px;
     }
-    .frame-rx-only-tag b { color: var(--green); }
+    .frame-bottom-strip b {
+      color: var(--cream);
+      font-variant-numeric: tabular-nums;
+    }
+    .frame-bottom-strip .active-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--yellow);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .frame-bottom-strip .dot {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--green);
+    }
 
     footer { padding: 40px 0 10px; color: var(--muted); font: 12px var(--mono); }
 
@@ -1917,15 +1969,29 @@
         </div>
         <div class="ili-viewport">
           <div class="ili-waterfall-card">
-            <!-- Header strip -->
-            <div class="wf-header-row">
-              <div class="wf-title"><span class="dot"></span>SPECTRAL WATERFALL · 5 GHz DUAL-BAND</div>
-              <div>T-30s ROLLING CASCADE</div>
+            <!-- Top Telemetry Ribbon (Clean Zero-Wrap 4-Tile Grid) -->
+            <div class="wf-top-ribbon">
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">TARGET CHANNEL</span>
+                <div class="r-val hero">CH 149 <span class="unit">5.745G</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">ACTIVE RSSI</span>
+                <div class="r-val" style="color:var(--cream)">−58 dBm <span class="unit">76% OCC</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">BURST PEAK (30s)</span>
+                <div class="r-val" style="color:var(--pink)">712 pkts/s <span class="unit">+93% Δ</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">BURST THRESHOLD</span>
+                <div class="r-val" style="color:var(--yellow)">60% THR <span class="unit">356/s</span></div>
+              </div>
             </div>
 
-            <!-- Full-Bleed Waterfall Canvas (viewBox 320 100) -->
-            <div class="wf-top-canvas">
-              <svg viewBox="0 0 320 100" width="100%" height="100%" style="display:block">
+            <!-- Center Widescreen Spectral Waterfall & FFT Vector Canvas -->
+            <div class="wf-screen-widescreen">
+              <svg viewBox="0 0 320 200" width="100%" height="100%" preserveAspectRatio="none" style="display:block">
                 <defs>
                   <linearGradient id="burstGlow2" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#F05D78"/>
@@ -1937,145 +2003,206 @@
                     <stop offset="0%" stop-color="#85E37D" stop-opacity="0.85"/>
                     <stop offset="100%" stop-color="#1A2E1C" stop-opacity="0.2"/>
                   </linearGradient>
-                </defs>
-
-                <!-- Full Channel Matrix Columns -->
-                <!-- UNII-1 Channels: 36, 40, 44, 48 -->
-                <rect x="26" y="0" width="18" height="100" fill="#0A0E0B"/>
-                <rect x="47" y="0" width="18" height="100" fill="#0D130E"/>
-                <rect x="68" y="0" width="18" height="100" fill="#0A0E0B"/>
-                <rect x="89" y="0" width="18" height="100" fill="#0D130E"/>
-
-                <!-- UNII-2 Mid: 56, 64 -->
-                <rect x="110" y="0" width="18" height="100" fill="#0A0E0B"/>
-                <rect x="131" y="0" width="18" height="100" fill="#0D130E"/>
-                <rect x="152" y="0" width="18" height="100" fill="#0A0E0B"/>
-
-                <!-- UNII-3 Channels: 149 (Focused), 153, 157, 161, 165 -->
-                <rect x="174" y="0" width="34" height="100" fill="#1C1820" stroke="#4A2F47" stroke-width="1"/>
-                <rect x="212" y="0" width="18" height="100" fill="#0D130E"/>
-                <rect x="233" y="0" width="18" height="100" fill="#0A0E0B"/>
-                <rect x="254" y="0" width="18" height="100" fill="#0D130E"/>
-                <rect x="275" y="0" width="18" height="100" fill="#0A0E0B"/>
-                <rect x="296" y="0" width="18" height="100" fill="#0D130E"/>
-
-                <!-- Horizontal Time Ticks -->
-                <line x1="0" y1="22" x2="320" y2="22" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
-                <line x1="0" y1="46" x2="320" y2="46" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
-                <line x1="0" y1="70" x2="320" y2="70" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
-                <line x1="0" y1="92" x2="320" y2="92" stroke="#182719" stroke-width="1" stroke-dasharray="3 3"/>
-
-                <text x="2" y="11" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">00s</text>
-                <text x="2" y="32" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-10s</text>
-                <text x="2" y="56" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-20s</text>
-                <text x="2" y="80" fill="#4B6349" font-size="9" font-weight="700" font-family="monospace">-30s</text>
-
-                <!-- Active Activity Across the Channels -->
-                <!-- CH 36 -->
-                <rect x="28" y="8" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
-                <rect x="27" y="40" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
-                <rect x="28" y="76" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
-
-                <!-- CH 40 -->
-                <rect x="49" y="20" width="14" height="7" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-                <rect x="48" y="62" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
-
-                <!-- CH 44 -->
-                <rect x="70" y="14" width="14" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
-                <rect x="69" y="50" width="16" height="7" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-                <rect x="70" y="84" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
-
-                <!-- CH 48 -->
-                <rect x="90" y="6" width="16" height="9" fill="#85E37D" fill-opacity="0.8" rx="1.5"/>
-                <rect x="91" y="30" width="14" height="11" fill="#F5D658" fill-opacity="0.85" rx="1.5"/>
-                <rect x="90" y="56" width="16" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-                <rect x="91" y="82" width="14" height="9" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-
-                <!-- CH 56 / 64 radar chirps -->
-                <rect x="112" y="34" width="14" height="4" fill="#6C8A67" rx="1"/>
-                <rect x="154" y="68" width="14" height="4" fill="#6C8A67" rx="1"/>
-
-                <!-- CH 149 (HERO BURST CASCADE) -->
-                <rect x="176" y="3" width="30" height="16" fill="#F05D78" rx="2.5"/>
-                <rect x="177" y="21" width="28" height="19" fill="#F5D658" rx="2.5"/>
-                <rect x="176" y="42" width="30" height="23" fill="url(#burstGlow2)" rx="2.5"/>
-                <rect x="177" y="67" width="28" height="21" fill="url(#burstGlow2)" rx="2.5"/>
-                <rect x="179" y="90" width="24" height="9" fill="#2E4C2C" rx="1.5"/>
-
-                <!-- Burst Callout Reticle -->
-                <line x1="170" y1="11" x2="210" y2="11" stroke="#FFF" stroke-width="1" stroke-dasharray="2 2"/>
-                <text x="214" y="14" fill="#F05D78" font-size="10" font-weight="700" font-family="monospace">712/s PEAK</text>
-
-                <!-- CH 153 -->
-                <rect x="214" y="10" width="14" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-                <rect x="213" y="38" width="16" height="9" fill="#F5D658" fill-opacity="0.75" rx="1.5"/>
-                <rect x="214" y="70" width="14" height="8" fill="#85E37D" fill-opacity="0.7" rx="1.5"/>
-
-                <!-- CH 157 -->
-                <rect x="235" y="26" width="14" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
-                <rect x="234" y="74" width="16" height="6" fill="url(#sparseGlow2)" rx="1.5"/>
-
-                <!-- CH 161 -->
-                <rect x="256" y="46" width="14" height="5" fill="url(#sparseGlow2)" rx="1.5"/>
-              </svg>
-            </div>
-
-            <!-- Full-Bleed FFT Curve Canvas (viewBox 320 54) -->
-            <div class="wf-fft-canvas">
-              <svg viewBox="0 0 320 54" width="100%" height="100%" style="display:block">
-                <defs>
-                  <linearGradient id="fftFill2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#85E37D" stop-opacity="0.55"/>
+                  <linearGradient id="fftGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#85E37D" stop-opacity="0.5"/>
+                    <stop offset="60%" stop-color="#85E37D" stop-opacity="0.15"/>
                     <stop offset="100%" stop-color="#85E37D" stop-opacity="0.0"/>
                   </linearGradient>
+                  <pattern id="wfGridPattern" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#101711" stroke-width="0.5" stroke-dasharray="1 3"/>
+                  </pattern>
                 </defs>
 
-                <!-- Threshold line (60% = y: 17) -->
-                <line x1="14" y1="17" x2="315" y2="17" stroke="#F05D78" stroke-width="1.2" stroke-dasharray="4 3"/>
-                <text x="236" y="14" fill="#F05D78" font-size="9.5" font-weight="700" font-family="monospace">60% BURST THR</text>
+                <!-- Subtle tactical background grid -->
+                <rect width="320" height="200" fill="url(#wfGridPattern)"/>
 
-                <!-- Full FFT Spectrum Envelope -->
-                <path d="M 18,44 Q 27,33 35,40 T 56,31 T 77,37 T 98,22 T 119,39 T 140,41 T 161,41 T 180,36 Q 191,3 202,36 T 222,25 T 243,35 T 264,41 T 285,41 T 310,44 L 310,48 L 18,48 Z" fill="url(#fftFill2)"/>
-                <path d="M 18,44 Q 27,33 35,40 T 56,31 T 77,37 T 98,22 T 119,39 T 140,41 T 161,41 T 180,36 Q 191,3 202,36 T 222,25 T 243,35 T 264,41 T 285,41 T 310,44" fill="none" stroke="#85E37D" stroke-width="2"/>
-                <!-- Peak Hold Envelope (Amber Dashed) -->
-                <path d="M 18,42 Q 27,29 35,38 T 56,27 T 77,33 T 98,18 T 119,37 T 140,39 T 161,39 T 180,32 Q 191,1 202,32 T 222,21 T 243,31 T 264,39 T 285,39 T 310,42" fill="none" stroke="#F5D658" stroke-width="1.5" stroke-dasharray="3 2"/>
+                <!-- 1. BAND HEADER STRIP (Y: 0 to 14) -->
+                <text x="6" y="10.5" fill="#4B6349" font-size="5.2" font-weight="700" font-family="monospace">CASCADE T-30s</text>
+                
+                <!-- UNII-1 Band Bracket -->
+                <line x1="39" y1="12" x2="129" y2="12" stroke="#1D2A1F" stroke-width="0.8"/>
+                <text x="84" y="9.5" fill="#50664E" font-size="5" font-weight="700" font-family="monospace" text-anchor="middle">UNII-1 (5.18-5.24 GHz)</text>
 
-                <!-- Peak marker point on CH 149 -->
-                <circle cx="191" cy="4" r="3" fill="#F05D78"/>
-                <circle cx="191" cy="4" r="6" fill="none" stroke="#F05D78" stroke-width="1"/>
+                <!-- DFS Band Bracket -->
+                <line x1="141" y1="12" x2="183" y2="12" stroke="#1D2A1F" stroke-width="0.8"/>
+                <text x="162" y="9.5" fill="#3D543B" font-size="5" font-weight="700" font-family="monospace" text-anchor="middle">DFS</text>
 
-                <!-- Frequency Labels across the X-axis -->
-                <text x="28" y="52" fill="#6C8A67" font-size="9" font-family="monospace">36</text>
-                <text x="49" y="52" fill="#6C8A67" font-size="9" font-family="monospace">40</text>
-                <text x="70" y="52" fill="#6C8A67" font-size="9" font-family="monospace">44</text>
-                <text x="91" y="52" fill="#6C8A67" font-size="9" font-family="monospace">48</text>
-                <text x="114" y="52" fill="#50664E" font-size="9" font-family="monospace">56</text>
-                <text x="148" y="52" fill="#50664E" font-size="9" font-family="monospace">64</text>
-                <text x="180" y="52" fill="#F5D658" font-weight="700" font-size="10.5" font-family="monospace">› 149</text>
-                <text x="214" y="52" fill="#6C8A67" font-size="9" font-family="monospace">153</text>
-                <text x="235" y="52" fill="#6C8A67" font-size="9" font-family="monospace">157</text>
-                <text x="256" y="52" fill="#6C8A67" font-size="9" font-family="monospace">161</text>
-                <text x="296" y="52" fill="#50664E" font-size="9" font-family="monospace">165</text>
+                <!-- UNII-3 Band Bracket -->
+                <line x1="197" y1="12" x2="313" y2="12" stroke="#4A2F47" stroke-width="0.8"/>
+                <text x="255" y="9.5" fill="#8C7889" font-size="5" font-weight="700" font-family="monospace" text-anchor="middle">UNII-3 (5.745-5.825 GHz)</text>
+
+                <!-- 2. TIME GUTTER & Y-AXIS (X: 0 to 30) -->
+                <line x1="30" y1="14" x2="30" y2="175" stroke="#1D2A1F" stroke-width="1"/>
+
+                <!-- Time Ticks and Guide Lines -->
+                <line x1="26" y1="22" x2="30" y2="22" stroke="#253D28" stroke-width="1"/>
+                <line x1="30" y1="22" x2="316" y2="22" stroke="#121B13" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="23" y="24" fill="#4B6349" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="end">00s</text>
+
+                <line x1="26" y1="48" x2="30" y2="48" stroke="#253D28" stroke-width="1"/>
+                <line x1="30" y1="48" x2="316" y2="48" stroke="#121B13" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="23" y="50" fill="#4B6349" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="end">-10s</text>
+
+                <line x1="26" y1="74" x2="30" y2="74" stroke="#253D28" stroke-width="1"/>
+                <line x1="30" y1="74" x2="316" y2="74" stroke="#121B13" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="23" y="76" fill="#4B6349" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="end">-20s</text>
+
+                <line x1="26" y1="100" x2="30" y2="100" stroke="#253D28" stroke-width="1"/>
+                <line x1="30" y1="100" x2="316" y2="100" stroke="#121B13" stroke-width="0.6" stroke-dasharray="2 3"/>
+                <text x="23" y="102" fill="#4B6349" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="end">-30s</text>
+
+                <!-- 3. WATERFALL CHANNEL COLUMNS (Y: 14 to 106) -->
+                <!-- UNII-1 Channels -->
+                <rect x="39" y="14" width="18" height="92" fill="#090D0A"/>
+                <rect x="63" y="14" width="18" height="92" fill="#0C120D"/>
+                <rect x="87" y="14" width="18" height="92" fill="#090D0A"/>
+                <rect x="111" y="14" width="18" height="92" fill="#0C120D"/>
+
+                <!-- DFS Channels -->
+                <rect x="141" y="14" width="18" height="92" fill="#090D0A"/>
+                <rect x="165" y="14" width="18" height="92" fill="#0C120D"/>
+
+                <!-- UNII-3 Channels (149 Focused) -->
+                <rect x="197" y="14" width="22" height="92" fill="#1C141E" stroke="#5C2B4E" stroke-width="0.9"/>
+                <rect x="223" y="14" width="18" height="92" fill="#0C120D"/>
+                <rect x="247" y="14" width="18" height="92" fill="#090D0A"/>
+                <rect x="271" y="14" width="18" height="92" fill="#0C120D"/>
+                <rect x="295" y="14" width="18" height="92" fill="#090D0A"/>
+
+                <!-- 4. WATERFALL ENERGY DENSITY HEAT PACKETS -->
+                <!-- CH 36 -->
+                <rect x="41" y="20" width="14" height="6" rx="1.5" fill="url(#sparseGlow2)"/>
+                <rect x="41" y="52" width="14" height="7" rx="1.5" fill="url(#sparseGlow2)"/>
+                <rect x="41" y="86" width="14" height="6" rx="1.5" fill="url(#sparseGlow2)"/>
+
+                <!-- CH 40 -->
+                <rect x="65" y="32" width="14" height="8" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+                <rect x="65" y="70" width="14" height="7" rx="1.5" fill="url(#sparseGlow2)"/>
+
+                <!-- CH 44 -->
+                <rect x="89" y="26" width="14" height="7" rx="1.5" fill="url(#sparseGlow2)"/>
+                <rect x="89" y="60" width="14" height="8" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+                <rect x="89" y="92" width="14" height="6" rx="1.5" fill="url(#sparseGlow2)"/>
+
+                <!-- CH 48 -->
+                <rect x="113" y="38" width="14" height="10" rx="1.5" fill="#85E37D" fill-opacity="0.75"/>
+                <rect x="113" y="56" width="14" height="12" rx="1.5" fill="#F5D658" fill-opacity="0.8"/>
+                <rect x="113" y="76" width="14" height="8" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+                <rect x="113" y="92" width="14" height="9" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+
+                <!-- CH 56 / 64 radar chirps -->
+                <rect x="143" y="44" width="14" height="5" rx="1" fill="#4B6349"/>
+                <rect x="167" y="78" width="14" height="5" rx="1" fill="#4B6349"/>
+
+                <!-- CH 149 HERO BURST CASCADE -->
+                <rect x="199" y="16" width="18" height="14" rx="2" fill="#F05D78"/>
+                <rect x="200" y="33" width="16" height="18" rx="2" fill="#F5D658"/>
+                <rect x="199" y="54" width="18" height="20" rx="2" fill="url(#burstGlow2)"/>
+                <rect x="200" y="77" width="16" height="18" rx="2" fill="url(#burstGlow2)"/>
+                <rect x="201" y="97" width="14" height="7" rx="1.5" fill="#2E4C2C"/>
+
+                <!-- Tactical Callout Badge for Peak Burst (Cleanly Positioned with Zero Overlap) -->
+                <circle cx="208" cy="23" r="3" fill="#F05D78"/>
+                <circle cx="208" cy="23" r="6" fill="none" stroke="#F05D78" stroke-width="0.75" stroke-dasharray="1.5 1.5"/>
+                <line x1="208" y1="23" x2="190" y2="23" stroke="#8C2C40" stroke-width="0.75"/>
+                <rect x="126" y="17" width="64" height="12" fill="#1A0C12" stroke="#8C2C40" stroke-width="0.8" rx="2"/>
+                <text x="158" y="25.5" fill="#F05D78" font-size="6" font-weight="700" font-family="monospace" text-anchor="middle">PEAK: 712 pkts/s</text>
+
+                <!-- CH 153 -->
+                <rect x="225" y="24" width="14" height="8" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+                <rect x="225" y="48" width="14" height="10" rx="1.5" fill="#F5D658" fill-opacity="0.7"/>
+                <rect x="225" y="80" width="14" height="9" rx="1.5" fill="#85E37D" fill-opacity="0.65"/>
+
+                <!-- CH 157 -->
+                <rect x="249" y="38" width="14" height="7" rx="1.5" fill="url(#sparseGlow2)"/>
+                <rect x="249" y="84" width="14" height="7" rx="1.5" fill="url(#sparseGlow2)"/>
+
+                <!-- CH 161 -->
+                <rect x="273" y="56" width="14" height="6" rx="1.5" fill="url(#sparseGlow2)"/>
+
+                <!-- CH 165 -->
+                <rect x="297" y="72" width="14" height="5" rx="1" fill="#4B6349"/>
+
+                <!-- 5. MID-SECTION DIVIDER & SPECTRUM HEADER (Y: 106 to 118) -->
+                <line x1="30" y1="107" x2="316" y2="107" stroke="#1D2A1F" stroke-width="1"/>
+                <text x="36" y="115.5" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace">REAL-TIME CHANNEL OCCUPANCY (FFT ENVELOPE)</text>
+                <text x="312" y="115.5" fill="#6C8A67" font-size="5" font-family="monospace" text-anchor="end">BW: 20 MHz / CH</text>
+
+                <!-- 6. REAL-TIME FFT SPECTRUM & OCCUPANCY ENVELOPE (Y: 118 to 175) -->
+                <!-- Amplitude Y-Axis (Left Gutter) -->
+                <line x1="26" y1="125" x2="30" y2="125" stroke="#253D28" stroke-width="0.8"/>
+                <text x="24" y="127" fill="#3D543B" font-size="4.8" font-family="monospace" text-anchor="end">100%</text>
+
+                <line x1="26" y1="142" x2="30" y2="142" stroke="#8C2C40" stroke-width="0.8"/>
+                <text x="24" y="144" fill="#8C2C40" font-size="4.8" font-weight="700" font-family="monospace" text-anchor="end">60%</text>
+
+                <line x1="26" y1="158" x2="30" y2="158" stroke="#253D28" stroke-width="0.8"/>
+                <text x="24" y="160" fill="#3D543B" font-size="4.8" font-family="monospace" text-anchor="end">20%</text>
+
+                <line x1="26" y1="172" x2="30" y2="172" stroke="#253D28" stroke-width="0.8"/>
+                <text x="24" y="173.5" fill="#3D543B" font-size="4.8" font-family="monospace" text-anchor="end">0%</text>
+
+                <!-- 60% Burst Threshold Line & Dedicated Badge (No Overlap) -->
+                <line x1="30" y1="142" x2="316" y2="142" stroke="#F05D78" stroke-width="0.8" stroke-dasharray="3 3"/>
+                <rect x="254" y="136" width="60" height="11" fill="#1A0C12" stroke="#8C2C40" stroke-width="0.8" rx="2"/>
+                <text x="284" y="144" fill="#F05D78" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="middle">60% BURST THR</text>
+
+                <!-- FFT Envelope Area Fill -->
+                <path d="M 30,172 C 38,172 42,158 48,158 C 54,158 64,150 72,150 C 80,150 88,154 96,154 C 104,154 112,144 120,144 C 128,144 132,169 138,169 C 142,169 146,164 150,164 C 156,164 166,162 174,162 C 182,162 188,168 194,168 C 200,168 202,125 208,125 C 214,125 218,150 224,150 C 228,150 230,146 232,146 C 236,146 242,165 248,165 C 252,165 254,162 256,162 C 262,162 272,166 280,166 C 288,166 296,168 304,168 C 310,168 314,172 316,172 L 316,172 L 30,172 Z" fill="url(#fftGrad2)"/>
+
+                <!-- Instantaneous FFT Envelope Stroke (Neon Green) -->
+                <path d="M 30,172 C 38,172 42,158 48,158 C 54,158 64,150 72,150 C 80,150 88,154 96,154 C 104,154 112,144 120,144 C 128,144 132,169 138,169 C 142,169 146,164 150,164 C 156,164 166,162 174,162 C 182,162 188,168 194,168 C 200,168 202,125 208,125 C 214,125 218,150 224,150 C 228,150 230,146 232,146 C 236,146 242,165 248,165 C 252,165 254,162 256,162 C 262,162 272,166 280,166 C 288,166 296,168 304,168 C 310,168 314,172 316,172" fill="none" stroke="#85E37D" stroke-width="1.8"/>
+
+                <!-- Peak-Hold Envelope (Amber Dashed) -->
+                <path d="M 30,170 C 38,170 42,154 48,154 C 54,154 64,146 72,146 C 80,146 88,150 96,150 C 104,150 112,140 120,140 C 128,140 132,167 138,167 C 142,167 146,161 150,161 C 156,161 166,159 174,159 C 182,159 188,166 194,166 C 200,166 202,122 208,122 C 214,122 218,147 224,147 C 228,147 230,143 232,143 C 236,143 242,162 248,162 C 252,162 254,159 256,159 C 262,159 272,163 280,163 C 288,163 296,165 304,165 C 310,165 314,170 316,170" fill="none" stroke="#F5D658" stroke-width="1.2" stroke-dasharray="2.5 2"/>
+
+                <!-- Target Peak Reticle & Occupancy Badge on CH 149 -->
+                <circle cx="208" cy="125" r="3" fill="#F05D78"/>
+                <circle cx="208" cy="125" r="6" fill="none" stroke="#F05D78" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <rect x="189" y="112" width="38" height="9" fill="#1C1016" stroke="#8C2C40" stroke-width="0.7" rx="1.5"/>
+                <text x="208" y="118.5" fill="#F05D78" font-size="5.2" font-weight="700" font-family="monospace" text-anchor="middle">76% PEAK</text>
+
+                <!-- 7. FREQUENCY CHANNEL X-AXIS SHELF (Y: 172 to 198) - 100% UNCLUTTERED -->
+                <line x1="30" y1="175" x2="316" y2="175" stroke="#253D28" stroke-width="1"/>
+
+                <!-- Ticks for Channels -->
+                <line x1="48" y1="175" x2="48" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="72" y1="175" x2="72" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="96" y1="175" x2="96" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="120" y1="175" x2="120" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="150" y1="175" x2="150" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="174" y1="175" x2="174" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="208" y1="175" x2="208" y2="178" stroke="#F5D658" stroke-width="1.2"/>
+                <line x1="232" y1="175" x2="232" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="256" y1="175" x2="256" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="280" y1="175" x2="280" y2="178" stroke="#253D28" stroke-width="1"/>
+                <line x1="304" y1="175" x2="304" y2="178" stroke="#253D28" stroke-width="1"/>
+
+                <!-- Regular Channel Labels (Monospace, Cleanly Aligned) -->
+                <text x="48" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">36</text>
+                <text x="72" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">40</text>
+                <text x="96" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">44</text>
+                <text x="120" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">48</text>
+                <text x="150" y="188" fill="#4E684C" font-size="6.5" font-family="monospace" text-anchor="middle">56</text>
+                <text x="174" y="188" fill="#4E684C" font-size="6.5" font-family="monospace" text-anchor="middle">64</text>
+                
+                <!-- Hero Active Channel CH 149 High-Contrast Pill -->
+                <polygon points="208,175 205,178 211,178" fill="#F5D658"/>
+                <rect x="194" y="179" width="28" height="14" fill="#1C1808" stroke="#F5D658" stroke-width="1.2" rx="2.5"/>
+                <text x="208" y="189" fill="#F5D658" font-size="7.5" font-weight="700" font-family="monospace" text-anchor="middle">› 149</text>
+
+                <text x="232" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">153</text>
+                <text x="256" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">157</text>
+                <text x="280" y="188" fill="#6C8A67" font-size="6.5" font-family="monospace" text-anchor="middle">161</text>
+                <text x="304" y="188" fill="#4E684C" font-size="6.5" font-family="monospace" text-anchor="middle">165</text>
               </svg>
             </div>
 
-            <!-- Bottom Tactical HUD (3 cols, 2x Scale) -->
-            <div class="wf-hud-bottom">
-              <div class="wf-hud-col">
-                <span style="font-size:10px;color:var(--muted);letter-spacing:0.1em;font-weight:700">TARGET CHANNEL</span>
-                <div class="wf-hero-badge">CH 149</div>
-                <span style="font-size:11.5px;color:var(--green)">UNII-3 · 5.745 GHz · 76% OCC</span>
-              </div>
-              <div class="wf-hud-col mid">
-                <div style="display:flex;justify-content:space-between"><span>ACTIVE RSSI</span><b style="color:var(--cream)">−58 dBm</b></div>
-                <div style="display:flex;justify-content:space-between"><span>INTERVAL PEAK</span><b style="color:var(--yellow)">712 pkts/s</b></div>
-                <div style="display:flex;justify-content:space-between"><span>DELTA OVER BASE</span><b style="color:var(--pink)">+93.4%</b></div>
-              </div>
-              <div class="wf-hud-col">
-                <div style="color:var(--pink);font-weight:700;font-size:11.5px">◇ BURST THRESHOLD</div>
-                <div style="font-size:12px;color:var(--muted)">HAWTHORNE_5G <b>356/s</b></div>
-                <div style="font-size:11px;color:#85E37D">Dwell: 18.2ms · Jitter: ±1.4ms</div>
-              </div>
+            <!-- Bottom Tactical Status Strip -->
+            <div class="wf-bottom-strip">
+              <div>ACTIVE: <b>CH 149</b> · <b>HAWTHORNE_5G</b></div>
+              <div>DWELL: <b>18.2ms</b> · JITTER: <b>±1.4ms</b></div>
+              <div class="active-indicator"><span class="dot"></span>FFT SWEEP · [s] ZOOM</div>
             </div>
           </div>
         </div>
@@ -2104,14 +2231,31 @@
         </div>
         <div class="ili-viewport">
           <div class="ili-radar-card">
-            <!-- Left Pane: Polar Radar Scope with 4-Corner Telemetry -->
-            <div class="radar-pane">
-              <div class="radar-title-strip">
-                <span>POLAR RSSI PROXIMITY</span>
-                <span>18 CLI · 7 PROBES</span>
+            <!-- Top Telemetry Ribbon (Clean Zero-Wrap 4-Tile Grid) -->
+            <div class="contacts-top-ribbon">
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">TARGET PROFILE</span>
+                <div class="r-val hero">HAWTHORNE <span class="unit">CH 149</span></div>
               </div>
-              <div class="radar-canvas-box">
-                <svg viewBox="0 0 160 205" width="100%" height="100%" style="display:block">
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">RSSI PROXIMITY</span>
+                <div class="r-val" style="color:var(--cream)">−58 dBm <span class="unit">−40 MAX</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">CLIENTS / PROBES</span>
+                <div class="r-val" style="color:var(--yellow)">18 CLI <span class="unit">7 PROBES</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">GUARD ANOMALY</span>
+                <div class="r-val" style="color:var(--pink)">ROGUE <span class="unit">C4:22 ANOM</span></div>
+              </div>
+            </div>
+
+            <!-- Center Dual-Pane Widescreen Display (Radar + Dossier) -->
+            <div class="contacts-main-split">
+              <!-- Left Pane: Polar Radar Scope with Zero-Overlap Callouts -->
+              <div class="contacts-radar-box">
+                <svg viewBox="0 0 160 168" width="100%" height="100%" preserveAspectRatio="none" style="display:block">
                   <defs>
                     <radialGradient id="radarGlow2" cx="50%" cy="50%" r="50%">
                       <stop offset="0%" stop-color="#85E37D" stop-opacity="0.16"/>
@@ -2120,135 +2264,153 @@
                     </radialGradient>
                   </defs>
 
-                  <!-- 4-Corner Telemetry HUD (Bold 9px) -->
-                  <text x="4" y="12" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace">MODE: PASSIVE</text>
-                  <text x="156" y="12" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace" text-anchor="end">RANGE: -95dBm</text>
-                  <text x="4" y="198" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace">SWEEP: 1.2s</text>
-                  <text x="156" y="198" fill="#6C8A67" font-size="8.5" font-weight="700" font-family="monospace" text-anchor="end">FILTER: DUAL</text>
+                  <!-- 4-Corner Telemetry HUD (Cleanly margined) -->
+                  <text x="5" y="10" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace">MODE: PASSIVE</text>
+                  <text x="155" y="10" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace" text-anchor="end">RANGE: -95dBm</text>
+                  <text x="5" y="162" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace">SWEEP: 1.2s</text>
+                  <text x="155" y="162" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace" text-anchor="end">FILTER: DUAL</text>
 
                   <!-- Radar Scope Background -->
-                  <circle cx="80" cy="105" r="76" fill="url(#radarGlow2)"/>
+                  <circle cx="80" cy="86" r="66" fill="url(#radarGlow2)"/>
 
                   <!-- Concentric RSSI Rings -->
-                  <circle cx="80" cy="105" r="22" fill="none" stroke="#1D2A1F" stroke-width="1.2"/>
-                  <circle cx="80" cy="105" r="44" fill="none" stroke="#1D2A1F" stroke-width="1.2"/>
-                  <circle cx="80" cy="105" r="64" fill="none" stroke="#253627" stroke-width="1.2"/>
-                  <circle cx="80" cy="105" r="76" fill="none" stroke="#38543C" stroke-width="1.5" stroke-dasharray="3 2"/>
+                  <circle cx="80" cy="86" r="20" fill="none" stroke="#1D2A1F" stroke-width="0.8"/>
+                  <circle cx="80" cy="86" r="36" fill="none" stroke="#1D2A1F" stroke-width="0.8"/>
+                  <circle cx="80" cy="86" r="52" fill="none" stroke="#253627" stroke-width="0.8"/>
+                  <circle cx="80" cy="86" r="66" fill="none" stroke="#38543C" stroke-width="1" stroke-dasharray="3 2"/>
 
                   <!-- Crosshairs -->
-                  <line x1="80" y1="18" x2="80" y2="192" stroke="#1A271B" stroke-width="1.2"/>
-                  <line x1="4" y1="105" x2="156" y2="105" stroke="#1A271B" stroke-width="1.2"/>
+                  <line x1="80" y1="14" x2="80" y2="158" stroke="#152216" stroke-width="0.8"/>
+                  <line x1="10" y1="86" x2="150" y2="86" stroke="#152216" stroke-width="0.8"/>
 
-                  <!-- Ring labels -->
-                  <text x="82" y="85" fill="#6C8A67" font-size="8" font-family="monospace">-40</text>
-                  <text x="82" y="63" fill="#6C8A67" font-size="8" font-family="monospace">-60</text>
-                  <text x="82" y="43" fill="#6C8A67" font-size="8" font-family="monospace">-80</text>
-                  <text x="82" y="31" fill="#6C8A67" font-size="8" font-family="monospace">-95</text>
+                  <!-- Ring dBm labels along vertical axis (with opaque backing pills) -->
+                  <rect x="74" y="63" width="12" height="6.5" fill="#070A07" rx="1"/>
+                  <text x="80" y="68" fill="#50664E" font-size="5" font-family="monospace" text-anchor="middle">-40</text>
+
+                  <rect x="74" y="47" width="12" height="6.5" fill="#070A07" rx="1"/>
+                  <text x="80" y="52" fill="#50664E" font-size="5" font-family="monospace" text-anchor="middle">-60</text>
+
+                  <rect x="74" y="31" width="12" height="6.5" fill="#070A07" rx="1"/>
+                  <text x="80" y="36" fill="#50664E" font-size="5" font-family="monospace" text-anchor="middle">-80</text>
+
+                  <rect x="74" y="17" width="12" height="6.5" fill="#070A07" rx="1"/>
+                  <text x="80" y="22" fill="#50664E" font-size="5" font-family="monospace" text-anchor="middle">-95</text>
 
                   <!-- Center Deck Position -->
-                  <circle cx="80" cy="105" r="3" fill="#F5D658"/>
-                  <text x="85" y="113" fill="#F5D658" font-size="8.5" font-weight="700" font-family="monospace">DECK</text>
+                  <circle cx="80" cy="86" r="2.5" fill="#F5D658"/>
+                  <text x="80" y="96" fill="#F5D658" font-size="5.5" font-weight="700" font-family="monospace" text-anchor="middle">DECK</text>
 
                   <!-- Network Relationships / Filaments -->
                   <!-- HAWTHORNE_5G and Clients -->
-                  <line x1="114" y1="76" x2="128" y2="64" stroke="#4C6E4F" stroke-width="1.2"/>
-                  <line x1="114" y1="76" x2="134" y2="78" stroke="#4C6E4F" stroke-width="1.2"/>
-                  <line x1="114" y1="76" x2="124" y2="92" stroke="#4C6E4F" stroke-width="1.2"/>
-                  <line x1="114" y1="76" x2="102" y2="58" stroke="#F05D78" stroke-width="1.5" stroke-dasharray="3 2"/>
+                  <line x1="110" y1="62" x2="126" y2="52" stroke="#3D6640" stroke-width="0.8"/>
+                  <line x1="110" y1="62" x2="132" y2="64" stroke="#3D6640" stroke-width="0.8"/>
+                  <line x1="110" y1="62" x2="122" y2="76" stroke="#3D6640" stroke-width="0.8"/>
+                  <line x1="110" y1="62" x2="98" y2="48" stroke="#F05D78" stroke-width="1" stroke-dasharray="2 1.5"/>
 
-                  <circle cx="128" cy="64" r="2.8" fill="#85E37D"/>
-                  <circle cx="134" cy="78" r="2.8" fill="#85E37D"/>
-                  <circle cx="124" cy="92" r="2.8" fill="#85E37D"/>
+                  <circle cx="126" cy="52" r="2" fill="#85E37D"/>
+                  <circle cx="132" cy="64" r="2" fill="#85E37D"/>
+                  <circle cx="122" cy="76" r="2" fill="#85E37D"/>
 
                   <!-- Rogue Anomaly Client (Signal Pink) -->
-                  <circle cx="102" cy="58" r="3.5" fill="#F05D78"/>
-                  <circle cx="102" cy="58" r="7" fill="none" stroke="#F05D78" stroke-width="1"/>
+                  <circle cx="98" cy="48" r="2.5" fill="#F05D78"/>
+                  <circle cx="98" cy="48" r="5" fill="none" stroke="#F05D78" stroke-width="0.8" stroke-dasharray="1.5 1.5"/>
 
-                  <!-- Focused AP: HAWTHORNE (Amber diamond) -->
-                  <polygon points="114,69 121,76 114,83 107,76" fill="#F5D658"/>
-                  <circle cx="114" cy="76" r="10" fill="none" stroke="#F5D658" stroke-width="1" stroke-dasharray="3 2"/>
-                  <text x="92" y="68" fill="#F5D658" font-size="9" font-weight="700" font-family="monospace">HAWTHORNE</text>
+                  <!-- Focused AP: HAWTHORNE (Amber diamond & Zero-Overlap Callout Badge) -->
+                  <polygon points="110,56 116,62 110,68 104,62" fill="#F5D658"/>
+                  <circle cx="110" cy="62" r="8" fill="none" stroke="#F5D658" stroke-width="0.8" stroke-dasharray="2 2"/>
+                  
+                  <!-- Tactically Positioned Callout Badge (No Overlap) -->
+                  <line x1="110" y1="56" x2="116" y2="37" stroke="#F5D658" stroke-width="0.75"/>
+                  <rect x="94" y="27" width="56" height="10" fill="#1A1508" stroke="#F5D658" stroke-width="0.8" rx="2"/>
+                  <text x="122" y="34.5" fill="#F5D658" font-size="5.2" font-weight="700" font-family="monospace" text-anchor="middle">HAWTHORNE</text>
 
                   <!-- CAFE-GUEST AP -->
-                  <polygon points="46,137 51,142 46,147 41,142" fill="#85E37D"/>
-                  <line x1="46" y1="142" x2="36" y2="150" stroke="#4C6E4F" stroke-width="1"/>
-                  <line x1="46" y1="142" x2="54" y2="154" stroke="#4C6E4F" stroke-width="1"/>
-                  <circle cx="36" cy="150" r="2.5" fill="#85E37D"/>
-                  <circle cx="54" cy="154" r="2.5" fill="#85E37D"/>
-                  <text x="14" y="137" fill="#85E37D" font-size="8.5" font-family="monospace">CAFE-GUEST</text>
+                  <polygon points="46,116 50,120 46,124 42,120" fill="#85E37D"/>
+                  <line x1="46" y1="120" x2="38" y2="127" stroke="#3D6640" stroke-width="0.8"/>
+                  <line x1="46" y1="120" x2="52" y2="130" stroke="#3D6640" stroke-width="0.8"/>
+                  <circle cx="38" cy="127" r="1.8" fill="#85E37D"/>
+                  <circle cx="52" cy="130" r="1.8" fill="#85E37D"/>
+                  <text x="14" y="118" fill="#85E37D" font-size="5.5" font-family="monospace">CAFE-GUEST</text>
 
                   <!-- FIELD-LAB AP -->
-                  <polygon points="132,143 137,148 132,153 127,148" fill="#85E37D"/>
-                  <circle cx="140" cy="156" r="2.5" fill="#85E37D"/>
-                  <line x1="132" y1="148" x2="140" y2="156" stroke="#4C6E4F" stroke-width="1"/>
-                  <text x="104" y="163" fill="#85E37D" font-size="8.5" font-family="monospace">FIELD-LAB</text>
+                  <polygon points="126,122 130,126 126,130 122,126" fill="#85E37D"/>
+                  <circle cx="132" cy="133" r="1.8" fill="#85E37D"/>
+                  <line x1="126" y1="126" x2="132" y2="133" stroke="#3D6640" stroke-width="0.8"/>
+                  <text x="126" y="141" fill="#85E37D" font-size="5.5" font-family="monospace" text-anchor="middle">FIELD-LAB</text>
 
                   <!-- HIDDEN AP -->
-                  <polygon points="40,65 45,70 40,75 35,70" fill="#6C8A67"/>
-                  <text x="14" y="65" fill="#6C8A67" font-size="8.5" font-family="monospace">&lt;HIDDEN&gt;</text>
+                  <polygon points="42,56 46,60 42,64 38,60" fill="#6C8A67"/>
+                  <text x="12" y="58" fill="#6C8A67" font-size="5.5" font-family="monospace">&lt;HIDDEN&gt;</text>
 
                   <!-- 5th Node (OFFICE-MESH) -->
-                  <polygon points="78,167 83,172 78,177 73,172" fill="#85E37D"/>
-                  <text x="52" y="184" fill="#6C8A67" font-size="8" font-family="monospace">OFFICE-MESH</text>
+                  <polygon points="76,140 80,144 76,148 72,144" fill="#85E37D"/>
+                  <text x="76" y="156" fill="#6C8A67" font-size="5.5" font-family="monospace" text-anchor="middle">OFFICE-MESH</text>
                 </svg>
+              </div>
+
+              <!-- Right Pane: Target Dossier & Packed Probes -->
+              <div class="contacts-dossier-box">
+                <div class="dossier-target">
+                  <div class="d-lbl">TARGET PROFILE</div>
+                  <div class="d-name">› HAWTHORNE_5G</div>
+                  <div class="d-meta"><span>WPA3-SAE</span> · 802.11w PMF REQ</div>
+                  <div style="font-size:9px;color:var(--muted);margin-top:1px">BSSID: AA:BB:CC:84:19:01 · CH 149</div>
+                </div>
+
+                <!-- 5-Row Packed Probe Table -->
+                <table class="dossier-table">
+                  <thead>
+                    <tr>
+                      <th>CLIENT / MAC</th>
+                      <th>RSSI</th>
+                      <th>RELATION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="active-probe">
+                      <td>› C4:22:A1:09</td>
+                      <td>−61</td>
+                      <td style="color:var(--pink)">ROGUE ANOM</td>
+                    </tr>
+                    <tr>
+                      <td>38:F9:B4:82</td>
+                      <td>−69</td>
+                      <td>ASSOC [P2]</td>
+                    </tr>
+                    <tr>
+                      <td>A0:76:88:1C</td>
+                      <td>−82</td>
+                      <td>HUNTING</td>
+                    </tr>
+                    <tr>
+                      <td>E4:5F:01:9B</td>
+                      <td>−74</td>
+                      <td>ASSOC [P3]</td>
+                    </tr>
+                    <tr style="color:var(--muted)">
+                      <td>72:11:0C:44</td>
+                      <td>−85</td>
+                      <td>PROBE IDLE</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Guard Alert Box -->
+                <div class="dossier-guard-alert">
+                  <div style="display:flex;justify-content:space-between;font-weight:700">
+                    <span>◇ GUARD ANOMALY</span>
+                    <span>BURST DETECT</span>
+                  </div>
+                  <div>Client <b>C4:22:A1:09</b> probe storm. Beacon: <b>102ms</b> (jitter ±1.2ms).</div>
+                </div>
               </div>
             </div>
 
-            <!-- Right Pane: Target Dossier & Packed Probes (2x Scale) -->
-            <div class="dossier-pane">
-              <div class="dossier-target">
-                <div class="d-lbl">SELECTED TARGET PROFILE</div>
-                <div class="d-name">› HAWTHORNE_5G</div>
-                <div class="d-meta"><span>WPA3-SAE</span> · 802.11w PMF REQ</div>
-                <div style="font-size:11.5px;color:var(--muted);margin-top:3px">BSSID: AA:BB:CC:84:19:01 · CH 149 · ESPRESSIF</div>
-              </div>
-
-              <!-- 5-Row Packed Probe Table -->
-              <table class="dossier-table">
-                <thead>
-                  <tr>
-                    <th>CLIENT / MAC</th>
-                    <th>RSSI</th>
-                    <th>RELATION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="active-probe">
-                    <td>› C4:22:A1:09</td>
-                    <td>−61</td>
-                    <td style="color:var(--pink)">ROGUE ANOM</td>
-                  </tr>
-                  <tr>
-                    <td>38:F9:B4:82</td>
-                    <td>−69</td>
-                    <td>ASSOC [P2]</td>
-                  </tr>
-                  <tr>
-                    <td>A0:76:88:1C</td>
-                    <td>−82</td>
-                    <td>HUNTING</td>
-                  </tr>
-                  <tr>
-                    <td>E4:5F:01:9B</td>
-                    <td>−74</td>
-                    <td>ASSOC [P3]</td>
-                  </tr>
-                  <tr style="color:var(--muted)">
-                    <td>72:11:0C:44</td>
-                    <td>−85</td>
-                    <td>PROBE IDLE</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <!-- Guard Alert Box -->
-              <div class="dossier-guard-alert">
-                <div style="display:flex;justify-content:space-between;font-weight:700">
-                  <span>◇ GUARD ANOMALY</span>
-                  <span>BURST DETECT</span>
-                </div>
-                <div>Client <b>C4:22:A1:09</b> probe storm. Beacon interval: <b>102ms</b> (jitter ±1.2ms).</div>
-              </div>
+            <!-- Bottom Tactical Status Strip -->
+            <div class="contacts-bottom-strip">
+              <div>SWEEP: <b>1.2s</b> · <b>DUAL [2.4+5G]</b></div>
+              <div>TRACK: <b>5 AP</b> · <b>18 STA</b> · <b style="color:var(--pink)">1 ROGUE</b></div>
+              <div class="active-indicator"><span class="dot"></span>RADAR LIVE · [t] TARGET</div>
             </div>
           </div>
         </div>
@@ -2492,72 +2654,82 @@
         </div>
         <div class="ili-viewport">
           <div class="ili-frame-card">
-            <!-- Top Raster: LoRa Chirp Spectrogram (2x Scale) -->
-            <div class="frame-top-raster">
-              <div class="frame-raster-header">
-                <span>RF SPECTROGRAM · LORA SF11 / BW250</span>
-                <span>915.000 MHz · Δt 142ms</span>
+            <!-- Top Telemetry Ribbon (Clean Zero-Wrap 4-Tile Grid) -->
+            <div class="frame-top-ribbon">
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">MODULATION</span>
+                <div class="r-val hero">LORA SF11 <span class="unit">BW 250</span></div>
               </div>
-              <div style="flex:1;width:100%;position:relative">
-                <svg viewBox="0 0 320 80" width="100%" height="100%" style="display:block">
-                  <rect width="320" height="80" fill="#080C08"/>
-                  <line x1="0" y1="20" x2="320" y2="20" stroke="#162217" stroke-width="1"/>
-                  <line x1="0" y1="40" x2="320" y2="40" stroke="#162217" stroke-width="1"/>
-                  <line x1="0" y1="60" x2="320" y2="60" stroke="#162217" stroke-width="1"/>
-
-                  <!-- Frequency bounds labels -->
-                  <text x="3" y="12" fill="#6C8A67" font-size="8.5" font-family="monospace">+125 kHz</text>
-                  <text x="3" y="44" fill="#6C8A67" font-size="8.5" font-family="monospace">Fc 915M</text>
-                  <text x="3" y="74" fill="#6C8A67" font-size="8.5" font-family="monospace">-125 kHz</text>
-
-                  <!-- 8 Upward Preamble Chirps (Green) -->
-                  <g stroke="#85E37D" stroke-width="2">
-                    <line x1="42" y1="66" x2="54" y2="14"/>
-                    <line x1="56" y1="66" x2="68" y2="14"/>
-                    <line x1="70" y1="66" x2="82" y2="14"/>
-                    <line x1="84" y1="66" x2="96" y2="14"/>
-                    <line x1="98" y1="66" x2="110" y2="14"/>
-                    <line x1="112" y1="66" x2="124" y2="14"/>
-                    <line x1="126" y1="66" x2="138" y2="14"/>
-                    <line x1="140" y1="66" x2="152" y2="14"/>
-                  </g>
-                  <text x="56" y="75" fill="#85E37D" font-size="8.5" font-weight="700" font-family="monospace">[8 PREAMBLE CHIRPS]</text>
-
-                  <!-- 2 Sync Downchirps (Amber) -->
-                  <g stroke="#F5D658" stroke-width="2">
-                    <line x1="156" y1="14" x2="168" y2="66"/>
-                    <line x1="170" y1="14" x2="182" y2="66"/>
-                  </g>
-                  <text x="158" y="75" fill="#F5D658" font-size="8.5" font-weight="700" font-family="monospace">[SYNC]</text>
-
-                  <!-- Modulated Payload Chirps (Phase wrapped) -->
-                  <g stroke="#87D5CB" stroke-width="2">
-                    <line x1="186" y1="42" x2="193" y2="14"/>
-                    <line x1="193" y1="66" x2="200" y2="42"/>
-                    <line x1="202" y1="26" x2="210" y2="14"/>
-                    <line x1="210" y1="66" x2="216" y2="26"/>
-                    <line x1="218" y1="54" x2="224" y2="14"/>
-                    <line x1="224" y1="66" x2="232" y2="54"/>
-                    <line x1="234" y1="32" x2="242" y2="14"/>
-                    <line x1="242" y1="66" x2="248" y2="32"/>
-                  </g>
-                  <text x="194" y="75" fill="#87D5CB" font-size="8.5" font-weight="700" font-family="monospace">[PAYLOAD MODULATION]</text>
-
-                  <!-- RF Metrics Callout HUD -->
-                  <g transform="translate(254, 5)">
-                    <rect width="62" height="70" fill="#0A0E0A" stroke="#253D28" stroke-width="1" rx="3"/>
-                    <text x="5" y="13" fill="#6C8A67" font-size="8" font-family="monospace">RSSI</text>
-                    <text x="5" y="25" fill="#F5D658" font-weight="700" font-size="11.5" font-family="monospace">−92 dBm</text>
-                    <text x="5" y="38" fill="#6C8A67" font-size="8" font-family="monospace">SNR</text>
-                    <text x="5" y="50" fill="#85E37D" font-weight="700" font-size="11.5" font-family="monospace">+7.5 dB</text>
-                    <text x="5" y="62" fill="#87D5CB" font-size="8.5" font-family="monospace">CRC: OK</text>
-                  </g>
-                </svg>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">CARRIER FREQ</span>
+                <div class="r-val" style="color:var(--cream)">915.000M <span class="unit">142ms</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">SIGNAL METRICS</span>
+                <div class="r-val" style="color:var(--yellow)">−92 dBm <span class="unit">+7.5dB</span></div>
+              </div>
+              <div class="d-ribbon-tile">
+                <span class="r-lbl">INTEGRITY</span>
+                <div class="r-val" style="color:var(--green)">CRC16 <span class="unit">54B OK</span></div>
               </div>
             </div>
 
-            <!-- Bottom: Protocol Dissector (2x Scale) -->
-            <div class="frame-dissector-box">
+            <!-- Center Widescreen LoRa Spectrogram & Protocol Dissector Canvas -->
+            <div class="frame-screen-widescreen">
+              <!-- Full-Width Chirp Spectrogram SVG (Zero Overlap, No Floating Box Collision) -->
+              <svg viewBox="0 0 320 66" width="100%" height="66" preserveAspectRatio="none" style="display:block">
+                <rect width="320" height="66" fill="#080C08"/>
+                <line x1="32" y1="16" x2="316" y2="16" stroke="#162217" stroke-width="0.8"/>
+                <line x1="32" y1="33" x2="316" y2="33" stroke="#162217" stroke-width="0.8"/>
+                <line x1="32" y1="50" x2="316" y2="50" stroke="#162217" stroke-width="0.8"/>
+                <line x1="32" y1="10" x2="32" y2="56" stroke="#1D2A1F" stroke-width="1"/>
+
+                <!-- Frequency bounds labels (Left Gutter) -->
+                <text x="3" y="14" fill="#6C8A67" font-size="5.5" font-family="monospace">+125 kHz</text>
+                <text x="3" y="35" fill="#6C8A67" font-size="5.5" font-family="monospace">Fc 915M</text>
+                <text x="3" y="52" fill="#6C8A67" font-size="5.5" font-family="monospace">-125 kHz</text>
+
+                <!-- 8 Upward Preamble Chirps (Green) -->
+                <g stroke="#85E37D" stroke-width="2">
+                  <line x1="42" y1="52" x2="52" y2="14"/>
+                  <line x1="54" y1="52" x2="64" y2="14"/>
+                  <line x1="66" y1="52" x2="76" y2="14"/>
+                  <line x1="78" y1="52" x2="88" y2="14"/>
+                  <line x1="90" y1="52" x2="100" y2="14"/>
+                  <line x1="102" y1="52" x2="112" y2="14"/>
+                  <line x1="114" y1="52" x2="124" y2="14"/>
+                  <line x1="126" y1="52" x2="136" y2="14"/>
+                </g>
+                <text x="44" y="62" fill="#85E37D" font-size="5.5" font-weight="700" font-family="monospace">[8 PREAMBLE CHIRPS]</text>
+
+                <!-- 2 Sync Downchirps (Amber) -->
+                <g stroke="#F5D658" stroke-width="2">
+                  <line x1="148" y1="14" x2="158" y2="52"/>
+                  <line x1="160" y1="14" x2="170" y2="52"/>
+                </g>
+                <text x="148" y="62" fill="#F5D658" font-size="5.5" font-weight="700" font-family="monospace">[SYNC 0x2B]</text>
+
+                <!-- Modulated Payload Chirps (Phase wrapped, Unobscured Across Full Width) -->
+                <g stroke="#87D5CB" stroke-width="2">
+                  <line x1="184" y1="36" x2="190" y2="14"/>
+                  <line x1="190" y1="52" x2="196" y2="36"/>
+                  <line x1="202" y1="24" x2="208" y2="14"/>
+                  <line x1="208" y1="52" x2="214" y2="24"/>
+                  <line x1="220" y1="44" x2="226" y2="14"/>
+                  <line x1="226" y1="52" x2="232" y2="44"/>
+                  <line x1="238" y1="28" x2="244" y2="14"/>
+                  <line x1="244" y1="52" x2="250" y2="28"/>
+                  <line x1="256" y1="40" x2="262" y2="14"/>
+                  <line x1="262" y1="52" x2="268" y2="40"/>
+                  <line x1="274" y1="22" x2="280" y2="14"/>
+                  <line x1="280" y1="52" x2="286" y2="22"/>
+                  <line x1="292" y1="46" x2="298" y2="14"/>
+                  <line x1="298" y1="52" x2="304" y2="46"/>
+                </g>
+                <text x="194" y="62" fill="#87D5CB" font-size="5.5" font-weight="700" font-family="monospace">[PAYLOAD MODULATION]</text>
+              </svg>
+
+              <!-- Protocol Dissector Bar (5 Crisp Bitstream Pills) -->
               <div class="proto-pills-bar">
                 <div class="p-pill pre">PREAMBLE 8B</div>
                 <div class="p-pill sync">SYNC 0x2B</div>
@@ -2566,7 +2738,7 @@
                 <div class="p-pill crc">CRC16: OK</div>
               </div>
 
-              <!-- High-Density Payload Inspection Tree -->
+              <!-- Decoded Payload Inspection Box -->
               <div class="proto-decode-body">
                 <div class="f-row">
                   <span style="color:var(--yellow);font-weight:700">PROTO: MESHTASTIC (TEXT_APP)</span>
@@ -2583,12 +2755,13 @@
                   HEX: 08 01 12 1F 50 49 4E 47 20 5B 47 41 54 45 57 41 59 5F 4E 4F 52 54 48 5D 20 53 4E 52 3A 2B 37 2E 35 ...
                 </div>
               </div>
+            </div>
 
-              <!-- Invariant Tag -->
-              <div class="frame-rx-only-tag">
-                <span>RECEIVE-ONLY RF DISSECTION · <b>ZERO TRANSMIT VERBS</b></span>
-                <span style="color:var(--green)">[STORAGE BUFFERED]</span>
-              </div>
+            <!-- Bottom Tactical Status Strip -->
+            <div class="frame-bottom-strip">
+              <div>RX-ONLY DISSECTION · <b>ZERO TRANSMIT</b></div>
+              <div>PAYLOAD: <b>54B</b> · CRC: <b style="color:var(--green)">OK</b></div>
+              <div class="active-indicator"><span class="dot"></span>CAPTURE LIVE · [d] DECODE</div>
             </div>
           </div>
         </div>

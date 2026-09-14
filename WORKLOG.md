@@ -1,3 +1,44 @@
+## 2026-09-13 — ILI9341 external display zero-overlap tactical layout redesign
+
+- Overhauled the ILI9341 320×240 external display cards in Section 05 of `docs/brand/oscilla-master-brand-ui-guide.html`, extending the zero-overlap tactical architecture established in Screen 3 (`Drive / Session Log`) across all viewports:
+  - **Screen 1 (`Analyze / Spectrum Field`) — Spectral Waterfall**:
+    - Elevated primary metrics into an authoritative 4-tile top telemetry ribbon (`wf-top-ribbon`): `TARGET CHANNEL` (`CH 149 5.745G`), `ACTIVE RSSI` (`-58 dBm 76% OCC`), `BURST PEAK (30s)` (`712 pkts/s +93% Δ`), and `BURST THRESHOLD` (`60% THR 356/s`), eliminating clutter and redundancy from the canvas.
+    - Unified widescreen canvas (`wf-screen-widescreen`, viewBox `0 0 320 200`):
+      - Band brackets for `UNII-1 (5.18-5.24 GHz)`, `DFS`, and `UNII-3 (5.745-5.825 GHz)` with subtle frequency boundaries.
+      - Calibrated left time gutter (`00s`, `-10s`, `-20s`, `-30s`) with tick marks and horizontal dashed guide lines.
+      - Repositioned burst peak callout (`PEAK: 712 pkts/s`) into an opaque tactical pill with leader line in the open DFS channel gap, eliminating overlap with CH 153 and adjacent rects.
+      - Dedicated mid-section separator with bandwidth note (`BW: 20 MHz / CH`).
+      - Left amplitude Y-axis scale (`100%`, `60%`, `20%`, `0%`).
+      - Shielded `60% BURST THR` line with a right-aligned opaque tactical badge.
+      - Re-anchored the FFT curve baseline to `y=172`, completely separating the waveform from the frequency channel X-axis shelf (`y=175..198`) below it.
+      - Highlighted active target channel `CH 149` with an upward indicator chevron and yellow tactical badge pill (`› 149`) on the X-axis shelf.
+    - Added bottom tactical status strip (`wf-bottom-strip`): `ACTIVE: CH 149 · HAWTHORNE_5G` | `DWELL: 18.2ms · JITTER: ±1.4ms` | `● FFT SWEEP · [s] ZOOM`.
+  - **Screen 2 (`Analyze / Contacts`) — Polar RSSI Proximity & Target Profile**:
+    - Replaced the floating text header and scattered cards with an authoritative 4-tile top telemetry ribbon (`contacts-top-ribbon`): `TARGET PROFILE` (`HAWTHORNE CH 149`), `RSSI PROXIMITY` (`-58 dBm -40 MAX`), `CLIENTS / PROBES` (`18 CLI 7 PROBES`), and `GUARD ANOMALY` (`ROGUE C4:22 ANOM`).
+    - Redesigned the radar scope (`contacts-radar-box`):
+      - Shielded polar range ring labels (`-40`, `-60`, `-80`, `-95`) with dark background pills, preventing crosshair collision.
+      - Relocated AP labels (`OFFICE-MESA`, `CAFE-GUEST`, `FIELD-LAB`, `<HIDDEN>`) with radial offsets away from diamond nodes and swept lines into open scope space.
+      - Highlighted target AP with a distinct outer pulse ring, dedicated leader line, and high-contrast callout pill (`HAWTHORNE`).
+    - Re-architected the target profile and dossier pane (`contacts-dossier-box`):
+      - Tightened target profile section with hero typography, BSSID, and WPA3 PMF indicators.
+      - Rendered a compact 5-row client table with tactical status badges (`ROGUE ANOM`, `ASSOC [P2]`, `HUNTING`, `ASSOC [P3]`, `PROBE IDLE`).
+      - Formatted guard anomaly callout badge with high-visibility pink telemetry border.
+    - Added bottom tactical status strip (`contacts-bottom-strip`): `SWEEP: 1.2s · DUAL [2.4+5G]` | `TRACK: 5 AP · 18 STA · 1 ROGUE` | `● RADAR LIVE · [t] TARGET`.
+  - **Screen 4 (`Observe / Frame List`) — LoRa Spectrogram & Protobuf Dissector**:
+    - Replaced overlapping canvas text with an authoritative 4-tile top telemetry ribbon (`frame-top-ribbon`): `MODULATION` (`LORA SF11 BW 250`), `CARRIER FREQ` (`915.000M 142ms`), `SIGNAL METRICS` (`-92 dBm +7.5dB`), and `INTEGRITY` (`CRC16 54B OK`).
+    - Elevated the floating RSSI/SNR box completely out of the RF spectrogram, giving the chirp canvas 100% full-width visibility:
+      - 8 unoccluded linear upchirps (`[8 PREAMBLE CHIRPS]`).
+      - 2 highlighted yellow downchirps (`[SYNC]`).
+      - Unobscured phase-wrapped modulated chirps (`[PAYLOAD MODULATION]`).
+      - Calibrated Y-axis frequency deviation markers (`+125 kHz`, `Fc 915M`, `-125 kHz`).
+    - Full-width frame dissector bar with 5 color-coded protocol segment pills (`PREAMBLE 8B`, `SYNC 0X2B`, `HDR !A4F108`, `PAYLOAD 54 BYTES [PROTOBUF]`, `CRC16: OK`).
+    - Formatted structured Meshtastic protobuf payload inspector and monospace hex dump.
+    - Added bottom tactical status strip (`frame-bottom-strip`): `RX-ONLY DISSECTION · ZERO TRANSMIT` | `PAYLOAD: 54B · CRC: OK` | `● CAPTURE LIVE · [d] DECODE`.
+  - Confirmed visual rendering live in browser across all 4 external viewports at 2560×1305.
+  - Verified repository invariants via `tools/check_rx_only.py` (86 files clean) and `tools/ocp_repl.py --selftest` (27/27 checks pass).
+
+---
+
 ## 2026-09-13 — Drive Session mockup card placement & tactical layout fix
 
 - Rebalanced floating HUD docks and waypoint callout badges in Screen 3 (`Drive / Session Log`) of `docs/brand/oscilla-master-brand-ui-guide.html`:
