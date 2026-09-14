@@ -1,3 +1,13 @@
+## 2026-09-13 — RX-stall root cause found: GetIrqStatus off-by-one, candidate fix flashed
+
+**Phase:** P3 · **By:** Will + Claude
+
+- Root-caused the silent RX stall from the earlier soak: `lora_radio.c`'s `GetIrqStatus` read requested 3 payload bytes and reconstructed the 16-bit `IrqStatus` from the wrong two — the datasheet (Table 13-30) defines exactly 2 payload bytes after RFU+Status. The corrupted value fed straight into `ClearIrqStatus`; on the wrong bit combination the real fired IRQ bit was never actually cleared in the chip. DIO1 is edge-triggered, so a stuck-set bit means no further rising edge ever comes — total silent stall, nothing to log, matching every symptom from the soak exactly.
+- Fixed: request and reconstruct the correct 2 bytes (`irq_raw[0]<<8 | irq_raw[1]`, not 3 bytes indexed `[1]`/`[2]`). Builds clean, full `check_protocol.sh` suite green, flashed to the probe.
+- **Not yet confirmed fixed** — this is a candidate fix awaiting Will's bench retest with the harness reconnected. Documented in `docs/hardware/lora-harness.md`, marked unconfirmed there too, not claimed as resolved anywhere until it's actually been run long enough to know.
+
+---
+
 ## 2026-09-13 — 2h LoRa soak: heap is clean, but RX silently stalls (corrects the earlier read)
 
 **Phase:** P3 · **By:** Will + Claude

@@ -65,18 +65,26 @@ the full ~2h15m, confirmed separately.
 
 **Conclusion: something in the RX pipeline silently stops producing `RxDone`
 events (or stops being serviced) after roughly half an hour of continuous
-RX, with no error, no fault, no crash — just silence.** Not yet root-caused.
-Candidates to check, not yet verified either way:
+RX, with no error, no fault, no crash — just silence.**
 
-- A known class of real-world SX126x continuous-RX behavior where the
-  receiver needs periodic intervention after certain IRQ conditions —
-  needs checking against the datasheet/errata, not assumed.
-- A bug in `lora_radio.c`'s own IRQ clear/re-arm logic that leaves the chip
-  in a state where `RxDone` stops firing after a specific IRQ combination.
-- `GetDeviceErrors`/`XOSC_START_ERR` was never polled during this run (noted
-  as an open gap in D-10) — a slow clock drift is plausible and unchecked.
+**Root cause found and a candidate fix applied, 2026-09-13 — not yet
+bench-confirmed.** `lora_radio.c`'s `GetIrqStatus` handling requested 3
+payload bytes and reconstructed the 16-bit `IrqStatus` from the wrong two
+(datasheet Table 13-30 defines exactly 2 payload bytes after RFU+Status).
+The corrupted value fed into `ClearIrqStatus`, and on the wrong bit
+combination the real fired IRQ bit was never actually cleared in the chip.
+Since DIO1 is edge-triggered (`GPIO_INTR_POSEDGE`), a stuck-set bit means no
+further rising edge ever arrives — a silent, permanent stall with nothing to
+log, matching every symptom observed. Fixed: request/reconstruct the correct
+2 bytes. Flashed to the probe; **awaiting Will's bench retest** before this
+is considered closed.
 
-**Do not consider LoRa RX field-ready until this is root-caused and fixed.**
+Still worth checking regardless of whether the fix holds:
+- `GetDeviceErrors`/`XOSC_START_ERR` was never polled during the original run
+  (noted as an open gap in D-10) — a slow clock drift is plausible and still
+  unchecked, independent of the IRQ bug above.
+
+**Do not consider LoRa RX field-ready until the fix above is bench-confirmed.**
 The P3 exit gate's literal wording (real packets observed, `stop` releases
 cleanly, zero TX verbs) was met before this was discovered — this finding
 doesn't unmet it, but it is a real reliability problem sitting on top of an

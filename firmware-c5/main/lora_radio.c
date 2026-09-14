@@ -460,12 +460,22 @@ static void lora_task(void *arg)
         xSemaphoreTake(s_lock, portMAX_DELAY);
         if (!s_running) { xSemaphoreGive(s_lock); continue; }
 
-        uint8_t irq_raw[3];
+        /* IrqStatus(15:0) is 2 payload bytes after RFU+Status (datasheet
+         * Table 13-30) — not 3. A too-long read here previously clocked one
+         * spurious byte and reconstructed `irq` from the wrong two bytes,
+         * which fed a corrupted value into ClearIrqStatus below. On the
+         * wrong bit combination that left the real fired IRQ bit uncleared
+         * in the chip, and since DIO1 is edge-triggered, a stuck-set bit
+         * means no further rising edge ever comes — a silent, permanent RX
+         * stall with no error anywhere. Root-caused via a 2h soak
+         * cross-referenced against an independent observer (WORKLOG
+         * 2026-09-13, docs/hardware/lora-harness.md). */
+        uint8_t irq_raw[2];
         if (cmd_read(OP_GET_IRQ_STATUS, irq_raw, sizeof irq_raw) != ESP_OK) {
             xSemaphoreGive(s_lock);
             continue;
         }
-        uint16_t irq = ((uint16_t)irq_raw[1] << 8) | irq_raw[2];
+        uint16_t irq = ((uint16_t)irq_raw[0] << 8) | irq_raw[1];
 
         uint8_t clear[2] = { (uint8_t)(irq >> 8), (uint8_t)irq };
         cmd_write(OP_CLEAR_IRQ_STATUS, clear, sizeof clear);
