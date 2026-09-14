@@ -45,9 +45,23 @@ void setup()
     g_app.begin(millis());
 }
 
+namespace {
+/* Diagnostic only, not tied to any view: a slow leak shows up as a trend in
+ * this number over hours, not as a crash. Independent of which screen is
+ * shown, since info_view's own heap readout only samples while you're
+ * looking at it. */
+constexpr uint32_t kHeapLogMs = 5UL * 60UL * 1000UL;
+uint32_t g_last_heap_log_ms = 0;
+}  // namespace
+
 void loop()
 {
     uint32_t now = millis();
+
+    if (now - g_last_heap_log_ms >= kHeapLogMs) {
+        g_last_heap_log_ms = now;
+        Serial.printf("deck heap=%u uptime_s=%lu\n", (unsigned)ESP.getFreeHeap(), (unsigned long)(now / 1000));
+    }
 
     /* Drain the link completely before any drawing. */
     uint8_t buf[512];
