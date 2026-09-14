@@ -685,15 +685,15 @@
       min-height: 0;
       width: 100%;
       display: grid;
-      grid-template-rows: minmax(0, 1fr) 54px;
+      grid-template-rows: minmax(0, 1fr) 40px;
       gap: 5px;
-      margin: 4px 0;
+      margin: 4px 0 0;
       overflow: hidden;
     }
     .contacts-focus-row {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr);
+      grid-template-columns: minmax(0, 1.45fr) minmax(88px, .65fr);
       gap: 6px;
       overflow: hidden;
     }
@@ -708,140 +708,134 @@
       position: relative;
       overflow: hidden;
     }
-    .contacts-dossier-box {
+    .contacts-client-rail {
       min-width: 0;
-      background: #080B08;
-      border: 1px solid #1D2A1F;
-      border-radius: 4px;
-      padding: 7px 9px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
-      box-sizing: border-box;
-    }
-    .dossier-target .d-lbl,
-    .contacts-client-list .list-title {
-      font-size: 8.5px;
-      color: var(--muted);
-      letter-spacing: 0.08em;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .dossier-target .d-name {
-      font-family: var(--display);
-      font-size: 17px;
-      font-weight: 700;
-      color: var(--yellow);
-      margin: 1px 0 3px;
-      line-height: 1.05;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .dossier-target .d-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px 7px;
-      color: var(--cream);
-      font-size: 9px;
-      line-height: 1.2;
-    }
-    .dossier-target .d-meta span { color: var(--green); font-weight: 700; }
-    .dossier-guard-alert {
-      margin-top: 5px;
-      background: rgba(240, 93, 120, 0.14);
-      border-left: 2px solid rgba(240, 93, 120, 0.85);
-      padding: 4px 6px;
-      font-size: 8.5px;
-      color: var(--pink);
-      line-height: 1.22;
-    }
-    .dossier-guard-alert b { color: var(--yellow); }
-    .contacts-client-list {
       min-height: 0;
       background: #080B08;
       border: 1px solid #1D2A1F;
       border-radius: 4px;
-      padding: 3px 6px 4px;
+      padding: 5px 5px 4px;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       box-sizing: border-box;
     }
-    .client-list-head {
+    .client-rail-head {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       justify-content: space-between;
-      margin-bottom: 1px;
-    }
-    .client-list-head .list-meta {
+      padding-bottom: 3px;
+      border-bottom: 1px solid #1D2A1F;
       color: var(--muted);
       font-size: 8px;
       font-weight: 700;
+      letter-spacing: .07em;
     }
-    .contacts-client-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 8.5px;
-      line-height: 1.05;
-      table-layout: fixed;
-    }
-    .contacts-client-table th,
-    .contacts-client-table td {
-      border: 0;
-      border-top: 1px solid #1D2A1F;
-      padding: 2px 5px;
-      text-align: left;
-      white-space: nowrap;
-    }
-    .contacts-client-table th {
-      color: var(--muted);
-      font-size: 7.5px;
-      letter-spacing: .06em;
-      font-weight: 700;
-      padding-top: 1px;
-    }
-    .contacts-client-table th:nth-child(1) { width: 33%; }
-    .contacts-client-table th:nth-child(2) { width: 13%; }
-    .contacts-client-table th:nth-child(3) { width: 35%; }
-    .contacts-client-table th:nth-child(4) { width: 19%; }
-    .contacts-client-table tr.active-probe {
-      color: var(--yellow);
-      background: rgba(245, 214, 88, 0.11);
-      font-weight: 700;
-    }
-    .contacts-client-table .state-alert { color: var(--pink); }
-    .contacts-bottom-strip {
+    .client-rail-head b { color: var(--cream); font-size: 9px; }
+    .client-rail-list {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #080C08;
-      border: 1px solid #1D2A1F;
-      border-radius: 4px;
-      padding: 3px 8px;
-      font-size: 10px;
-      color: var(--muted);
-      white-space: nowrap;
-      line-height: 1;
-      gap: 6px;
+      flex-direction: column;
+      gap: 1px;
+      padding-top: 3px;
+      overflow: hidden;
     }
-    .contacts-bottom-strip b {
+    .client-rail-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 3px;
+      border-left: 2px solid #3D6640;
       color: var(--cream);
+      font-size: 8.5px;
+      line-height: 1;
       font-variant-numeric: tabular-nums;
     }
-    .contacts-bottom-strip .active-indicator {
-      display: flex;
-      align-items: center;
-      gap: 5px;
+    .client-rail-row .client-mac {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .client-rail-row .client-rssi { color: var(--green); font-weight: 700; }
+    .client-rail-row.rogue {
+      border-left-color: var(--pink);
+      background: rgba(240, 93, 120, .13);
       color: var(--yellow);
       font-weight: 700;
-      flex-shrink: 0;
     }
-    .contacts-bottom-strip .dot {
-      width: 5px; height: 5px;
-      background: var(--green);
-      border-radius: 50%;
-      box-shadow: 0 0 4px var(--green);
+    .client-rail-row.rogue .client-rssi { color: var(--pink); }
+    .client-rail-row.probe { border-left-color: var(--yellow); }
+    .client-rail-more {
+      margin-top: auto;
+      padding-top: 3px;
+      border-top: 1px solid #1D2A1F;
+      color: var(--muted);
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-align: center;
     }
+    .contacts-dossier-dock {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 1.15fr;
+      gap: 0;
+      min-height: 0;
+      background: #080B08;
+      border: 1px solid #1D2A1F;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .dock-cell {
+      min-width: 0;
+      padding: 4px 7px;
+      border-right: 1px solid #1D2A1F;
+      overflow: hidden;
+    }
+    .dock-cell:last-child { border-right: 0; }
+    .dock-label {
+      display: block;
+      color: var(--muted);
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    .dock-target {
+      display: block;
+      margin-top: 2px;
+      color: var(--yellow);
+      font-family: var(--display);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dock-detail {
+      display: block;
+      margin-top: 3px;
+      color: var(--cream);
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .dock-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 7px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .dock-guard {
+      background: rgba(240, 93, 120, .1);
+      color: var(--pink);
+    }
+    .dock-guard .dock-detail { color: var(--pink); }
+    .dock-guard b { color: var(--yellow); }
 
             /* CARD 3: Drive Tactical Breadcrumb Map (Sleek Widescreen Moving Map) */
     .ili-drive-card {
@@ -2291,6 +2285,7 @@
             </div>
 
             <!-- Square proximity scope, with the client/MAC list on its own full-width row -->
+            <!-- Radar is the primary field; a client rail and detail dock support it -->
             <div class="contacts-main-stack">
               <div class="contacts-focus-row">
                 <div class="contacts-radar-box">
@@ -2342,67 +2337,39 @@
                   </svg>
                 </div>
 
-                <div class="contacts-dossier-box">
-                  <div class="dossier-target">
-                    <div class="d-lbl">Selected network</div>
-                    <div class="d-name">› HAWTHORNE_5G</div>
-                    <div class="d-meta">
-                      <span>WPA3-SAE</span>
-                      <span>PMF REQUIRED</span>
-                      <span>CH 149 · −58 dBm</span>
-                    </div>
-                    <div style="font-size:8.5px;color:var(--muted);margin-top:4px">BSSID&nbsp; AA:BB:CC:84:19:01</div>
+                <aside class="contacts-client-rail" aria-label="Associated and observed clients">
+                  <div class="client-rail-head">
+                    <span>CLIENTS</span>
+                    <b>18 LIVE</b>
                   </div>
-                  <div class="dossier-guard-alert">
-                    <b>◇ GUARD</b> · C4:22:A1:09 probe burst<br>
-                    <span style="color:var(--muted)">102ms beacon · jitter ±1.2ms</span>
+                  <div class="client-rail-list">
+                    <div class="client-rail-row rogue"><span class="client-mac">› C4:22:A1:09</span><span class="client-rssi">−61</span></div>
+                    <div class="client-rail-row"><span class="client-mac">38:F9:B4:82</span><span class="client-rssi">−69</span></div>
+                    <div class="client-rail-row probe"><span class="client-mac">A0:76:88:1C</span><span class="client-rssi">−82</span></div>
+                    <div class="client-rail-row"><span class="client-mac">E4:5F:01:9B</span><span class="client-rssi">−74</span></div>
+                    <div class="client-rail-row"><span class="client-mac">72:11:0C:44</span><span class="client-rssi">−85</span></div>
                   </div>
-                </div>
+                  <div class="client-rail-more">+13 MORE · SCROLL</div>
+                </aside>
               </div>
 
-              <div class="contacts-client-list">
-                <div class="client-list-head">
-                  <span class="list-title">Associated / observed clients</span>
-                  <span class="list-meta">18 ACTIVE · 7 PROBES</span>
+              <div class="contacts-dossier-dock">
+                <div class="dock-cell">
+                  <span class="dock-label">Selected network</span>
+                  <span class="dock-target">HAWTHORNE_5G</span>
+                  <span class="dock-sub">AA:BB:CC:84:19:01</span>
                 </div>
-                <table class="contacts-client-table">
-                  <thead>
-                    <tr>
-                      <th>CLIENT MAC</th>
-                      <th>RSSI</th>
-                      <th>RELATION</th>
-                      <th>AGE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="active-probe">
-                      <td>› C4:22:A1:09</td>
-                      <td>−61</td>
-                      <td class="state-alert">ROGUE ANOM</td>
-                      <td>00:02</td>
-                    </tr>
-                    <tr>
-                      <td>38:F9:B4:82</td>
-                      <td>−69</td>
-                      <td>ASSOC [P2]</td>
-                      <td>00:12</td>
-                    </tr>
-                    <tr>
-                      <td>A0:76:88:1C</td>
-                      <td>−82</td>
-                      <td>HUNTING</td>
-                      <td>00:28</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div class="dock-cell">
+                  <span class="dock-label">Security / channel</span>
+                  <span class="dock-detail">WPA3-SAE · PMF REQ</span>
+                  <span class="dock-sub">CH 149 · 5 GHz · −58 dBm</span>
+                </div>
+                <div class="dock-cell dock-guard">
+                  <span class="dock-label">◇ Guard anomaly</span>
+                  <span class="dock-detail"><b>C4:22</b> PROBE BURST</span>
+                  <span class="dock-sub">102ms beacon · jitter ±1.2ms</span>
+                </div>
               </div>
-            </div>
-
-            <!-- Bottom Tactical Status Strip -->
-            <div class="contacts-bottom-strip">
-              <div>SWEEP: <b>1.2s</b> · <b>DUAL [2.4+5G]</b></div>
-              <div>TRACK: <b>5 AP</b> · <b>18 STA</b> · <b style="color:var(--pink)">1 ROGUE</b></div>
-              <div class="active-indicator"><span class="dot"></span>RADAR LIVE · [t] TARGET</div>
             </div>
           </div>
         </div>
