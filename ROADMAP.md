@@ -5,8 +5,8 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P3 complete → **P4 — GNSS** |
-| **Last updated** | 2026-09-13 |
+| **Current phase** | P3 complete → **P4 — GNSS** (🟡 in progress, off-bench groundwork only) |
+| **Last updated** | 2026-09-14 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -20,7 +20,7 @@
 | **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
-| **P4** | GNSS on the deck | ⚪ Not started | — |
+| **P4** | GNSS on the deck | 🟡 In progress (parser/model host-tested, hardware bring-up not started) | — |
 | **P5** | External TFT | ⚪ Not started | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
 | **P7** | Passive suite completion | ⚪ Not started | — |
@@ -130,12 +130,12 @@ Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls 
 **Entry gate:** P2 exit met (independent of P3; can run in parallel).
 
 **Work:**
-- [ ] Deck GNSS UART (GPIO13 TX / GPIO15 RX, 9600 8N1 NMEA), distinct hardware UART from Grove.
-- [ ] NMEA parse; fix validity + age; **no-fix ≠ no-UART-data** as distinct states.
-- [ ] Configurable baud (a preconfigured unit may differ, Rev D §6). No UBX assumptions.
-- [ ] Model: current-fix service feeding the logger.
+- [x] Deck GNSS UART (GPIO13 TX / GPIO15 RX, 9600 8N1 NMEA), distinct hardware UART from Grove. Wired in `main.cpp` as `Serial2`; builds clean for `cardputer-adv` (`pio run`, 610773 B flash / 24616 B RAM). **Not yet run on hardware** — no ATGM336H connected this session.
+- [x] NMEA parse; fix validity + age; **no-fix ≠ no-UART-data** as distinct states. `src/gnss/nmea_parser.{h,cpp}` (checksum-verified, bounded, chunk-invariant, byte-exact — same posture as `ocp::Parser`) feeding `src/model/gnss_model.{h,cpp}` (GGA/RMC → fix, `hasUartData()` vs `hasFix()`/`everFixed()`/`fixAgeMs()` kept independent). 40 host tests (`nmea_parser_test`, `gnss_model_test`), wired into `check_protocol.sh`. Confirmed a check actually catches a bug: disabling the checksum comparison on a copy flips the corrupted-checksum test red.
+- [x] Configurable baud (a preconfigured unit may differ, Rev D §6). No UBX assumptions. Default `9600` in `main.cpp` as a single named constant (`kGnssBaudDefault`) — no settings UI to change it at runtime yet, that's still open.
+- [x] Model: current-fix service feeding the logger. `GnssModel` exists with the exact fields DESIGN §9.1's struct calls for (`lat/lon/alt/hdop/utc/valid` + derived `age_ms`); nothing reads it yet — no view, no logger wired to it. That wiring is unstarted, not just unverified.
 
-**Exit gate:** live fix acquired outdoors and shown with age; unplugging the antenna shows "no fix" while UART stays alive; both states logged distinctly.
+**Exit gate: NOT MET — needs hardware.** live fix acquired outdoors and shown with age; unplugging the antenna shows "no fix" while UART stays alive; both states logged distinctly. None of this is checkable off the bench. What *is* true today: the parser and fix model are host-tested against known-answer NMEA fixtures (real u-blox-doc lat/lon example, checksums computed independently) and the checklist items above compile against the real board target — that's groundwork for the gate, not the gate itself. Still open for the actual bench session: wire the ATGM336H per Rev D §6, confirm 9600 baud against the real unit (or find the right one), the outdoor fix / antenna-unplug demo, and connecting `GnssModel` to a view and the wardrive logger.
 
 ---
 

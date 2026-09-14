@@ -8,6 +8,8 @@
 #include <M5Cardputer.h>
 
 #include "app/deck_app.h"
+#include "gnss/nmea_parser.h"
+#include "model/gnss_model.h"
 #include "ocp.h"
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
@@ -18,9 +20,20 @@ namespace {
 constexpr int kGroveTxPin = 2;
 constexpr int kGroveRxPin = 1;
 
+/* Rev D §6: a distinct hardware UART from Grove. TX 13 / RX 15 are the
+ * host's own pins; 9600 8N1 is the -5N family default, not guaranteed for a
+ * preconfigured unit — no settings UI yet to change it at runtime, so this
+ * is the one place to edit until P4 grows one. */
+constexpr int kGnssTxPin = 13;
+constexpr int kGnssRxPin = 15;
+constexpr uint32_t kGnssBaudDefault = 9600;
+
 app::DeckApp g_app([](const char *data, size_t len) {
     Serial1.write(reinterpret_cast<const uint8_t *>(data), len);
 });
+
+gnss::NmeaParser g_gnss_parser;
+model::GnssModel g_gnss;
 
 }  // namespace
 
@@ -40,6 +53,10 @@ void setup()
     /* A 256-row [SCAN] page is ~20 KB in ~2 s; a redraw must not overflow the buffer. */
     Serial1.setRxBufferSize(16384);
     Serial1.begin(OCP_BAUD_DEFAULT, SERIAL_8N1, kGroveRxPin, kGroveTxPin);
+
+    /* Own UART, own baud: GNSS never crosses OCP (DESIGN §9.1), so it has
+     * nothing to do with the Grove link's proto or framing. */
+    Serial2.begin(kGnssBaudDefault, SERIAL_8N1, kGnssRxPin, kGnssTxPin);
 
     g_app.onLog([](const std::string &line) { Serial.printf("deck %s\n", line.c_str()); });
     g_app.begin(millis());
@@ -73,6 +90,16 @@ void loop()
         total += n;
     } while (n == sizeof buf);
     g_app.tick(now);
+
+    /* GNSS: same drain-completely-before-drawing shape, independent UART.
+     * No view reads g_gnss yet — Rev D's own bring-up step (outdoor fix,
+     * antenna-unplugged no-fix check) is P4's hardware half, not this one. */
+    while (Serial2.available()) {
+        uint8_t gbuf[128];
+        size_t gn = 0;
+        while (Serial2.available() && gn < sizeof gbuf) gbuf[gn++] = Serial2.read();
+        g_gnss_parser.feed(gbuf, gn, [&](const gnss::Sentence &s) { g_gnss.absorb(s, now); });
+    }
 
     M5Cardputer.update();
     if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {

@@ -106,4 +106,15 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/lora_log_format_test.cpp firmware-cardputer/src/storage/lora_log_format.cpp
 "$out/lora_log_format_test" | tail -1 | sed 's/^/  /'
 
+# The deck's NMEA reader: checksum, chunking, bounds - no OCP link involved.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/nmea_parser_test" \
+    firmware-cardputer/test/host/nmea_parser_test.cpp firmware-cardputer/src/gnss/nmea_parser.cpp
+"$out/nmea_parser_test" | tail -1 | sed 's/^/  /'
+
+# The deck's GNSS fix model: fix validity/age vs. no-UART-data, kept distinct.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/gnss_model_test" \
+    firmware-cardputer/test/host/gnss_model_test.cpp firmware-cardputer/src/gnss/nmea_parser.cpp \
+    firmware-cardputer/src/model/gnss_model.cpp
+"$out/gnss_model_test" | tail -1 | sed 's/^/  /'
+
 echo "protocol contract OK"

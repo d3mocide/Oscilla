@@ -1,3 +1,60 @@
+## 2026-09-14 — P4 off-bench groundwork: NMEA parser + GNSS fix model
+
+**Phase:** P4 · **By:** Will + Claude
+
+Will was away from the bench for the day; picked P4 (GNSS) since its parser
+and fix-state logic don't need the ATGM336H physically present, same
+prove-it-on-the-host-first approach P0/P1 used for the OCP parser.
+
+- **`firmware-cardputer/src/gnss/nmea_parser.{h,cpp}`** — byte-exact NMEA
+  0183 reader: buffers to `\n`, requires a valid `$...*hh` checksum (computed
+  independently, not trusted from the wire), bounded line length (164 B,
+  double the 82 B NMEA sentence cap) with overlong-drop-and-recover instead
+  of unbounded growth. Deliberately dumb about content — any checksum-valid
+  sentence reaches the sink, whether or not GnssModel interprets its type —
+  same split as `ocp::Parser` staying byte-level while `ocp::Item` callers
+  interpret content.
+- **`firmware-cardputer/src/model/gnss_model.{h,cpp}`** — absorbs GGA (fix
+  quality/position/altitude/HDOP/time) and RMC (A/V status/position/time)
+  sentences into the DESIGN §9.1 fix record. The one property this exists to
+  prove: **`hasUartData()` and `hasFix()`/`everFixed()`/`fixAgeMs()` are
+  independent.** A no-fix GGA (`quality=0`) keeps `hasUartData()` true while
+  `hasFix()` goes false and the last known position/age is kept, not zeroed
+  — Rev D §6's "no fix is different from no UART data" as two separately
+  observable states rather than one collapsed enum. A malformed field on an
+  otherwise-fix-quality GGA is not trusted (same posture as
+  `LoraModel::absorbEvent`'s "never trust a partial event").
+- **40 new host tests** (`nmea_parser_test.cpp`, `gnss_model_test.cpp`),
+  wired into `check_protocol.sh`. Fixtures include a known-answer lat/lon
+  pair (checksums and decimal-degree conversion computed independently in
+  Python, not by this same code) plus adversarial cases: corrupted checksum,
+  missing checksum, non-`$` noise, a sentence torn across 3-byte chunks, an
+  overlong line followed by a good one (recovery), GSV (unrecognized type,
+  still counts as UART activity, never touches a stored fix).
+- **Proved a check catches the bug**, per workflow §6: disabled the checksum
+  comparison on a copy of `nmea_parser.cpp` and confirmed the
+  corrupted-checksum test goes red (13/14 → the one test that should fail,
+  fails). Discarded the copy.
+- Wired into `main.cpp`: `Serial2` at 9600 8N1 on GPIO13/15 (Rev D §6),
+  drained every `loop()` the same way the Grove link is, feeding
+  `NmeaParser` → `GnssModel`. `pio run -e cardputer-adv` builds clean
+  (610773 B flash / 24616 B RAM) — proves it compiles for the real target,
+  **not** that it works, since there's no GNSS unit attached this session.
+  `GnssModel` isn't read by any view or the logger yet — that's still to do.
+- Baud is a single named constant (`kGnssBaudDefault = 9600`) per Rev D §6's
+  "make it configurable" — there's no settings UI to change it at runtime
+  yet, so "configurable" today means "one place to edit," not a UI toggle.
+  Left as an open item, not silently called done.
+- **Not done, and P4's exit gate isn't close to met:** nothing here touches
+  a live receiver. The outdoor-fix demo, the antenna-unplug no-fix check,
+  confirming 9600 baud against the actual ATGM336H (Rev D warns a
+  preconfigured unit may differ), and connecting `GnssModel` to a view and
+  the wardrive logger are all still open, hardware-gated work. ROADMAP P4
+  marked 🟡 in progress, exit gate explicitly NOT MET, to avoid this reading
+  as more done than it is.
+
+---
+
 ## 2026-09-14 — Closed the two small follow-ups from the RX-stall fix
 
 **Phase:** P3 · **By:** Will + Claude
