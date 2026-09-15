@@ -1,3 +1,57 @@
+## 2026-09-15 — P6 power measurement: method written, nothing measured
+
+**Phase:** P6 prep · **By:** Will + Claude
+
+Will asked whether power testing could be done over the serial link. It can't,
+and the useful answer is what serial *can* do instead. Wrote
+[`docs/hardware/power-budget.md`](docs/hardware/power-budget.md) as method
+only — the Results section is deliberately empty.
+
+- **The C5 has no current-sense hardware.** No shunt, no coulomb counter, no
+  ADC path to the input rail. Any current figure firmware reported would be
+  fabricated. This needs an external instrument; there is no firmware-side
+  shortcut, over Grove or USB.
+- **What the link is actually for here: attribution.** A meter reading of
+  380 mA means nothing without knowing what the radios were doing at that
+  instant, and that half is pure orchestration — which the link already does.
+  `[STATUS]` carries `owner=`, `lora=` and a monotonic `uptime_ms`, so a host
+  script can walk a state sequence and timestamp every transition for aligning
+  against the meter's CSV.
+- **The scoped `stop` from this morning turns out to matter for this.** Rows
+  7–8 of the state matrix drop one lane and keep the other, so each lane's
+  contribution can be isolated *inside a single continuous trace* rather than
+  reconstructed across separate runs with separate warm-ups. That wasn't the
+  reason for doing D-16, but it's a real second use.
+- **Measurement point is the easy thing to get wrong.** Rev D §9 says module
+  pins and its table is in mA at 3.3 V; an inline USB meter reads ~5 V
+  *upstream of the regulator*, and Rev D explicitly forbids adding currents
+  measured at different voltages. Converting needs an efficiency figure nobody
+  has measured for the delivered board. Recommended the **PPK2** (~$100,
+  source-meter mode supplies and measures 3.3 V at the same point, ~100 ksps
+  so it can see RX peaks), and flagged honestly that its ~1 A ceiling is the
+  same order as Rev D's 910 mA provisional figure, so it may clip.
+- **Wrote down the USB conflict and its solution**, because it isn't obvious:
+  the C5's USB is both its power path and its console, so sourcing 3.3 V with
+  USB attached means two supplies fighting. The fix uses only what already
+  exists — probe on the UART build powered solely from the meter, USB
+  physically unplugged, control over Grove via the deck's `grove-bridge`
+  firmware, exactly the P1 bring-up path.
+- **Scope, stated plainly:** P6's entry gate (P2–P5) is *not* met — P4 is
+  mid-flight, P5 hasn't started, so the combined soak can't run. But the
+  probe-side RF subset is measurable today and is the part the interlock
+  actually arbitrates, so it can be banked early.
+- **Two citations I got wrong and corrected before committing.** Attributed the
+  SX1262 coexistence note to Rev D §11 when it is §10; and wrote that "Rev D §9
+  expects 5 GHz to cost more" — Rev D never mentions 5 GHz at all. That was
+  inferred from DESIGN §6.2 using a 5 GHz sweep as its worst-case example, which
+  is not the same as a measured or even stated claim. Row 4 now says to measure
+  it rather than assume it.
+- **Deliberately did not write** `ocp_repl.py --power-sequence` yet. Its
+  alignment details depend on the meter's own log format and clock, and no
+  meter has been bought.
+
+---
+
 ## 2026-09-15 — `stop` is scoped per lane: D-16 implemented (hardware pass still owed)
 
 **Phase:** protocol / pre-P7 polish · **By:** Will + Claude

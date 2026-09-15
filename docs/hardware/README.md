@@ -13,7 +13,7 @@ Expected contents as phases land:
 | `lora-harness.md` | P3 | Wio-SX1262 harness continuity check, BUSY/TCXO observations, the D-10 resolution and its source |
 | `gnss.md` | P4 | ATGM336H baud, NMEA sentences seen, cold/warm fix times |
 | `shared-spi.md` | P5 | SD + TFT shared-bus soak results |
-| `power-budget.md` | P6 | **Measured** current at the module pins under combined load; supersedes the provisional Rev D §9 table and sets the arbiter's interlock thresholds |
+| `power-budget.md` | P6 | **Measurement method written 2026-09-15; no measurements yet.** Will hold measured current at the module pins under combined load, superseding the provisional Rev D §9 table and setting the arbiter's interlock thresholds |
 
 Record the instrument and the conditions, not just the number. A current
 figure without the load it was measured under cannot set an interlock
