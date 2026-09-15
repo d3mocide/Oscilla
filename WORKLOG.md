@@ -1,3 +1,57 @@
+## 2026-09-14 — Auto-handoff reverted: `stop` isn't scoped, it kills LoRa too (D-16 opened)
+
+**Phase:** deck UX · **By:** Will + Claude
+
+Follow-up to the auto-handoff feature below, same session: added diagnostic
+`log()` calls to every new code path (the toast notices alone weren't
+enough to tell whether the logic was firing or the busy case just wasn't
+being hit), reflashed, and captured the deck's live serial log while Will
+reproduced it on the real hardware.
+
+- **The log caught a real bug, not flakiness.** Sequence observed: LoRa
+  configured and listening (`lora log: recording`) concurrently with a
+  running `channel_view` — exactly the intended concurrent-radio behavior.
+  Then, navigating to Contacts and pressing `s` to start the sniffer while
+  `channel_view` still held the arbiter: `arbiter busy: auto stop+handoff
+  (radio in use by wifi)` → `handoff: stop landed, retrying original
+  start` → `sniffer started`. The handoff itself worked exactly as
+  designed. But later, going back to Sub-GHz and pressing `s`, LoRa's
+  session log started fresh (`lora log: recording` a *second* time) — it
+  had been silently killed.
+- **Root-caused by reading `ocp_server.c`, not guessed:** the `stop`
+  handler is unconditional and global —
+  ```c
+  /* LoRa isn't in the PHY arbiter ... so it's released directly here,
+   * idempotently. */
+  bool running = arbiter_stop_all();
+  lora_cmd_stop();
+  ```
+  Every `stop`, for any reason, tears down *both* the arbiter-held Wi-Fi
+  engine *and* LoRa, unconditionally — a reasonable design from before
+  concurrent Wi-Fi+LoRa operation was a deliberate goal, but incompatible
+  with an auto-handoff that's only supposed to touch the conflicting Wi-Fi
+  engine. The handoff's own `client_.stop()` call, sent purely to free the
+  arbiter for the sniffer, had the undocumented side effect of also killing
+  the unrelated, perfectly-fine LoRa session running alongside it.
+- **Reverted the auto-handoff piece** (`armed_busy_retry_`/
+  `handoff_retry_` and the arbiter-conflict branch in `onReply()`) —
+  `deck_app.h`/`.cpp` back to a plain error notice on `OCP_ERR_BUSY`,
+  same as before tonight. **Kept** the harmless half: `retrySoon()`/
+  `pending_retry_` (the client-side queuing retry, no `stop` involved, no
+  side effect) and the diagnostic `log()` calls added for this
+  investigation, plus the `startInspect()` Ready-check and `feed()`
+  updating `now_` — both independently-correct fixes with no bearing on
+  the bug. Rebuilt, reflashed, full host suite green.
+- **Opened [D-16](docs/DECISIONS.md)**: `stop` needs to be scoped per-lane
+  (e.g. `stop wifi` / `stop lora`) before any deck-side automation can
+  safely stop one engine without disturbing another — a protocol-level
+  change (`ocp.h`, `ocp_server.c`, `ocp_client`/`deck_app.cpp`,
+  `tools/ocp.py`), not a deck-side patch, and its own hardware verification
+  pass. Not done tonight — recorded so the auto-handoff idea isn't lost,
+  just correctly gated on the real fix it needs.
+
+---
+
 ## 2026-09-14 — Deck: auto-retry and auto-handoff for the concurrent-radio "busy" case
 
 **Phase:** deck UX · **By:** Will + Claude

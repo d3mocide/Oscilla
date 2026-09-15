@@ -14,20 +14,25 @@
  * left — Wi-Fi and LoRa are separate radios (radio_arbiter only ever
  * tracks Wi-Fi/BLE/802.15.4) and running both at once (e.g. wardriving
  * Wi-Fi while LoRa listens) is a real, supported use, not an oversight.
- * Two consequences of keeping engines running in the background:
- *   - A command can arrive while an unrelated engine is still streaming
- *     events over the same Grove UART, so its own reply may simply be
- *     delayed rather than lost. Every start*() queues itself via
- *     retrySoon() if client_.send() couldn't go out yet (something else
- *     was pending) rather than just failing — see WORKLOG 2026-09-14.
- *   - Two Wi-Fi-family engines genuinely cannot run at once (one radio),
- *     so a start*() that arrives while another already owns the arbiter
- *     gets OCP_ERR_BUSY ("radio in use by ..."). Since pressing that
- *     start key already signals a deliberate switch, that specific error
- *     triggers an immediate stop-then-retry handoff instead of just an
- *     error notice (armed_busy_retry_/handoff_retry_, same WORKLOG entry).
- *     LoRa never participates in this — it has no arbiter conflict to
- *     hand off from.
+ * One consequence of keeping engines running in the background: a command
+ * can arrive while an unrelated engine is still streaming events over the
+ * same Grove UART, so its own reply may simply be delayed rather than
+ * lost. Every start*() queues itself via retrySoon() if client_.send()
+ * couldn't go out yet (something else was pending) rather than just
+ * failing — see WORKLOG 2026-09-14.
+ *
+ * Two Wi-Fi-family engines genuinely cannot run at once (one radio), so a
+ * start*() that arrives while another already owns the arbiter gets
+ * OCP_ERR_BUSY ("radio in use by ...") and today just shows that as a
+ * plain error — no auto-handoff. One was tried and reverted the same
+ * session (2026-09-14): the only tool available to release the arbiter is
+ * `stop`, and the probe's `stop` handler tears down *everything*
+ * unconditionally (`ocp_server.c`: `arbiter_stop_all()` plus an
+ * unconditional `lora_cmd_stop()`, every time, by original design — LoRa
+ * predates the arbiter entirely), so auto-sending it to clear a same-lane
+ * conflict silently killed a concurrently running LoRa session too. Fixing
+ * this for real needs a scoped stop at the protocol level, not a deck-side
+ * patch — tracked as D-16, not done.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -119,17 +124,6 @@ private:
      * still pending) - retried once that clears, see retrySoon(). */
     std::function<void(uint32_t)> pending_retry_;
     uint32_t pending_retry_started_ms_ = 0;
-    /* What to do if the command currently in flight comes back
-     * OCP_ERR_BUSY from radio_arbiter ("radio in use by <owner>") - a real
-     * same-PHY-lane conflict (two Wi-Fi-family engines), not the queuing
-     * artifact pending_retry_ handles. Set only by the arbiter-gated
-     * start*() calls; always cleared once that command's own reply lands,
-     * one way or another (see onReply()/tick()) so it can never fire for
-     * an unrelated later error. */
-    std::function<void(uint32_t)> armed_busy_retry_;
-    /* Set from armed_busy_retry_ once a handoff is underway: the auto-sent
-     * `stop` is in flight, and this runs when its [STOP] lands. */
-    std::function<void(uint32_t)> handoff_retry_;
 
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;
