@@ -1,3 +1,61 @@
+## 2026-09-14 — Deck: auto-retry and auto-handoff for the concurrent-radio "busy" case
+
+**Phase:** deck UX · **By:** Will + Claude
+
+Follow-up to the bench session below: Will wants concurrent Wi-Fi+LoRa kept
+as a real feature (nav-card cycling should not stop the screen you're
+leaving), and asked for the "busy" hiccup that surfaced to auto-resolve
+itself instead of just erroring.
+
+- **Confirmed there are two genuinely different "busy" cases**, not one:
+  (1) a command couldn't even be *sent* yet because something else was
+  still `pending()` — the queuing artifact from the earlier investigation,
+  no real conflict; (2) `radio_arbiter` genuinely refuses a second
+  Wi-Fi-family engine (`OCP_ERR_BUSY`, `"radio in use by <owner>"`, from
+  `wifi_recon.c`/`wifi_inspect.c`/`wifi_sniff.c`/`wifi_spectrum.c`
+  (`channel_view` and `packet_monitor`)/`wifi_deauth.c` — read all five
+  call sites to get the exact, consistent message text, not assumed). LoRa
+  never emits this — it has no arbiter entry at all. `scan_networks`'s own
+  "scan in progress" and `lora_listen`'s "already listening" are a third,
+  unrelated `busy` (a command's own re-entrancy guard) that must *not*
+  trigger a handoff — discriminated on the arbiter's exact message prefix,
+  documented as a deliberate (if slightly fragile) coupling.
+- **Case (1): `retrySoon()`** — every `start*()` now queues itself via a
+  `std::function` when `client_.send()` fails due to `pending()`, and
+  `tick()` retries it once that clears (bounded to 4s, then gives up with a
+  notice) — generalizes the scan-paging retry pattern `tick()` already had
+  for `next_page_`.
+- **Case (2): `armed_busy_retry_`/`handoff_retry_`** — every arbiter-gated
+  `start*()` (all six: scan/inspect/sniffer/channel_view/packet_monitor/
+  deauth_detector) arms a retry for itself right after sending; if that
+  command's own reply comes back as the arbiter's specific busy message,
+  the deck auto-sends `stop` and runs the retry once `[STOP]` lands —
+  immediate handoff, no grace period (pressing a start key already signals
+  the switch; waiting first only adds latency, so this deliberately does
+  *not* do what was floated as "or a set amount of time for continuously
+  running tasks"). LoRa's two start functions never arm this — confirmed
+  by reading `lora_recon.c` directly, LoRa's only `busy` is the unrelated
+  "already listening" one.
+- Real correctness work, not just the happy path: `armed_busy_retry_` is
+  captured-and-cleared at the top of every `onReply()` call (so it can
+  never fire against a later, unrelated error) with an added backstop in
+  `tick()` for the one gap that leaves — `Client::tick()`'s own timeout
+  path clears `pending()` without ever calling `onReply()`, so a silently
+  timed-out command needed a second place to clean up after itself. Also
+  fixed `feed()` to actually update `now_` (it never had, relying on
+  `tick()`'s value being "close enough" one loop iteration behind) since
+  `onReply()` now depends on it more than the soft diagnostic timestamp
+  it was used for before.
+- Not host-tested: `DeckApp` sits above the framework-agnostic boundary
+  this project's own convention draws (`AGENTS.md` §7: host-testable is
+  "everything from the OCP client down") — it owns view dispatch and pulls
+  in M5GFX-dependent headers, so it isn't part of `check_protocol.sh`
+  today and adding that harness is a separate undertaking, not bundled
+  into this change. Verified by real compilation (`pio run`) and live on
+  the actual hardware instead, flashed the same session.
+
+---
+
 ## 2026-09-14 — Bench session: both boards reflashed, MeshCore classifier confirmed live
 
 **Phase:** P3/P7 · **By:** Will + Claude

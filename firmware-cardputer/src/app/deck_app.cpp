@@ -29,6 +29,16 @@ constexpr uint32_t kRedrawMs = 200;
 constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
+constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
+
+/* radio_arbiter's own message text (wifi_sniff.c/wifi_spectrum.c/
+ * wifi_recon.c/wifi_inspect.c/wifi_deauth.c all format it identically) -
+ * the one thing distinguishing a real cross-engine PHY conflict from
+ * OCP_ERR_BUSY's other uses (scan_networks' own "scan in progress",
+ * lora_listen's "already listening"), neither of which the arbiter is
+ * involved in at all. Coupled to that exact wording on purpose: only the
+ * arbiter conflict should trigger an automatic stop-and-switch. */
+constexpr char kArbiterBusyPrefix[] = "radio in use by ";
 
 /* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
  * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
@@ -61,7 +71,15 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
          * that never gets answered would leave lora_listen_pending_ stuck
          * true otherwise. Any drop out of Ready means whatever was pending
          * is moot. */
-        if (s != ocp::LinkState::Ready) lora_listen_pending_ = false;
+        if (s != ocp::LinkState::Ready) {
+            lora_listen_pending_ = false;
+            /* Same reasoning: whatever these were tracking is moot once the
+             * link isn't Ready, and a stale one must never fire later
+             * against something unrelated after a reconnect. */
+            pending_retry_ = nullptr;
+            armed_busy_retry_ = nullptr;
+            handoff_retry_ = nullptr;
+        }
         dirty_ = true;
     });
     client_.onReset([this] {
@@ -94,16 +112,43 @@ void DeckApp::notice(const std::string &text)
     dirty_ = true;
 }
 
+void DeckApp::retrySoon(std::function<void(uint32_t)> action, uint32_t now_ms)
+{
+    pending_retry_ = std::move(action);
+    pending_retry_started_ms_ = now_ms;
+    notice("busy, retrying...");
+}
+
 void DeckApp::onReply(const ocp::Item &it)
 {
     dirty_ = true;
+    /* Whatever armed_busy_retry_ was tracking is resolving right now, one
+     * way or another - captured once here so every path below (including
+     * the early Pong return) leaves it clean rather than needing to
+     * remember to clear it in each branch. */
+    auto armed_retry = std::move(armed_busy_retry_);
+    armed_busy_retry_ = nullptr;
+
     if (it.kind == ocp::ItemKind::Pong) { last_reply_ = "pong"; return; }
 
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
-        notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
+        bool arbiter_conflict = armed_retry && code && *code == OCP_ERR_BUSY && msg &&
+                                 msg->rfind(kArbiterBusyPrefix, 0) == 0;
+        if (arbiter_conflict) {
+            /* A real same-PHY-lane conflict, not the pending_retry_ queuing
+             * artifact: another Wi-Fi-family engine holds the radio. The
+             * user's own explicit start action already signaled intent to
+             * switch, so hand off immediately rather than just erroring -
+             * stop the old one, then run the retry once its [STOP] lands. */
+            handoff_retry_ = std::move(armed_retry);
+            notice("switching radio...");
+            client_.stop(now_);
+        } else {
+            notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
+        }
         log(std::string("err code=") + (code ? *code : "?"));
         return;
     }
@@ -124,6 +169,13 @@ void DeckApp::onReply(const ocp::Item &it)
         lora_.stop();
         storage::loraLogEnd();
         deauth_.stop();
+        if (handoff_retry_) {
+            /* The engine that was in the way just released the PHY lane -
+             * now actually run the start the user originally asked for. */
+            auto retry = std::move(handoff_retry_);
+            handoff_retry_ = nullptr;
+            retry(now_);
+        }
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
     } else if (it.tag == OCP_MARK_CLIENTS) {
@@ -189,7 +241,11 @@ void DeckApp::onEvent(const ocp::Item &it)
 void DeckApp::startScan(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!client_.send(OCP_V_SCAN_NETWORKS, now_ms)) { notice("busy"); return; }
+    if (!client_.send(OCP_V_SCAN_NETWORKS, now_ms)) {
+        retrySoon([this](uint32_t t) { startScan(t); }, now_ms);
+        return;
+    }
+    armed_busy_retry_ = [this](uint32_t t) { startScan(t); };
     scan_.begin();
     cursor_ = 0;
     next_page_ = 0;
@@ -201,11 +257,13 @@ void DeckApp::startScan(uint32_t now_ms)
 void DeckApp::startInspect(uint32_t now_ms)
 {
     if (scan_.rows().empty()) return;
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     trace_idx_ = scan_.rows()[cursor_].idx;
     if (!client_.send(std::string(OCP_V_INSPECT_NETWORK) + " " + std::to_string(trace_idx_), now_ms)) {
-        notice("busy");
+        retrySoon([this](uint32_t t) { startInspect(t); }, now_ms);
         return;
     }
+    armed_busy_retry_ = [this](uint32_t t) { startInspect(t); };
     screen_ = Screen::Trace;
     notice("");
 }
@@ -213,7 +271,11 @@ void DeckApp::startInspect(uint32_t now_ms)
 void DeckApp::startSniffer(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!client_.send(OCP_V_START_SNIFFER, now_ms)) { notice("busy"); return; }
+    if (!client_.send(OCP_V_START_SNIFFER, now_ms)) {
+        retrySoon([this](uint32_t t) { startSniffer(t); }, now_ms);
+        return;
+    }
+    armed_busy_retry_ = [this](uint32_t t) { startSniffer(t); };
     contacts_.begin();
     contacts_cursor_ = 0;
     contacts_tab_ = ui::ContactsTab::Clients;
@@ -226,7 +288,11 @@ void DeckApp::startSniffer(uint32_t now_ms)
 void DeckApp::startChannelView(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!client_.send(OCP_V_CHANNEL_VIEW, now_ms)) { notice("busy"); return; }
+    if (!client_.send(OCP_V_CHANNEL_VIEW, now_ms)) {
+        retrySoon([this](uint32_t t) { startChannelView(t); }, now_ms);
+        return;
+    }
+    armed_busy_retry_ = [this](uint32_t t) { startChannelView(t); };
     spectrum_.begin();
     spectrum_cursor_ = 0;
     notice("");
@@ -236,9 +302,10 @@ void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!client_.send(std::string(OCP_V_PACKET_MONITOR) + " " + std::to_string(ch), now_ms)) {
-        notice("busy");
+        retrySoon([this, ch](uint32_t t) { startPacketMonitor(t, ch); }, now_ms);
         return;
     }
+    armed_busy_retry_ = [this, ch](uint32_t t) { startPacketMonitor(t, ch); };
     spectrum_.beginLocked(ch);
     notice("");
 }
@@ -256,10 +323,16 @@ constexpr int kBenchCr = 1;
 
 void DeckApp::startLoraConfig(uint32_t now_ms)
 {
+    /* No arbiter involved - LoRa is a separate chip, never PHY_OWNER_WIFI -
+     * so no armed_busy_retry_ here; a busy reply for this verb can only be
+     * the client-side queuing case retrySoon() already covers. */
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     std::string cmd = std::string(OCP_V_LORA_CONFIG) + " " + std::to_string(kBenchFreqHz) + " " +
                        std::to_string(kBenchSf) + " " + std::to_string(kBenchBwKhz) + " " + std::to_string(kBenchCr);
-    if (!client_.send(cmd, now_ms)) { notice("busy"); return; }
+    if (!client_.send(cmd, now_ms)) {
+        retrySoon([this](uint32_t t) { startLoraConfig(t); }, now_ms);
+        return;
+    }
     lora_.configured(kBenchFreqHz, kBenchSf, kBenchBwKhz, kBenchCr);
     notice("");
 }
@@ -268,7 +341,10 @@ void DeckApp::startLoraListen(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!lora_.hasConfig()) { notice("config first (c)"); return; }
-    if (!client_.send(OCP_V_LORA_LISTEN, now_ms)) { notice("busy"); return; }
+    if (!client_.send(OCP_V_LORA_LISTEN, now_ms)) {
+        retrySoon([this](uint32_t t) { startLoraListen(t); }, now_ms);
+        return;
+    }
     lora_listen_pending_ = true;   /* [LORA]/error reply decides whether to actually start (below) */
     notice("");
 }
@@ -276,7 +352,11 @@ void DeckApp::startLoraListen(uint32_t now_ms)
 void DeckApp::startDeauthDetector(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!client_.send(OCP_V_DEAUTH_DETECTOR, now_ms)) { notice("busy"); return; }
+    if (!client_.send(OCP_V_DEAUTH_DETECTOR, now_ms)) {
+        retrySoon([this](uint32_t t) { startDeauthDetector(t); }, now_ms);
+        return;
+    }
+    armed_busy_retry_ = [this](uint32_t t) { startDeauthDetector(t); };
     deauth_.begin();
     deauth_cursor_ = 0;
     notice("");
@@ -380,6 +460,24 @@ void DeckApp::tick(uint32_t now_ms)
 {
     now_ = now_ms;
     client_.tick(now_ms);
+
+    /* armed_busy_retry_ is only ever meaningful while the command it was
+     * set for is still in flight. onReply() already clears it the moment
+     * that command's reply lands, success or error - the one case that
+     * misses is a silent timeout (Client::tick() clears pending() itself
+     * without calling onReply()), which this backstop catches instead. */
+    if (armed_busy_retry_ && !client_.pending()) armed_busy_retry_ = nullptr;
+
+    if (pending_retry_) {
+        if (!client_.pending()) {
+            auto action = std::move(pending_retry_);
+            pending_retry_ = nullptr;
+            action(now_ms);   /* may itself queue another retry if still busy */
+        } else if (now_ms - pending_retry_started_ms_ >= kPendingRetryWindowMs) {
+            pending_retry_ = nullptr;
+            notice("busy (gave up)");
+        }
+    }
 
     if (next_page_ && !client_.pending()) {
         uint16_t first = next_page_;

@@ -10,6 +10,25 @@
  * rework DESIGN will eventually need for a growing card set (deliberate,
  * not an oversight: see WORKLOG).
  *
+ * Cycling cards (`,`/`/`) deliberately does *not* stop the screen being
+ * left — Wi-Fi and LoRa are separate radios (radio_arbiter only ever
+ * tracks Wi-Fi/BLE/802.15.4) and running both at once (e.g. wardriving
+ * Wi-Fi while LoRa listens) is a real, supported use, not an oversight.
+ * Two consequences of keeping engines running in the background:
+ *   - A command can arrive while an unrelated engine is still streaming
+ *     events over the same Grove UART, so its own reply may simply be
+ *     delayed rather than lost. Every start*() queues itself via
+ *     retrySoon() if client_.send() couldn't go out yet (something else
+ *     was pending) rather than just failing — see WORKLOG 2026-09-14.
+ *   - Two Wi-Fi-family engines genuinely cannot run at once (one radio),
+ *     so a start*() that arrives while another already owns the arbiter
+ *     gets OCP_ERR_BUSY ("radio in use by ..."). Since pressing that
+ *     start key already signals a deliberate switch, that specific error
+ *     triggers an immediate stop-then-retry handoff instead of just an
+ *     error notice (armed_busy_retry_/handoff_retry_, same WORKLOG entry).
+ *     LoRa never participates in this — it has no arbiter conflict to
+ *     hand off from.
+ *
  * SPDX-License-Identifier: MIT
  */
 
@@ -41,7 +60,7 @@ public:
     explicit DeckApp(ocp::Client::Write write);
 
     void begin(uint32_t now_ms);
-    void feed(const uint8_t *data, size_t len, uint32_t now_ms) { client_.feed(data, len, now_ms); }
+    void feed(const uint8_t *data, size_t len, uint32_t now_ms) { now_ = now_ms; client_.feed(data, len, now_ms); }
     void tick(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
 
@@ -68,6 +87,12 @@ private:
     void back(uint32_t now_ms);
     void notice(const std::string &text);
 
+    /* A command couldn't even be sent yet (client_.pending() from something
+     * else in flight, not a real conflict) - retry it once that clears,
+     * same idea as the scan-paging retry in tick(), generalized. Bounded so
+     * a stuck link degrades to an error, not a silent forever-retry. */
+    void retrySoon(std::function<void(uint32_t)> action, uint32_t now_ms);
+
     ocp::Client client_;
     model::ScanModel scan_;
     model::ContactsModel contacts_;
@@ -89,6 +114,22 @@ private:
      * and storage::loraLogBegin(), not the optimistic send. */
     bool lora_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
+
+    /* Queued because the client couldn't send yet (something else was
+     * still pending) - retried once that clears, see retrySoon(). */
+    std::function<void(uint32_t)> pending_retry_;
+    uint32_t pending_retry_started_ms_ = 0;
+    /* What to do if the command currently in flight comes back
+     * OCP_ERR_BUSY from radio_arbiter ("radio in use by <owner>") - a real
+     * same-PHY-lane conflict (two Wi-Fi-family engines), not the queuing
+     * artifact pending_retry_ handles. Set only by the arbiter-gated
+     * start*() calls; always cleared once that command's own reply lands,
+     * one way or another (see onReply()/tick()) so it can never fire for
+     * an unrelated later error. */
+    std::function<void(uint32_t)> armed_busy_retry_;
+    /* Set from armed_busy_retry_ once a handoff is underway: the auto-sent
+     * `stop` is in flight, and this runs when its [STOP] lands. */
+    std::function<void(uint32_t)> handoff_retry_;
 
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;
