@@ -21,7 +21,7 @@ void lora_cmd_config(int argc, char **argv);
 void lora_cmd_listen(void);
 void lora_cmd_status(void);
 
-/* Idempotent; safe to call from `stop` whether or not RX is running. */
-void lora_cmd_stop(void);
+/* Idempotent; safe to call whether or not RX is running. True if it was. */
+bool lora_cmd_stop(void);
 
 #endif /* OSCILLA_LORA_RECON_H */

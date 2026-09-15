@@ -288,6 +288,8 @@ The C5's Wi-Fi, BLE and 802.15.4 share **one internal PHY** and are mutually exc
 | **PHY lane** | Wi-Fi 2.4/5, BLE, 802.15.4 | Exactly one owner. `acquire()` before touching the PHY, `release()` on stop; `stop` forces the current owner down via its teardown hook. Coexistence (Wi-Fi + duty-cycled BLE) is modelled as a **single combined owner**, never two. |
 | **LoRa lane** | SX1262 | Independent owner, acquired separately. May run concurrently with a PHY owner. |
 
+Because the lanes are independent, **`stop` is scoped per lane** — `stop phy`, `stop lora`, or a bare `stop` for both ([D-16](docs/DECISIONS.md), OCP-SPEC §5.4). An unscoped stop sent only to hand the PHY from one Wi-Fi-family engine to another would otherwise tear down a concurrent LoRa session as a side effect, which is exactly what it did before the scope existed.
+
 Concurrency between lanes is **budgeted, not free.** Both lanes register a power class with an interlock; running LoRa RX alongside a 5 GHz promiscuous sweep is throttled (or refused with `[ERR] code=budget`) until the measured headroom from P6 says otherwise. Until that measurement exists, the interlock is deliberately conservative. (Receive-only keeps peak draw well below the TX case, but simultaneous RX across both lanes still stacks — hence the interlock.)
 
 ### 6.3 Channel strategy

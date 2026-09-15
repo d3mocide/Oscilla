@@ -489,6 +489,100 @@ def mode_gate_wifi(port: str, baud: int, color: bool = True) -> int:
 MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
 
+def mode_gate_stop(port: str, baud: int, color: bool = True) -> int:
+    """Scoped-`stop` checks against a live probe (D-16, OCP-SPEC §5.4).
+
+    The load-bearing one is the cross-lane isolation: `stop phy` must release
+    the PHY lane and leave a running LoRa RX session alone. That is the exact
+    regression that got the deck's auto-handoff reverted on 2026-09-14, and it
+    can only be confirmed with both radios live."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name, ok, detail=""):
+        checks.append((name, None if ok is None else bool(ok), detail))
+
+    def frames(items, tag):
+        return [i for i in items if isinstance(i, Frame) and i.tag == tag]
+
+    def errors(items):
+        return [i for i in items if isinstance(i, Error)]
+
+    p = Probe(port, baud)
+    try:
+        p.collect(0.5)
+
+        # Arity and validation come first: they need no radios at all.
+        st = frames(p.command("stop"), "[STOP]")
+        check("bare stop is still acked", st, "")
+        check("bare stop reports lane=all", st and st[0].get("lane") == "all",
+              st[0].get("lane") if st else "")
+
+        for lane in ("phy", "lora", "all"):
+            st = frames(p.command(f"stop {lane}"), "[STOP]")
+            check(f"stop {lane} is acked and echoes its lane",
+                  st and st[0].get("lane") == lane, st[0].get("lane") if st else "")
+
+        errs = errors(p.command("stop wifi"))
+        check("an unknown lane is badarg, not a silent global stop",
+              errs and errs[0].code == "badarg",
+              errs[0].code if errs else "no [ERR]")
+        errs = errors(p.command("stop phy lora"))
+        check("two lanes is badarg (max_args=1)",
+              errs and errs[0].code == "badarg",
+              errs[0].code if errs else "no [ERR]")
+
+        st = frames(p.command("status"), "[STATUS]")
+        lora_present = st and st[0].get("lora") != "absent"
+        if not lora_present:
+            check("cross-lane isolation: stop phy spares LoRa", None,
+                  "no SX1262 on this probe")
+            check("cross-lane isolation: stop lora spares the PHY", None,
+                  "no SX1262 on this probe")
+        else:
+            # Both lanes up at once — the configuration the bug needed.
+            p.command("lora_config 915000000 7 125 5")
+            frames(p.command("lora_listen", 1.0), "[LORA]")
+            frames(p.command("start_sniffer", 1.5), "[SNIFF]")
+
+            st = frames(p.command("status", 0.6), "[STATUS]")
+            both = st and st[0].get("owner") == "wifi" and st[0].get("lora") == "rx"
+            check("both lanes run concurrently (owner=wifi, lora=rx)", both,
+                  f"owner={st[0].get('owner')} lora={st[0].get('lora')}" if st else "")
+
+            st = frames(p.command("stop phy"), "[STOP]")
+            check("stop phy reports something was running",
+                  st and st[0].get("running") == "1", "")
+            st = frames(p.command("status", 0.6), "[STATUS]")
+            check("cross-lane isolation: stop phy spares LoRa",
+                  st and st[0].get("owner") == "none" and st[0].get("lora") == "rx",
+                  f"owner={st[0].get('owner')} lora={st[0].get('lora')}" if st else "")
+
+            # And the mirror image.
+            frames(p.command("start_sniffer", 1.5), "[SNIFF]")
+            st = frames(p.command("stop lora"), "[STOP]")
+            check("stop lora reports something was running",
+                  st and st[0].get("running") == "1", "")
+            st = frames(p.command("status", 0.6), "[STATUS]")
+            check("cross-lane isolation: stop lora spares the PHY",
+                  st and st[0].get("owner") == "wifi" and st[0].get("lora") == "idle",
+                  f"owner={st[0].get('owner')} lora={st[0].get('lora')}" if st else "")
+
+            st = frames(p.command("stop"), "[STOP]")
+            check("a bare stop still clears both lanes",
+                  st and st[0].get("running") == "1", "")
+            st = frames(p.command("status", 0.6), "[STATUS]")
+            check("both lanes idle after a bare stop",
+                  st and st[0].get("owner") == "none" and st[0].get("lora") == "idle",
+                  f"owner={st[0].get('owner')} lora={st[0].get('lora')}" if st else "")
+
+        check("probe still answers after all that",
+              any(isinstance(i, Pong) for i in p.command("ping")))
+    finally:
+        p.close()
+
+    return report(checks, "D-16 scoped stop", color)
+
+
 def mode_gate_sniffer(port: str, baud: int, color: bool = True) -> int:
     """Promiscuous-sniffer checks against a live probe (P7, started early —
     see WORKLOG). Prints counts and channel/RSSI only, never MACs or SSIDs:
@@ -905,6 +999,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gate-sniffer", action="store_true",
                     help="promiscuous-sniffer checks against a live probe (P7, started early; "
                          "table checks SKIP rather than FAIL with no RF traffic nearby)")
+    ap.add_argument("--gate-stop", action="store_true",
+                    help="scoped-`stop` lane isolation against a live probe (D-16); "
+                         "the cross-lane checks SKIP without an SX1262 attached")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
     color = not args.no_color and sys.stdout.isatty()
@@ -917,6 +1014,8 @@ def main(argv: list[str] | None = None) -> int:
         return mode_gate_wifi(args.port, args.baud, color)
     if args.port and args.gate_sniffer:
         return mode_gate_sniffer(args.port, args.baud, color)
+    if args.port and args.gate_stop:
+        return mode_gate_stop(args.port, args.baud, color)
     if args.port and args.gate:
         return mode_gate(args.port, args.baud, color)
     if args.port and args.exec_cmds:

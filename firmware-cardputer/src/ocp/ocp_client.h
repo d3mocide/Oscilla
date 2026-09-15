@@ -74,8 +74,9 @@ public:
     bool send(const std::string &line, uint32_t now_ms);
 
     /* Allowed while a command is pending (OCP-SPEC §2.1): the cancelled
-     * command still gets its aborted reply, then [STOP]. */
-    bool stop(uint32_t now_ms);
+     * command still gets its aborted reply, then [STOP]. `lane` scopes the
+     * cancel (OCP-SPEC §5.4); the default stops every lane. */
+    bool stop(uint32_t now_ms, const std::string &lane = OCP_LANE_ALL);
 
     LinkState state() const { return state_; }
     bool pending() const { return !pending_verb_.empty(); }

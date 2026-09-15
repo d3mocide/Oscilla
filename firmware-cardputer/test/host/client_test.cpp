@@ -175,6 +175,34 @@ int main()
     }
 
     {
+        /* Scoped stop (D-16, OCP-SPEC §5.4). The lane must reach the wire,
+         * and a scoped ack must not be mistaken for a global one. */
+        Rig r;
+        r.c.connect(r.now); r.probe(kHello); r.takeWire();
+
+        check(r.c.stop(r.now) && r.takeWire() == "stop\n",
+              "an unscoped stop stays byte-identical to a pre-D-16 deck");
+        r.probe("[STOP] lane=all running=1 END\n");
+        check(!r.c.stopPending(), "[STOP] lane=all answers it");
+
+        check(r.c.stop(r.now, OCP_LANE_PHY) && r.takeWire() == "stop phy\n",
+              "stop(phy) puts the lane on the wire");
+        r.probe("[STOP] lane=phy running=1 END\n");
+        check(!r.c.stopPending() && r.c.stats().stray == 0, "[STOP] lane=phy answers it");
+
+        check(r.c.send("stop lora", r.now) && r.takeWire() == "stop lora\n",
+              "send(\"stop lora\") routes the lane through to stop()");
+        check(r.c.stopPending(), "a scoped stop is still tracked as pending");
+        r.probe("[STOP] lane=lora running=0 END\n");
+        check(!r.c.stopPending() && r.c.stats().stray == 0, "[STOP] lane=lora answers it");
+
+        /* A probe that refuses the lane must not leave the deck waiting. */
+        check(r.c.stop(r.now, OCP_LANE_LORA), "a stop after a completed one is allowed");
+        r.advance(ocp::Client::kStopTimeoutMs);
+        check(r.c.state() == S::Disconnected, "an unanswered scoped stop still times out");
+    }
+
+    {
         /* Seen on hardware: junk from an esptool reset, ended by our flush
          * newline, draws [ERR] unknown before our hello is answered. */
         Rig r;

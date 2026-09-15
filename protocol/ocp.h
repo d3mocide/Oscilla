@@ -153,7 +153,7 @@ typedef enum {
     X(PING,              OCP_V_PING,              OCP_CC_NONE,        0,  0,  OCP_REPLY_PONG)      \
     X(VERSION,           OCP_V_VERSION,           OCP_CC_NONE,        0,  0,  OCP_MARK_VER)        \
     X(STATUS,            OCP_V_STATUS,            OCP_CC_NONE,        0,  0,  OCP_MARK_STATUS)     \
-    X(STOP,              OCP_V_STOP,              OCP_CC_NONE,        0,  0,  OCP_MARK_STOP)       \
+    X(STOP,              OCP_V_STOP,              OCP_CC_NONE,        0,  1,  OCP_MARK_STOP)       \
     X(REBOOT,            OCP_V_REBOOT,            OCP_CC_NONE,        0,  0,  "")                  \
     X(SCAN_NETWORKS,     OCP_V_SCAN_NETWORKS,     OCP_CC_WIFI,        0,  0,  OCP_MARK_SCAN)       \
     X(SHOW_SCAN_RESULTS, OCP_V_SHOW_SCAN_RESULTS, OCP_CC_WIFI,        0,  1,  OCP_MARK_SCAN)       \
@@ -213,6 +213,7 @@ typedef enum {
 #define OCP_K_OWNER             "owner"
 #define OCP_K_COUNT             "n"
 #define OCP_K_RUNNING           "running"
+#define OCP_K_LANE              "lane"     /* [STOP]: which lane(s) it addressed */
 #define OCP_K_UPTIME_MS         "uptime_ms"
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
 #define OCP_K_HEAP              "heap"     /* [STATUS]: free heap, bytes  */
@@ -288,6 +289,12 @@ typedef enum {
 #define OCP_OWNER_WIFI          "wifi"
 #define OCP_OWNER_BLE           "ble"
 #define OCP_OWNER_IEEE802154    "ieee802154"
+
+/* `stop` scope: DESIGN §6.2's two arbiter lanes, plus "all" (D-16).
+ * A bare `stop` means OCP_LANE_ALL, so older decks keep working. */
+#define OCP_LANE_ALL            "all"
+#define OCP_LANE_PHY            "phy"
+#define OCP_LANE_LORA           "lora"
 
 /* --- Helpers -------------------------------------------------------------- */
 

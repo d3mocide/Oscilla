@@ -93,10 +93,13 @@ void Client::connect(uint32_t now_ms)
     setState(LinkState::HelloSent);
 }
 
-bool Client::stop(uint32_t now_ms)
+bool Client::stop(uint32_t now_ms, const std::string &lane)
 {
     if (state_ != LinkState::Ready || stop_pending_) return false;
-    writeLine(OCP_V_STOP);
+    /* "all" goes on the wire bare, so the common case is byte-identical to a
+     * pre-D-16 deck and a pre-D-16 probe still understands it. */
+    writeLine(lane == OCP_LANE_ALL ? std::string(OCP_V_STOP)
+                                   : std::string(OCP_V_STOP) + " " + lane);
     stop_pending_ = true;
     stop_sent_at_ = now_ms;
     return true;
@@ -105,7 +108,10 @@ bool Client::stop(uint32_t now_ms)
 bool Client::send(const std::string &line, uint32_t now_ms)
 {
     std::string verb = line.substr(0, line.find(' '));
-    if (verb == OCP_V_STOP) return stop(now_ms);
+    if (verb == OCP_V_STOP) {
+        size_t sp = line.find(' ');
+        return stop(now_ms, sp == std::string::npos ? OCP_LANE_ALL : line.substr(sp + 1));
+    }
     if (state_ != LinkState::Ready || pending()) return false;
 
     const char *reply = expectedReply(verb);

@@ -1,3 +1,58 @@
+## 2026-09-15 — `stop` is scoped per lane: D-16 implemented (hardware pass still owed)
+
+**Phase:** protocol / pre-P7 polish · **By:** Will + Claude
+
+Picked the dual-radio thread back up. Will's framing was "make sure only one
+radio runs at a time for power conservation"; the repo disagreed, so that got
+settled before any code moved.
+
+- **The premise didn't survive contact with the documents, and that mattered.**
+  Three separate things had been collapsed into one idea. `radio_arbiter` does
+  enforce one-at-a-time, but only across Wi-Fi/BLE/802.15.4, and because they
+  *share one PHY* — hardware mutual exclusion, not power. DESIGN §6.2 says the
+  LoRa lane "may run concurrently with a PHY owner", and the 2026-09-14 entry
+  below records Will explicitly asking to keep concurrent Wi-Fi+LoRa. And the
+  actual power interlock **does not exist**: `OCP_ERR_BUDGET` is defined in
+  `ocp.h` and has a worked example in OCP-SPEC §5.3, but nothing in the
+  firmware has ever emitted it — it's deliberately deferred to P6's current
+  measurement (D-4, still open). Asked rather than guessed; Will confirmed the
+  target was D-16, not a power policy. Worth recording that a reserved-but-
+  unimplemented error code read convincingly as a shipped feature.
+- **Named the lanes after DESIGN §6.2, not after D-16's own sketch.** D-16 said
+  "e.g. `stop wifi` / `stop lora`". Used **`phy`** instead: the PHY lane carries
+  BLE and 802.15.4 too, so `stop wifi` would have named one member of the lane
+  and misled the first time a BLE engine held it. `stop [all|phy|lora]`.
+- **Backward-compatible in both directions, deliberately.** A bare `stop` still
+  means every lane *and still goes on the wire bare* — so an old deck works
+  against a new probe, and a new deck's unscoped stop works against an old
+  probe. The probe echoes `lane=` in `[STOP]`; a deck that sees no `lane=` key
+  knows it's talking to a pre-D-16 probe and assumes `all`. `deck_app.cpp` now
+  clears only the stopped lane's models instead of all of them.
+- **Fixed a wart found on the way in:** `running=` was computed purely from
+  `arbiter_stop_all()`, so a `stop` with only LoRa running answered
+  `running=0`. `lora_cmd_stop()` now returns whether RX was actually running
+  and `running=` covers whichever lanes the command addressed.
+- **`tools/ocp.py` needed no change** — it derives the verb table from `ocp.h`
+  by parsing `OCP_VERB_TABLE`, so bumping STOP's max_args flowed through and
+  `check_against_header` kept agreeing on its own.
+- **Proved the new checks can go red**, per §6. First attempt was a bad proof:
+  deleting the lane from `Client::stop` tripped `-Werror=unused-parameter` and
+  failed at compile time, which tests nothing. Reintroduced the *realistic*
+  bug instead — `send()` routing `stop lora` through to a bare `stop`, exactly
+  the slip that would resurrect the original side effect — and the client suite
+  went red on it (51/1). Restored from a scratchpad copy, not `git restore`.
+- **Verified:** host suite green (client test 43→52 checks), 27/27 OCP-SPEC §9
+  conformance, both firmwares build (esp32c5 + esp32s3).
+- **Not verified — and this is the part that's owed:** cross-lane isolation on
+  real hardware. The whole point is that `stop phy` spares a live LoRa session,
+  and that can only be confirmed with both radios running. Wrote
+  `tools/ocp_repl.py --gate-stop` for exactly that pass (it SKIPs the
+  cross-lane checks with no SX1262 attached rather than passing vacuously); it
+  has **not** been run against a probe. **The reverted deck-side auto-handoff
+  should stay reverted until it has.**
+
+---
+
 ## 2026-09-14 — Aligned Section 05 external cards in Master Brand & UI Guide
 
 **Phase:** Docs / Brand · **By:** Will + Antigravity

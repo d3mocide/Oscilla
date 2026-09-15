@@ -5,11 +5,10 @@
  * file only translates OCP verbs <-> lora_radio's typed API, and drains its
  * event queue into [EVT] kind=lora lines on a small dedicated task.
  *
- * The P3 exit gate wants `stop` to cleanly release the LoRa lane even
- * though radio_arbiter.c doesn't yet model a LoRa lane (DESIGN §6.2 defers
- * the full two-lane interlock to P6) — lora_cmd_stop() is called directly
- * from ocp_server.c's STOP handler, unconditionally and idempotently,
- * rather than going through the PHY arbiter.
+ * radio_arbiter.c doesn't model a LoRa lane (DESIGN §6.2 defers the full
+ * two-lane interlock to P6), so ocp_server.c's STOP handler calls
+ * lora_cmd_stop() directly, idempotently, rather than going through the PHY
+ * arbiter — and only when the requested lane covers LoRa (D-16).
  *
  * SPDX-License-Identifier: MIT
  */
@@ -190,7 +189,9 @@ void lora_cmd_status(void)
                      OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr);
 }
 
-void lora_cmd_stop(void)
+bool lora_cmd_stop(void)
 {
+    bool was_running = lora_radio_is_running();
     lora_radio_rx_stop();   /* safe even if not running; drain_task notices and self-exits */
+    return was_running;
 }

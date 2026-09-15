@@ -143,11 +143,19 @@ void DeckApp::onReply(const ocp::Item &it)
             last_status_reply_ms_ = now_;
         }
     } else if (it.tag == OCP_MARK_STOP) {
-        contacts_.stopSniffing();
-        spectrum_.stop();
-        lora_.stop();
-        storage::loraLogEnd();
-        deauth_.stop();
+        /* Clear only the lane the probe says it stopped (D-16). A pre-D-16
+         * probe omits lane=, and stopped everything. */
+        const auto *lane = it.get(OCP_K_LANE);
+        bool all = !lane || *lane == OCP_LANE_ALL;
+        if (all || *lane == OCP_LANE_PHY) {
+            contacts_.stopSniffing();
+            spectrum_.stop();
+            deauth_.stop();
+        }
+        if (all || *lane == OCP_LANE_LORA) {
+            lora_.stop();
+            storage::loraLogEnd();
+        }
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
     } else if (it.tag == OCP_MARK_CLIENTS) {

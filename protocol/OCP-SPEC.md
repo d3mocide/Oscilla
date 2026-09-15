@@ -52,7 +52,7 @@ Each verb's arity and required capability class live in the `OCP_VERB_TABLE` X-m
 
 One command is in flight at a time. The probe processes commands in order and does not pipeline. A long-running mode (`start_sniffer`, `lora_listen`, …) **returns its reply frame immediately** and continues to emit `[EVT]` lines; it does not hold the command channel. `stop` is always accepted, including while a mode runs (DESIGN §6.4: the dispatch task outranks engine tasks, so `stop` always lands).
 
-**`stop` is the one exception to one-at-a-time.** A deck may send it while another command is pending. The cancelled command still gets its reply frame — flagged `aborted=1`, with its unconditional `END` — and then `[STOP] running=1 END`. A deck therefore waits for both.
+**`stop` is the one exception to one-at-a-time.** A deck may send it while another command is pending. The cancelled command still gets its reply frame — flagged `aborted=1`, with its unconditional `END` — and then `[STOP] lane=all running=1 END`. A deck therefore waits for both.
 
 ---
 
@@ -186,13 +186,26 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 
 ### 5.4 Lifecycle
 
-`stop` is the **universal cancel** and is *always* acked, including when nothing is running:
+`stop [lane]` is the **universal cancel** and is *always* acked, including when nothing is running:
 
 ```
-[STOP] running=0 END
+> stop
+[STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the probe is idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, and uptime.
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, and uptime.
+
+**The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
+
+| `lane` | Stops | Leaves alone |
+|---|---|---|
+| `all` (default) | PHY lane *and* LoRa lane | — |
+| `phy` | whichever of Wi-Fi / BLE / 802.15.4 holds the PHY | a running LoRa RX session |
+| `lora` | the SX1262 RX session | the PHY-lane owner |
+
+A bare `stop` means `all`, so a deck written against an older probe behaves exactly as before. Any other lane value is `[ERR] code=badarg`. The probe echoes what it acted on as `lane=` in the ack; a deck that sees no `lane=` key is talking to a pre-D-16 probe and should assume `all`.
+
+Scoping matters because the two lanes are independent hardware and **may run concurrently** (DESIGN §6.2): an unscoped `stop` sent only to free the PHY for a different Wi-Fi-family engine would otherwise kill an unrelated LoRa session as a side effect ([D-16](../docs/DECISIONS.md)).
 
 ---
 
@@ -258,7 +271,7 @@ The verb table is not the whole story: an innocent verb could still call a trans
 > lora_listen
 [ERR] code=budget msg="lora refused while wifi promiscuous is active"
 > stop
-[STOP] running=1 END
+[STOP] lane=all running=1 END
 > lora_status
 [LORA] BEGIN state=idle
 [LORA] freq=0 sf=0 bw=0 cr=0 rx=0 crc_err=0 fault=none
@@ -354,7 +367,7 @@ this passively rather than only scanning associated traffic.
 [EVT] kind=probe mac=f4:12:34:56:78:9a ssid="HomeNet" rssi=-61
 [EVT] kind=sniff pkts=349 ch=2
 > stop
-[STOP] running=1 END
+[STOP] lane=all running=1 END
 ```
 
 | `[EVT] kind=` | Meaning | Keys |
@@ -402,7 +415,7 @@ immediately and streams for the rest of the session, same shape as
 [EVT] kind=deauth bssid=aa:bb:cc:dd:ee:01 mac=f4:12:34:56:78:9a reason=7 disassoc=0 rssi=-58 ch=6 n=1
 [EVT] kind=deauth bssid=aa:bb:cc:dd:ee:01 mac=f4:12:34:56:78:9a reason=7 disassoc=0 rssi=-59 ch=6 n=2
 > stop
-[STOP] running=1 END
+[STOP] lane=all running=1 END
 ```
 
 Unlike the sniffer's client/probe events (new sightings only), **every**
@@ -442,7 +455,7 @@ briefly, not a gap that never fills in.
 [EVT] kind=chan ch=2 pkts=3
 ...
 > stop
-[STOP] running=1 END
+[STOP] lane=all running=1 END
 ```
 
 `packet_monitor <ch>` locks onto one channel instead of hopping, reporting
@@ -454,7 +467,7 @@ packets/s on a 1 s window:
 [EVT] kind=chan ch=6 pkts=118
 [EVT] kind=chan ch=6 pkts=94
 > stop
-[STOP] running=1 END
+[STOP] lane=all running=1 END
 ```
 
 `ch` must be one of the channels this build actually hops (2.4 GHz 1-13,

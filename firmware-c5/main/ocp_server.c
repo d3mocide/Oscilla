@@ -121,11 +121,27 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
     case OCP_VID_STOP: {
         /* Always acked, even when idle. A cancelled owner emits its own
          * aborted frame during teardown, so [STOP] comes last (§2.1).
-         * LoRa isn't in the PHY arbiter (DESIGN §6.2 defers the two-lane
+         * Scoped per lane (D-16): a bare `stop` still means every lane, so a
+         * deck that predates the argument is unaffected. */
+        const char *lane = (argc > 1) ? argv[1] : OCP_LANE_ALL;
+        bool all  = !strcmp(lane, OCP_LANE_ALL);
+        bool phy  = all || !strcmp(lane, OCP_LANE_PHY);
+        bool lora = all || !strcmp(lane, OCP_LANE_LORA);
+
+        if (!phy && !lora) {
+            ocp_emit_error(OCP_ERR_BADARG, "lane must be " OCP_LANE_ALL ", "
+                                           OCP_LANE_PHY " or " OCP_LANE_LORA);
+            break;
+        }
+
+        /* LoRa isn't in the PHY arbiter (DESIGN §6.2 defers the two-lane
          * interlock to P6), so it's released directly here, idempotently. */
-        bool running = arbiter_stop_all();
-        lora_cmd_stop();
-        ocp_emit_compact(OCP_MARK_STOP, "%s=%d", OCP_K_RUNNING, running ? 1 : 0);
+        bool running = false;
+        if (phy)  running |= arbiter_stop_all();
+        if (lora) running |= lora_cmd_stop();
+
+        ocp_emit_compact(OCP_MARK_STOP, "%s=%s %s=%d",
+                         OCP_K_LANE, lane, OCP_K_RUNNING, running ? 1 : 0);
         break;
     }
 
