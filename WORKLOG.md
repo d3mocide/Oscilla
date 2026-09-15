@@ -1,3 +1,51 @@
+## 2026-09-14 — Bench session: both boards reflashed, MeshCore classifier confirmed live
+
+**Phase:** P3/P7 · **By:** Will + Claude
+
+Hardware attached after a full day of off-bench work (GNSS parser, LoRa
+framing classifier, D-11/D-14, wardrive writers, RMC date parsing — see the
+entries below). Flashed both boards fresh.
+
+- **Probe** (`firmware-c5/build-uart`, esp32c5) and **deck**
+  (`cardputer-adv`, esp32s3) both flashed clean via their `by-id` ports
+  (`--chip` implicit through `idf.py flash`/`pio -t upload`, matching
+  AGENTS.md gotcha 9). Deck came up to `state=ready` immediately on boot —
+  the Grove link and OCP handshake survived every change stacked up since
+  the last hardware session, first try.
+- **Live-confirmed: Wi-Fi sweep, spectrum/channel scan, and LoRa listen all
+  work.** The LoRa framing classifier's `C` (MeshCore) tag rendered
+  correctly, in the right color, next to real received packets on the
+  Sub-GHz view — the first real-world confirmation the classifier fires
+  correctly on live traffic, not just synthetic fixtures. ROADMAP's P3
+  section updated.
+- **Investigated a reported "busy" hiccup starting LoRa right after a
+  spectrum scan** — root-caused, not guessed: LoRa never touches the
+  probe's `radio_arbiter` at all (that only guards Wi-Fi/BLE/802.15.4;
+  LoRa is a separate chip on its own SPI bus), so this wasn't a PHY
+  conflict. Read `deck_app.cpp`'s nav-card cycling (`,`/`/`): unlike the
+  back key (`` ` ``), it does **not** stop the screen being left, so the
+  still-running `channel_view` kept streaming `[EVT] kind=chan` frames over
+  the single Grove UART. `lora_config`'s own reply had to queue behind that
+  traffic, so `client_.pending()` was still true when the next keypress
+  tried `lora_listen` — correctly refused as busy by `ocp_client.cpp`'s
+  existing single-command-in-flight rule, not a bug in it. Confirmed by
+  reading `ocp.h`'s `OCP_VERB_TABLE` (channel_view's reply clears pending
+  on its own ack, not on `stop`) and `deck_app.cpp`'s `onKeys()` switch,
+  not inferred.
+- **Open design question, not yet decided or implemented:** Will wants
+  cross-radio concurrency (Wi-Fi sniffing/wardriving alongside LoRa
+  listening) kept as a real feature, not stopped on nav-cycle, and asked
+  about auto-handoff behavior when starting a conflicting engine. See
+  the conversation for the live discussion — resource-pool tradeoffs
+  (single-core C5, shared Grove UART bandwidth, unmeasured combined power
+  draw — P6's job, not yet run) and a proposed scoping: cross-lane
+  (Wi-Fi/LoRa) "busy" is a queuing artifact fixable by auto-retry, same as
+  `tick()` already does for scan-result paging; same-lane (two Wi-Fi-family
+  engines) is a real hardware exclusivity where an explicit stop-then-start
+  handoff makes sense. Nothing coded yet pending Will's decision.
+
+---
+
 ## 2026-09-14 — GnssModel parses RMC's calendar date
 
 **Phase:** P4 · **By:** Will + Claude
