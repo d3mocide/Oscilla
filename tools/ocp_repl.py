@@ -540,7 +540,13 @@ def mode_gate_stop(port: str, baud: int, color: bool = True) -> int:
                   "no SX1262 on this probe")
         else:
             # Both lanes up at once — the configuration the bug needed.
-            p.command("lora_config 915000000 7 125 5")
+            # cr is the coding-rate *index* 1-4 (4/5..4/8, ocp_server.c), not
+            # the raw "5" in "4/5" - confirmed against lora_recon.c after this
+            # got it wrong once and every cross-lane check failed as a result.
+            cfg_err = errors(p.command("lora_config 915000000 7 125 1"))
+            if cfg_err:
+                check("lora_config accepted (needed for the cross-lane checks)", False,
+                      f"{cfg_err[0].code}: {cfg_err[0].msg}")
             frames(p.command("lora_listen", 1.0), "[LORA]")
             frames(p.command("start_sniffer", 1.5), "[SNIFF]")
 

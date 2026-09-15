@@ -1,3 +1,54 @@
+## 2026-09-15 — D-16 verified on real hardware: 15/15, both cross-lane directions hold
+
+**Phase:** protocol / pre-P7 polish · **By:** Will + Claude
+
+Closed out this morning's `stop`-scoping work with the bench pass it was
+missing. Also did the GNSS wiring bring-up in between (separate entry below);
+this one is the radio side.
+
+- **Neither board was actually running today's code yet.** `build_firmware.sh`
+  only builds, never flashes — the C5 on the bench still had whatever was
+  flashed in a previous session. Built the **bench** variant (OCP over the
+  probe's own USB, not Grove) with today's D-16 changes and flashed it via
+  `esptool --chip esp32c5` against its stable `by-id` path (AGENTS.md
+  gotcha 9), not the bare `ttyACM*` node, which had renumbered again since
+  last session.
+- **`ocp_repl.py`'s live gates need `pyserial`, and this machine has no
+  `pip`.** Found it already installed in ESP-IDF's own venv (esptool needs
+  it too) at `~/.espressif/python_env/idf5.5_py3.14_env/bin/python3` and ran
+  the gate with that interpreter rather than trying to install anything
+  system-wide.
+- **First `--gate-stop` run: 12/15, all 3 failures the same shape** — LoRa
+  never reached `lora=rx`. Root-caused before assuming the SX1262 was
+  absent: the gate script's own `lora_config` call passed `cr=5`, but
+  `ocp_server.c` wants the **coding-rate index** 1-4 (→ 4/5..4/8), not the
+  raw "5" from "4/5" — confirmed by actually reading `lora_recon.c`'s
+  validation rather than guessing again. `lora_config` was silently
+  `badarg`ing every time, so `s_configured` never got set and `lora_listen`
+  correctly refused with "lora_config required first" — a bug in the check
+  I wrote without hardware to test it against, not in the firmware. Fixed
+  the gate script (`cr=1`) and added a check that surfaces a `lora_config`
+  error explicitly instead of silently falling through to a confusing
+  downstream failure, the same way the original `--gate-stop` write-up
+  should have from the start.
+- **Second run: 15/15.** Real concurrent Wi-Fi scan + LoRa RX confirmed
+  running together on actual silicon (`owner=wifi lora=rx`), and — the
+  whole reason D-16 exists — **both cross-lane isolation directions hold**:
+  `stop phy` leaves LoRa at `lora=rx` untouched, `stop lora` leaves the PHY
+  at `owner=wifi` untouched. This is the exact scenario that silently broke
+  the reverted auto-handoff on 2026-09-14, now confirmed fixed on hardware,
+  not just in the host-side model.
+- **Also reran `--gate` (18/18) and `--gate-wifi` (41/41 + 1 environmental
+  skip, no WPA3-only AP in range)** on the freshly rebuilt probe as a
+  regression check, since it was already flashed and on the bench — both
+  clean, nothing this session's protocol changes touched broke.
+- **D-16 moved to ✅ decided, implemented and hardware-verified** in
+  `docs/DECISIONS.md`. The deck-side auto-handoff reverted 2026-09-14 can be
+  revisited now that its blocking condition (a `stop` that couldn't target
+  one lane) is actually resolved — not done tonight, just unblocked.
+
+---
+
 ## 2026-09-15 — P4's software half: Drive card and wardrive logging wired
 
 **Phase:** P4 · **By:** Will + Claude

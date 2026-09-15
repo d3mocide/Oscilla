@@ -26,11 +26,11 @@
  * OCP_ERR_BUSY ("radio in use by ...") and today just shows that as a
  * plain error — no auto-handoff. One was tried and reverted (2026-09-14)
  * because the only tool to release the arbiter was a `stop` that tore down
- * every lane, killing concurrent LoRa as a side effect. The protocol half
- * of that is fixed: `stop` now takes a lane (D-16, OCP-SPEC §5.4), so
- * `stop phy` can free the arbiter without touching LoRa. Re-enabling the
- * auto-handoff on top of it is deliberately still pending the hardware
- * verification D-16 records as outstanding.
+ * every lane, killing concurrent LoRa as a side effect. That's fixed now:
+ * `stop` takes a lane (D-16, OCP-SPEC §5.4), `stop phy` frees the arbiter
+ * without touching LoRa, and 2026-09-15's bench pass confirmed both
+ * isolation directions hold on real hardware. Re-enabling the auto-handoff
+ * on top of it is unblocked, just not done.
  *
  * SPDX-License-Identifier: MIT
  */
