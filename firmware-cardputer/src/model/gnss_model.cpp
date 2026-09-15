@@ -45,6 +45,25 @@ bool parseLatLon(const std::string &raw, const std::string &hemi, int deg_digits
     return true;
 }
 
+/* NMEA RMC date field: fixed "ddmmyy", no separators. yy -> 2000+yy (see
+ * gnss_model.h for why). Rejects anything not exactly 6 digits or with an
+ * out-of-range day/month — never trust a partial field. */
+bool parseNmeaDate(const std::string &raw, int *year, int *month, int *day)
+{
+    if (raw.size() != 6) return false;
+    for (char c : raw) {
+        if (c < '0' || c > '9') return false;
+    }
+    int dd = (raw[0] - '0') * 10 + (raw[1] - '0');
+    int mm = (raw[2] - '0') * 10 + (raw[3] - '0');
+    int yy = (raw[4] - '0') * 10 + (raw[5] - '0');
+    if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return false;
+    *day = dd;
+    *month = mm;
+    *year = 2000 + yy;
+    return true;
+}
+
 }  // namespace
 
 void GnssModel::absorb(const gnss::Sentence &s, uint32_t now_ms)
@@ -98,6 +117,18 @@ void GnssModel::absorbRmc(const gnss::Sentence &s, uint32_t now_ms)
     bool status_valid = s.fields[1] == "A";
     fix_.valid = status_valid;
     if (!s.fields[0].empty()) fix_.utc = s.fields[0];
+
+    /* Date is parsed independent of status: a receiver's clock is commonly
+     * RTC-backed and keeps a real calendar date even with no current fix
+     * (gnss_model.h). Malformed/absent date leaves the last known one. */
+    if (s.fields.size() >= 9) {
+        int year = 0, month = 0, day = 0;
+        if (parseNmeaDate(s.fields[8], &year, &month, &day)) {
+            fix_.year = year;
+            fix_.month = month;
+            fix_.day = day;
+        }
+    }
 
     if (!status_valid) return;
 

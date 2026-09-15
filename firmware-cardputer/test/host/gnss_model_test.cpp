@@ -38,6 +38,12 @@ const char *kGgaNoFix = "$GNGGA,092725.00,,,,,0,00,99.99,,M,,M,,*73\r\n";
 const char *kRmcFix   = "$GNRMC,092725.00,A,4717.11399,N,00833.91590,E,0.004,77.52,091202,,,A*4A\r\n";
 const char *kRmcNoFix = "$GNRMC,092725.00,V,,,,,,,091202,,,N*60\r\n";
 const char *kGsv      = "$GPGSV,3,1,11,10,63,137,17,07,61,098,15,05,59,290,20,08,54,157,30*70\r\n";
+/* Status=V, a *different* date (2026-06-15) than kRmcFix/kRmcNoFix's shared
+ * 091202 - proves the date parses independent of fix status, not just
+ * incidentally alongside it. */
+const char *kRmcNoFixDate2 = "$GNRMC,101530.00,V,,,,,,,150626,,,N*63\r\n";
+/* Status=A but an unparsable date field. */
+const char *kRmcBadDate = "$GNRMC,101530.00,A,4717.11399,N,00833.91590,E,0.004,77.52,zzzzzz,,,A*4F\r\n";
 
 }  // namespace
 
@@ -48,6 +54,13 @@ int main()
         check(!m.hasUartData(0), "starts with no UART data at all");
         check(!m.hasFix() && !m.everFixed(), "starts with no fix, never fixed");
         check(m.fixAgeMs(1000) == 0, "fix age is 0 before any fix has ever been seen");
+        check(m.fix().year == 0, "no date until an RMC sentence sets one");
+    }
+    {
+        // GGA carries time but no date field at all - must never touch it.
+        model::GnssModel m;
+        m.absorb(sentenceOf(kGgaFix), 1000);
+        check(m.hasFix() && m.fix().year == 0, "a GGA-only session has a fix but still no date - GGA has none to give");
     }
     {
         model::GnssModel m;
@@ -89,9 +102,29 @@ int main()
         check(m.hasFix() && m.everFixed(), "RMC status=A also sets a fix");
         check(near(m.fix().lat_deg, 47.2852331667, 1e-6) && near(m.fix().lon_deg, 8.56526500, 1e-6),
               "RMC lat/lon convert the same way as GGA's");
+        check(m.fix().year == 2002 && m.fix().month == 12 && m.fix().day == 9,
+              "RMC date field (091202) parses to 2002-12-09 (2-digit year -> 2000+yy)");
 
         m.absorb(sentenceOf(kRmcNoFix), 2000);
         check(!m.hasFix() && m.everFixed(), "RMC status=V clears hasFix() but not everFixed()");
+    }
+    {
+        // Date parses independent of fix status: a receiver's clock is
+        // commonly RTC-backed and keeps a real date even with no fix.
+        model::GnssModel m;
+        m.absorb(sentenceOf(kRmcNoFixDate2), 1000);
+        check(!m.hasFix(), "status=V: no fix, as expected");
+        check(m.fix().year == 2026 && m.fix().month == 6 && m.fix().day == 15,
+              "but the date (150626 -> 2026-06-15) still parses despite status=V");
+    }
+    {
+        // A malformed date must not corrupt the last known one.
+        model::GnssModel m;
+        m.absorb(sentenceOf(kRmcFix), 1000);   // sets 2002-12-09
+        m.absorb(sentenceOf(kRmcBadDate), 2000);
+        check(m.fix().year == 2002 && m.fix().month == 12 && m.fix().day == 9,
+              "an unparsable date field ('zzzzzz') leaves the last known date untouched");
+        check(m.hasFix(), "the rest of that same sentence (a valid fix) is unaffected by the bad date field");
     }
     {
         /* GSV carries no position; must not corrupt an existing fix or

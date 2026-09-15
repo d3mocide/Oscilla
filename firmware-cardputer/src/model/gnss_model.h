@@ -9,6 +9,14 @@
  * doesn't otherwise interpret it, while `valid`/`ageMs()` come only from
  * GGA/RMC content — and never assumes anything beyond standard NMEA output.
  *
+ * Calendar date comes only from RMC's date field (GGA carries time but no
+ * date) and is parsed independent of RMC's own A/V status — a receiver's
+ * clock is commonly RTC-backed and keeps reporting a real date even with no
+ * current fix, a different signal from position validity. NMEA's date field
+ * is a 2-digit year; per the same convention nearly every consumer NMEA
+ * parser uses (e.g. TinyGPS++), it's read as 2000+yy — correct through 2099,
+ * not receiver-specific, not a guess particular to this parser.
+ *
  * SPDX-License-Identifier: MIT
  */
 
@@ -27,6 +35,9 @@ struct GnssFix {
     double alt_m = 0.0;
     float hdop = 0.0f;
     std::string utc;      /* raw "hhmmss.ss" from the last sentence that set it */
+    int year = 0;         /* 0 = never set. RMC's date field only (GGA has none) */
+    int month = 0;        /* 1-12 */
+    int day = 0;          /* 1-31 */
     bool valid = false;   /* the *most recent* GGA/RMC's own fix/status flag */
 };
 

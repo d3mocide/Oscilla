@@ -1,3 +1,38 @@
+## 2026-09-14 — GnssModel parses RMC's calendar date
+
+**Phase:** P4 · **By:** Will + Claude
+
+Fifth off-bench task of the day, closing the gap the wardrive writers
+surfaced: `GnssModel` had no calendar date, only time-of-day, so there was
+nowhere to get a real timestamp for the CSV's FirstSeen column.
+
+- `GnssFix` gains `year`/`month`/`day`, parsed from RMC's `ddmmyy` date
+  field (GGA carries none). The 2-digit year is read as `2000+yy` — the
+  same convention nearly every consumer NMEA parser uses (e.g. TinyGPS++),
+  correct through 2099, documented as an inherent NMEA limitation rather
+  than something this parser could do better.
+- **Parsed independent of RMC's own A/V status**, deliberately: a
+  receiver's clock is commonly RTC-backed and keeps reporting a real date
+  even with no current position fix — a different signal from fix
+  validity, same reasoning `hasUartData()`/`hasFix()` already keep separate
+  elsewhere in this model. A malformed date field leaves the last known
+  date untouched, same never-trust-a-partial-field posture as everything
+  else here.
+- 7 new host tests (33 total, up from 26): the 2-digit-year conversion
+  against a known date, date parsing while status=V, a malformed date not
+  clobbering a previously-good one (and not affecting that same sentence's
+  otherwise-valid fix), a GGA-only session correctly having no date at all.
+  Proved the check catches a real bug: dropped the `2000+` century offset
+  on a copy (the single most likely real mistake here) and 3 tests went
+  red immediately.
+- Full `check_protocol.sh` green, and — since hardware is about to attach —
+  ran `tools/build_firmware.sh` for both boards: probe (esp32c5, UART
+  transport) and all three deck PlatformIO environments (`cardputer-adv`,
+  `grove-bridge`, `adv-check`) build clean. Nothing here has touched a real
+  GNSS receiver yet; that's next, on the bench.
+
+---
+
 ## 2026-09-14 — Wardrive CSV/KML format writers (P7, started early)
 
 **Phase:** P7 (early/out of sequence, same pattern as Contacts/Deauth/
