@@ -5,7 +5,7 @@
  * C99 and C++11 clean. Data only: no includes, no allocation.
  *
  * SPDX-License-Identifier: MIT
- * Copyright (c) 2026 Will Shields
+ * Copyright (c) 2026 d3FRAG Networks
  */
 
 #ifndef OSCILLA_OCP_H
