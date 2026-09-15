@@ -157,4 +157,37 @@ uint32_t GnssModel::fixAgeMs(uint32_t now_ms) const
     return now_ms - last_fix_at_ms_;
 }
 
+GnssState GnssModel::state(uint32_t now_ms) const
+{
+    /* Order matters: a silent receiver is "no data" whatever the last fix
+     * said, or a stale valid flag would outlive the link that produced it. */
+    if (!hasUartData(now_ms)) return GnssState::NoUartData;
+    if (fix_.valid)           return GnssState::Fixed;
+    return ever_fixed_ ? GnssState::FixLost : GnssState::Searching;
+}
+
+bool splitUtcTime(const std::string &utc, int *h, int *m, int *s)
+{
+    *h = *m = *s = 0;
+    if (utc.size() < 6) return false;
+    for (size_t i = 0; i < 6; i++) {
+        if (utc[i] < '0' || utc[i] > '9') return false;
+    }
+    *h = (utc[0] - '0') * 10 + (utc[1] - '0');
+    *m = (utc[2] - '0') * 10 + (utc[3] - '0');
+    *s = (utc[4] - '0') * 10 + (utc[5] - '0');
+    return true;
+}
+
+const char *gnssStateName(GnssState s)
+{
+    switch (s) {
+        case GnssState::NoUartData: return "no data";
+        case GnssState::Searching:  return "searching";
+        case GnssState::FixLost:    return "fix lost";
+        case GnssState::Fixed:      return "fix";
+    }
+    return "?";
+}
+
 }  // namespace model

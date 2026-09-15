@@ -8,8 +8,6 @@
 #include <M5Cardputer.h>
 
 #include "app/deck_app.h"
-#include "gnss/nmea_parser.h"
-#include "model/gnss_model.h"
 #include "ocp.h"
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
@@ -31,9 +29,6 @@ constexpr uint32_t kGnssBaudDefault = 9600;
 app::DeckApp g_app([](const char *data, size_t len) {
     Serial1.write(reinterpret_cast<const uint8_t *>(data), len);
 });
-
-gnss::NmeaParser g_gnss_parser;
-model::GnssModel g_gnss;
 
 }  // namespace
 
@@ -92,13 +87,13 @@ void loop()
     g_app.tick(now);
 
     /* GNSS: same drain-completely-before-drawing shape, independent UART.
-     * No view reads g_gnss yet — Rev D's own bring-up step (outdoor fix,
-     * antenna-unplugged no-fix check) is P4's hardware half, not this one. */
+     * The parser and fix model live in DeckApp (the Drive card reads them);
+     * this loop only moves bytes. */
     while (Serial2.available()) {
         uint8_t gbuf[128];
         size_t gn = 0;
         while (Serial2.available() && gn < sizeof gbuf) gbuf[gn++] = Serial2.read();
-        g_gnss_parser.feed(gbuf, gn, [&](const gnss::Sentence &s) { g_gnss.absorb(s, now); });
+        g_app.feedGnss(gbuf, gn, now);
     }
 
     M5Cardputer.update();

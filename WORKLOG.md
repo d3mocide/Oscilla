@@ -1,3 +1,65 @@
+## 2026-09-15 — P4's software half: Drive card and wardrive logging wired
+
+**Phase:** P4 · **By:** Will + Claude
+
+The GNSS parser and fix model have been host-tested since 2026-09-14 but
+nothing read them — `main.cpp` fed sentences into a model no view or logger
+consumed. Closed that gap. Module is in hand; none of this has met it yet.
+
+- **The view is the gate's instrument, not decoration.** P4's exit gate reads
+  "live fix acquired outdoors and *shown* with age; unplugging the antenna
+  *shows* 'no fix' while UART stays alive; both states *logged* distinctly" —
+  every clause is a UI or logging requirement. With nothing on screen and
+  nothing writing a file, the bench session couldn't have produced the gate
+  even with a module wired and a clear sky. That's why this came before the
+  hardware pass rather than after it.
+- **Four states, not two.** Added `model::GnssState` —
+  `NoUartData`/`Searching`/`FixLost`/`Fixed`. Rev D §6 only demands "no fix"
+  ≠ "no UART data", but the gate's antenna-unplug step also distinguishes
+  *losing* a fix from never having had one, and a view that collapsed those
+  would make the demo prove nothing. Putting it on the model rather than in
+  the view means the logger and the card can't disagree about it. Order is
+  load-bearing: silence outranks a remembered fix, or a stale `valid` flag
+  outlives the link that produced it.
+- **Proved the check goes red**, per §6: reordered `state()` so the fix flag
+  is tested before UART liveness — the realistic slip, and exactly the
+  collapse Rev D forbids. Test went red (48/1). Restored from a scratchpad
+  copy.
+- **Logger writes CSV *and* KML**, since both format writers already existed,
+  are host-tested, and DESIGN §9.2 names both. AP rows are written **only
+  under a valid fix** — a WigleWifi row with no position isn't a weaker row,
+  it's wrong data, and real consumers treat lat/lon as authoritative.
+  Observations seen without a fix are *counted* (`aps_no_fix`, shown on the
+  card) and the KML track simply gaps. That combination is how a session
+  shows both states distinctly without corrupting the CSV — worth flagging as
+  an interpretation of the gate's wording, not the only possible reading.
+- **Sessions are numbered, not date-named.** A session can legitimately start
+  before the first fix, so the filename can't depend on one; the UTC date goes
+  *inside* the KML session name when known. Same reasoning lora_logger used
+  for a different reason (no clock at all) — the deck now has a clock, but not
+  reliably at `begin()` time.
+- **Moved `splitUtcTime()` out of the logger into the model** after writing it
+  in the wrong place. It's real logic feeding the CSV's time columns, and
+  `sd_storage.h`'s own rule is that testable logic lives outside the
+  SD-dependent files. Now host-tested (7 checks incl. short fields,
+  punctuation, midnight).
+- **Scan-page watermark.** `[SCAN]` arrives paged and `rows()` accumulates, so
+  the logger tracks how far it has consumed and resets when a fresh scan
+  shrinks the table — otherwise re-scanning would silently duplicate rows.
+- **Deliberately not done: the runtime baud setting.** Still
+  `kGnssBaudDefault`. A settings UI for a value that may never need changing
+  is speculative until the bench says whether the delivered unit is 9600.
+- **Also corrected a stale comment** `deck_app.h` was carrying: it still said
+  a scoped stop was "tracked as D-16, not done", which this morning's commit
+  changed.
+- **Verified:** host suite green (gnss model 33→49 checks), both firmwares
+  build, deck at 18.7% flash / 7.5% RAM.
+- **Not verified:** anything involving a real ATGM336H. No fix has ever been
+  parsed from real silicon, the Drive card has never rendered on the panel,
+  and no session file has been written to a real SD card.
+
+---
+
 ## 2026-09-15 — P6 power measurement: method written, nothing measured
 
 **Phase:** P6 prep · **By:** Will + Claude

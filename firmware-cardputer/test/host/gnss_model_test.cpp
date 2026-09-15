@@ -146,6 +146,62 @@ int main()
         check(!m.everFixed(), "a fix-quality GGA with unparsable lat is not trusted as a fix");
     }
 
+    {
+        /* The four states P4's exit gate has to tell apart. A view that
+         * collapses any pair of these makes the antenna-unplug demo prove
+         * nothing, so they're pinned here. */
+        using S = model::GnssState;
+        model::GnssModel m;
+        check(m.state(0) == S::NoUartData, "before any sentence: no data, not 'searching'");
+
+        m.absorb(sentenceOf(kGsv), 1000);
+        check(m.state(1000) == S::Searching, "receiver talking, never fixed: searching");
+
+        m.absorb(sentenceOf(kGgaFix), 2000);
+        check(m.state(2000) == S::Fixed, "valid GGA: fixed");
+
+        /* Antenna unplugged: the receiver keeps talking, the fix goes away.
+         * This is the exit gate's own test, as a unit test. */
+        m.absorb(sentenceOf(kGgaNoFix), 3000);
+        check(m.state(3000) == S::FixLost, "fix lost is distinct from searching");
+        check(m.hasUartData(3000), "...and the UART is still alive through it");
+
+        /* Cable pulled: silence outranks whatever the last report said. */
+        check(m.state(3000 + model::GnssModel::kNoDataTimeoutMs) == S::NoUartData,
+              "silence outranks a remembered fix");
+
+        /* A stale *valid* flag must not survive the link either. */
+        model::GnssModel m2;
+        m2.absorb(sentenceOf(kGgaFix), 1000);
+        check(m2.state(1000) == S::Fixed, "valid fix while talking");
+        check(m2.state(1000 + model::GnssModel::kNoDataTimeoutMs) == S::NoUartData,
+              "a valid fix does not mask a dead UART");
+
+        check(std::string(model::gnssStateName(S::NoUartData)) != model::gnssStateName(S::Searching)
+              && std::string(model::gnssStateName(S::FixLost)) != model::gnssStateName(S::Fixed),
+              "every state renders as a distinct label");
+    }
+
+    {
+        /* UTC field splitting: feeds the wardrive CSV's time columns, so a
+         * silent wrong answer here becomes wrong timestamps in exported data. */
+        int h = -1, m = -1, sec = -1;
+        check(model::splitUtcTime("092725.00", &h, &m, &sec) && h == 9 && m == 27 && sec == 25,
+              "hhmmss.ss splits into 9/27/25");
+        check(model::splitUtcTime("235959", &h, &m, &sec) && h == 23 && m == 59 && sec == 59,
+              "the fractional part is optional");
+        check(model::splitUtcTime("000000.00", &h, &m, &sec) && h == 0 && m == 0 && sec == 0,
+              "midnight is a real time, not a failure");
+
+        check(!model::splitUtcTime("0927", &h, &m, &sec) && h == 0 && m == 0 && sec == 0,
+              "a short field fails and yields 0/0/0, not a partial parse");
+        check(!model::splitUtcTime("", &h, &m, &sec), "an empty field fails");
+        check(!model::splitUtcTime("09:7:5.00", &h, &m, &sec),
+              "punctuation in the digits fails rather than parsing around it");
+        check(!model::splitUtcTime("09272x.00", &h, &m, &sec),
+              "a non-digit anywhere in the six fails");
+    }
+
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "gnss model test FAILED" : "gnss model test OK",
                g_pass, g_fail);
     return g_fail ? 1 : 0;

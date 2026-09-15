@@ -343,6 +343,11 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/sd_storage` | services | Internal microSD mount + the single shared bus lock (§7.4) |
 | `src/storage/lora_log_format` | services | Pure CSV row shape for the LoRa session log (§9.2); no SD I/O, host-tested |
 | `src/storage/lora_logger` | services | Opens/writes/closes the LoRa session file on SD, under `sd_storage`'s lock |
+| `src/gnss/nmea_parser` | services | Checksum-verified, chunk-invariant NMEA sentence reader; host-tested |
+| `src/model/gnss_model` | model | Current-fix service: position/date/age, and the four `GnssState` values (§9.1) |
+| `src/storage/wardrive_csv` · `src/storage/wardrive_kml` | services | Pure WigleWifi-1.6 CSV / KML document shapes (§9.2); no SD I/O, host-tested |
+| `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
+| `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
 
 ### 7.2 View set (v1)
@@ -356,7 +361,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **Beacons (BLE)** | `scan_bt` / `scan_airtag` | BLE device list; tracker counts; RSSI track one device. |
 | **Mesh (154)** | `start_zig_recon` + `zig_*` | PAN → node tree, protocol guess, signal quality. |
 | **Sub-GHz (LoRa)** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
-| **Drive** | `start_wardrive` + local GNSS | Fix status, running counts, session control; rows written to deck SD. |
+| **Drive** | local GNSS (+ `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. Today it logs the deck's own `scan_networks` results against the local fix — the probe's `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so the probe-driven mode is P7. |
 | **Log** | local SD browse | Browse/preview sessions recorded on the deck. |
 
 ### 7.3 Interaction & state

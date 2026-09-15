@@ -13,6 +13,8 @@
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
 #include "storage/lora_logger.h"
+#include "storage/wardrive_logger.h"
+#include "ui/gnss_view.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
 #include "ui/spectrum_view.h"
@@ -30,12 +32,16 @@ constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
 constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
+/* Drive-track vertex cadence. A 1 Hz fix logged raw is 3600 points an hour
+ * for a line that only needs enough shape to draw. */
+constexpr uint32_t kTrackPointMs = 5000;
 
 /* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
  * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
  * drill-down from Link instead (DESIGN §7.3), not part of this cycle. */
 constexpr Screen kCards[] = { Screen::Link,   Screen::Contacts, Screen::Info,
-                              Screen::Spectrum, Screen::SubGhz, Screen::Deauth };
+                              Screen::Spectrum, Screen::SubGhz, Screen::Deauth,
+                              Screen::Drive };
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
 
 bool isHomeCard(Screen s)
@@ -186,6 +192,7 @@ void DeckApp::onReply(const ocp::Item &it)
         log("cfg ack ch=" + (ch ? *ch : std::string("?")));
     } else if (it.tag == OCP_MARK_SCAN) {
         next_page_ = scan_.absorbPage(it);   /* requested from tick(): not re-entrant here */
+        logScanRows();
         const auto *first = it.get(OCP_K_FIRST);
         log("scan-page first=" + (first ? *first : std::string("?")) + " rows=" + std::to_string(it.rows.size()) +
             (next_page_ ? " next=" + std::to_string(next_page_) : std::string()));
@@ -333,6 +340,57 @@ void DeckApp::startDeauthDetector(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::feedGnss(const uint8_t *data, size_t len, uint32_t now_ms)
+{
+    now_ = now_ms;
+    gnss_parser_.feed(data, len, [&](const gnss::Sentence &s) { gnss_.absorb(s, now_ms); });
+
+    if (gnss_.hasFix() && now_ms - last_track_point_ms_ >= kTrackPointMs) {
+        last_track_point_ms_ = now_ms;
+        storage::wardriveLogTrackPoint(gnss_.fix());
+    }
+}
+
+void DeckApp::toggleWardriveLog(uint32_t now_ms)
+{
+    (void)now_ms;
+    if (storage::wardriveLogStats().open) {
+        const auto &st = storage::wardriveLogStats();
+        log("wardrive log end aps=" + std::to_string(st.aps) +
+            " nofix=" + std::to_string(st.aps_no_fix) +
+            " trk=" + std::to_string(st.track_points));
+        storage::wardriveLogEnd();
+        notice("log closed");
+        return;
+    }
+
+    if (!storage::wardriveLogBegin(gnss_.fix())) {
+        notice("no SD: logging unavailable");
+        log("wardrive log begin failed");
+        return;
+    }
+    /* Whatever the current scan already holds predates the session; only
+     * rows seen from here on belong to it. */
+    wardrive_logged_upto_ = scan_.rows().size();
+    notice(std::string("logging ") + storage::wardriveLogName());
+    log("wardrive log begin " + std::string(storage::wardriveLogName()));
+}
+
+void DeckApp::logScanRows()
+{
+    if (!storage::wardriveLogStats().open) return;
+
+    const auto &rows = scan_.rows();
+    /* A fresh scan restarts the table, so a shrunken row count means the
+     * watermark is stale, not that rows vanished. */
+    if (wardrive_logged_upto_ > rows.size()) wardrive_logged_upto_ = 0;
+
+    for (size_t i = wardrive_logged_upto_; i < rows.size(); i++) {
+        storage::wardriveLogAp(rows[i], gnss_.fix(), gnss_.fixAgeMs(now_));
+    }
+    wardrive_logged_upto_ = rows.size();
+}
+
 void DeckApp::back(uint32_t now_ms)
 {
     /* A live sniffer/spectrum mode has no pending command once its ack
@@ -416,6 +474,9 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 if (deauth_.active()) client_.stop(now_ms);
                 else startDeauthDetector(now_ms);
             }
+            break;
+        case Screen::Drive:
+            if (c == 'l') toggleWardriveLog(now_ms);
             break;
         }
         dirty_ = true;
@@ -519,6 +580,9 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_, notice_);
+        break;
+    case Screen::Drive:
+        ui::drawGnssView(gnss_, now_ms, notice_);
         break;
     }
     ui::present();

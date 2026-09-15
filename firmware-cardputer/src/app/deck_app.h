@@ -1,7 +1,7 @@
 /*
  * deck_app.h — screen flow and command orchestration for the deck.
  *
- *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> (wraps)
+ *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> Drive <-,/-> (wraps)
  *   Link --w--> Sweep --enter--> Trace                               drill-down
  *   Spectrum --enter--> (locks to one channel, same screen)
  *   ` = stop + back (DESIGN §7.3)
@@ -24,15 +24,13 @@
  * Two Wi-Fi-family engines genuinely cannot run at once (one radio), so a
  * start*() that arrives while another already owns the arbiter gets
  * OCP_ERR_BUSY ("radio in use by ...") and today just shows that as a
- * plain error — no auto-handoff. One was tried and reverted the same
- * session (2026-09-14): the only tool available to release the arbiter is
- * `stop`, and the probe's `stop` handler tears down *everything*
- * unconditionally (`ocp_server.c`: `arbiter_stop_all()` plus an
- * unconditional `lora_cmd_stop()`, every time, by original design — LoRa
- * predates the arbiter entirely), so auto-sending it to clear a same-lane
- * conflict silently killed a concurrently running LoRa session too. Fixing
- * this for real needs a scoped stop at the protocol level, not a deck-side
- * patch — tracked as D-16, not done.
+ * plain error — no auto-handoff. One was tried and reverted (2026-09-14)
+ * because the only tool to release the arbiter was a `stop` that tore down
+ * every lane, killing concurrent LoRa as a side effect. The protocol half
+ * of that is fixed: `stop` now takes a lane (D-16, OCP-SPEC §5.4), so
+ * `stop phy` can free the arbiter without touching LoRa. Re-enabling the
+ * auto-handoff on top of it is deliberately still pending the hardware
+ * verification D-16 records as outstanding.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -43,8 +41,10 @@
 #include <functional>
 #include <string>
 
+#include "gnss/nmea_parser.h"
 #include "model/contacts_model.h"
 #include "model/deauth_model.h"
+#include "model/gnss_model.h"
 #include "model/lora_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
@@ -53,7 +53,7 @@
 
 namespace app {
 
-enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth };
+enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth, Drive };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -66,6 +66,10 @@ public:
 
     void begin(uint32_t now_ms);
     void feed(const uint8_t *data, size_t len, uint32_t now_ms) { now_ = now_ms; client_.feed(data, len, now_ms); }
+
+    /* GNSS bytes from the deck's own UART. Never crosses OCP (DESIGN §9.1):
+     * a separate wire, a separate parser, no framing in common. */
+    void feedGnss(const uint8_t *data, size_t len, uint32_t now_ms);
     void tick(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
 
@@ -89,6 +93,8 @@ private:
     void startLoraConfig(uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
+    void toggleWardriveLog(uint32_t now_ms);
+    void logScanRows();
     void back(uint32_t now_ms);
     void notice(const std::string &text);
 
@@ -104,6 +110,14 @@ private:
     model::SpectrumModel spectrum_;
     model::LoraModel lora_;
     model::DeauthModel deauth_;
+    gnss::NmeaParser gnss_parser_;
+    model::GnssModel gnss_;
+    /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
+     * an hour is 3600 points, and the track only needs enough to draw. */
+    uint32_t last_track_point_ms_ = 0;
+    /* How much of scan_.rows() the wardrive log has already consumed —
+     * [SCAN] arrives paged, and rows() accumulates across pages. */
+    size_t wardrive_logged_upto_ = 0;
     Screen screen_ = Screen::Link;
     size_t cursor_ = 0;
     uint16_t trace_idx_ = 0;

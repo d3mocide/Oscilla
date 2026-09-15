@@ -41,6 +41,25 @@ struct GnssFix {
     bool valid = false;   /* the *most recent* GGA/RMC's own fix/status flag */
 };
 
+/* The four states the deck must tell apart. Rev D §6 requires "no fix" and
+ * "no UART data" to be distinct; P4's exit gate additionally exercises
+ * losing a fix (antenna unplugged) with the receiver still talking, which is
+ * a different signal from never having had one. */
+enum class GnssState : uint8_t {
+    NoUartData,   /* nothing on the UART recently: unwired, wrong baud, dead */
+    Searching,    /* receiver talking, no fix yet this session */
+    FixLost,      /* had a fix, current report is invalid */
+    Fixed,        /* current report is valid */
+};
+
+const char *gnssStateName(GnssState s);
+
+/* Splits GnssFix::utc ("hhmmss.ss", the raw NMEA field) into whole hours,
+ * minutes and seconds. False — and 0/0/0, never a partial guess — if the
+ * field is too short or not all digits. Lives here rather than in the
+ * wardrive logger so it is host-testable (sd_storage.h's own rule). */
+bool splitUtcTime(const std::string &utc, int *h, int *m, int *s);
+
 class GnssModel {
 public:
     /* No sentence of any kind in this long => treat the link as dead, not
@@ -68,6 +87,10 @@ public:
     uint32_t fixAgeMs(uint32_t now_ms) const;
 
     const GnssFix &fix() const { return fix_; }
+
+    /* Collapses hasUartData()/hasFix()/everFixed() into the one state a view
+     * or logger should branch on, so they can't disagree about it. */
+    GnssState state(uint32_t now_ms) const;
 
 private:
     void absorbGga(const gnss::Sentence &s, uint32_t now_ms);
