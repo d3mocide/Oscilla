@@ -6,7 +6,7 @@
 | | |
 |---|---|
 | **Status** | Draft v0.2 — reconciled against backpack hardware Rev D |
-| **Owner** | d3mocide |
+| **Organization** | **d3FRAG Networks** |
 | **Targets** | `oscilla-cp` (M5Stack Cardputer ADV / ESP32-S3) · `oscilla-c5` (Seeed XIAO ESP32-C5) |
 | **Posture** | **Receive-only on every radio.** No transmit verb is compiled into any build — active/offensive features are structurally unreachable, not merely unused. See [§8](#8-feature-scope--the-receive-only-boundary) |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D — pin maps, electrical limits, bring-up order |

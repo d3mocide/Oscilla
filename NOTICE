@@ -1,5 +1,5 @@
 Oscilla
-Copyright (c) 2026 Will Shields
+Copyright (c) 2026 d3FRAG Networks
 Licensed under the MIT License. See LICENSE.
 
 ================================================================================
@@ -19,7 +19,7 @@ Used in Oscilla as follows (DESIGN.md §11):
 
   * Lifted verbatim
       - zig_recon/  (IEEE 802.15.4 PAN and node discovery)
-        Location: firmware-c5/components/zig_recon/
+        Target location: firmware-c5/components/zig_recon/ (scheduled for P7/P8)
         Original copyright and author headers are preserved in every lifted
         file. Lifted code is kept isolated under components/ so its provenance
         stays obvious.

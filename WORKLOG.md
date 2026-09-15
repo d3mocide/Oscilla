@@ -1,3 +1,38 @@
+## 2026-09-14 — Aligned Section 05 external cards in Master Brand & UI Guide
+
+**Phase:** Docs / Brand · **By:** Will + Antigravity
+
+- Restored **Observe / Frame List** to the authoritative widescreen dissector layout (LoRa chirp spectrogram, protocol pills bar, decoded protobuf payload, and tactical footer strip) matching Session Log and Spectrum Field.
+- Rebuilt **Observe / BLE Beacons** and **Observe / Mesh** to strictly follow the ILI9341 external display card architecture (engraved bezels, standard telemetry ribbons, polar radar / topology canvases, rail lists, and 3-cell dossier docks).
+- Switched focus row to flex layout across **Contacts**, **BLE Beacons**, and **Mesh** so square scopes clamp to their true 1:1 aspect ratio and right-hand telemetry rails expand to consume all available horizontal and vertical space with enriched 7-row device lists.
+- Fixed radar reticle baseline collision across **Contacts**, **BLE Beacons**, and **Mesh**: shifted reticle center to `cy=62`/`60`, bounded outer radius to `r=48`, and truncated crosshairs at `y=110`/`108` to give 8–10px of clean breathing room above bottom status text strips.
+- Rebuilt the **Observe / Mesh** Passive Snoop topology canvas: concentric hop reticles (`1H DIRECT`, `2H ROUTED`, `3H MAX`), localized observer `DECK` node, selected `!a4f108 [ROUTER]` HUD placard, gateway diamond with `INET/GW` backhaul indicator, pink anomaly `!f820c4` link drop warning, and multi-hop route tracing with in-flight packet pulse pips and link SNR metrics (+7.5dB).
+- Refined **Observe / Frame List** packet dissector: bumped font sizes and relaxed density across the lower console:
+  1. `.decode-head-block`: bumped font size to 10.5–11px with clear, high-contrast protocol and packet ID badges, dedicated lines for source/destination routing (`FROM` / `TO`) and RF link metrics (`SNR`, `RSSI`, `Δf`), and enforced `white-space: nowrap` to prevent awkward word wrapping.
+  2. `.decode-payload-box`: boosted message font to 11.5px bold amber for instant readability at arm's length.
+  3. `.decode-hex-dump`: expanded to `flex: 1` with `justify-content: space-between` to consume the entire remaining free body down to the container margin, displaying all 54 packet bytes across 4 spacious lines (`0000:` through `0030:`) with 9.5px font and zero dead void.
+  4. Spectrogram chart height: increased height by 25% (66px $\rightarrow$ 82px) with proportional scaling of preamble/sync/payload chirps and frequency axis grid lines, pushing the dissector body down naturally.
+  5. Removed wrapper border & padding on `.proto-decode-body`: eliminated double-nested container borders, allowing `.decode-head-block`, `.decode-payload-box`, and `.decode-hex-dump` to span flush to the full width of `.frame-screen-widescreen` in clean vertical alignment with the protocol pills bar and spectrogram.
+- Refined footer dossier docks across **Contacts**, **BLE Beacons**, and **Mesh**:
+  1. Bumped typography sizes for enhanced arm's-length legibility: `.dock-label` to 8px (+14%), `.dock-target` to 13px (+8%), `.dock-detail` to 10px (+25%), and `.dock-sub` to 8.5px (+21%).
+  2. Increased footer dock row height allocation in `.contacts-main-stack` to 46px with vertical centering to give the larger text breathing space without clipping.
+  3. Streamlined telemetry and pruned redundant label text to keep every row compact and single-line:
+     - **Contacts:** shortened BSSID to `BSSID ··84:19:01`, simplified security to `WPA3-SAE · PMF`, pruned redundant "5 GHz" from `CH 149 · −58 dBm`, and trimmed jitter alert to `102ms · ±1.2ms JITTER`.
+     - **BLE Beacons:** pruned `(OFFLINE)` to `APPLE · FIND MY`, shortened range to `−57 dBm · ~3.1m`, compact interval `100ms ADV · 00:01s AGE`, and streamlined anomaly to `<b>3 BURSTS</b> / 60s` with `ROTATED 4s AGO · TRACK`.
+     - **Mesh:** tightened node subtitle to `MESHTASTIC · 3 HOP`, renamed route header to `Route flow`, condensed telemetry units to `+7.5dB SNR · −92dBm`, and focused route health to `<b>92% OK</b> · 1 WEAK` with `14 FWD · !f820c4 WEAK`.
+- Overhauled [`README.md`](README.md) with the Master Brand UI design system:
+  1. Embedded official SVG logo (`docs/brand/assets/lens-core.svg` — Oscilla Lens Core) centered at the top of the document linking to the interactive brand guide.
+  2. Added tactical header block with brand tagline (*"Observe the noise."*), official color-coded status badges (`ZERO TRANSMIT`, `TWO MACHINES · ONE WIRE`, `P3 COMPLETE`, `WI-FI · BLE · 802.15.4 · SX1262 + CC1101`, `320×240 ILI9341`), and primary specification links including dual-radio wiring.
+  3. Incorporated detailed ASCII dual-node architecture diagram showcasing the physical split between Cardputer ADV Deck and XIAO ESP32-C5 Dual-Radio Backpack over the Grove crossover cable.
+  4. Added dedicated Section 01 breakdown on the **Dual Sub-GHz Architecture (SX1262 + CC1101)** detailing frequency coverage (915M LoRa vs. 433M legacy OOK/FSK), shared SPI pinout (`D8`/`D9`/`D10`), independent chip selects (`D4` / `D3`), and mutual desense arbitration rules.
+  5. Added Section 02 on the dual-display system with an overview matrix of the 6 external instrument viewports (Spectrum, Contacts, Drive Log, Frame List, BLE Beacons, Mesh Topology) linking directly to the interactive guide.
+  6. Expanded Section 08 into **Lineage, Inspirations & Attribution**: credited ESP32 Marauder (@justcallmekoko), C5Lab projectZero, @risinek esp32-wifi-penetration-tool, and Meshtastic; added a comprehensive code reuse vs. clean-room reimplementation matrix ([DESIGN §11](DESIGN.md#11-reuse-plan--licensing)); clarified that `zig_recon/` is scheduled for P7/P8 integration and is not yet in the active working tree; reaffirmed the exclusion of monolithic files and active/offensive code paths.
+  7. Formally aligned parent organization / operational entity to **d3FRAG Networks** across [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), [`protocol/ocp.h`](protocol/ocp.h), [`DESIGN.md`](DESIGN.md), and [`README.md`](README.md). Verified protocol test suite passes (27/27 green).
+  8. Reinforced the zero-transmit invariant block, added [`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md) to the Repository Map authority table, and clarified host validation instructions for Windows environments.
+- Host environment compliance: noted Windows host environment, prohibited running `.sh` scripts. Updated Section 05 contract table.
+
+---
+
 ## 2026-09-14 — Auto-handoff reverted: `stop` isn't scoped, it kills LoRa too (D-16 opened)
 
 **Phase:** deck UX · **By:** Will + Claude

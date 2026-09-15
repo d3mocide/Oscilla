@@ -10,10 +10,10 @@ enforced, and explains how to report a problem.
 
 Report privately — please do not open a public issue for a security problem.
 
-- **GitHub Security Advisories** — *Security → Report a vulnerability* on
+- **GitHub Security Advisories** — _Security → Report a vulnerability_ on
   [d3mocide/Oscilla](https://github.com/d3mocide/Oscilla) (preferred; keeps the
   discussion attached to the repo)
-- **Email** — <d3mo@threathunt.cc>
+- **Email** — <info@d3FRAG.net>
 
 Useful in a report: what you did, what happened, which commit, and which target
 (probe, deck, or the host tools). A serial capture or a byte stream that
@@ -35,26 +35,26 @@ written up honestly in [`WORKLOG.md`](WORKLOG.md) along with what it cost.
 Two honest qualifications, stated up front rather than buried:
 
 1. **The SX1262 is transmit-capable silicon.** The guarantee is about
-   *reachable code paths in this firmware*, not a claim that the hardware
+   _reachable code paths in this firmware_, not a claim that the hardware
    cannot physically transmit. Anyone who flashes different firmware to this
    board can transmit; that is a property of the radio, not of Oscilla.
 2. **Receiving is not the same as being invisible.** A superheterodyne receiver
    has local-oscillator leakage, and a powered radio is not a silent object.
-   Oscilla does not *intend* to emit, and emits nothing under firmware control.
+   Oscilla does not _intend_ to emit, and emits nothing under firmware control.
 
 ### How it is enforced
 
 The boundary is structural — a build-time fact, not a runtime toggle:
 
-| Mechanism | Where | What it does |
-|---|---|---|
-| The command table **is** the capability surface | `protocol/ocp.h` → `OCP_VERB_TABLE` | A capability exists iff its verb is registered. All 29 registered verbs are receive-only. |
-| Build tripwire | `protocol/ocp.h` | `#error`s if `OSCILLA_WIFI_TX`, `OSCILLA_BLE_TX`, `OSCILLA_154_TX`, `OSCILLA_LORA_TX` or `OSCILLA_TX` is defined. A build that tries to enable transmit does not compile. |
-| Verb-name audit | `protocol/test_ocp_header.c` | Fails the test suite if any registered verb matches a transmit-shaped name. |
-| No transmit capability | handshake | Every advertised capability names a *receive* capability, so no client — including a future third-party one — can discover or present transmit functionality. |
-| Transmit-API denylist | `tools/check_rx_only.py` | Fails the build if probe source references a transmit-capable driver API — active Wi-Fi scan, raw 802.11 TX, association, soft-AP, ESP-NOW, BLE advertising/connection, 802.15.4 TX — or if deck source touches any radio API (deck radios are off in v1). A verb cannot smuggle transmission in behind an innocent name. |
-| Passive scanning | `OCP-SPEC §10.1` | Wi-Fi scans listen for beacons only and never send probe requests. |
-| Protocol-only access | architecture | The deck cannot reach a radio directly. It speaks only OCP. A compromised or buggy deck cannot inject frames: there is no verb to carry the request and no handler to service it. |
+| Mechanism                                       | Where                               | What it does                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The command table **is** the capability surface | `protocol/ocp.h` → `OCP_VERB_TABLE` | A capability exists iff its verb is registered. All 29 registered verbs are receive-only.                                                                                                                                                                                                                                 |
+| Build tripwire                                  | `protocol/ocp.h`                    | `#error`s if `OSCILLA_WIFI_TX`, `OSCILLA_BLE_TX`, `OSCILLA_154_TX`, `OSCILLA_LORA_TX` or `OSCILLA_TX` is defined. A build that tries to enable transmit does not compile.                                                                                                                                                 |
+| Verb-name audit                                 | `protocol/test_ocp_header.c`        | Fails the test suite if any registered verb matches a transmit-shaped name.                                                                                                                                                                                                                                               |
+| No transmit capability                          | handshake                           | Every advertised capability names a _receive_ capability, so no client — including a future third-party one — can discover or present transmit functionality.                                                                                                                                                             |
+| Transmit-API denylist                           | `tools/check_rx_only.py`            | Fails the build if probe source references a transmit-capable driver API — active Wi-Fi scan, raw 802.11 TX, association, soft-AP, ESP-NOW, BLE advertising/connection, 802.15.4 TX — or if deck source touches any radio API (deck radios are off in v1). A verb cannot smuggle transmission in behind an innocent name. |
+| Passive scanning                                | `OCP-SPEC §10.1`                    | Wi-Fi scans listen for beacons only and never send probe requests.                                                                                                                                                                                                                                                        |
+| Protocol-only access                            | architecture                        | The deck cannot reach a radio directly. It speaks only OCP. A compromised or buggy deck cannot inject frames: there is no verb to carry the request and no handler to service it.                                                                                                                                         |
 
 Run it yourself:
 
