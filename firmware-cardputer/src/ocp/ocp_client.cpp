@@ -36,6 +36,7 @@ uint32_t replyTimeout(const std::string &verb)
 {
     if (verb == OCP_V_SCAN_NETWORKS)   return Client::kScanTimeoutMs;
     if (verb == OCP_V_INSPECT_NETWORK) return Client::kInspectTimeoutMs;
+    if (verb == OCP_V_SCAN_BT)         return Client::kBleScanTimeoutMs;
     return Client::kReplyTimeoutMs;
 }
 

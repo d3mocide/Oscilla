@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "ocp.h"
+#include "ui/bt_view.h"
 #include "ui/canvas.h"
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
@@ -45,7 +46,7 @@ constexpr uint32_t kGnssDiagMs = 5000;
  * drill-down from Link instead (DESIGN §7.3), not part of this cycle. */
 constexpr Screen kCards[] = { Screen::Link,   Screen::Contacts, Screen::Info,
                               Screen::Spectrum, Screen::SubGhz, Screen::Deauth,
-                              Screen::Drive };
+                              Screen::Drive, Screen::Beacons };
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
 
 bool isHomeCard(Screen s)
@@ -75,6 +76,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "subghz" || name == "lora") *out = Screen::SubGhz;
     else if (name == "deauth") *out = Screen::Deauth;
     else if (name == "drive") *out = Screen::Drive;
+    else if (name == "beacons") *out = Screen::Beacons;
     else return false;
     return true;
 }
@@ -178,6 +180,7 @@ void DeckApp::onReply(const ocp::Item &it)
             contacts_.stopSniffing();
             spectrum_.stop();
             deauth_.stop();
+            bt_.stop();
         }
         if (all || *lane == OCP_LANE_LORA) {
             lora_.stop();
@@ -242,6 +245,10 @@ void DeckApp::onReply(const ocp::Item &it)
         log("inspect idx=" + std::to_string(in.idx) + " beacons=" + std::to_string(in.beacons) +
             " rsn=" + std::to_string(in.rsn) + " mfp_capable=" + std::to_string(in.mfp_capable) +
             " mfp_required=" + std::to_string(in.mfp_required) + " aborted=" + std::to_string(in.aborted));
+    } else if (it.tag == OCP_MARK_BLE) {
+        bt_.absorbScan(it);
+        log("ble scan devices=" + std::to_string(bt_.devices().size()) +
+            " malformed=" + std::to_string(bt_.malformedRows()));
     }
 }
 
@@ -254,6 +261,7 @@ void DeckApp::onEvent(const ocp::Item &it)
         storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
+    bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
 }
 
 void DeckApp::requestScan(uint32_t now_ms)
@@ -374,6 +382,30 @@ void DeckApp::startDeauthDetector(uint32_t now_ms)
     }
     deauth_.begin();
     deauth_cursor_ = 0;
+    notice("");
+}
+
+void DeckApp::startBtScan(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_SCAN_BT, now_ms)) {
+        retrySoon([this](uint32_t t) { startBtScan(t); }, now_ms);
+        return;
+    }
+    bt_.beginScan();
+    bt_cursor_ = 0;
+    notice("");
+}
+
+void DeckApp::toggleAirtagScan(uint32_t now_ms)
+{
+    if (bt_.airtagActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_SCAN_AIRTAG, now_ms)) {
+        retrySoon([this](uint32_t t) { toggleAirtagScan(t); }, now_ms);
+        return;
+    }
+    bt_.beginAirtag();
     notice("");
 }
 
@@ -532,6 +564,12 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         case Screen::Drive:
             if (c == 'l') toggleWardriveLog(now_ms);
             break;
+        case Screen::Beacons:
+            if (c == ';' && bt_cursor_ > 0) bt_cursor_--;
+            else if (c == '.' && bt_cursor_ + 1 < bt_.devices().size()) bt_cursor_++;
+            else if (c == 's') startBtScan(now_ms);
+            else if (c == 'a') toggleAirtagScan(now_ms);
+            break;
         }
         dirty_ = true;
     }
@@ -580,6 +618,8 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "sniff") { if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY); else startSniffer(now_ms); }
     else if (cmd == "spectrum") { if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startChannelView(now_ms); }
     else if (cmd == "deauth") { if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startDeauthDetector(now_ms); }
+    else if (cmd == "beacons") startBtScan(now_ms);
+    else if (cmd == "airtag") toggleAirtagScan(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
@@ -617,6 +657,8 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " spectrum=" + std::to_string(spectrum_.readings().size()) +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
+            " bt_devices=" + std::to_string(bt_.devices().size()) +
+            " trackers=" + std::to_string(bt_.trackerCount()) +
             " gnss=" + std::string(model::gnssStateName(gnss_.state(now_ms))) +
             " wardrive_open=" + std::string(storage::wardriveLogStats().open ? "1" : "0"));
         return;
@@ -732,6 +774,9 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Drive:
         ui::drawGnssView(gnss_, now_ms, notice_);
+        break;
+    case Screen::Beacons:
+        ui::drawBtView(bt_, bt_cursor_, notice_);
         break;
     }
     ui::present();

@@ -48,6 +48,7 @@ public:
     static constexpr uint32_t kScanTimeoutMs   = 30000;   /* passive dual-band ~10.5 s */
     static constexpr uint32_t kInspectTimeoutMs = 6000;   /* 2 s capture + margin */
     static constexpr uint32_t kStopTimeoutMs   = 3000;
+    static constexpr uint32_t kBleScanTimeoutMs = 10000;  /* BLE_SCAN_DWELL_MS (6 s) + margin */
 
     using Write = std::function<void(const char *data, size_t len)>;
     using ItemSink = std::function<void(const Item &)>;

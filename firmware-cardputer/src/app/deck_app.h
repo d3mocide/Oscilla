@@ -42,6 +42,7 @@
 #include <string>
 
 #include "gnss/nmea_parser.h"
+#include "model/bt_model.h"
 #include "model/contacts_model.h"
 #include "model/deauth_model.h"
 #include "model/gnss_model.h"
@@ -53,7 +54,7 @@
 
 namespace app {
 
-enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth, Drive };
+enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth, Drive, Beacons };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -114,6 +115,8 @@ private:
     void startLoraConfig(uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
+    void startBtScan(uint32_t now_ms);
+    void toggleAirtagScan(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();
     void back(uint32_t now_ms);
@@ -131,6 +134,7 @@ private:
     model::SpectrumModel spectrum_;
     model::LoraModel lora_;
     model::DeauthModel deauth_;
+    model::BtModel bt_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;
     /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
@@ -156,6 +160,7 @@ private:
      * and storage::loraLogBegin(), not the optimistic send. */
     bool lora_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
+    size_t bt_cursor_ = 0;
 
     /* Queued because the client couldn't send yet (something else was
      * still pending) - retried once that clears, see retrySoon(). */

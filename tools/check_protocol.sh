@@ -52,6 +52,18 @@ python3 tools/check_deck_parser.py --count 150
     -Ifirmware-c5/main -o "$out/probe_parse_test" firmware-c5/test/host/probe_parse_test.c firmware-c5/main/probe_parse.c
 "$out/probe_parse_test" 100000 | tail -1 | sed 's/^/  /'
 
+# BLE advertisement AD-structure parser (device name/manufacturer data,
+# tracker classification): same treatment.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/ble_adv_parse_test" firmware-c5/test/host/ble_adv_parse_test.c firmware-c5/main/ble_adv_parse.c
+"$out/ble_adv_parse_test" 100000 | tail -1 | sed 's/^/  /'
+
+# BLE device table: upsert-by-address logic `scan_bt`'s reply is built from.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/ble_device_table_test" \
+    firmware-c5/test/host/ble_device_table_test.c firmware-c5/main/ble_device_table.c firmware-c5/main/ble_adv_parse.c
+"$out/ble_device_table_test" | tail -1 | sed 's/^/  /'
+
 # Sniffer tracking tables (AP<->client, probe SSIDs): dedup/overflow/address
 # classification, with no radio or hardware needed.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -81,6 +93,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/contacts_model_test.cpp firmware-cardputer/src/model/contacts_model.cpp \
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/contacts_model_test" | tail -1 | sed 's/^/  /'
+
+# The deck's BLE model: [BLE] device table vs. the scan_airtag tracker log.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/bt_model_test" \
+    firmware-cardputer/test/host/bt_model_test.cpp firmware-cardputer/src/model/bt_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/bt_model_test" | tail -1 | sed 's/^/  /'
 
 # The deck's spectrum model: channel_view/packet_monitor event absorption.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/spectrum_model_test" \

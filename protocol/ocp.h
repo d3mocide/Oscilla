@@ -248,6 +248,17 @@ typedef enum {
 #define OCP_K_LEN               "len"
 #define OCP_K_HEX               "hex"
 
+/* BLE frames (OCP-SPEC §11). */
+#define OCP_K_NAME              "name"      /* AD type 0x08/0x09, "" if absent */
+#define OCP_K_MFR               "mfr"       /* AD type 0xFF company ID, 4 lowercase hex digits, "" if absent */
+/* [BLE]'s "tracker" column: "" or one of the OCP_EVT_KIND_* tracker values
+ * above (OCP_EVT_KIND_AIRTAG today) — the same classification `scan_airtag`
+ * streams as events, just attached to a device-list row instead. Extensible:
+ * only Apple's Find My network (AirTag and other FindMy-compatible
+ * accessories) is classified in v1; other vendors' beacon formats are a
+ * future addition, not a gap in this one. */
+#define OCP_K_TRACKER           "tracker"
+
 /* [SCAN] "auth" column values. */
 #define OCP_AUTH_OPEN           "OPEN"
 #define OCP_AUTH_WEP            "WEP"
@@ -279,6 +290,10 @@ typedef enum {
 #define OCP_CLIENTS_CSV_FIELDS  6
 #define OCP_PROBES_CSV_HEADER   "\"mac\",\"ssid\",\"rssi\",\"pkts\""
 #define OCP_PROBES_CSV_FIELDS   4
+
+/* [BLE] rows (OCP-SPEC §11.2). */
+#define OCP_BLE_CSV_HEADER      "\"mac\",\"name\",\"mfr\",\"tracker\",\"rssi\",\"n\""
+#define OCP_BLE_CSV_FIELDS      6
 
 #define OCP_BAND_24             "24"
 #define OCP_BAND_5              "5"

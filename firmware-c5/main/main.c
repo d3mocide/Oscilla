@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "ble_recon.h"
 #include "lora_recon.h"
 #include "ocp_frame.h"
 #include "ocp_server.h"
@@ -46,6 +47,12 @@ void app_main(void)
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     if (lora_recon_init() != ESP_OK) ESP_LOGE(TAG, "lora unavailable");
+
+    /* BLE is async (ble_recon_ready() flips true once the NimBLE host
+     * actually syncs, not merely when this call returns) — cap_available()
+     * checking OCP_CAP_BLE via ble_recon_ready() covers the narrow boot
+     * window before that, same "stays local" posture as the others. */
+    if (ble_recon_init() != ESP_OK) ESP_LOGE(TAG, "ble unavailable");
 
     ESP_ERROR_CHECK(ocp_transport_init());
     ESP_ERROR_CHECK(ocp_frame_init());

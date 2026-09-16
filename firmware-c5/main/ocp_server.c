@@ -7,6 +7,7 @@
 #include "ocp_server.h"
 #include "ocp_frame.h"
 #include "ocp_transport.h"
+#include "ble_recon.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
 #include "radio_arbiter.h"
@@ -58,6 +59,9 @@ const char *ocp_server_caps(void)
     }
     if (lora_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_LORA_RX);
+    }
+    if (ble_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_BLE);
     }
     return caps;
 }
@@ -191,6 +195,14 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_PACKET_MONITOR:
         wifi_cmd_packet_monitor(argc, argv);
+        break;
+
+    case OCP_VID_SCAN_BT:
+        ble_cmd_scan_bt(argc, argv);
+        break;
+
+    case OCP_VID_SCAN_AIRTAG:
+        ble_cmd_scan_airtag();
         break;
 
     case OCP_VID_REBOOT:

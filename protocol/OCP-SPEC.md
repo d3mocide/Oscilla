@@ -474,3 +474,73 @@ packets/s on a 1 s window:
 non-DFS 5 GHz) — anything else is `code=badarg`, checked against the same
 list `start_sniffer` uses rather than handed straight to the radio, so an
 unsupported channel never silently mislabels frames the way D-14 describes.
+
+## 11. BLE frames
+
+### 11.1 Scans are passive here too
+
+`disc_params.passive = 1` on every `ble_gap_disc()` call (§7): the probe
+never sends a scan request, so it never reveals itself to a nearby device the
+way an active scan's follow-up request would. Same posture as Wi-Fi's
+passive-only scanning (§10.1) — for BLE it costs less, since duplicate
+advertisements are cheap and there is no hidden-name tradeoff to pay for it.
+
+### 11.2 `scan_bt [dwell_ms]`
+
+Listens across all three advertising channels (37/38/39; the controller
+cycles them, not the app) for `dwell_ms` (default `BLE_SCAN_DWELL_MS`,
+`ble_recon.c`), deduplicating by device address, then replies with the
+device table:
+
+```
+[BLE] BEGIN n=2 total=2 dwell_ms=6000 elapsed_ms=6012
+[BLE] "f4:12:34:56:78:9a","Pixel Buds","0075","","-58","14"
+[BLE] "aa:bb:cc:dd:ee:ff","","004c","airtag","-71","6"
+[BLE] END
+```
+
+Columns: `mac`, `name` (AD type `0x09`/`0x08`, `""` if absent), `mfr`
+(AD type `0xFF` company ID, 4 lowercase hex digits, `""` if absent),
+`tracker` (`""` or an `OCP_EVT_KIND_*` tracker value — `airtag` today, see
+§11.4), `rssi` (dBm, most recent), `n` (advertisements seen this scan).
+Like `[CLIENTS]`/`[PROBES]` (§10.4), the table is capped (`BLE_DEVICES_MAX`)
+with no paging — once full, new addresses are dropped rather than replacing
+old ones. Each `scan_bt` call starts a fresh table, same as `scan_networks`
+starting a fresh result set.
+
+### 11.3 `scan_airtag`
+
+Same radio, always-on classification instead of a bounded snapshot: replies
+immediately and streams for the rest of the session, watching every
+advertisement for Apple's Find My network signature (manufacturer data,
+company ID `004c`, payload type byte `0x12` — the AirTag/FindMy-accessory
+broadcast, confirmed against public Find My protocol write-ups, not
+guessed) regardless of anything `scan_bt` has or hasn't seen:
+
+```
+> scan_airtag
+[CFG] END
+[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-71 n=1
+[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-69 n=2
+> stop
+[STOP] lane=phy running=1 END
+```
+
+| Key | Meaning |
+|---|---|
+| `mac` | the advertiser's address |
+| `rssi` | this sighting's signal strength (dBm) |
+| `n` | running count of tracker sightings this session (not unique devices) |
+
+Every matching advertisement produces an event, same posture as
+`deauth_detector` (§10.5) — a tracker re-advertising rapidly nearby is
+itself part of the signal, not noise to deduplicate away.
+
+### 11.4 Tracker classification
+
+`OCP_K_TRACKER` (`[BLE]` rows) and `OCP_EVT_KIND_AIRTAG` (`scan_airtag`
+events) share one classifier (`ble_adv_parse.c`) and one v1 scope: Apple's
+Find My network only, matching the verb name `scan_airtag` was chosen for.
+Other vendors' tracker beacon formats (Tile, Samsung SmartTag, Chipolo) are
+a future addition — `OCP_K_TRACKER`'s value is a string specifically so a
+new classification is additive, not a wire-format change.

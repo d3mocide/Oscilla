@@ -1,3 +1,143 @@
+## 2026-09-16 — ble_recon on real hardware: two bugs found, both fixed and confirmed
+
+**Phase:** P7 · **By:** Will + Claude
+
+Both boards attached, both flashed, and the "not hardware-confirmed at all"
+line from this morning's entry closed out the same day. Two real bugs
+surfaced, neither guessable from reading the code — both needed the
+actual probe and actual BLE traffic to show up.
+
+- **Bug 1: `scan_bt`'s reply was silently discarded — a client timeout
+  mismatch.** First live `scan_bt` produced nothing: no `[BLE]` frame, no
+  error, deck showed `bt_devices=0`. `ping`/`status` still worked, ruling
+  out a hang. Root cause: `ocp_client.h`'s generic reply timeout is 2000ms;
+  `scan_bt`'s dwell defaults to 6000ms. `scan_networks`/`inspect_network`
+  already get their own longer timeouts in `ocp_client.cpp`'s
+  `replyTimeout()` for exactly this reason — `scan_bt` was never added to
+  that list, so it fell through to the 2s default and the client gave up
+  waiting before the probe even replied. Added `kBleScanTimeoutMs` (10s).
+  Retested: **73 real devices, 0 malformed rows**, confirmed via `dump`.
+- **Bug 2: cancelling `scan_airtag` left the radio arbiter stuck forever.**
+  `scan_bt`'s own cancel path looked fine on the first pass (Wi-Fi worked
+  again a few seconds after `stop`) — but cancelling a running
+  `scan_airtag` left Wi-Fi permanently rejected with `busy`, and the
+  probe's own USB console went completely silent (no NimBLE activity at
+  all, not just slow). Only recovery was a probe reboot.
+  - **Root cause, found by reading the installed ESP-IDF's own NimBLE
+    source** (`~/esp/esp-idf/components/bt/host/nimble/...`), not
+    guessed: `ble_gap_disc_cancel()`'s own doc comment says a success
+    return means "scanning has been fully aborted" — synchronously, by
+    the time the call returns. Traced `ble_gap_disc_complete()`'s three
+    call sites in `ble_gap.c` and confirmed none of them is reachable from
+    cancel — it never emits `BLE_GAP_EVENT_DISC_COMPLETE` at all. `wifi_
+    recon.c`'s `scan_teardown()` waits on exactly that kind of event after
+    calling `esp_wifi_scan_stop()`, because Wi-Fi's stop *does* complete
+    through it either way — `ble_recon.c` copied that shape without
+    copying the guarantee it depends on. For a bounded `scan_bt` session,
+    the natural dwell timer firing around the same time as the cancel
+    papered over the bug; `scan_airtag`'s `BLE_HS_FOREVER` duration has no
+    such timer, so nothing was ever going to complete it.
+  - **Fix:** `finish_scan()` — one idempotent function (guards on
+    `s_mode` first) called from both the natural completion path
+    (`gap_event`'s own `BLE_GAP_EVENT_DISC_COMPLETE`) and the forced path
+    (`ble_teardown()`, immediately after `ble_gap_disc_cancel()` returns,
+    no waiting). Whichever path gets there first for a given session wins;
+    the other is a no-op, not a double release or a duplicate frame.
+    Deleted the now-unnecessary `s_done` semaphore and `s_aborting` flag
+    entirely — the synchronous contract made both redundant.
+  - **Retested all three paths this bug touches:** natural `scan_bt`
+    completion (70 devices, clean), `scan_bt` cancelled mid-scan (39
+    devices, `aborted=1`, Wi-Fi free within a second), `scan_airtag`
+    cancelled (Wi-Fi free within a second — the original failure,
+    confirmed fixed). No probe reboot needed for any of them now.
+- **Also confirmed working, no changes needed:** NimBLE init/sync on real
+  hardware; Wi-Fi/BLE coexistence under the arbiter (`busy` correctly
+  returned for Wi-Fi while `scan_airtag` held `PHY_OWNER_BLE`, and vice
+  versa); debug mode's SD-persisted setting surviving a probe-only
+  reflash; the deck's own `probe-reset` detection recovering a dropped
+  Grove link automatically.
+- **Not yet seen:** the Beacons card on the deck's actual display (all
+  testing so far has been through the debug console + `dump`, same gap
+  Spectrum still has, per this morning's ROADMAP note). No real AirTag on
+  hand to confirm the tracker classification fires on genuine Find My
+  hardware, only that it correctly does *not* fire on iBeacon-shaped
+  Apple manufacturer data (host-tested).
+- **Next:** visual confirmation on the deck's TFT. `zig_recon/` still
+  blocked on the projectZero source.
+
+---
+
+## 2026-09-16 — ble_recon built end to end: both firmwares, host-tested, not yet on hardware
+
+**Phase:** P7 · **By:** Will + Claude
+
+With P4 closed out and P5 blocked on a 3.3V converter part, moved to P7's
+BLE beacons work — genuinely greenfield, nothing existed on either firmware
+before this session.
+
+- **Protocol first.** `OCP-SPEC.md` §11 written from scratch: `scan_bt
+  [dwell_ms]` replies with a `[BLE]` device-table block frame (no paging,
+  capped like `[CLIENTS]`/`[PROBES]`); `scan_airtag` streams `[EVT]
+  kind=airtag` continuously, same shape as `deauth_detector`. Reused the
+  verbs already declared in `ocp.h` (`scan_bt`/`scan_airtag`) rather than
+  inventing new wire surface — and found `OCP_EVT_KIND_AIRTAG`/`FOLLOWER`
+  already pre-declared there too, confirming this matches original intent
+  rather than being invented this session.
+- **Probe: three modules, the risky one researched before being written.**
+  `ble_adv_parse.c` (BLE AD-structure parser: name, manufacturer data,
+  Find My/AirTag classification) and `ble_device_table.c` (upsert-by-
+  address, capped) are pure C, host-tested under ASan/UBSan — same split
+  as `beacon_parse.c`/`sniff_track.c`, 13+14 checks plus 200k fuzz
+  iterations, clean. `ble_recon.c` (the actual NimBLE glue) was designed
+  against the installed ESP-IDF v5.5.1's own bundled `blecent`/
+  `bleprph_wifi_coex` examples read directly from `~/esp/esp-idf` — not
+  from memory — for the init sequence, GAP discovery event shapes, and the
+  sdkconfig a BLE+Wi-Fi-coexistence build actually needs on this target.
+  Mirrors `wifi_recon.c`'s exact abort/teardown pattern (a `stop` sets an
+  aborting flag, cancels discovery, and waits on a semaphore the async
+  completion event gives — the single call site for releasing the arbiter,
+  regardless of which path got there).
+- **Real build, real problems, both fixed same-session.** First attempt
+  failed: `host/ble_gap.h` not found — turned out to be the documented
+  "sdkconfig exists, defaults are ignored" gotcha (WORKLOG 2026-09-12)
+  biting the *probe* side for the first time; cleared both cached build
+  dirs. Second failure: `ble_hs_util_ensure_addr` undeclared — a real
+  missing include (`host/util/util.h`), not a config problem. Third:
+  the image overflowed the default 1 MB app partition by ~126 KB once
+  NimBLE was actually linked in. Fixed with Espressif's own "large single-
+  app" partition Kconfig (1500 KB) — the same fix their own
+  `bleprph_wifi_coex` example ships with, not a guess, and the XIAO's 8 MB
+  flash has room to spare. Both probe variants (`uart`/`bench`) build
+  clean at 76% of the new partition.
+- **Deck: named "Bt", not "Ble", on purpose.** `tools/check_rx_only.py`
+  bans any `ble_`/`esp_ble_`/`NimBLE` identifier from deck source outright
+  (DESIGN §3 — deck radios stay off in v1) via a blunt pattern match, not
+  an API allowlist — a deck-side `ble_count` variable would trip it even
+  though it only ever parses text the probe already sent. Read the
+  checker's actual regex before naming anything, rather than finding out
+  after a failed gate run: `src/model/bt_model` + `src/ui/bt_view`
+  (Beacons card), wired into `DeckApp` (new `Screen::Beacons`, card cycle,
+  keys `s`/`a`, debug console `beacons`/`airtag` commands, `dump` counts).
+  16 host tests.
+- **Both firmwares verified building on the real toolchain** —
+  `check_protocol.sh` green throughout (114 source files scanned by the
+  receive-only checker, up from 100 this morning, still zero transmit-
+  capable APIs), `build_firmware.sh` clean for both probe variants and all
+  three deck PlatformIO envs.
+- **Not hardware-confirmed at all.** No board build has run NimBLE yet —
+  whether discovery actually finds real devices, whether Wi-Fi/BLE
+  coexistence behaves under the arbiter the way it's designed to, whether
+  the Find My classification fires on a real AirTag, are all still open.
+  Will's tracking down a USB cable for the C5 to start on that.
+- **Next:** flash the probe, confirm `scan_bt`/`scan_airtag` against real
+  BLE traffic, exercise the Beacons card on the deck's own display (never
+  actually looked at, same gap Spectrum still has). `zig_recon/` stays
+  blocked on finding the projectZero source locally. `start_antisurveillance`
+  depends on `ble_recon` existing, which it now does — unblocked, not
+  started.
+
+---
+
 ## 2026-09-16 — P4 exit gate met: outdoor GNSS confirmed, antenna-unplug proven
 
 **Phase:** P4 → P5 · **By:** Will + Claude

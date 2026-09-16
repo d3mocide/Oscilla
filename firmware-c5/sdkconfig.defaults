@@ -21,3 +21,15 @@ CONFIG_ESP_TASK_WDT_PANIC=y
 
 CONFIG_COMPILER_WARN_WRITE_STRINGS=y
 CONFIG_COMPILER_STACK_CHECK_MODE_NORM=y
+
+# BLE passive scan (ble_recon.c, OCP-SPEC §11). NimBLE only — no classic BT,
+# no GATT server: the C5 has a single 2.4 GHz radio shared with Wi-Fi via
+# radio_arbiter (PHY_OWNER_BLE), same coexistence story as Wi-Fi already has.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+# NimBLE overflows the default 1 MB factory-app partition by ~126 KB; the
+# XIAO's 8 MB flash has plenty of room, so grow the app partition instead of
+# trimming anything (1500 KB, Espressif's own "large" single-app table —
+# same fix the bleprph_wifi_coex example ships with, not a guess).
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

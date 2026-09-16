@@ -17,7 +17,10 @@ idf_component_register(
          "beacon_parse.c"
          "probe_parse.c"
          "deauth_parse.c"
+         "ble_adv_parse.c"
+         "ble_device_table.c"
+         "ble_recon.c"
          "${CMAKE_CURRENT_LIST_DIR}/../../protocol/ocp_text.c"
     INCLUDE_DIRS "." "${CMAKE_CURRENT_LIST_DIR}/../../protocol"
-    REQUIRES driver esp_timer nvs_flash app_update esp_wifi esp_event
+    REQUIRES driver esp_timer nvs_flash app_update esp_wifi esp_event bt
 )

@@ -271,8 +271,10 @@ Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
 | `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
 | `radio_arbiter.c` | **Single-owner PHY arbitration** + power interlock. The load-bearing safety invariant. |
 | `wifi_recon.c` | Managed scan; promiscuous sniffer + inspect + channel views; manual hop (optionally D-UCB) |
-| `ble_recon.c` | NimBLE passive scan; device table; tracker classification |
-| `zig_recon/` | **Lifted verbatim** from projectZero — 802.15.4 PAN/node discovery |
+| `ble_adv_parse.c` | Bounds-checked BLE AD-structure parser (name, manufacturer data, Find My/AirTag classification); pure C, fuzzed under ASan/UBSan — same split as `beacon_parse.c` |
+| `ble_device_table.c` | `scan_bt`'s capped, deduplicated device table — pure C, host-tested upsert logic, same split as `sniff_track.c` |
+| `ble_recon.c` | NimBLE passive scan (`scan_bt`/`scan_airtag`, OCP-SPEC §11); thin glue over the two modules above, the arbiter, and OCP framing — **implemented and hardware-toolchain-verified 2026-09-16, not yet exercised on real hardware** (see WORKLOG) |
+| `zig_recon/` | **Lifted verbatim** from projectZero — 802.15.4 PAN/node discovery — **blocked: projectZero source not available locally yet** |
 | `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
 | `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
 | `config.c` | NVS-backed settings (band, channel set, LoRa RX params) |
@@ -348,6 +350,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/wardrive_csv` · `src/storage/wardrive_kml` | services | Pure WigleWifi-1.6 CSV / KML document shapes (§9.2); no SD I/O, host-tested |
 | `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
+| `src/model/bt_model` | model | `scan_bt` device table + `scan_airtag` tracker log (OCP-SPEC §11). Named "Bt" not "Ble" — `tools/check_rx_only.py` bans any `ble_`/`NimBLE` identifier from deck source outright (DESIGN §3), so the deck side spells it differently on purpose even though this only ever parses text |
+| `src/ui/bt_view` | view | The Beacons card: device list, tracker count, last tracker sighting |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
 | `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
@@ -360,7 +364,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **Trace** | `inspect_network <i>` | One AP deep-dive: security (WPA2/3), **MFP** state, AP uptime, RSSI meter. |
 | **Contacts** | `start_sniffer` / `show_clients` | Live AP↔client map + probe-request SSIDs (streamed via `[EVT]`). |
 | **Spectrum** | `channel_view` / `packet_monitor` | Per-channel utilization bars — the "scope" screen. |
-| **Beacons (BLE)** | `scan_bt` / `scan_airtag` | BLE device list; tracker counts; RSSI track one device. |
+| **Beacons (BLE)** | `scan_bt` / `scan_airtag` | BLE device list; tracker counts. **Not yet built:** a drill-down to track one selected device's RSSI over time — v1 is a list, not a per-device detail view (`src/ui/bt_view`). |
 | **Mesh (154)** | `start_zig_recon` + `zig_*` | PAN → node tree, protocol guess, signal quality. |
 | **Sub-GHz (LoRa)** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
 | **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — logging each AP row against the local fix and re-triggering on completion; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
