@@ -361,7 +361,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **Beacons (BLE)** | `scan_bt` / `scan_airtag` | BLE device list; tracker counts; RSSI track one device. |
 | **Mesh (154)** | `start_zig_recon` + `zig_*` | PAN → node tree, protocol guess, signal quality. |
 | **Sub-GHz (LoRa)** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
-| **Drive** | local GNSS (+ `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. Today it logs the deck's own `scan_networks` results against the local fix — the probe's `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so the probe-driven mode is P7. |
+| **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — logging each AP row against the local fix and re-triggering on completion; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
 | **Log** | local SD browse | Browse/preview sessions recorded on the deck. |
 
 ### 7.3 Interaction & state

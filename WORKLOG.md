@@ -1,3 +1,85 @@
+## 2026-09-15 — First real field test: outdoor fix confirmed, two deck-UI gaps found and fixed
+
+**Phase:** P4 / deck UX · **By:** Will + Claude
+
+Will wired the GNSS module and took the whole rig outside on the Cardputer's
+own battery (C5 Grove-powered from it too, after finding the Grove supply
+selector was on `5VIN` with no USB present — flipped to `5VOUT`). Ran Wi-Fi
+(Contacts) and LoRa (SubGhz) concurrently the whole time, deliberately, as an
+informal brute-force power-drain check. No brownouts or resets. Came back
+with a card full of real data and two real UI gaps.
+
+- **Outdoor fix confirmed for the first time.** Pulled the SD card and read
+  it directly: `drive_0002.kml` held 16 real track points, genuine lat/lon
+  with normal GPS altitude noise (47-55 m). `drive_0001` had zero — opened
+  before a fix existed, exactly the behavior the model's supposed to have.
+  This is the actual outdoor half of P4's exit gate, done for real, not
+  simulated.
+- **The crash-tolerant KML design got a real, unplanned test.** The card was
+  pulled without pressing `l` to close the session first. Result: a
+  well-formed *prefix* of a valid document, missing only its closing tags —
+  exactly what `wardrive_kml.h`'s header comment says should happen, now
+  confirmed rather than just designed-for. Repaired it by hand-appending the
+  exact bytes `kmlCloseTrack()`+`kmlFooter()` would have written
+  (`</coordinates></LineString></Placemark></Document></kml>`); parses clean
+  now. Lesson for next time stated plainly to Will: press `l` before pulling
+  the card - it survived, but pulling storage mid-write generally isn't this
+  forgiving.
+- **Both CSVs were empty, and that pointed at a real gap, not corrupt data.**
+  `wardriveLogAp()` only ever gets called from the `[SCAN]` handler - i.e.
+  only a managed `scan_networks` survey (Sweep screen) produces the
+  SSID/BSSID/channel/RSSI/auth shape a WigleWifi row needs. Will was running
+  Contacts' live sniffer, which has no equivalent per-AP shape. Correct
+  behavior given what each mode actually reports, but it meant a real
+  wardrive attempt produced zero rows - which led to the actual finding
+  below.
+- **Will's own read of this, and he was right: "shouldn't wardrive mode auto
+  kick off both and passively show you the count?"** What shipped for P4 was
+  a passive hook - log a scan if one happens to be running - not an actual
+  mode. Fixed: `l` now kicks a `scan_networks` off immediately, and the
+  `OCP_MARK_SCAN` handler re-triggers another the moment one finishes, for as
+  long as the log stays open - screen-independent, same as every other
+  engine here. `startScan()` split into `requestScan()` (wire-level: send +
+  reset `scan_`, no screen change) and the interactive `startScan()`
+  (adds the Sweep jump + cursor reset) specifically because the old
+  single-function version forced `screen_ = Screen::Sweep` - reusing it
+  unmodified for the auto-loop would have yanked Will back to Sweep every
+  ~10s, exactly wrong for "sit on Drive and watch the count." The Drive
+  card's live `N ap  M trk` line already existed from tonight's earlier
+  work, so once scanning was actually looping, "passively show the count"
+  needed no new UI at all.
+- **Separately found and fixed: the deck's own `s`-key handlers never used
+  this morning's scoped stop.** `Client::stop(now_ms, lane)` supports lane
+  scoping since the D-16 commit, but grepping every `client_.stop(` call
+  site in `deck_app.cpp` found all five still passing no lane at all - the
+  default `all`. Live consequence: with LoRa and Wi-Fi genuinely running
+  concurrently (which Will was doing at that exact moment), pressing `s` on
+  either SubGhz or Contacts to stop just one would have silently killed both
+  - the *exact* 2026-09-14 bug, just because the fix was never wired past the
+  protocol client. Scoped all five: Contacts/Spectrum/Deauth's `s` and
+  `back()`'s leave-screen stop to `phy`, SubGhz's `s` and `back()`'s to
+  `lora`. `back()`'s old single unconditional call covered all four screens
+  at once (three PHY, one LoRa) with one bare stop - split per-screen instead
+  of just parameterizing it, since leaving SubGhz and leaving Contacts need
+  different lanes. The one path left as `all` (`back()`'s fallback for a
+  bare `pending()` with none of the four screens active) is exact, not a
+  shortcut: only Sweep/Trace/Link can reach it, and every command they can
+  issue is PHY-lane or lane-agnostic (status/ping/version).
+- **Refreshed two comments this same set of fixes made stale**: `deck_app.h`'s
+  header block and the `OCP_ERR_BUSY` handling comment in `onReply()` both
+  still described the scoped stop as something the auto-handoff was
+  "waiting on" - both now say it's landed, hardware-verified, and used
+  everywhere in this file, so re-adding the auto-handoff is unblocked, just
+  not done.
+- **Verified:** deck firmware builds clean, full host suite still green
+  (unaffected - `deck_app.cpp` isn't part of the host build). Flashed to the
+  real deck once both boards were back on the bench. **Not yet verified:**
+  either fix against live hardware - next session should confirm the
+  wardrive auto-loop actually produces real CSV rows outdoors, and that
+  pressing `s` on one concurrent-radio screen genuinely spares the other.
+
+---
+
 ## 2026-09-15 — D-16 verified on real hardware: 15/15, both cross-lane directions hold
 
 **Phase:** protocol / pre-P7 polish · **By:** Will + Claude

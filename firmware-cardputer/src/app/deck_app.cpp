@@ -126,13 +126,13 @@ void DeckApp::onReply(const ocp::Item &it)
         const auto *msg = it.get(OCP_K_MSG);
         /* A same-PHY-lane conflict (radio_arbiter's "radio in use by ...")
          * lands here too, same as any other error: no automatic
-         * stop-and-switch. That would need `stop` to release just the
-         * conflicting engine, but the probe's `stop` handler tears down
-         * *everything* unconditionally (ocp_server.c: arbiter_stop_all()
-         * plus an unconditional lora_cmd_stop(), every time) - tried the
-         * auto-handoff on 2026-09-14 and it silently killed a concurrently
-         * running LoRa session as a side effect. Reverted; see WORKLOG and
-         * D-16 for the real fix (a scoped stop) this is waiting on. */
+         * stop-and-switch. An auto-handoff tried this on 2026-09-14 and it
+         * silently killed a concurrently running LoRa session, because the
+         * only tool to free the arbiter was a `stop` that took down every
+         * lane. That's fixed now (D-16, `stop phy` scopes it, hardware-
+         * verified 2026-09-15) and every stop() call site in this file
+         * already uses it - re-adding the auto-handoff on top is unblocked,
+         * just not done. */
         notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
         log(std::string("err code=") + (code ? *code : "?"));
         return;
@@ -200,9 +200,19 @@ void DeckApp::onReply(const ocp::Item &it)
             notice("scan stopped");
             log("scan aborted");
         } else if (!scan_.scanning()) {
-            notice(scan_.truncated() ? "list capped at 512" : "");
             log("scan done aps=" + std::to_string(scan_.rows().size()) + " total=" + std::to_string(scan_.total()) +
                 " malformed=" + std::to_string(scan_.malformedRows()) + " elapsed_ms=" + std::to_string(scan_.elapsedMs()));
+            /* Wardrive mode (Drive card, `l`): a survey is only useful
+             * repeated, not one-shot. Re-request immediately rather than
+             * waiting to be told - the whole point is to sit passively and
+             * watch the count climb. Screen-independent, same as every
+             * other engine here: leaving Drive for SubGhz doesn't stop it. */
+            if (storage::wardriveLogStats().open) {
+                notice("");
+                requestScan(now_);
+            } else {
+                notice(scan_.truncated() ? "list capped at 512" : "");
+            }
         }
     } else if (it.tag == OCP_MARK_INSPECT) {
         scan_.absorbInspect(it);
@@ -225,17 +235,23 @@ void DeckApp::onEvent(const ocp::Item &it)
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
 }
 
-void DeckApp::startScan(uint32_t now_ms)
+void DeckApp::requestScan(uint32_t now_ms)
 {
-    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (client_.state() != ocp::LinkState::Ready) return;
     if (!client_.send(OCP_V_SCAN_NETWORKS, now_ms)) {
-        retrySoon([this](uint32_t t) { startScan(t); }, now_ms);
+        retrySoon([this](uint32_t t) { requestScan(t); }, now_ms);
         return;
     }
     scan_.begin();
-    cursor_ = 0;
     next_page_ = 0;
     scan_started_ms_ = now_ms;
+}
+
+void DeckApp::startScan(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    requestScan(now_ms);
+    cursor_ = 0;
     screen_ = Screen::Sweep;
     notice("");
 }
@@ -353,7 +369,6 @@ void DeckApp::feedGnss(const uint8_t *data, size_t len, uint32_t now_ms)
 
 void DeckApp::toggleWardriveLog(uint32_t now_ms)
 {
-    (void)now_ms;
     if (storage::wardriveLogStats().open) {
         const auto &st = storage::wardriveLogStats();
         log("wardrive log end aps=" + std::to_string(st.aps) +
@@ -374,6 +389,13 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
     wardrive_logged_upto_ = scan_.rows().size();
     notice(std::string("logging ") + storage::wardriveLogName());
     log("wardrive log begin " + std::string(storage::wardriveLogName()));
+
+    /* A wardrive session that just sits there until you separately go to
+     * Sweep isn't a wardrive mode, it's a hook - kick a survey off now, and
+     * the SCAN handler keeps it looping (onReply(), OCP_MARK_SCAN) for as
+     * long as the log stays open. Skipped if one's already running: let it
+     * finish rather than restarting it and losing its progress. */
+    if (!scan_.scanning()) requestScan(now_ms);
 }
 
 void DeckApp::logScanRows()
@@ -396,9 +418,19 @@ void DeckApp::back(uint32_t now_ms)
     /* A live sniffer/spectrum mode has no pending command once its ack
      * lands (it's a stream, not a blocking reply), so leaving the screen
      * must send `stop` unconditionally rather than only when something is
-     * pending. */
-    if (client_.pending() || screen_ == Screen::Contacts || screen_ == Screen::Spectrum ||
-        screen_ == Screen::SubGhz || screen_ == Screen::Deauth) {
+     * pending. Scoped per D-16: SubGhz is the LoRa lane, the other three
+     * are the PHY lane — a bare stop here would cancel whichever of the
+     * two isn't actually being left, same bug D-16 fixed at the protocol
+     * layer, just reachable again if this call didn't scope it too. */
+    if (screen_ == Screen::SubGhz) {
+        client_.stop(now_ms, OCP_LANE_LORA);
+    } else if (screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Deauth) {
+        client_.stop(now_ms, OCP_LANE_PHY);
+    } else if (client_.pending()) {
+        /* Only Sweep/Trace/Link reach here with something pending, and
+         * every command they can issue is PHY-lane (scan/inspect) or
+         * lane-agnostic (status/ping/version) - "all" is exact, not just
+         * a safe default. */
         client_.stop(now_ms);
     }
     screen_ = screen_ == Screen::Trace ? Screen::Sweep : Screen::Link;
@@ -443,7 +475,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                                                                           : ui::ContactsTab::Clients;
                 contacts_cursor_ = 0;
             } else if (c == 's') {
-                if (contacts_.sniffing()) client_.stop(now_ms);
+                if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY);
                 else startSniffer(now_ms);
             }
             break;
@@ -454,7 +486,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && spectrum_cursor_ > 0) spectrum_cursor_--;
             else if (c == '.' && spectrum_cursor_ + 1 < spectrum_.readings().size()) spectrum_cursor_++;
             else if (c == 's') {
-                if (spectrum_.active()) client_.stop(now_ms);
+                if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY);
                 else startChannelView(now_ms);
             }
             break;
@@ -463,7 +495,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
             else if (c == 'c') startLoraConfig(now_ms);
             else if (c == 's') {
-                if (lora_.active()) client_.stop(now_ms);
+                if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
                 else startLoraListen(now_ms);
             }
             break;
@@ -471,7 +503,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && deauth_cursor_ > 0) deauth_cursor_--;
             else if (c == '.' && deauth_cursor_ + 1 < deauth_.events().size()) deauth_cursor_++;
             else if (c == 's') {
-                if (deauth_.active()) client_.stop(now_ms);
+                if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY);
                 else startDeauthDetector(now_ms);
             }
             break;

@@ -85,6 +85,11 @@ public:
 private:
     void onReply(const ocp::Item &it);
     void onEvent(const ocp::Item &it);
+    /* The wire-level half of startScan(): send scan_networks, reset scan_.
+     * No screen/cursor change - this is what the wardrive auto-loop calls
+     * so it can re-trigger a scan every ~10s without yanking the view back
+     * to Sweep each time. */
+    void requestScan(uint32_t now_ms);
     void startScan(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
     void startSniffer(uint32_t now_ms);
