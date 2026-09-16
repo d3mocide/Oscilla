@@ -1,3 +1,68 @@
+## 2026-09-15 — Real WigleWifi rows confirmed, then a stale session and card corruption
+
+**Phase:** P4 / storage hardening · **By:** Will + Claude
+
+Closing chapter of tonight's field-testing session. Two real findings, one
+fixed tonight, one recorded for tomorrow.
+
+- **First real confirmation the wardrive pipeline produces correct output.**
+  Read the card directly (not through the deck's own reporting): a
+  `drive_0005.csv` with real WigleWifi rows — real BSSIDs, correct
+  `[WPA2-PSK][ESS]`-style auth tags, coordinates matching the known test
+  location — and an 847 KB KML alongside it. This is the actual answer to
+  "does the auto-loop write real rows outdoors with a fix," confirmed from
+  the readable portion before the corruption below was found.
+- **"124 dropped, no fix" earlier tonight was a stale session, not fresh
+  data — root-caused, not just observed.** Repairing `drive_0002.kml`
+  earlier by hand (appending `kmlCloseTrack()`/`kmlFooter()`'s bytes
+  directly, outside the actual code path) fixed the *file* but never told
+  the *device* the session had ended. `g_open` lives only in RAM and is
+  reset only by a reboot or a real `wardriveLogEnd()` call, so the deck kept
+  believing that original session was open indefinitely - every later `l`
+  press toggled the same ancient session, and the "no fix" counter climbed
+  in RAM completely independent of whether a card was even present (that
+  code path never touches storage). Confirmed exactly this by finding
+  `drive_0002.kml` on the card byte-for-byte identical to the manual repair,
+  with no `drive_0003` anywhere despite `wardriveLogBegin()`'s own
+  free-slot search requiring one.
+- **Found a real corruption bug this pointed at, and fixed it.** The
+  underlying class of problem - a session staying "open" with no way to
+  detect the card going away - is real independent of tonight's specific
+  cause. `wardriveLogAp()`/`wardriveLogTrackPoint()` never checked whether
+  their SD writes actually succeeded; `g_stats` counters and `g_open` just
+  kept incrementing/staying true forever once set, regardless of whether the
+  underlying file writes were landing anywhere. Added `closeDead()`
+  (`storage/wardrive_logger.cpp`): both write paths now compare
+  `File::print()`'s return against the string length actually sent, and on
+  a mismatch, close the handles and drop `g_open` immediately rather than
+  continuing to pretend. No footer attempt on the way out - a write that
+  just failed for lack of a card would fail the same way.
+- **Independently, the card itself turned up genuinely corrupted** -
+  `DRIVE_~3.CSV`, an orphaned 8.3 short-name entry with no matching long
+  name, and a reproducible `Input/output error` at the *exact same byte
+  offset* (8192) in `drive_0005.csv` on every read attempt - not random
+  flakiness, real FAT structure damage, almost certainly from a card pulled
+  mid-write at some point tonight. No root access on this machine to run
+  `fsck.vfat` for a proper diagnosis (`sudo` needs a password neither of us
+  has here). Will reformatted the card directly rather than chase it
+  further - reasonable call; the pipeline was already proven from the
+  readable portion, and a fresh format is a clean fix for corruption anyway.
+- **Verified:** `closeDead()` fix builds clean, full host suite still green
+  (unaffected, `wardrive_logger.cpp` isn't host-testable - real SD/SPI I/O,
+  per `sd_storage.h`'s own note). **Not yet flashed** - neither board was on
+  USB when this was written up. **Not yet verified on hardware at all:**
+  whether `closeDead()` actually fires correctly when a card is genuinely
+  pulled mid-write (the scenario it exists for) rather than just reasoned
+  through from the Arduino SD API's documented return-value behavior.
+- **For next session:** freshly formatted card, flash this fix first, then
+  redo the clean round-trip properly: card in deck (confirmed easy this
+  time - the earlier confusion was a card sitting in the PC reader while
+  tonight's tests ran against a stale in-RAM session) → `l` → get a fix →
+  `l` again to close → *then* pull the card. That should produce a clean
+  `drive_0001` with real rows and no repair needed.
+
+---
+
 ## 2026-09-15 — First real field test: outdoor fix confirmed, two deck-UI gaps found and fixed
 
 **Phase:** P4 / deck UX · **By:** Will + Claude

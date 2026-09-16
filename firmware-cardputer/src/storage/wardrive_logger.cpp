@@ -29,6 +29,23 @@ bool g_track_open = false;
 char g_name[16] = "";
 WardriveLogStats g_stats;
 
+/* A write returning short (almost always 0) is the only signal Arduino's SD
+ * layer gives for "the card is gone" - nothing else here polls for
+ * presence. Confirmed live 2026-09-15: without this, g_open stays true
+ * forever once set, so a session survives a card pull indefinitely and
+ * keeps counting aps_no_fix in RAM against a card that no longer exists,
+ * completely decoupled from reality (see WORKLOG). Don't attempt the KML
+ * footer here - that write would fail the same way - just stop pretending. */
+void closeDead()
+{
+    if (g_csv) g_csv.close();
+    if (g_kml) g_kml.close();
+    g_open = false;
+    g_track_open = false;
+    g_stats.open = false;
+    g_name[0] = '\0';
+}
+
 }  // namespace
 
 bool wardriveLogBegin(const model::GnssFix &fix)
@@ -88,10 +105,13 @@ void wardriveLogTrackPoint(const model::GnssFix &fix)
     if (!g_open || !g_track_open || !fix.valid) return;
     if (!lock()) return;   /* a contended lock drops this vertex, never blocks */
 
-    g_kml.print(kmlTrackPoint(fix.lat_deg, fix.lon_deg, fix.alt_m).c_str());
+    std::string point = kmlTrackPoint(fix.lat_deg, fix.lon_deg, fix.alt_m);
+    bool ok = g_kml.print(point.c_str()) == point.size();
     g_kml.flush();
-    g_stats.track_points++;
 
+    if (!ok) { closeDead(); unlock(); return; }
+
+    g_stats.track_points++;
     unlock();
 }
 
@@ -109,12 +129,16 @@ void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t f
 
     int h, m, s;
     model::splitUtcTime(fix.utc, &h, &m, &s);
-    g_csv.print(wardriveCsvRow(ap, fix.year, fix.month, fix.day, h, m, s,
-                               fix.lat_deg, fix.lon_deg, fix.alt_m, 0.0f).c_str());
-    g_csv.flush();
+    std::string csv_row = wardriveCsvRow(ap, fix.year, fix.month, fix.day, h, m, s,
+                                          fix.lat_deg, fix.lon_deg, fix.alt_m, 0.0f);
+    std::string kml_row = kmlApPlacemark(ap, fix.lat_deg, fix.lon_deg);
 
-    g_kml.print(kmlApPlacemark(ap, fix.lat_deg, fix.lon_deg).c_str());
+    bool ok = g_csv.print(csv_row.c_str()) == csv_row.size();
+    g_csv.flush();
+    ok = ok && (g_kml.print(kml_row.c_str()) == kml_row.size());
     g_kml.flush();
+
+    if (!ok) { closeDead(); unlock(); return; }
 
     g_stats.aps++;
     unlock();
