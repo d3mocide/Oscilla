@@ -348,6 +348,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/wardrive_csv` · `src/storage/wardrive_kml` | services | Pure WigleWifi-1.6 CSV / KML document shapes (§9.2); no SD I/O, host-tested |
 | `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
+| `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
+| `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
 
 ### 7.2 View set (v1)
@@ -375,6 +377,16 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 
 ### 7.5 Framework
 **M5Unified + M5GFX on PlatformIO** ([D-1](docs/DECISIONS.md) — decided). Keyboard, internal LCD and SD come mostly for free; M5GFX drives the external panel as a second device on the shared bus. Cardputer **ADV** support verified on hardware ([D-12](docs/DECISIONS.md)): M5Unified autodetects the board and M5Cardputer drives its TCA8418 keyboard. M5's "Port A" I²C uses the Grove UART pins, so the deck must never enable it.
+
+### 7.6 Debug console
+
+Pressing `d` at any time — not a boot gesture, works from any screen (`DeckApp::onKeys`) — toggles a named-command console over the same USB `Serial` the diagnostic log already writes to. The toggle is persisted to the SD card (`storage::settings`, a flag file under `/oscilla`) and reloaded at boot, so the setting outlives a reflash: the card remembers it, not the firmware image. It's runtime-gated, not a separate build — the deck's USB port already carries diagnostics and the Grove link side by side, so a second firmware variant (the way the probe's `--bench` swaps transports) would only reintroduce the "wrong image flashed" trap that split caused.
+
+An earlier design held `d` through boot instead. Dropped after hardware testing (2026-09-16, WORKLOG): the ADV's TCA8418 keyboard reader is edge/interrupt-driven and flushes its event FIFO in `Keyboard.begin()`, so a key already down before that point never fires a new edge — `isKeyPressed()` stays false for it forever, no matter how long it's held. A runtime toggle sidesteps the whole class of problem and is more useful anyway (no reason to reboot just to flip it).
+
+Off by default; the Link card shows a `DEBUG` badge when it's on, so it's never silently active.
+
+Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, GNSS, wardrive session) — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
 
 ---
 

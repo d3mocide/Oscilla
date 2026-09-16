@@ -47,9 +47,19 @@ public:
      * per '\n'. */
     void feedLine(const std::string &line, const Sink &sink);
 
+    /* Wire-corruption counters, for telling "the receiver has nothing to
+     * say" apart from "bytes are arriving mangled" (2026-09-16: a wardrive
+     * session on good LOS showed far fewer fixes than a 1 Hz receiver should
+     * produce, and there was no way to tell UART loss from a genuinely
+     * marginal lock without these). */
+    uint32_t checksumFailures() const { return checksum_fail_count_; }
+    uint32_t overlongLines() const { return overlong_count_; }
+
 private:
     std::string buf_;
     bool overlong_ = false;
+    uint32_t checksum_fail_count_ = 0;
+    uint32_t overlong_count_ = 0;
 };
 
 }  // namespace gnss

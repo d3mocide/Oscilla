@@ -1,3 +1,71 @@
+## 2026-09-16 — GNSS wire-corruption diagnostics, then a debug console
+
+**Phase:** P4 / bench tooling · **By:** Will + Claude
+
+Started as a review of a second wardrive card (stationary test, good LOS).
+Ended with GNSS diagnostics, a whole debug console, and a real keyboard-
+hardware bug found and fixed the same session it was introduced.
+
+- **Card review found a real anomaly, not just antenna noise.** Two
+  stationary sessions only produced 20 and 5 distinct GNSS fixes over ~4 min
+  and ~47 s respectively — far below what a steady 1 Hz lock under clear sky
+  should give. Track vertices (5 s throttle, gated on `hasFix()`) were
+  sparser still. Traced it to two real gaps rather than guessing: `Serial2`
+  (GNSS, 9600 baud) never got `setRxBufferSize()`, so it sat at the Arduino
+  core's 256 B default — ~266 ms of headroom — while `wardrive_logger.cpp`
+  flushes the SD card on every single AP row over the shared SPI bus (Rev D
+  §5.2). No instrumentation existed to confirm it either way.
+- **Added instrumentation, not a guess-fix.** `Serial2.setRxBufferSize(2048)`
+  plus a real `onReceiveError()` hardware overflow callback (ground truth,
+  not inference). `gnss::NmeaParser` now counts checksum failures and
+  overlong-line drops (`checksumFailures()`/`overlongLines()`, host-tested).
+  `DeckApp::tick()` logs `gnss <state> age_ms=… chkfail=… overlong=…` every
+  5 s over the existing USB diagnostic log. Not yet run outdoors again to
+  confirm the fix — that's next.
+- **That led to a bigger ask: drive the deck end-to-end over USB for bench
+  testing and future agentic firmware work, not just watch it.** Built a
+  debug console: `debug::LineReader` (new module, chunk-invariant like
+  `NmeaParser`, host-tested byte-at-a-time) reassembles commands typed or
+  scripted over the same `Serial` the diagnostic log already uses.
+  `DeckApp::runDebugCommand()` dispatches `scan`, `wardrive`, `sniff`,
+  `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`,
+  `stop [lane]`, `connect`/`ping`/`status`/`reboot`, `card <name>`, and
+  `dump` (a one-line counts/state snapshot across every subsystem) —
+  screen-independent, so a script doesn't need to navigate the UI the way a
+  human does. `dump` follows the existing `log()` rule: counts and states
+  only, never SSIDs/BSSIDs.
+- **First trigger design (hold `d` through boot) failed on real hardware,
+  and the failure was diagnosed same-session, not left as a mystery.** Sent
+  `dump` after the "hold and reset" gesture — no response. Read
+  `TCA8418.cpp`: the ADV's keyboard reader is edge/interrupt-driven and
+  flushes its event FIFO in `Keyboard.begin()`; a key already down before
+  that point never fires a new `CHANGE` edge, so `isKeyPressed()` stays
+  false for it forever regardless of how long it's held. Recorded as
+  AGENTS.md gotcha 17 so it isn't rediscovered.
+- **Redesigned as a runtime toggle instead of chasing a working boot
+  gesture** — better UX anyway (Will's call): press `d` from any screen,
+  any time, no reboot needed. Persisted to the SD card (`storage::settings`,
+  a flag file under `/oscilla`, new module) and reloaded at boot, so it
+  survives a reflash — the card remembers it, not the firmware image. Link
+  card shows a `DEBUG` badge when it's on, so it's never silently active.
+- **Verified live on hardware, not just host tests.** Flashed, toggled `d`
+  (confirmed via `dump` responding and the serial log), then ran `ping`,
+  `status`, `scan` (154 real APs, 0 malformed, 10.5 s, matched by a
+  follow-up `dump`), `inspect` (real per-AP fields back:
+  `beacons=3 rsn=1 mfp_capable=1`), `card sweep`, `stop` — all confirmed
+  from the actual serial log, not assumed from the code.
+- Host tests: `line_reader_test` (6 cases) and two new `nmea_parser_test`
+  assertions, both wired into `check_protocol.sh`. Receive-only check now
+  covers 104 source files (was 100), still zero transmit-capable APIs.
+- **Next:** the actual outdoor GNSS re-test the buffer/counter fix was built
+  for hasn't happened yet — chkfail/overlong readings from a real walk are
+  what confirms or kills the SPI-flush-starves-GNSS hypothesis. Debug
+  console command list covers most of `onKeys()` but not literally
+  everything (e.g. no numeric LoRa config entry — `lora config` still uses
+  the same bench-preset placeholder the keyboard path does).
+
+---
+
 ## 2026-09-15 — Real WigleWifi rows confirmed, then a stale session and card corruption
 
 **Phase:** P4 / storage hardening · **By:** Will + Claude

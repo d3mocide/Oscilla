@@ -73,6 +73,22 @@ public:
     void tick(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
 
+    /* Debug console (DESIGN §7.6): named commands over the same USB Serial
+     * the diagnostic log already uses, independent of the current screen —
+     * a bench script shouldn't have to track cursor/screen state the way a
+     * human at the keyboard does. Off by default. Unrecognized/malformed
+     * input is echoed back over log(), never silently swallowed — a script
+     * needs to know a command landed. */
+    bool debugEnabled() const { return debug_mode_; }
+    /* RAM only, no SD write — main.cpp uses this once at boot to apply
+     * whatever storage::loadDebugMode() already read back. */
+    void setDebugMode(bool on) { debug_mode_ = on; }
+    /* 'd', bound globally in onKeys(): flips the flag, persists it via
+     * storage::saveDebugMode() so it survives a reflash (the SD card
+     * remembers it, not the firmware image), and leaves a notice either way. */
+    void toggleDebugMode();
+    void runDebugCommand(const std::string &line, uint32_t now_ms);
+
     /* True when the screen should be redrawn. */
     bool dirty(uint32_t now_ms) const;
     void draw(uint32_t now_ms);
@@ -120,6 +136,8 @@ private:
     /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
      * an hour is 3600 points, and the track only needs enough to draw. */
     uint32_t last_track_point_ms_ = 0;
+    uint32_t last_gnss_diag_ms_ = 0;
+    bool debug_mode_ = false;
     /* How much of scan_.rows() the wardrive log has already consumed —
      * [SCAN] arrives paged, and rows() accumulates across pages. */
     size_t wardrive_logged_upto_ = 0;

@@ -8,8 +8,10 @@
 #include <M5Cardputer.h>
 
 #include "app/deck_app.h"
+#include "debug/line_reader.h"
 #include "ocp.h"
 #include "storage/sd_storage.h"
+#include "storage/settings.h"
 #include "ui/canvas.h"
 
 namespace {
@@ -30,6 +32,12 @@ app::DeckApp g_app([](const char *data, size_t len) {
     Serial1.write(reinterpret_cast<const uint8_t *>(data), len);
 });
 
+/* Debug console line reassembly ('d' toggles debug mode at runtime,
+ * DeckApp::onKeys). Lives here, not in DeckApp, for the same reason the
+ * OCP/GNSS parsers stay out of it: byte-chunking is a wiring concern,
+ * command semantics aren't. */
+debug::LineReader g_debug_reader;
+
 }  // namespace
 
 void setup()
@@ -45,12 +53,32 @@ void setup()
      * logging is unavailable this boot; never block startup on it. */
     if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
 
+    /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not
+     * a boot gesture — an earlier boot-hold design didn't survive contact
+     * with the ADV's keyboard hardware (WORKLOG 2026-09-16: the TCA8418
+     * reader is edge-driven and flushes its FIFO in begin(), so a key
+     * already down before that point never fires a new edge). Reading the
+     * persisted flag here is what makes it survive a reflash: the SD card
+     * remembers it, not the firmware image. No-ops to false if there's no
+     * card yet. */
+    g_app.setDebugMode(storage::loadDebugMode());
+    if (g_app.debugEnabled()) Serial.println("deck: debug mode on (persisted)");
+
     /* A 256-row [SCAN] page is ~20 KB in ~2 s; a redraw must not overflow the buffer. */
     Serial1.setRxBufferSize(16384);
     Serial1.begin(OCP_BAUD_DEFAULT, SERIAL_8N1, kGroveRxPin, kGroveTxPin);
 
     /* Own UART, own baud: GNSS never crosses OCP (DESIGN §9.1), so it has
-     * nothing to do with the Grove link's proto or framing. */
+     * nothing to do with the Grove link's proto or framing. Buffer sized
+     * well past the Arduino core's 256 B default (2026-09-16, WORKLOG): at
+     * 9600 baud that's only ~266 ms of slack against any stall elsewhere in
+     * loop() (e.g. an SD flush on the shared SPI bus, Rev D §5.2), and a
+     * silent overflow there is indistinguishable from a marginal fix without
+     * the error callback below. */
+    Serial2.setRxBufferSize(2048);
+    Serial2.onReceiveError([](hardwareSerial_error_t err) {
+        Serial.printf("deck gnss uart error=%d\n", static_cast<int>(err));
+    });
     Serial2.begin(kGnssBaudDefault, SERIAL_8N1, kGnssRxPin, kGnssTxPin);
 
     g_app.onLog([](const std::string &line) { Serial.printf("deck %s\n", line.c_str()); });
@@ -94,6 +122,16 @@ void loop()
         size_t gn = 0;
         while (Serial2.available() && gn < sizeof gbuf) gbuf[gn++] = Serial2.read();
         g_app.feedGnss(gbuf, gn, now);
+    }
+
+    /* Debug console: drained unconditionally so stray bytes never pile up
+     * in Serial's own RX buffer, but runDebugCommand() no-ops unless 'd'
+     * has toggled debug mode on (deck_app.cpp). */
+    while (Serial.available()) {
+        uint8_t dbuf[64];
+        size_t dn = 0;
+        while (Serial.available() && dn < sizeof dbuf) dbuf[dn++] = Serial.read();
+        g_debug_reader.feed(dbuf, dn, [&](const std::string &line) { g_app.runDebugCommand(line, now); });
     }
 
     M5Cardputer.update();

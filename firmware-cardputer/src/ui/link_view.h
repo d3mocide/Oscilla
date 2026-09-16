@@ -16,6 +16,6 @@ namespace ui {
 std::string printable(const std::string &s, size_t max_len);
 
 void drawLinkView(const ocp::Client &client, const std::string &last_reply,
-                  const std::string &notice);
+                  const std::string &notice, bool debug_mode);
 
 }  // namespace ui

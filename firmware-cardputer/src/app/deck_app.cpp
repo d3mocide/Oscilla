@@ -13,6 +13,7 @@
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
 #include "storage/lora_logger.h"
+#include "storage/settings.h"
 #include "storage/wardrive_logger.h"
 #include "ui/gnss_view.h"
 #include "ui/info_view.h"
@@ -35,6 +36,9 @@ constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single co
 /* Drive-track vertex cadence. A 1 Hz fix logged raw is 3600 points an hour
  * for a line that only needs enough shape to draw. */
 constexpr uint32_t kTrackPointMs = 5000;
+/* GNSS diagnostic cadence (2026-09-16, see WORKLOG): tight enough to watch
+ * live over USB serial during a bench test, not so tight it floods it. */
+constexpr uint32_t kGnssDiagMs = 5000;
 
 /* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
  * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
@@ -56,6 +60,23 @@ Screen cycleCard(Screen s, int dir)
     for (; i < kNumCards; i++) if (kCards[i] == s) break;
     i = (i + dir + kNumCards) % kNumCards;
     return kCards[i];
+}
+
+/* Debug console only (`card <name>`) — the keyboard never needs this, it
+ * reaches Sweep/Trace by drilling down instead (DESIGN §7.3). */
+bool screenFromName(const std::string &name, Screen *out)
+{
+    if (name == "link") *out = Screen::Link;
+    else if (name == "sweep") *out = Screen::Sweep;
+    else if (name == "trace") *out = Screen::Trace;
+    else if (name == "contacts") *out = Screen::Contacts;
+    else if (name == "info") *out = Screen::Info;
+    else if (name == "spectrum") *out = Screen::Spectrum;
+    else if (name == "subghz" || name == "lora") *out = Screen::SubGhz;
+    else if (name == "deauth") *out = Screen::Deauth;
+    else if (name == "drive") *out = Screen::Drive;
+    else return false;
+    return true;
 }
 }  // namespace
 
@@ -443,6 +464,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     if (!keys.chars.empty() || keys.enter) log("keys=" + keys.chars + (keys.enter ? "<enter>" : ""));
     for (char c : keys.chars) {
         if (c == '`') { back(now_ms); continue; }
+        if (c == 'd') { toggleDebugMode(); continue; }
         if ((c == ',' || c == '/') && isHomeCard(screen_)) {
             screen_ = cycleCard(screen_, c == '/' ? 1 : -1);
             dirty_ = true;
@@ -520,6 +542,90 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     }
 }
 
+void DeckApp::toggleDebugMode()
+{
+    debug_mode_ = !debug_mode_;
+    storage::saveDebugMode(debug_mode_);
+    notice(debug_mode_ ? "debug mode on" : "debug mode off");
+    log(std::string("debug mode ") + (debug_mode_ ? "on" : "off"));
+    dirty_ = true;
+}
+
+void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
+{
+    if (!debug_mode_) return;
+    if (line.empty()) return;
+
+    std::string cmd = line;
+    std::string arg;
+    size_t sp = line.find(' ');
+    if (sp != std::string::npos) {
+        cmd = line.substr(0, sp);
+        arg = line.substr(sp + 1);
+    }
+
+    /* Direct calls into the same actions onKeys() reaches, deliberately
+     * skipping the screen_/cursor_ gating those go through — a script
+     * driving this shouldn't have to navigate the UI first. Toggle-shaped
+     * commands (sniff/spectrum/lora/deauth) read the same active()/
+     * sniffing()/locked() state their `s`-key equivalents do, so a script
+     * doesn't need to track which state it left an engine in either. */
+    if (cmd == "scan") startScan(now_ms);
+    else if (cmd == "wardrive") toggleWardriveLog(now_ms);
+    else if (cmd == "connect") client_.connect(now_ms);
+    else if (cmd == "ping") client_.send(OCP_V_PING, now_ms);
+    else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);
+    else if (cmd == "reboot") client_.send(OCP_V_REBOOT, now_ms);
+    else if (cmd == "stop") client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
+    else if (cmd == "sniff") { if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY); else startSniffer(now_ms); }
+    else if (cmd == "spectrum") { if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startChannelView(now_ms); }
+    else if (cmd == "deauth") { if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startDeauthDetector(now_ms); }
+    else if (cmd == "lora") {
+        if (arg == "config") startLoraConfig(now_ms);
+        else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
+        else startLoraListen(now_ms);
+    }
+    else if (cmd == "channel") {
+        if (arg.empty()) { log("debug: channel needs a number"); return; }
+        startPacketMonitor(now_ms, static_cast<uint8_t>(std::strtol(arg.c_str(), nullptr, 10)));
+    }
+    else if (cmd == "inspect") {
+        if (!arg.empty()) {
+            long idx = std::strtol(arg.c_str(), nullptr, 10);
+            bool found = false;
+            for (size_t i = 0; i < scan_.rows().size(); i++) {
+                if (scan_.rows()[i].idx == idx) { cursor_ = i; found = true; break; }
+            }
+            if (!found) { log("debug: no scan row idx=" + arg); return; }
+        }
+        startInspect(now_ms);
+    }
+    else if (cmd == "card") {
+        Screen s;
+        if (!screenFromName(arg, &s)) { log("debug: unknown card=" + arg); return; }
+        screen_ = s;
+        dirty_ = true;
+    }
+    else if (cmd == "dump") {
+        /* Counts and states only, same rule as every other log() call
+         * (deck_app.h) — this is a stability/regression snapshot, not a
+         * capture tool. */
+        log("dump link=" + std::string(ocp::linkStateName(client_.state())) +
+            " scan_rows=" + std::to_string(scan_.rows().size()) +
+            " clients=" + std::to_string(contacts_.clients().size()) +
+            " probes=" + std::to_string(contacts_.probes().size()) +
+            " spectrum=" + std::to_string(spectrum_.readings().size()) +
+            " lora_pkts=" + std::to_string(lora_.packets().size()) +
+            " deauth_evt=" + std::to_string(deauth_.events().size()) +
+            " gnss=" + std::string(model::gnssStateName(gnss_.state(now_ms))) +
+            " wardrive_open=" + std::string(storage::wardriveLogStats().open ? "1" : "0"));
+        return;
+    }
+    else { log("debug: unknown cmd=" + cmd); return; }
+
+    log("debug: ok " + line);
+}
+
 void DeckApp::tick(uint32_t now_ms)
 {
     now_ = now_ms;
@@ -568,6 +674,17 @@ void DeckApp::tick(uint32_t now_ms)
         last_keepalive_ms_ = now_ms;
         client_.send(OCP_V_PING, now_ms);
     }
+
+    /* Distinguishes a marginal fix from GNSS bytes being lost in transit
+     * (2026-09-16, WORKLOG): chkfail/overlong are wire corruption, age_ms is
+     * how stale the last good fix is regardless of cause. */
+    if (now_ms - last_gnss_diag_ms_ >= kGnssDiagMs) {
+        last_gnss_diag_ms_ = now_ms;
+        log("gnss " + std::string(model::gnssStateName(gnss_.state(now_ms))) +
+            " age_ms=" + std::to_string(gnss_.fixAgeMs(now_ms)) +
+            " chkfail=" + std::to_string(gnss_parser_.checksumFailures()) +
+            " overlong=" + std::to_string(gnss_parser_.overlongLines()));
+    }
 }
 
 bool DeckApp::dirty(uint32_t now_ms) const
@@ -581,7 +698,7 @@ void DeckApp::draw(uint32_t now_ms)
 {
     switch (screen_) {
     case Screen::Link:
-        ui::drawLinkView(client_, last_reply_, notice_);
+        ui::drawLinkView(client_, last_reply_, notice_, debug_mode_);
         break;
     case Screen::Sweep:
         ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_, notice_);

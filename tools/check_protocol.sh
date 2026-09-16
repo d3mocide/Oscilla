@@ -117,6 +117,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/nmea_parser_test.cpp firmware-cardputer/src/gnss/nmea_parser.cpp
 "$out/nmea_parser_test" | tail -1 | sed 's/^/  /'
 
+# The deck's debug-console line reader: same chunk-boundary discipline as
+# the NMEA reader above, for the other arbitrarily-chunked UART (USB Serial).
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/line_reader_test" \
+    firmware-cardputer/test/host/line_reader_test.cpp firmware-cardputer/src/debug/line_reader.cpp
+"$out/line_reader_test" | tail -1 | sed 's/^/  /'
+
 # The deck's GNSS fix model: fix validity/age vs. no-UART-data, kept distinct.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/gnss_model_test" \
     firmware-cardputer/test/host/gnss_model_test.cpp firmware-cardputer/src/gnss/nmea_parser.cpp \

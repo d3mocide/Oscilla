@@ -143,6 +143,17 @@ result; this repo's culture is that a claim without evidence is a defect.
     never by aligning one board's D0/D6 position against another board's.
     That alignment logic only means something for direct stacking, which
     this project doesn't do.
+17. **The ADV's keyboard reader is edge/interrupt-driven, not a level scan.**
+    M5Cardputer's `TCA8418KeyboardReader` flushes the chip's event FIFO in
+    `Keyboard.begin()` and only ever queues a key from a GPIO `CHANGE`
+    interrupt after that. A key already held down *before* `begin()` runs
+    produces no new edge, so `isKeyPressed()` reads false for it forever, no
+    matter how long it stays held — "hold this key through boot/reset" is
+    not a working gesture on this hardware. Confirmed 2026-09-16 chasing why
+    a boot-hold debug-mode trigger never fired despite the key genuinely
+    being held; fixed by switching to a runtime toggle instead of any
+    boot-time gesture. A *press after* `begin()` has already run does fire a
+    real edge and works fine.
 
 ## 6. Workflow
 

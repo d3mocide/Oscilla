@@ -60,6 +60,7 @@ void NmeaParser::feed(const uint8_t *data, size_t len, const Sink &sink)
         buf_.push_back(b);
         if (buf_.size() > kMaxLineLen) {
             overlong_ = true;
+            overlong_count_++;
             buf_.clear();
         }
     }
@@ -78,7 +79,7 @@ void NmeaParser::feedLine(const std::string &raw, const Sink &sink)
     uint8_t want = static_cast<uint8_t>(hexVal(line[star + 1]) * 16 + hexVal(line[star + 2]));
     uint8_t got = 0;
     for (size_t i = 1; i < star; ++i) got ^= static_cast<uint8_t>(line[i]);
-    if (got != want) return;   /* corrupt on the wire: dropped, not surfaced as noise */
+    if (got != want) { checksum_fail_count_++; return; }   /* corrupt on the wire: dropped, not surfaced as noise */
 
     std::string body = line.substr(1, star - 1);   /* between '$' and '*' */
     size_t comma = body.find(',');

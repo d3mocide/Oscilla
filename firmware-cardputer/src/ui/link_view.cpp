@@ -39,7 +39,7 @@ uint16_t stateColour(ocp::LinkState s)
 }  // namespace
 
 void drawLinkView(const ocp::Client &client, const std::string &last_reply,
-                  const std::string &notice)
+                  const std::string &notice, bool debug_mode)
 {
     auto &d = ui::canvas();
     const auto &p = client.probe();
@@ -52,7 +52,12 @@ void drawLinkView(const ocp::Client &client, const std::string &last_reply,
     d.setTextColor(TFT_CYAN, TFT_BLACK);
     d.print("OSCILLA deck  ");
     d.setTextColor(stateColour(client.state()), TFT_BLACK);
-    d.println(ocp::linkStateName(client.state()));
+    d.print(ocp::linkStateName(client.state()));
+    if (debug_mode) {
+        d.setTextColor(TFT_ORANGE, TFT_BLACK);
+        d.print("  DEBUG");
+    }
+    d.println();
 
     d.setTextColor(TFT_WHITE, TFT_BLACK);
     if (client.state() == ocp::LinkState::Disconnected) {

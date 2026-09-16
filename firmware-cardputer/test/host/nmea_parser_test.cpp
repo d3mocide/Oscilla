@@ -70,6 +70,7 @@ int main()
         corrupt[star + 1] = (corrupt[star + 1] == '0') ? '1' : '0';
         auto out = feedAll(p, corrupt);
         check(out.empty(), "a corrupted checksum is silently dropped, not surfaced");
+        check(p.checksumFailures() == 1, "dropped-but-silent still counts as a checksum failure");
     }
     {
         gnss::NmeaParser p;
@@ -103,6 +104,7 @@ int main()
         auto out = feedAll(p, wire);
         check(out.size() == 1 && out[0].type == "GGA",
               "an overlong line is bounded and dropped without wedging the next one");
+        check(p.overlongLines() == 1, "the overlong drop is counted");
     }
     {
         gnss::NmeaParser p;
