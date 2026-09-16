@@ -73,10 +73,17 @@ with a card full of real data and two real UI gaps.
   not done.
 - **Verified:** deck firmware builds clean, full host suite still green
   (unaffected - `deck_app.cpp` isn't part of the host build). Flashed to the
-  real deck once both boards were back on the bench. **Not yet verified:**
-  either fix against live hardware - next session should confirm the
-  wardrive auto-loop actually produces real CSV rows outdoors, and that
-  pressing `s` on one concurrent-radio screen genuinely spares the other.
+  real deck once both boards were back on the bench. **Both fixes then
+  confirmed live, same session:** pressing `s` on one concurrent-radio
+  screen (Contacts sniffing + LoRa listening, both genuinely running)
+  spared the other - the scoped stop actually holds in the UI, not just in
+  the gate script. The wardrive auto-loop fired on its own the moment `l`
+  was pressed - no trip to Sweep - and the `nofix` counter climbed past 100
+  unprompted, confirming the scan-and-triage pipeline runs by itself.
+  **Still open:** no GPS fix was present for this run (back on the bench,
+  not outdoors), so every one of those observations landed in `nofix`
+  rather than `ap` - the auto-loop writing real CSV rows outdoors, with a
+  live fix, is the one piece still to see end-to-end.
 
 ---
 
