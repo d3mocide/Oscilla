@@ -1,3 +1,55 @@
+## 2026-09-16 — start_ble_scan: continuous BLE discovery, requested after seeing the Beacons card live
+
+**Phase:** P7 · **By:** Will + Claude
+
+Will looked at the Beacons card on the deck's own display for the first
+time (confirmed it renders correctly) and asked for a continuous scan
+mode alongside `scan_bt`'s bounded sweep — same idea as `scan_airtag`,
+but for every device, not just trackers. Also flagged Wi-Fi SSID
+discovery as wanting the same treatment eventually (scoped separately,
+below).
+
+- **New verb: `start_ble_scan`** (OCP-SPEC §11.3), the general-purpose
+  counterpart to `start_sniffer` rather than to `scan_networks`: runs
+  until `stop`, streams `[EVT] kind=ble` for every address not already in
+  the session's table — "first sighting only", same posture as
+  `start_sniffer`'s `kind=client`/`kind=probe` events. Reused
+  `ble_device_table_upsert()`'s return unchanged; detecting "was this a
+  genuinely new row" needed no table-module change at all — just comparing
+  `table.count` before/after the call at the one call site that needed it.
+- **Probe:** one new `ble_mode_t` value (`BLE_MODE_SCAN_CONTINUOUS`) and
+  one new dispatch function (`ble_cmd_start_scan`), otherwise pure reuse —
+  same `start_disc(BLE_HS_FOREVER)`, same `ble_teardown()`/`finish_scan()`
+  completion path fixed earlier today. Factored `format_device_fields()`
+  out of `emit_ble_frame()`'s row loop so the new per-device event uses
+  the exact same name/manufacturer-id quoting instead of a second copy.
+- **Deck:** `BtModel::beginContinuous()` + a C++ `findOrInsertDevice()`
+  upsert-by-mac helper (mirrors the probe's own table logic, kept
+  independent since the deck never trusts probe-side dedup alone) feeding
+  the same `devices()` list `scan_bt` populates — the Beacons view didn't
+  need a single line of layout change, it already just renders whatever
+  `devices()` holds. New key `c` (scan_bt is `s`, airtag is `a`), debug
+  console `blescan` command. 11 new host-test checks (insert, upsert-in-
+  place on a repeat address, capacity drop, stop-keeps-the-table).
+- **Verified live:** 81 devices within 5 s of starting, growing to 86 a
+  few seconds later; `stop` released the radio arbiter instantly (Wi-Fi
+  scan succeeded right after, 155 APs) — confirms today's earlier
+  `finish_scan()` fix generalizes cleanly to a third mode without having
+  touched its logic at all.
+- **Wi-Fi's version is a materially bigger lift, scoped but not started.**
+  `scan_networks` has no continuous-discovery counterpart to extend the
+  way `scan_bt` had `scan_airtag` as a working template for BLE — it uses
+  ESP-IDF's driver-level `esp_wifi_scan_start()`, not promiscuous frame
+  capture. A continuous version needs a genuinely new engine: channel
+  hopping (reusing `wifi_channels.h`, same shape as `wifi_sniff.c`/
+  `wifi_deauth.c`) + promiscuous beacon/probe-response capture +
+  `beacon_parse.c` + a BSSID dedup table (`sniff_track.c`-shaped) + a new
+  `[EVT] kind=network`-style event on first sighting. Comparable in size
+  to `wifi_sniff.c` itself, not a small extension.
+- **Next:** Wi-Fi continuous AP discovery, when picked back up.
+
+---
+
 ## 2026-09-16 — ble_recon on real hardware: two bugs found, both fixed and confirmed
 
 **Phase:** P7 · **By:** Will + Claude

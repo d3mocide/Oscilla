@@ -48,7 +48,7 @@
 
 static const char *TAG = "ble";
 
-typedef enum { BLE_MODE_NONE, BLE_MODE_SCAN_BT, BLE_MODE_SCAN_AIRTAG } ble_mode_t;
+typedef enum { BLE_MODE_NONE, BLE_MODE_SCAN_BT, BLE_MODE_SCAN_CONTINUOUS, BLE_MODE_SCAN_AIRTAG } ble_mode_t;
 
 static SemaphoreHandle_t s_lock;
 static bool s_ready;
@@ -60,6 +60,16 @@ static uint32_t s_elapsed_ms;
 static uint32_t s_dwell_ms;
 static uint32_t s_airtag_n;
 
+/* Shared by the [BLE] row format (emit_ble_frame) and start_ble_scan's
+ * per-device event (gap_event) — both need the same quoted-string shape
+ * for a device's name/manufacturer-id fields. */
+static void format_device_fields(const ble_device_t *d, char *name, size_t name_size, char *mfr, size_t mfr_size)
+{
+    ocp_escape_field(d->name, d->name_len, name, name_size);
+    if (d->has_mfr) snprintf(mfr, mfr_size, "\"%04x\"", d->mfr_company_id);
+    else snprintf(mfr, mfr_size, "\"\"");
+}
+
 /* Caller holds s_lock. */
 static void emit_ble_frame(bool aborted)
 {
@@ -70,11 +80,8 @@ static void emit_ble_frame(bool aborted)
 
     for (unsigned i = 0; i < s_table.count; i++) {
         const ble_device_t *d = &s_table.devices[i];
-        char name[4 * 32 + 3];
-        ocp_escape_field(d->name, d->name_len, name, sizeof name);
-        char mfr[8];
-        if (d->has_mfr) snprintf(mfr, sizeof mfr, "\"%04x\"", d->mfr_company_id);
-        else snprintf(mfr, sizeof mfr, "\"\"");
+        char name[4 * 32 + 3], mfr[8];
+        format_device_fields(d, name, sizeof name, mfr, sizeof mfr);
         const uint8_t *a = d->addr;
         ocp_emit_row(OCP_MARK_BLE,
                      "\"%02x:%02x:%02x:%02x:%02x:%02x\",%s,%s,\"%s\",\"%d\",\"%lu\"",
@@ -111,19 +118,37 @@ static int gap_event(struct ble_gap_event *event, void *arg)
 
         ble_adv_info_t info;
         ble_adv_parse(event->disc.data, event->disc.length_data, &info);
-        ble_device_table_upsert(&s_table, event->disc.addr.val, &info, event->disc.rssi);
+        unsigned before = s_table.count;
+        ble_device_t *row = ble_device_table_upsert(&s_table, event->disc.addr.val, &info, event->disc.rssi);
+        bool is_new = s_table.count > before;   /* count only grows on a genuine insert, never on an update */
 
+        bool report_new = (s_mode == BLE_MODE_SCAN_CONTINUOUS) && is_new;
         bool report_tracker = (s_mode == BLE_MODE_SCAN_AIRTAG) && info.is_tracker;
-        uint32_t n = report_tracker ? ++s_airtag_n : 0;
+        uint32_t airtag_n = report_tracker ? ++s_airtag_n : 0;
+
         uint8_t addr[6];
         memcpy(addr, event->disc.addr.val, 6);
         int8_t rssi = event->disc.rssi;
+
+        char name[4 * 32 + 3] = "", mfr[8] = "";
+        bool is_tracker = false;
+        if (report_new) {
+            format_device_fields(row, name, sizeof name, mfr, sizeof mfr);
+            is_tracker = row->is_tracker;
+        }
         xSemaphoreGive(s_lock);
 
         if (report_tracker) {
             ocp_emit_event(OCP_EVT_KIND_AIRTAG, "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%lu",
                            OCP_K_MAC, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
-                           OCP_K_RSSI, rssi, OCP_K_COUNT, (unsigned long)n);
+                           OCP_K_RSSI, rssi, OCP_K_COUNT, (unsigned long)airtag_n);
+        }
+        if (report_new) {
+            ocp_emit_event(OCP_EVT_KIND_BLE, "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%s %s=%s %s=%s %s=%d",
+                           OCP_K_MAC, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+                           OCP_K_NAME, name, OCP_K_MFR, mfr,
+                           OCP_K_TRACKER, is_tracker ? "\"" OCP_EVT_KIND_AIRTAG "\"" : "\"\"",
+                           OCP_K_RSSI, rssi);
         }
         return 0;
     }
@@ -204,6 +229,31 @@ void ble_cmd_scan_bt(int argc, char **argv)
         arbiter_release(PHY_OWNER_BLE);
         ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
     }
+}
+
+void ble_cmd_start_scan(void)
+{
+    if (arbiter_acquire(PHY_OWNER_BLE, ble_teardown) != ESP_OK) {
+        char msg[48];
+        snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
+        ocp_emit_error(OCP_ERR_BUSY, msg);
+        return;
+    }
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    ble_device_table_reset(&s_table);   /* fresh table each session, same as scan_bt/start_sniffer */
+    s_mode = BLE_MODE_SCAN_CONTINUOUS;
+    xSemaphoreGive(s_lock);
+
+    if (start_disc(BLE_HS_FOREVER) != 0) {
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        s_mode = BLE_MODE_NONE;
+        xSemaphoreGive(s_lock);
+        arbiter_release(PHY_OWNER_BLE);
+        ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
+        return;
+    }
+    ocp_emit_compact(OCP_MARK_CFG, "%s", "");
 }
 
 void ble_cmd_scan_airtag(void)

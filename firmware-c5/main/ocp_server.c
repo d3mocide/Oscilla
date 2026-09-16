@@ -201,6 +201,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
         ble_cmd_scan_bt(argc, argv);
         break;
 
+    case OCP_VID_START_BLE_SCAN:
+        ble_cmd_start_scan();
+        break;
+
     case OCP_VID_SCAN_AIRTAG:
         ble_cmd_scan_airtag();
         break;

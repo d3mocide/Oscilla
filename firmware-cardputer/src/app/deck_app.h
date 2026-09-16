@@ -116,6 +116,7 @@ private:
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     void startBtScan(uint32_t now_ms);
+    void toggleBtContinuous(uint32_t now_ms);
     void toggleAirtagScan(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();

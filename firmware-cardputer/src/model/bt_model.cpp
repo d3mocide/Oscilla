@@ -58,6 +58,14 @@ void BtModel::beginScan()
     scanning_ = true;
 }
 
+void BtModel::beginContinuous()
+{
+    devices_.clear();
+    devices_.shrink_to_fit();
+    malformed_ = 0;
+    continuous_active_ = true;
+}
+
 void BtModel::beginAirtag()
 {
     tracker_hits_.clear();
@@ -69,6 +77,7 @@ void BtModel::beginAirtag()
 void BtModel::stop()
 {
     scanning_ = false;
+    continuous_active_ = false;
     airtag_active_ = false;
 }
 
@@ -78,6 +87,7 @@ void BtModel::clear()
     devices_.shrink_to_fit();
     malformed_ = 0;
     scanning_ = false;
+    continuous_active_ = false;
     tracker_hits_.clear();
     tracker_hits_.shrink_to_fit();
     tracker_total_ = 0;
@@ -101,23 +111,50 @@ void BtModel::absorbScan(const ocp::Item &frame)
     scanning_ = false;   /* [BLE] has no paging: this frame is already the whole result */
 }
 
+BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
+{
+    for (auto &d : devices_) {
+        if (d.mac == mac) return &d;
+    }
+    if (devices_.size() >= kMaxDevices) return nullptr;   /* full: dropped, same posture as the probe's own table */
+    devices_.push_back(BtDevice{});
+    devices_.back().mac = mac;
+    return &devices_.back();
+}
+
 void BtModel::absorbEvent(const ocp::Item &evt)
 {
     const auto *kind = evt.get(OCP_K_KIND);
-    if (!kind || *kind != OCP_EVT_KIND_AIRTAG) return;
+    if (!kind) return;
 
-    const auto *mac = evt.get(OCP_K_MAC);
-    const auto *rssi_s = evt.get(OCP_K_RSSI);
-    long rssi = 0;
-    if (rssi_s) toLong(*rssi_s, -128, 127, rssi);
+    if (*kind == OCP_EVT_KIND_AIRTAG) {
+        const auto *mac = evt.get(OCP_K_MAC);
+        const auto *rssi_s = evt.get(OCP_K_RSSI);
+        long rssi = 0;
+        if (rssi_s) toLong(*rssi_s, -128, 127, rssi);
 
-    BtTrackerHit hit;
-    hit.mac = mac ? *mac : std::string("?");
-    hit.rssi = static_cast<int>(rssi);
+        BtTrackerHit hit;
+        hit.mac = mac ? *mac : std::string("?");
+        hit.rssi = static_cast<int>(rssi);
 
-    tracker_hits_.insert(tracker_hits_.begin(), std::move(hit));
-    if (tracker_hits_.size() > kMaxTrackerHits) tracker_hits_.resize(kMaxTrackerHits);
-    tracker_total_++;
+        tracker_hits_.insert(tracker_hits_.begin(), std::move(hit));
+        if (tracker_hits_.size() > kMaxTrackerHits) tracker_hits_.resize(kMaxTrackerHits);
+        tracker_total_++;
+    } else if (*kind == OCP_EVT_KIND_BLE) {
+        const auto *mac = evt.get(OCP_K_MAC);
+        if (!mac || !looksLikeMac(*mac)) return;
+
+        BtDevice *row = findOrInsertDevice(*mac);
+        if (!row) return;   /* table full: dropped, not swapped in for an older row */
+
+        if (const auto *name = evt.get(OCP_K_NAME)) row->name = *name;
+        if (const auto *mfr = evt.get(OCP_K_MFR)) row->mfr = *mfr;
+        if (const auto *tracker = evt.get(OCP_K_TRACKER)) row->tracker = !tracker->empty();
+        long rssi = 0;
+        if (const auto *rssi_s = evt.get(OCP_K_RSSI)) toLong(*rssi_s, -128, 127, rssi);
+        row->rssi = static_cast<int>(rssi);
+        row->n = 1;   /* start_ble_scan only ever reports a first sighting (OCP-SPEC §11.3) */
+    }
 }
 
 }  // namespace model

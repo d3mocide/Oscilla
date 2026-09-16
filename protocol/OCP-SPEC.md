@@ -508,14 +508,41 @@ with no paging — once full, new addresses are dropped rather than replacing
 old ones. Each `scan_bt` call starts a fresh table, same as `scan_networks`
 starting a fresh result set.
 
-### 11.3 `scan_airtag`
+### 11.3 `start_ble_scan`
+
+Same radio, continuous instead of a bounded snapshot — the general-purpose
+counterpart to `start_sniffer` (§10.4) rather than to `scan_networks`:
+replies immediately and streams for the rest of the session, one event per
+**newly seen** address, same "first sighting only" posture as
+`start_sniffer`'s `kind=client`/`kind=probe` events (§10.4) — a device
+re-advertising doesn't produce a second event, so this is a live feed of
+discoveries, not a packet trace:
+
+```
+> start_ble_scan
+[CFG] END
+[EVT] kind=ble mac=f4:12:34:56:78:9a name="Pixel Buds" mfr=0075 tracker="" rssi=-58
+[EVT] kind=ble mac=aa:bb:cc:dd:ee:ff name="" mfr=004c tracker="airtag" rssi=-71
+> stop
+[STOP] lane=phy running=1 END
+```
+
+Columns match `[BLE]`'s (§11.2) except there is no `n` — the deck already
+gets a running count for free by counting the events themselves, since
+each one is a distinct new device by construction. There is no snapshot-
+dump verb for this session either (no `show_ble_devices`): the event
+stream *is* the table, same reasoning `deauth_detector` (§10.5) gives for
+skipping one.
+
+### 11.4 `scan_airtag`
 
 Same radio, always-on classification instead of a bounded snapshot: replies
 immediately and streams for the rest of the session, watching every
 advertisement for Apple's Find My network signature (manufacturer data,
 company ID `004c`, payload type byte `0x12` — the AirTag/FindMy-accessory
 broadcast, confirmed against public Find My protocol write-ups, not
-guessed) regardless of anything `scan_bt` has or hasn't seen:
+guessed) regardless of anything `scan_bt`/`start_ble_scan` has or hasn't
+seen:
 
 ```
 > scan_airtag
@@ -534,9 +561,12 @@ guessed) regardless of anything `scan_bt` has or hasn't seen:
 
 Every matching advertisement produces an event, same posture as
 `deauth_detector` (§10.5) — a tracker re-advertising rapidly nearby is
-itself part of the signal, not noise to deduplicate away.
+itself part of the signal, not noise to deduplicate away. (`start_ble_scan`
+and `scan_airtag` can't run together — both need `PHY_OWNER_BLE` — but
+either can run alongside a Wi-Fi-lane engine, same two-lane arbitration as
+everything else on the PHY lane, DESIGN §6.2.)
 
-### 11.4 Tracker classification
+### 11.5 Tracker classification
 
 `OCP_K_TRACKER` (`[BLE]` rows) and `OCP_EVT_KIND_AIRTAG` (`scan_airtag`
 events) share one classifier (`ble_adv_parse.c`) and one v1 scope: Apple's

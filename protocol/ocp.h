@@ -122,6 +122,7 @@ typedef enum {
 
 /* BLE */
 #define OCP_V_SCAN_BT           "scan_bt"
+#define OCP_V_START_BLE_SCAN    "start_ble_scan"
 #define OCP_V_SCAN_AIRTAG       "scan_airtag"
 #define OCP_V_START_ANTISURV    "start_antisurveillance"
 
@@ -167,6 +168,7 @@ typedef enum {
     X(SET_BAND,          OCP_V_SET_BAND,          OCP_CC_WIFI,        1,  1,  OCP_MARK_CFG)        \
     X(SET_CHANNELS,      OCP_V_SET_CHANNELS,      OCP_CC_WIFI,        1,  1,  OCP_MARK_CFG)        \
     X(SCAN_BT,           OCP_V_SCAN_BT,           OCP_CC_BLE,         0,  1,  OCP_MARK_BLE)        \
+    X(START_BLE_SCAN,    OCP_V_START_BLE_SCAN,    OCP_CC_BLE,         0,  0,  OCP_MARK_CFG)        \
     X(SCAN_AIRTAG,       OCP_V_SCAN_AIRTAG,       OCP_CC_BLE,         0,  0,  OCP_MARK_CFG)        \
     X(START_ANTISURV,    OCP_V_START_ANTISURV,    OCP_CC_BLE,         0,  0,  OCP_MARK_CFG)        \
     X(START_ZIG_RECON,   OCP_V_START_ZIG_RECON,   OCP_CC_IEEE802154,  0,  2,  OCP_MARK_ZIG)        \
@@ -194,6 +196,7 @@ typedef enum {
 #define OCP_EVT_KIND_SNIFF      "sniff"
 #define OCP_EVT_KIND_FOLLOWER   "follower"
 #define OCP_EVT_KIND_AIRTAG     "airtag"
+#define OCP_EVT_KIND_BLE        "ble"       /* start_ble_scan: a newly seen device */
 #define OCP_EVT_KIND_CHAN       "chan"
 #define OCP_EVT_KIND_LORA       "lora"
 #define OCP_EVT_KIND_CLIENT     "client"

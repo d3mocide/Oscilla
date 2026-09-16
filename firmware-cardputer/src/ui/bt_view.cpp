@@ -57,12 +57,15 @@ void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &noti
     d.setTextSize(1);
     d.setCursor(0, 0);
 
+    /* scan_bt, start_ble_scan and scan_airtag all hold PHY_OWNER_BLE
+     * exclusively (radio_arbiter, DESIGN §6.2), so at most one of these
+     * three is ever true at once — one status word covers all of it. */
     d.setTextColor(TFT_CYAN, TFT_BLACK);
     d.print("BEACONS ");
-    d.setTextColor(bt.scanning() ? TFT_GREEN : TFT_DARKGREY, TFT_BLACK);
-    d.print(bt.scanning() ? "scanning " : "idle ");
-    d.setTextColor(bt.airtagActive() ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
-    d.println(bt.airtagActive() ? "airtag-live" : "");
+    if (bt.scanning()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("scanning"); }
+    else if (bt.continuousActive()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("live"); }
+    else if (bt.airtagActive()) { d.setTextColor(TFT_ORANGE, TFT_BLACK); d.println("airtag-live"); }
+    else { d.setTextColor(TFT_DARKGREY, TFT_BLACK); d.println("idle"); }
 
     d.setTextColor(TFT_WHITE, TFT_BLACK);
     d.printf("[devices %u]", (unsigned)bt.devices().size());
@@ -88,7 +91,7 @@ void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &noti
     d.print(printable(notice, 38).c_str());
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - kLineH);
-    d.print(";. move  ,/ cards  s scan  a airtag");
+    d.print(";. move  ,/ cards  s scan  c live  a airtag");
 }
 
 }  // namespace ui

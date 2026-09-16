@@ -397,6 +397,19 @@ void DeckApp::startBtScan(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::toggleBtContinuous(uint32_t now_ms)
+{
+    if (bt_.continuousActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_START_BLE_SCAN, now_ms)) {
+        retrySoon([this](uint32_t t) { toggleBtContinuous(t); }, now_ms);
+        return;
+    }
+    bt_.beginContinuous();
+    bt_cursor_ = 0;
+    notice("");
+}
+
 void DeckApp::toggleAirtagScan(uint32_t now_ms)
 {
     if (bt_.airtagActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
@@ -568,6 +581,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && bt_cursor_ > 0) bt_cursor_--;
             else if (c == '.' && bt_cursor_ + 1 < bt_.devices().size()) bt_cursor_++;
             else if (c == 's') startBtScan(now_ms);
+            else if (c == 'c') toggleBtContinuous(now_ms);
             else if (c == 'a') toggleAirtagScan(now_ms);
             break;
         }
@@ -619,6 +633,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "spectrum") { if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startChannelView(now_ms); }
     else if (cmd == "deauth") { if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startDeauthDetector(now_ms); }
     else if (cmd == "beacons") startBtScan(now_ms);
+    else if (cmd == "blescan") toggleBtContinuous(now_ms);
     else if (cmd == "airtag") toggleAirtagScan(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);

@@ -47,11 +47,17 @@ public:
     /* scan_bt was (re)issued: forget the old device list. */
     void beginScan();
 
+    /* start_ble_scan was (re)issued: forget the old accumulated table —
+     * same fresh-session posture as beginScan(), just filled by events
+     * instead of one snapshot frame. */
+    void beginContinuous();
+
     /* scan_airtag was (re)issued: forget the old sighting log. */
     void beginAirtag();
 
-    /* [STOP] landed: scanning/airtag both go inactive; stored data persists
-     * for a last look, same posture as ContactsModel/DeauthModel. */
+    /* [STOP] landed: scanning/continuous/airtag all go inactive; stored
+     * data persists for a last look, same posture as ContactsModel/
+     * DeauthModel. */
     void stop();
 
     /* Probe rebooted: nothing here is trustworthy any more. */
@@ -60,10 +66,14 @@ public:
     /* Absorb a [BLE] frame — the complete device table, not a page. */
     void absorbScan(const ocp::Item &frame);
 
-    /* Absorb an [EVT] kind=airtag. */
+    /* Absorb an [EVT] kind=airtag or kind=ble (the latter upserts one row
+     * into the same devices() table absorbScan() populates — a script or
+     * view watching that list doesn't need to know which command filled
+     * it). Both are no-ops for a kind they don't recognize. */
     void absorbEvent(const ocp::Item &evt);
 
     bool scanning() const { return scanning_; }
+    bool continuousActive() const { return continuous_active_; }
     bool airtagActive() const { return airtag_active_; }
     uint16_t malformedRows() const { return malformed_; }
     const std::vector<BtDevice> &devices() const { return devices_; }
@@ -72,9 +82,12 @@ public:
     const std::vector<BtTrackerHit> &trackerHits() const { return tracker_hits_; }
 
 private:
+    BtDevice *findOrInsertDevice(const std::string &mac);
+
     std::vector<BtDevice> devices_;
     uint16_t malformed_ = 0;
     bool scanning_ = false;
+    bool continuous_active_ = false;
 
     bool airtag_active_ = false;
     uint32_t tracker_total_ = 0;

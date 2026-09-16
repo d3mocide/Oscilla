@@ -113,6 +113,58 @@ int main()
         check(m.devices().empty() && m.trackerHits().empty() && m.trackerCount() == 0,
               "probe reset clears everything");
     }
+    {
+        model::BtModel m;
+        m.beginContinuous();
+        check(m.continuousActive() && m.devices().empty(), "beginContinuous() starts clean and active");
+
+        m.absorbEvent(eventOf(
+            "[EVT] kind=ble mac=f4:12:34:56:78:9a name=\"Pixel Buds\" mfr=\"0075\" tracker=\"\" rssi=-58\n"));
+        check(m.devices().size() == 1, "first kind=ble event inserts a device");
+        check(m.devices()[0].mac == "f4:12:34:56:78:9a" && m.devices()[0].name == "Pixel Buds" &&
+              m.devices()[0].mfr == "0075" && !m.devices()[0].tracker && m.devices()[0].rssi == -58,
+              "device fields parsed from the event");
+
+        m.absorbEvent(eventOf(
+            "[EVT] kind=ble mac=aa:bb:cc:dd:ee:ff name=\"\" mfr=\"004c\" tracker=\"airtag\" rssi=-71\n"));
+        check(m.devices().size() == 2, "a second, different address appends a new row");
+        check(m.devices()[1].tracker, "tracker column non-empty sets the tracker flag");
+
+        m.absorbEvent(eventOf("[EVT] kind=sniff pkts=1 ch=1\n"));
+        check(m.devices().size() == 2, "a non-ble event kind is ignored");
+    }
+    {
+        /* start_ble_scan only ever reports a genuinely new address (OCP-SPEC
+         * §11.3), but the model itself should stay correct even if a repeat
+         * somehow arrived — upsert, not a duplicate row. */
+        model::BtModel m;
+        m.beginContinuous();
+        m.absorbEvent(eventOf("[EVT] kind=ble mac=f4:12:34:56:78:9a name=\"A\" mfr=\"\" tracker=\"\" rssi=-58\n"));
+        m.absorbEvent(eventOf("[EVT] kind=ble mac=f4:12:34:56:78:9a name=\"B\" mfr=\"\" tracker=\"\" rssi=-40\n"));
+        check(m.devices().size() == 1, "a repeat address upserts in place, not a duplicate row");
+        check(m.devices()[0].name == "B" && m.devices()[0].rssi == -40, "upsert takes the latest fields");
+    }
+    {
+        /* Table caps at kMaxDevices, same lossy-by-design posture as the probe's own table. */
+        model::BtModel m;
+        m.beginContinuous();
+        for (unsigned i = 0; i < model::BtModel::kMaxDevices; i++) {
+            char mac[18];
+            std::snprintf(mac, sizeof mac, "00:00:00:00:%02x:%02x", (unsigned)(i >> 8), (unsigned)(i & 0xFF));
+            std::string wire = "[EVT] kind=ble mac=" + std::string(mac) + " name=\"\" mfr=\"\" tracker=\"\" rssi=-50\n";
+            m.absorbEvent(eventOf(wire));
+        }
+        check(m.devices().size() == model::BtModel::kMaxDevices, "table fills to its cap");
+        m.absorbEvent(eventOf("[EVT] kind=ble mac=ff:ff:ff:ff:ff:ff name=\"\" mfr=\"\" tracker=\"\" rssi=-50\n"));
+        check(m.devices().size() == model::BtModel::kMaxDevices, "an address past capacity is dropped, not inserted");
+    }
+    {
+        model::BtModel m;
+        m.beginContinuous();
+        m.absorbEvent(eventOf("[EVT] kind=ble mac=f4:12:34:56:78:9a name=\"A\" mfr=\"\" tracker=\"\" rssi=-58\n"));
+        m.stop();
+        check(!m.continuousActive() && m.devices().size() == 1, "stop clears the active flag but keeps the table");
+    }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "bt model test FAILED" : "bt model test OK",
                g_pass, g_fail);
