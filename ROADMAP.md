@@ -5,8 +5,8 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P3 complete → **P4 — GNSS** (🟡 in progress, off-bench groundwork only) |
-| **Last updated** | 2026-09-14 |
+| **Current phase** | P4 complete → **P5 — External TFT** (⚪ not started, entry gate met) |
+| **Last updated** | 2026-09-16 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -20,7 +20,7 @@
 | **P1** | Prove the link | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
-| **P4** | GNSS on the deck | 🟡 In progress (parser/model host-tested, hardware bring-up not started) | — |
+| **P4** | GNSS on the deck | 🟢 Exit gate met | ✅ 2026-09-16 |
 | **P5** | External TFT | ⚪ Not started | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
 | **P7** | Passive suite completion | ⚪ Not started | — |
@@ -132,16 +132,15 @@ Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, exten
 **Entry gate:** P2 exit met (independent of P3; can run in parallel).
 
 **Work:**
-- [x] Deck GNSS UART (GPIO13 TX / GPIO15 RX, 9600 8N1 NMEA), distinct hardware UART from Grove. Wired in `main.cpp` as `Serial2`; builds clean for `cardputer-adv` (`pio run`, 610773 B flash / 24616 B RAM). **Not yet run on hardware** — no ATGM336H connected this session.
+- [x] Deck GNSS UART (GPIO13 TX / GPIO15 RX, 9600 8N1 NMEA), distinct hardware UART from Grove. Wired in `main.cpp` as `Serial2`; builds clean for `cardputer-adv`. **Confirmed on hardware 2026-09-16** — the ATGM336H's default 9600 baud was correct as shipped, no runtime negotiation needed.
 - [x] NMEA parse; fix validity + age; **no-fix ≠ no-UART-data** as distinct states. `src/gnss/nmea_parser.{h,cpp}` (checksum-verified, bounded, chunk-invariant, byte-exact — same posture as `ocp::Parser`) feeding `src/model/gnss_model.{h,cpp}` (GGA/RMC → fix, `hasUartData()` vs `hasFix()`/`everFixed()`/`fixAgeMs()` kept independent). 40 host tests (`nmea_parser_test`, `gnss_model_test`), wired into `check_protocol.sh`. Confirmed a check actually catches a bug: disabling the checksum comparison on a copy flips the corrupted-checksum test red.
-- [x] Configurable baud (a preconfigured unit may differ, Rev D §6). No UBX assumptions. Default `9600` in `main.cpp` as a single named constant (`kGnssBaudDefault`) — no settings UI to change it at runtime yet, that's still open.
+- [x] Configurable baud (a preconfigured unit may differ, Rev D §6). No UBX assumptions. Default `9600` in `main.cpp` as a single named constant (`kGnssBaudDefault`) — confirmed correct against the real unit 2026-09-16 (see above); no settings UI to change it at runtime, deliberately deferred (see below).
 - [x] Model: current-fix service feeding the logger. `GnssModel` exists with the exact fields DESIGN §9.1's struct calls for (`lat/lon/alt/hdop/utc/valid` + derived `age_ms`), plus a full calendar date (`year/month/day`, parsed from RMC — GGA carries none) added 2026-09-14 for the wardrive CSV's FirstSeen column.
-- [x] **Drive view + wardrive logging wired (2026-09-15).** `GnssModel` moved into `DeckApp` and now feeds `src/ui/gnss_view` — a home card showing fix state, position, HDOP, fix age, UTC date and the session's counters. The model gained `GnssState` (`NoUartData`/`Searching`/`FixLost`/`Fixed`), so "no fix", "lost the fix" and "the receiver stopped talking" are one decision made once and rendered in distinct colours, rather than three views each re-deriving it. `src/storage/wardrive_logger` opens a numbered session writing **both** a WigleWifi-1.6 CSV and a KML track+placemarks, driven by the already-tested format writers; `l` on the Drive card toggles it. 49 host tests on the model (up from 33), including the antenna-unplug transition and a proof the checks go red when the states are collapsed. **Builds for the real board; none of it has seen a GNSS module.**
-- [ ] Runtime baud setting. Still a compile-time constant (`kGnssBaudDefault` in `main.cpp`). Deliberately left until the bench says whether the delivered unit is actually 9600 — a settings UI for a value that never needs changing is speculative work.
+- [x] **Drive view + wardrive logging wired (2026-09-15), hardware-confirmed (2026-09-16).** `GnssModel` moved into `DeckApp` and now feeds `src/ui/gnss_view` — a home card showing fix state, position, HDOP, fix age, UTC date and the session's counters. The model's `GnssState` (`NoUartData`/`Searching`/`FixLost`/`Fixed`) means "no fix", "lost the fix" and "the receiver stopped talking" are one decision made once. `src/storage/wardrive_logger` opens a numbered session writing **both** a WigleWifi-1.6 CSV and a KML track+placemarks; `l` on the Drive card toggles it (also reachable via the debug console's `wardrive` command). 49 host tests on the model, including the antenna-unplug transition and a proof the checks go red when the states are collapsed — all since matched by the real transition on hardware.
+- [x] **GNSS wire-corruption diagnostics (2026-09-16).** A card review found sessions producing far fewer distinct fixes than a steady lock should. Root-caused to `Serial2`'s RX buffer sitting at the Arduino core's 256 B default against a shared-SPI-bus SD flush on every AP row (Rev D §5.2) — fixed with `setRxBufferSize(2048)`, a real `onReceiveError()` hardware overflow callback, and checksum/overlong drop counters in `NmeaParser`. Confirmed fixed on a 21-minute outdoor session: 5254/5254 AP rows had a fix (zero `nofix`), 252/252 track points landed (vs. 3 before the fix), 251 of them distinct positions.
+- [ ] Runtime baud setting. Still a compile-time constant (`kGnssBaudDefault` in `main.cpp`). The bench confirmed the delivered unit is 9600 as shipped, so a settings UI for a value that's never needed changing stays speculative work — revisit only if a different unit ever requires it.
 
-**Exit gate: NOT MET — needs hardware.** live fix acquired outdoors and shown with age; unplugging the antenna shows "no fix" while UART stays alive; both states logged distinctly. None of this is checkable off the bench. What *is* true today: the parser, fix model and state machine are host-tested against known-answer NMEA fixtures (real u-blox-doc lat/lon example, checksums computed independently), and the Drive card plus wardrive logger that the gate is *demonstrated through* now exist and build for the real board. The software side of the gate is complete; every remaining item needs the module wired.
-
-Still open for the bench session: wire the ATGM336H per Rev D §6, confirm 9600 against the real unit (or find the right baud), acquire an outdoor fix and read it off the Drive card with its age, unplug the antenna and confirm the card shows `fix lost` while `uart: data` stays green, then confirm the session's CSV holds only fixed rows while the `nofix` counter and the KML track's gap account for the rest.
+**Exit gate: MET — 2026-09-16.** All three requirements demonstrated on real hardware in one session: a live fix acquired outdoors and held continuously for 21+ minutes with age shown (`age_ms` fresh every ~5s, zero drops); unplugging the antenna produced `fix lost` — not `no data` — while NMEA sentences kept arriving over UART (`chkfail`/`overlong` stayed at 0 through the drop, confirming the link itself never broke); reconnecting recovered cleanly back to `fix`. The wardrive session logged through the same window confirms the CSV/KML side of the gate too: every fixed observation was written, an earlier all-no-fix session (`drive_0003`) confirmed the `nofix` counter and empty CSV path both work when there's never a fix at all. Full detail in WORKLOG 2026-09-16.
 
 ---
 

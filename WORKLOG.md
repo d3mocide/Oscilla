@@ -1,3 +1,65 @@
+## 2026-09-16 — P4 exit gate met: outdoor GNSS confirmed, antenna-unplug proven
+
+**Phase:** P4 → P5 · **By:** Will + Claude
+
+Same-day follow-up to the diagnostics/debug-console session below. Took the
+deck outside (Grove-attached backpack, GNSS wired) and ran the actual
+hardware tests the exit gate has been waiting on since 2026-09-14.
+
+- **Debug console exercised end-to-end first**, all commands confirmed live:
+  `d` toggle, `dump`, `ping`/`status`, `scan` (154 real APs), `inspect`
+  (real per-AP fields back), `sniff`, `spectrum`/`channel <n>`,
+  `deauth`, `lora config`/`lora`, `wardrive`, `card <name>`, `stop`,
+  `connect`, `reboot` — all verified against the actual serial log, not
+  assumed from code. `reboot` cycled the probe and the deck reconnected
+  cleanly on its own.
+- **First real fix, outdoors, and it held.** Sitting still (not walking —
+  confirmed with Will; doesn't matter for what this was testing). 60+
+  consecutive clean `fix` ticks after the initial lock, zero drops back to
+  `searching`, zero `chkfail`/`overlong` the whole time — the direct
+  opposite of the stationary card that started this investigation.
+- **15-minute soak, clean pass.** 77 scan cycles, zero anomalies of any
+  kind (wire errors, fix drops, link drops, storage errors), heap flat
+  across five 5-minute readings (237812–237892 B free, no leak trend).
+  Confirms the GNSS fix plus the debug console's own traffic don't
+  destabilize anything over time.
+- **Wardrive session `drive_0004`: the actual before/after proof.**
+  `aps=5254 nofix=0 trk=252` on close. Every single AP observation had a
+  fix; 252 track points logged, matching the 5 s throttle almost exactly
+  for a 21-minute session, 251 of them distinct positions. (A review
+  script bug briefly made this look like only 3 track points survived —
+  `ElementTree`'s `.text` only captures text before an element's first
+  child, and this KML format deliberately interleaves AP `<Placemark>`s
+  into the still-open track `<coordinates>` all session long
+  (`wardrive_kml.h`'s own documented tradeoff) — a raw grep for standalone
+  coordinate lines found all 252, matching the device's own counter
+  exactly. Not a bug, a gap in the review tooling.)
+- **Antenna-unplug/fix-lost, the one thing never proven before, now
+  proven.** Confirmed `ever_fixed_` must be true first (`gnss_model.cpp`:
+  `FixLost` only reads that way once a fix has happened this session,
+  otherwise it's just `searching` again) — the deck was locked going in.
+  Unplugged: state went `fix` → `fix lost`, not `no data` — UART kept
+  receiving NMEA sentences the whole time (receiver reports its own
+  quality=0/status=V rather than going silent), exactly the distinction
+  Rev D §6 requires. `age_ms` climbed cleanly in 5 s steps the entire
+  time it was lost. Reconnect took longer than expected (~5m45s) — not a
+  defect: Will was on a bench and had to re-find a clear sky spot, and a
+  handful of `uart error=1` (break condition) events plus 4 checksum
+  failures during that window came from physically handling the
+  connector, all correctly caught and dropped rather than accepted as
+  bad data. Recovered cleanly back to `fix` once reseated.
+- **P4 exit gate: MET.** All three required demonstrations — live fix
+  with age, `fix lost` distinct from `no data`, and (bonus, not required)
+  clean recovery — done on real hardware in one session.
+  `ROADMAP.md`/status board updated; current phase moves to P5 (external
+  TFT), entry gate already met (only needs P2).
+- **Next:** P5 (external TFT, hardware-arrival-gated) or continuing P7's
+  remaining passive-suite items — both unblocked now. Debug console
+  command list still isn't 100% of `onKeys()` (no numeric LoRa config
+  entry, still the bench-preset placeholder).
+
+---
+
 ## 2026-09-16 — GNSS wire-corruption diagnostics, then a debug console
 
 **Phase:** P4 / bench tooling · **By:** Will + Claude
