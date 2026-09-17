@@ -13,7 +13,11 @@ ESP-IDF installation completes, then adds it for the shared build wrapper.
 The annotated `v5.5.1` tag warning is non-fatal: it resolves to commit
 `fcae32885b0296b32044cb99ecbdc50d98dddb83`, the release commit.
 
-The next gate is a pushed workflow run: this change is not CI-validated yet.
+The first push of this fix was rejected before job startup because the
+workflow placed `${{ runner.temp }}` in job-level `env`; GitHub only permits a
+smaller context set at that key. The next revision will set `OSCILLA_PIO_BIN`
+through `GITHUB_ENV` in the post-install runner step. The next gate is another
+pushed workflow run; firmware compilation is not CI-validated yet.
 
 ## 2026-09-17 — CI firmware failure diagnosis
 

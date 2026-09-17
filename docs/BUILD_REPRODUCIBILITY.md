@@ -16,9 +16,11 @@ is not treated as reviewable source. CI installs PlatformIO into a dedicated
 Python virtualenv so the pinned `pio` executable is on PATH independently of
 the runner's user-install layout. CI deliberately adds that virtualenv to
 `PATH` only after ESP-IDF has created its own Python environment; otherwise the
-ESP-IDF installer rejects the nested virtualenv. CI then runs the same host
-security gate and both C5 build variants. Build output is left intact in CI so
-a failed toolchain or compile step remains diagnosable.
+ESP-IDF installer rejects the nested virtualenv. The resulting path is written
+to the runner environment from a step, rather than using the unavailable
+`runner` context at job-level `env`. CI then runs the same host security gate
+and both C5 build variants. Build output is left intact in CI so a failed
+toolchain or compile step remains diagnosable.
 
 The resulting binaries still require board, RF, storage, and power validation;
 identical toolchain inputs do not constitute hardware evidence.
