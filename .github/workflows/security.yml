@@ -16,6 +16,8 @@ jobs:
 
   firmware:
     runs-on: ubuntu-latest
+    env:
+      OSCILLA_PIO_BIN: ${{ runner.temp }}/platformio-venv/bin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,13 +27,14 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/platformio-venv"
           "$RUNNER_TEMP/platformio-venv/bin/python" -m pip install platformio==6.2.0
-          echo "$RUNNER_TEMP/platformio-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned ESP-IDF
         run: |
           mkdir -p "$HOME/esp"
           git clone --depth 1 --branch v5.5.1 --recurse-submodules \
             https://github.com/espressif/esp-idf.git "$HOME/esp/esp-idf"
           "$HOME/esp/esp-idf/install.sh" esp32c5
+      - name: Add pinned PlatformIO to PATH
+        run: echo "$RUNNER_TEMP/platformio-venv/bin" >> "$GITHUB_PATH"
       - name: Build C5 UART and deck
         run: ./tools/build_firmware.sh
       - name: Build C5 USB bench variant and deck

@@ -1,3 +1,20 @@
+## 2026-09-17 — CI ESP-IDF installer hardening
+
+**Phase:** security remediation CI follow-up · **By:** Codex
+
+The rerun of `d45aa19` failed twice in `Install pinned ESP-IDF` before either
+firmware build ran; host-security passed. The runner log showed that the
+preceding PlatformIO step had added its virtualenv to `PATH`, so ESP-IDF's
+`install.sh` selected that interpreter and rejected creating a nested Python
+environment.
+
+The workflow now keeps the PlatformIO venv off the persisted `PATH` until
+ESP-IDF installation completes, then adds it for the shared build wrapper.
+The annotated `v5.5.1` tag warning is non-fatal: it resolves to commit
+`fcae32885b0296b32044cb99ecbdc50d98dddb83`, the release commit.
+
+The next gate is a pushed workflow run: this change is not CI-validated yet.
+
 ## 2026-09-17 — CI firmware failure diagnosis
 
 **Phase:** security remediation CI follow-up · **By:** Codex
