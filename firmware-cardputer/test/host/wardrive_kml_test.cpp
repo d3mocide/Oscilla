@@ -45,6 +45,7 @@ std::string sampleDocument()
     doc += storage::kmlCloseTrack();
     doc += storage::kmlApPlacemark(ap("HomeNet", "aa:bb:cc:dd:ee:ff", 6, "WPA2"), 47.2831, 8.5651);
     doc += storage::kmlApPlacemark(ap("OpenCafe", "11:22:33:44:55:66", 11, "OPEN"), 47.2832, 8.5652);
+    doc += storage::kmlApPlacemark(ap(std::string("\xC3\x28\xFF", 3), "22:33:44:55:66:77", 1, "OPEN"), 47.2833, 8.5653);
     doc += storage::kmlFooter();
     return doc;
 }
@@ -55,6 +56,16 @@ int main(int argc, char **argv)
 {
     if (argc > 1 && std::strcmp(argv[1], "--sample") == 0) {
         std::fputs(sampleDocument().c_str(), stdout);
+        return 0;
+    }
+    if (argc > 1 && std::strcmp(argv[1], "--recovery") == 0) {
+        const std::string complete = sampleDocument();
+        const size_t header_end = storage::kmlHeader("Test Session").size();
+        for (size_t cut = header_end; cut < complete.size(); ++cut) {
+            std::string repaired = storage::kmlRecoverPrefix(complete.substr(0, cut));
+            std::fwrite(repaired.data(), 1, repaired.size(), stdout);
+            std::fputc('\x1e', stdout);
+        }
         return 0;
     }
 
@@ -71,6 +82,7 @@ int main(int argc, char **argv)
               h.find("<Style id=\"sTrack\">") != std::string::npos,
               "all six style buckets present");
         check(h.find("<color>ff0000ff</color>") != std::string::npos, "open-AP color is aabbggrr red (ff0000ff), not rrggbb");
+        check(h.find("<href>") == std::string::npos, "styles contain no remote icon resource");
         check(h.find("<coordinates>") != std::string::npos && h.find("</coordinates>") == std::string::npos,
               "header opens the track's <coordinates> but does not close it (incremental-append design)");
     }
@@ -120,12 +132,26 @@ int main(int argc, char **argv)
         // that XML 1.0 forbids outright, even escaped.
         auto a = ap(std::string("<a & b> \"c'd\"\x07" "e"), "00:00:00:00:00:04", 1, "OPEN");
         std::string pm = storage::kmlApPlacemark(a, 0, 0);
-        check(pm.find("<name>&lt;a &amp; b&gt; &quot;c&apos;d&quot;.e</name>") != std::string::npos,
-              "XML special chars entity-escaped and the forbidden control byte replaced, not left raw");
+        check(pm.find("<name>&lt;a &amp; b&gt; &quot;c&apos;d&quot;\\x07e</name>") != std::string::npos,
+              "XML special chars entity-escaped and the forbidden control byte reversibly encoded");
         check(pm.find('\x07') == std::string::npos, "the raw control byte never reaches the output, escaped or not");
+    }
+    {
+        auto a = ap(std::string("\xC3\x28\xFF", 3), "00:00:00:00:00:05", 1, "OPEN");
+        std::string pm = storage::kmlApPlacemark(a, 0, 0);
+        check(pm.find("\\xc3(\\xff") != std::string::npos,
+              "malformed UTF-8 is emitted as reversible ASCII byte escapes");
+        check(pm.find('\xC3') == std::string::npos && pm.find('\xFF') == std::string::npos,
+              "malformed UTF-8 bytes never reach the XML output raw");
     }
 
     check(storage::kmlFooter() == "</Document>\n</kml>\n", "footer closes Document and kml");
+
+    check(storage::kmlRecoverySuffix(storage::kmlFooter()).empty(), "complete KML needs no recovery suffix");
+    check(storage::kmlRecoverySuffix(storage::kmlCloseTrack()) == storage::kmlFooter(),
+          "closed track recovery appends only the document footer");
+    check(storage::kmlRecoverySuffix("<coordinates>\n") == storage::kmlCloseTrack() + storage::kmlFooter(),
+          "open track recovery closes the track and document");
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "wardrive kml test FAILED" : "wardrive kml test OK",
                g_pass, g_fail);

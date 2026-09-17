@@ -87,18 +87,18 @@ def strip_comments_and_strings(src: str, keep_strings: bool = False) -> str:
     return "".join(out)
 
 
-def sources(dirs):
+def sources(root, dirs):
     for d in dirs:
-        base = ROOT / d
+        base = root / d
         if base.exists():
             yield from (p for p in sorted(base.rglob("*")) if p.suffix in EXTS and p.is_file())
 
 
-def check(dirs, finder, include_re=None) -> list[str]:
+def check(root, dirs, finder, include_re=None) -> list[str]:
     problems = []
-    for path in sources(dirs):
+    for path in sources(root, dirs):
         raw = path.read_text(errors="replace")
-        rel = path.relative_to(ROOT)
+        rel = path.relative_to(root)
         code = strip_comments_and_strings(raw)
         for lineno, line in enumerate(code.splitlines(), 1):
             for why, token in finder(line):
@@ -108,6 +108,75 @@ def check(dirs, finder, include_re=None) -> list[str]:
                 m = include_re.search(line)
                 if m:
                     problems.append(f"{rel}:{lineno}: {m.group(0)} — deck radios stay off in v1")
+    return problems
+
+
+LORA_RX_WRITE_OPCODES = {
+    "OP_SET_SLEEP", "OP_SET_STANDBY", "OP_SET_RX", "OP_SET_REGULATOR_MODE",
+    "OP_CALIBRATE", "OP_SET_DIO3_TCXO_CTRL", "OP_SET_DIO2_RF_SWITCH",
+    "OP_SET_DIO_IRQ_PARAMS", "OP_CLEAR_IRQ_STATUS", "OP_SET_RF_FREQUENCY",
+    "OP_SET_PACKET_TYPE", "OP_SET_MODULATION_PARAMS", "OP_SET_PACKET_PARAMS",
+    "OP_SET_BUFFER_BASE_ADDR", "OP_CLEAR_DEVICE_ERRORS",
+}
+LORA_RX_READ_OPCODES = {
+    "OP_GET_IRQ_STATUS", "OP_GET_RX_BUFFER_STATUS", "OP_GET_PACKET_STATUS",
+    "OP_GET_STATUS", "OP_GET_DEVICE_ERRORS",
+}
+LORA_FORBIDDEN_OPCODE_VALUES = {"0x83", "0x8e", "0x95", "0xd1", "0xd2"}
+
+
+def configuration_problems(root: Path) -> list[str]:
+    problems = []
+
+    wifi_path = root / "firmware-c5/main/wifi_recon.c"
+    if not wifi_path.exists():
+        problems.append("firmware-c5/main/wifi_recon.c: missing passive Wi-Fi scan wrapper")
+    else:
+        code = strip_comments_and_strings(wifi_path.read_text(errors="replace"))
+        if not re.search(r"static\s+wifi_scan_config_t\s+wifi_passive_scan_config\s*\(\s*void\s*\)", code):
+            problems.append("firmware-c5/main/wifi_recon.c: passive scan wrapper is missing")
+        if not re.search(r"\.scan_type\s*=\s*WIFI_SCAN_TYPE_PASSIVE\b", code):
+            problems.append("firmware-c5/main/wifi_recon.c: passive scan type is not explicitly selected")
+        if len(re.findall(r"\besp_wifi_scan_start\s*\(", code)) != 1:
+            problems.append("firmware-c5/main/wifi_recon.c: scan start must have exactly one audited call")
+        if not re.search(r"wifi_scan_config_t\s+cfg\s*=\s*wifi_passive_scan_config\s*\(\s*\)", code):
+            problems.append("firmware-c5/main/wifi_recon.c: scan does not use the passive wrapper")
+
+    ble_path = root / "firmware-c5/main/ble_recon.c"
+    if not ble_path.exists():
+        problems.append("firmware-c5/main/ble_recon.c: missing passive BLE scan wrapper")
+    else:
+        code = strip_comments_and_strings(ble_path.read_text(errors="replace"))
+        if not re.search(r"static\s+struct\s+ble_gap_disc_params\s+ble_passive_disc_params\s*\(\s*void\s*\)", code):
+            problems.append("firmware-c5/main/ble_recon.c: passive discovery wrapper is missing")
+        if not re.search(r"params\.passive\s*=\s*1\b", code):
+            problems.append("firmware-c5/main/ble_recon.c: BLE discovery is not explicitly passive")
+        if len(re.findall(r"\bble_gap_disc\s*\(", code)) != 1:
+            problems.append("firmware-c5/main/ble_recon.c: discovery start must have exactly one audited call")
+        if not re.search(r"struct\s+ble_gap_disc_params\s+params\s*=\s*ble_passive_disc_params\s*\(\s*\)", code):
+            problems.append("firmware-c5/main/ble_recon.c: discovery does not use the passive wrapper")
+
+    lora_path = root / "firmware-c5/main/lora_radio.c"
+    if not lora_path.exists():
+        problems.append("firmware-c5/main/lora_radio.c: missing SX1262 RX-only driver")
+    else:
+        code = strip_comments_and_strings(lora_path.read_text(errors="replace"))
+        for value in LORA_FORBIDDEN_OPCODE_VALUES:
+            if re.search(rf"\b{re.escape(value)}\b", code, re.IGNORECASE):
+                problems.append(f"firmware-c5/main/lora_radio.c: forbidden transmit opcode {value}")
+        for match in re.finditer(r"\bcmd_write\s*\(([^)]*)\)", code, re.DOTALL):
+            first = match.group(1).split(",", 1)[0].strip()
+            if first.startswith("uint8_t"):
+                continue
+            if first not in LORA_RX_WRITE_OPCODES:
+                problems.append(f"firmware-c5/main/lora_radio.c: cmd_write opcode is not RX-allowlisted: {first}")
+        for match in re.finditer(r"\bcmd_read\s*\(([^)]*)\)", code, re.DOTALL):
+            first = match.group(1).split(",", 1)[0].strip()
+            if first.startswith("uint8_t"):
+                continue
+            if first not in LORA_RX_READ_OPCODES:
+                problems.append(f"firmware-c5/main/lora_radio.c: cmd_read opcode is not RX-allowlisted: {first}")
+
     return problems
 
 
@@ -124,12 +193,13 @@ def deck_finder(line):
             yield why, m.group(0)
 
 
-def main() -> int:
-    problems = check(PROBE_DIRS, probe_finder) + check(DECK_DIRS, deck_finder, DECK_BANNED_INCLUDE)
+def main(root: Path = ROOT) -> int:
+    problems = check(root, PROBE_DIRS, probe_finder) + check(root, DECK_DIRS, deck_finder, DECK_BANNED_INCLUDE)
+    problems += configuration_problems(root)
     # ESP-IDF changes auto-ACK state with promiscuous mode. D-17's 802.15.4
     # adapter must enable it before RX, and must never turn it back off while
     # the radio is enabled (that would re-enable automatic ACK transmission).
-    zig_radio = ROOT / "firmware-c5/main/zig_radio.c"
+    zig_radio = root / "firmware-c5/main/zig_radio.c"
     if not zig_radio.exists():
         problems.append("firmware-c5/main/zig_radio.c: missing D-17 802.15.4 receive-only adapter")
     else:
@@ -142,10 +212,10 @@ def main() -> int:
         print("FAIL: transmit-capable API reachable from firmware source (D-8):")
         print("\n".join(f"  {p}" for p in problems))
         return 1
-    n = sum(1 for _ in sources(PROBE_DIRS)) + sum(1 for _ in sources(DECK_DIRS))
+    n = sum(1 for _ in sources(root, PROBE_DIRS)) + sum(1 for _ in sources(root, DECK_DIRS))
     print(f"  receive-only: {n} source files, no transmit-capable API ({len(PROBE_BANNED)} banned on probe, all radio APIs banned on deck)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(Path(sys.argv[1]) if len(sys.argv) == 2 else ROOT))

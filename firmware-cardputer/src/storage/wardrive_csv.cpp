@@ -12,17 +12,25 @@ namespace storage {
 
 namespace {
 
-/* Kismet's munge_for_csv (kis_wiglecsvlogfile.cc), transcribed exactly:
- * printable ASCII 32-126 except ',' and '"' pass through; everything else
- * becomes a 3-digit octal escape. Raw SSID bytes are attacker-controlled
- * (AGENTS.md "decoded bytes stay hostile") and this format has no field
- * quoting, so this is the only thing standing between a hostile SSID and a
- * corrupted CSV row. */
+/* Kismet's munge_for_csv (kis_wiglecsvlogfile.cc), transcribed exactly for
+ * ordinary bytes: printable ASCII 32-126 except ',' and '"' pass through;
+ * everything else becomes a 3-digit octal escape. Formula-leading bytes get
+ * the same reversible escape even when printable, so spreadsheet consumers
+ * cannot execute an SSID as a formula. */
 std::string csvMunge(const std::string &raw)
 {
     std::string out;
     out.reserve(raw.size());
+    bool formula_prefix = true;
     for (unsigned char c : raw) {
+        if (formula_prefix && (c == '=' || c == '+' || c == '-' || c == '@')) {
+            out.push_back('\\');
+            out.push_back(static_cast<char>(((c >> 6) & 0x03) + '0'));
+            out.push_back(static_cast<char>(((c >> 3) & 0x07) + '0'));
+            out.push_back(static_cast<char>((c & 0x07) + '0'));
+            formula_prefix = false;
+            continue;
+        }
         if (c >= 32 && c <= 126 && c != ',' && c != '"') {
             out.push_back(static_cast<char>(c));
         } else {
@@ -31,6 +39,7 @@ std::string csvMunge(const std::string &raw)
             out.push_back(static_cast<char>(((c >> 3) & 0x07) + '0'));
             out.push_back(static_cast<char>((c & 0x07) + '0'));
         }
+        formula_prefix = formula_prefix && (c == ' ' || c == '\t');
     }
     return out;
 }

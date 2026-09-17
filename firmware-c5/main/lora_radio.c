@@ -98,6 +98,44 @@ static QueueHandle_t s_event_queue;  /* radio task -> caller (lora_recon.c) */
 static TaskHandle_t s_task;
 static volatile bool s_running;
 
+static bool rx_write_opcode_allowed(uint8_t opcode)
+{
+    switch (opcode) {
+        case OP_SET_SLEEP:
+        case OP_SET_STANDBY:
+        case OP_SET_RX:
+        case OP_SET_REGULATOR_MODE:
+        case OP_CALIBRATE:
+        case OP_SET_DIO3_TCXO_CTRL:
+        case OP_SET_DIO2_RF_SWITCH:
+        case OP_SET_DIO_IRQ_PARAMS:
+        case OP_CLEAR_IRQ_STATUS:
+        case OP_SET_RF_FREQUENCY:
+        case OP_SET_PACKET_TYPE:
+        case OP_SET_MODULATION_PARAMS:
+        case OP_SET_PACKET_PARAMS:
+        case OP_SET_BUFFER_BASE_ADDR:
+        case OP_CLEAR_DEVICE_ERRORS:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool rx_read_opcode_allowed(uint8_t opcode)
+{
+    switch (opcode) {
+        case OP_GET_IRQ_STATUS:
+        case OP_GET_RX_BUFFER_STATUS:
+        case OP_GET_PACKET_STATUS:
+        case OP_GET_STATUS:
+        case OP_GET_DEVICE_ERRORS:
+            return true;
+        default:
+            return false;
+    }
+}
+
 /* ---- low-level bus helpers --------------------------------------------- */
 
 static void cs_select(void)   { gpio_set_level(PIN_NSS, 0); }
@@ -123,6 +161,7 @@ static esp_err_t wait_busy_low(void)
  * byte every transaction returns (which we discard here). */
 static esp_err_t cmd_write(uint8_t opcode, const uint8_t *data, size_t len)
 {
+    if (!rx_write_opcode_allowed(opcode)) return ESP_ERR_NOT_SUPPORTED;
     esp_err_t err = wait_busy_low();
     if (err != ESP_OK) return err;
 
@@ -142,6 +181,7 @@ static esp_err_t cmd_write(uint8_t opcode, const uint8_t *data, size_t len)
  * shape: byte 0 = RFU, byte 1 = Status, payload from byte 2). */
 static esp_err_t cmd_read(uint8_t opcode, uint8_t *out, size_t len)
 {
+    if (!rx_read_opcode_allowed(opcode)) return ESP_ERR_NOT_SUPPORTED;
     esp_err_t err = wait_busy_low();
     if (err != ESP_OK) return err;
 

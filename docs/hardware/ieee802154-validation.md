@@ -3,6 +3,22 @@
 **Date:** 2026-09-16
 **Scope:** D-17 passive 802.15.4 MAC observation only
 
+## 2026-09-17 follow-up — current-image source and no-ACK run
+
+The attached extra C5 (`10:BD:A3:CF:35:38`) was used as the controlled
+802.15.4 source. The Oscilla probe (`38:44:BE:1F:4F:A0`) was flashed with the
+current UART image and the Cardputer (`50:78:7D:CE:6D:64`) was temporarily
+used as the Grove bridge, then both normal images were restored.
+
+On channel 11, the source sent 20 controlled non-ACK-requested MAC frames
+with PAN `1a2b` and source short address `1234`. Oscilla captured the source
+as one deduplicated node with `dropped=0`; `stop phy` returned the lane to
+idle. A temporary ACK-test build configured Oscilla as PAN `1a2b` / short
+`0001`. Twenty addressed ACK-requested frames were captured by Oscilla; the
+source reported failure reason `3` for every attempt and no ACK. This is a
+current-image no-ACK result. The independent-observer positive control was
+not repeated in this session.
+
 This record describes bench evidence, not a Zigbee, Thread, or topology
 claim. All Oscilla firmware remained receive-only; a separate, temporary C5
 running Espressif's IEEE 802.15.4 CLI supplied controlled traffic.

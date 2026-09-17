@@ -10,6 +10,7 @@
 #include <cstdlib>
 
 #include "ocp.h"
+#include "model/number_parse.h"
 
 namespace model {
 
@@ -33,11 +34,9 @@ bool kvFloat(const ocp::Item &it, const char *key, float lo, float hi, float *ou
 {
     const auto *s = it.get(key);
     if (!s || s->empty()) return false;
-    char *end = nullptr;
-    errno = 0;
-    float parsed = std::strtof(s->c_str(), &end);
-    if (errno || *end || parsed < lo || parsed > hi) return false;
-    *out = parsed;
+    double parsed = 0.0;
+    if (!parseFiniteDouble(*s, &parsed) || parsed < lo || parsed > hi) return false;
+    *out = static_cast<float>(parsed);
     return true;
 }
 

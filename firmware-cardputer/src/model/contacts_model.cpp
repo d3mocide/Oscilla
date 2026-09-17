@@ -12,6 +12,7 @@
 
 #include "ocp.h"
 #include "ocp/ocp_csv.h"
+#include "model/number_parse.h"
 
 namespace model {
 
@@ -53,7 +54,9 @@ bool parseClientRow(const std::string &raw, ClientRow &row)
     row.ch = static_cast<uint8_t>(ch);
     row.band5 = f[3] == OCP_BAND_LABEL_5;
     row.rssi = static_cast<int>(rssi);
-    row.pkts = static_cast<uint32_t>(std::strtoul(f[5].c_str(), nullptr, 10));
+    uint64_t pkts = 0;
+    if (!parseUnsigned(f[5], &pkts) || pkts > UINT32_MAX) return false;
+    row.pkts = static_cast<uint32_t>(pkts);
     return true;
 }
 
@@ -69,7 +72,9 @@ bool parseProbeRow(const std::string &raw, ProbeRow &row)
     row.mac = f[0];
     row.ssid = f[1];
     row.rssi = static_cast<int>(rssi);
-    row.pkts = static_cast<uint32_t>(std::strtoul(f[3].c_str(), nullptr, 10));
+    uint64_t pkts = 0;
+    if (!parseUnsigned(f[3], &pkts) || pkts > UINT32_MAX) return false;
+    row.pkts = static_cast<uint32_t>(pkts);
     return true;
 }
 

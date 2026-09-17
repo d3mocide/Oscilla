@@ -34,9 +34,9 @@ struct WardriveLogStats {
 /* Opens /oscilla/wardrive/drive_NNNN.{csv,kml}. Numbered, not date-named:
  * a session can legitimately start before the first fix, so the filename
  * cannot depend on one. The UTC date goes *inside* both files instead, when
- * it is known. False if SD isn't ready or no unused index was found —
- * logging is then unavailable for this session, never retried against the
- * UI. */
+ * it is known. False if SD isn't ready or no unused index was found. After a
+ * marked card fault, one explicit remount attempt is made; there is no
+ * background retry loop. */
 bool wardriveLogBegin(const model::GnssFix &fix);
 
 /* One drive-track vertex. Call on a valid fix; no-op otherwise. */

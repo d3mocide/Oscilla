@@ -15,7 +15,6 @@
 
 #include "lora_recon.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +25,7 @@
 #include "lora_radio.h"
 #include "ocp.h"
 #include "ocp_frame.h"
+#include "ocp_parse.h"
 
 static const char *TAG = "lora_recon";
 
@@ -48,7 +48,8 @@ bool lora_recon_ready(void) { return s_ready; }
  * integer kHz values LoRa tooling uses (7 stands in for 7.8, etc). */
 static bool parse_bw(const char *s, lora_bw_t *out)
 {
-    long khz = strtol(s, NULL, 10);
+    uint32_t khz = 0;
+    if (!ocp_parse_u32(s, &khz)) return false;
     switch (khz) {
         case 7:   *out = LORA_BW_7_8;   return true;
         case 10:  *out = LORA_BW_10_4;  return true;
@@ -86,11 +87,14 @@ static int bw_to_khz(lora_bw_t bw)
 void lora_cmd_config(int argc, char **argv)
 {
     (void)argc;   /* dispatch() already enforced exactly 4 args */
-    uint32_t freq = (uint32_t)strtoul(argv[1], NULL, 10);
-    long sf = strtol(argv[2], NULL, 10);
-    long cr = strtol(argv[4], NULL, 10);
+    uint32_t freq = 0, sf = 0, cr = 0;
     lora_bw_t bw;
 
+    if (!ocp_parse_u32(argv[1], &freq) || !ocp_parse_u32(argv[2], &sf) ||
+        !ocp_parse_u32(argv[4], &cr)) {
+        ocp_emit_error(OCP_ERR_BADARG, "freq/sf/bw/cr must be whole unsigned integers");
+        return;
+    }
     if (freq < 150000000UL || freq > 960000000UL) {
         ocp_emit_error(OCP_ERR_BADARG, "freq out of SX1262 range");
         return;
@@ -114,19 +118,19 @@ void lora_cmd_config(int argc, char **argv)
     s_params.cr = (uint8_t)cr;
     s_configured = true;
 
-    ocp_emit_compact(OCP_MARK_CFG, "%s=%lu %s=%ld %s=%d %s=%ld",
-                     OCP_K_FREQ, (unsigned long)freq, OCP_K_SF, sf,
-                     OCP_K_BW, bw_to_khz(bw), OCP_K_CR, cr);
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%lu %s=%lu %s=%d %s=%lu",
+                     OCP_K_FREQ, (unsigned long)freq, OCP_K_SF, (unsigned long)sf,
+                     OCP_K_BW, bw_to_khz(bw), OCP_K_CR, (unsigned long)cr);
 }
 
 static void emit_packet(const lora_packet_t *p)
 {
-    char hex[LORA_MAX_PAYLOAD * 2 + 1];
-    for (int i = 0; i < p->len; i++) snprintf(&hex[i * 2], 3, "%02x", p->payload[i]);
-
-    ocp_emit_event(OCP_EVT_KIND_LORA, "%s=%d %s=%.1f %s=%u %s=%s",
-                   OCP_K_RSSI, p->rssi_dbm, OCP_K_SNR, (double)p->snr_db,
-                   OCP_K_LEN, (unsigned)p->len, OCP_K_HEX, hex);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_LORA };
+    event.data.lora.len = p->len;
+    memcpy(event.data.lora.payload, p->payload, p->len);
+    event.data.lora.rssi_dbm = p->rssi_dbm;
+    event.data.lora.snr_db = p->snr_db;
+    (void)ocp_event_submit(&event);
 }
 
 /* Drains lora_radio's event queue until the radio stops, then exits itself

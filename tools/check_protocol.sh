@@ -32,6 +32,9 @@ python3 tools/check_ocp_text.py "$out/text_corpus"
 
 # D-8 at the driver level: no transmit-capable API in firmware source.
 python3 tools/check_rx_only.py
+python3 tools/test_check_rx_only.py | tail -1 | sed 's/^/  /'
+python3 tools/test_zig_readiness.py | tail -1 | sed 's/^/  /'
+python3 tools/check_event_queue.py | tail -1 | sed 's/^/  /'
 
 # Spec rules: the OCP-SPEC §9 conformance checklist.
 python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'
@@ -46,6 +49,26 @@ python3 tools/check_deck_parser.py --count 150
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -o "$out/beacon_test" firmware-c5/test/host/beacon_test.c firmware-c5/main/beacon_parse.c
 "$out/beacon_test" 100000 | tail -1 | sed 's/^/  /'
+
+# LoRa event hex encoding: zero-length packets must still produce an empty,
+# terminated field, and undersized output must fail without partial writes.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/lora_hex_test" \
+    firmware-c5/test/host/lora_hex_test.c firmware-c5/main/lora_hex.c
+"$out/lora_hex_test" | tail -1 | sed 's/^/  /'
+
+# Block frames are buffered and committed as one transaction; unavailable or
+# oversized output must never reach the transport partially.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/ocp_block_test" \
+    firmware-c5/test/host/ocp_block_test.c firmware-c5/main/ocp_block.c
+"$out/ocp_block_test" | tail -1 | sed 's/^/  /'
+
+# Command numeric fields use whole-token parsing with overflow protection.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/ocp_parse_test" \
+    firmware-c5/test/host/ocp_parse_test.c firmware-c5/main/ocp_parse.c
+"$out/ocp_parse_test" | tail -1 | sed 's/^/  /'
 
 # Probe request parser (sniffer's SSID-tracking path): same treatment.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -176,5 +199,11 @@ python3 tools/check_deck_parser.py --count 150
 # Cross-checked against a real XML parser, not just string equality (same
 # role check_ocp_text.py plays for the C field encoder).
 python3 tools/check_wardrive_kml.py "$out/wardrive_kml_test"
+
+# The deck's wardrive session discovery: exact filenames and first-free index,
+# independent of SD I/O so the directory walk cannot regress silently.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/wardrive_sessions_test" \
+    firmware-cardputer/test/host/wardrive_sessions_test.cpp firmware-cardputer/src/storage/wardrive_sessions.cpp
+"$out/wardrive_sessions_test" | tail -1 | sed 's/^/  /'
 
 echo "protocol contract OK"

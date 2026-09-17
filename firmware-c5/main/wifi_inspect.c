@@ -23,6 +23,7 @@
 
 #include "beacon_parse.h"
 #include "ocp.h"
+#include "ocp_parse.h"
 #include "ocp_frame.h"
 #include "radio_arbiter.h"
 #include "wifi_recon.h"
@@ -133,12 +134,12 @@ esp_err_t wifi_inspect_init(void)
 
 void wifi_cmd_inspect(int argc, char **argv)
 {
-    char *end = NULL;
-    unsigned long idx = strtoul(argv[1], &end, 10);
+    uint32_t idx = 0;
     uint8_t bssid[6], channel = 0;
     (void)argc;
 
-    if (!*argv[1] || *end || idx < 1 || !wifi_recon_lookup((unsigned)idx, bssid, &channel)) {
+    if (!ocp_parse_u32(argv[1], &idx) || idx < 1 || idx > UINT16_MAX ||
+        !wifi_recon_lookup((unsigned)idx, bssid, &channel)) {
         ocp_emit_error(OCP_ERR_BADARG, "idx is not a stored scan result");
         return;
     }

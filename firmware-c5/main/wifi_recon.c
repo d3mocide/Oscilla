@@ -21,6 +21,7 @@
 #include "freertos/semphr.h"
 
 #include "ocp.h"
+#include "ocp_parse.h"
 #include "ocp_frame.h"
 #include "ocp_text.h"
 #include "radio_arbiter.h"
@@ -37,6 +38,15 @@ static uint32_t s_elapsed_ms;
 
 static wifi_ap_record_t *s_results;
 static uint16_t s_total;
+
+static wifi_scan_config_t wifi_passive_scan_config(void)
+{
+    return (wifi_scan_config_t){
+        .show_hidden = true,
+        .scan_type = WIFI_SCAN_TYPE_PASSIVE,   /* receive-only: no probe requests (D-8) */
+        .scan_time.passive = WIFI_SCAN_DWELL_MS,
+    };
+}
 
 static const char *auth_label(wifi_auth_mode_t a)
 {
@@ -228,11 +238,7 @@ void wifi_cmd_scan(void)
         return;
     }
 
-    wifi_scan_config_t cfg = {
-        .show_hidden = true,
-        .scan_type = WIFI_SCAN_TYPE_PASSIVE,   /* receive-only: no probe requests (D-8) */
-        .scan_time.passive = WIFI_SCAN_DWELL_MS,
-    };
+    wifi_scan_config_t cfg = wifi_passive_scan_config();
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_scanning = true;
@@ -253,11 +259,9 @@ void wifi_cmd_scan(void)
 
 void wifi_cmd_show_results(int argc, char **argv)
 {
-    unsigned long first = 1;
+    uint32_t first = 1;
     if (argc > 1) {
-        char *end = NULL;
-        first = strtoul(argv[1], &end, 10);
-        if (!*argv[1] || *end || first < 1 || first > 65535) {
+        if (!ocp_parse_u32(argv[1], &first) || first < 1 || first > 65535) {
             ocp_emit_error(OCP_ERR_BADARG, "first must be a positive index");
             return;
         }

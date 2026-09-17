@@ -12,17 +12,20 @@ namespace storage {
 
 namespace {
 
+bool endsWith(const std::string &value, const std::string &suffix)
+{
+    return value.size() >= suffix.size() &&
+           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 /* XML 1.0 text-content escaping. Raw SSID bytes are hostile (AGENTS.md
- * "decoded bytes stay hostile"): the five predefined entities handle
- * &<>"' , but XML 1.0 §2.2 forbids most C0 control bytes in a document
- * outright — not even "&#7;" is legal for BEL — so those are dropped to a
- * safe placeholder instead of "escaped" (there is no valid escape for
- * them). Tab/LF/CR are the only C0 bytes XML actually allows and pass
- * through untouched. */
+ * "decoded bytes stay hostile"): invalid/non-ASCII bytes use a reversible
+ * ASCII byte escape so malformed UTF-8 can never corrupt the document. */
 std::string xmlEscapeText(const std::string &raw)
 {
     std::string out;
-    out.reserve(raw.size());
+    out.reserve(raw.size() + 8);
+    static const char hex[] = "0123456789abcdef";
     for (unsigned char c : raw) {
         switch (c) {
         case '&': out += "&amp;"; break;
@@ -31,8 +34,10 @@ std::string xmlEscapeText(const std::string &raw)
         case '"': out += "&quot;"; break;
         case '\'': out += "&apos;"; break;
         default:
-            if (c < 0x20 && c != 0x09 && c != 0x0A && c != 0x0D) {
-                out.push_back('.');   /* forbidden in XML 1.0 text content, even escaped */
+            if ((c < 0x20 && c != 0x09 && c != 0x0A && c != 0x0D) || c >= 0x80) {
+                out += "\\x";
+                out.push_back(hex[c >> 4]);
+                out.push_back(hex[c & 0x0f]);
             } else {
                 out.push_back(static_cast<char>(c));
             }
@@ -67,30 +72,25 @@ std::string kmlHeader(const std::string &session_name)
     out += "<Document>\n";
     out += "<name>" + name + "</name>\n";
     /* red: open (insecure) */
-    out += "<Style id=\"sOpen\"><IconStyle><color>ff0000ff</color>"
-           "<Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>"
-           "</IconStyle></Style>\n";
+    out += "<Style id=\"sOpen\"><IconStyle><color>ff0000ff</color></IconStyle></Style>\n";
     /* orange: WEP */
-    out += "<Style id=\"sWep\"><IconStyle><color>ff00a5ff</color>"
-           "<Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>"
-           "</IconStyle></Style>\n";
+    out += "<Style id=\"sWep\"><IconStyle><color>ff00a5ff</color></IconStyle></Style>\n";
     /* green: WPA-family personal */
-    out += "<Style id=\"sSecure\"><IconStyle><color>ff00c800</color>"
-           "<Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>"
-           "</IconStyle></Style>\n";
+    out += "<Style id=\"sSecure\"><IconStyle><color>ff00c800</color></IconStyle></Style>\n";
     /* blue: enterprise/802.1X */
-    out += "<Style id=\"sEnterprise\"><IconStyle><color>ffff7800</color>"
-           "<Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>"
-           "</IconStyle></Style>\n";
+    out += "<Style id=\"sEnterprise\"><IconStyle><color>ffff7800</color></IconStyle></Style>\n";
     /* grey: OWE/WAPI/DPP/unknown */
-    out += "<Style id=\"sOther\"><IconStyle><color>ffa0a0a0</color>"
-           "<Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>"
-           "</IconStyle></Style>\n";
+    out += "<Style id=\"sOther\"><IconStyle><color>ffa0a0a0</color></IconStyle></Style>\n";
     /* yellow: the drive track line */
     out += "<Style id=\"sTrack\"><LineStyle><color>ff00ffff</color><width>3</width></LineStyle></Style>\n";
-    out += "<Placemark>\n<name>Track</name>\n<styleUrl>#sTrack</styleUrl>\n";
-    out += "<LineString>\n<tessellate>1</tessellate>\n<coordinates>\n";
+    out += kmlTrackStart();
     return out;
+}
+
+std::string kmlTrackStart()
+{
+    return "<Placemark>\n<name>Track</name>\n<styleUrl>#sTrack</styleUrl>\n"
+           "<LineString>\n<tessellate>1</tessellate>\n<coordinates>\n";
 }
 
 std::string kmlTrackPoint(double lat, double lon, double alt_m)
@@ -133,6 +133,44 @@ std::string kmlApPlacemark(const model::ApRow &ap, double lat, double lon)
 std::string kmlFooter()
 {
     return "</Document>\n</kml>\n";
+}
+
+std::string kmlRecoverySuffix(const std::string &tail)
+{
+    const std::string footer = kmlFooter();
+    const std::string close_track = kmlCloseTrack();
+    if (endsWith(tail, footer)) return "";
+    if (endsWith(tail, close_track) || endsWith(tail, "</Placemark>\n")) return footer;
+    if (endsWith(tail, "</coordinates>\n")) {
+        return "</LineString>\n</Placemark>\n" + footer;
+    }
+    if (endsWith(tail, "</LineString>\n")) return "</Placemark>\n" + footer;
+    return close_track + footer;
+}
+
+std::string kmlRecoverPrefix(const std::string &prefix)
+{
+    if (endsWith(prefix, kmlFooter())) return prefix;
+    const std::string close_placemark = "</Placemark>\n";
+    std::string candidate;
+    size_t last_close = prefix.rfind(close_placemark);
+    if (last_close != std::string::npos) {
+        size_t after_close = last_close + close_placemark.size();
+        std::string after = prefix.substr(after_close);
+        const std::string track_start = kmlTrackStart();
+        if (after.compare(0, track_start.size(), track_start) == 0) {
+            size_t newline = prefix.rfind('\n');
+            candidate = newline == std::string::npos ? prefix : prefix.substr(0, newline + 1);
+        } else {
+            candidate = prefix.substr(0, after_close);
+        }
+    } else {
+        size_t newline = prefix.rfind('\n');
+        candidate = newline == std::string::npos ? std::string() : prefix.substr(0, newline + 1);
+    }
+
+    size_t tail_start = candidate.size() > 128 ? candidate.size() - 128 : 0;
+    return candidate + kmlRecoverySuffix(candidate.substr(tail_start));
 }
 
 }  // namespace storage

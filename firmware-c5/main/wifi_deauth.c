@@ -11,6 +11,7 @@
 #include "wifi_deauth.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -52,13 +53,15 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
     uint8_t ch = k_channels[s_chan_idx];
     xSemaphoreGive(s_lock);
 
-    ocp_emit_event(OCP_EVT_KIND_DEAUTH,
-                   "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%02x:%02x:%02x:%02x:%02x:%02x "
-                   "%s=%u %s=%u %s=%d %s=%u %s=%u",
-                   OCP_K_BSSID, di.bssid[0], di.bssid[1], di.bssid[2], di.bssid[3], di.bssid[4], di.bssid[5],
-                   OCP_K_MAC, di.dest[0], di.dest[1], di.dest[2], di.dest[3], di.dest[4], di.dest[5],
-                   OCP_K_REASON, di.reason, OCP_K_DISASSOC, di.is_disassoc ? 1u : 0u,
-                   OCP_K_RSSI, pkt->rx_ctrl.rssi, OCP_K_CH, ch, OCP_K_COUNT, total);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_DEAUTH };
+    memcpy(event.data.deauth.bssid, di.bssid, sizeof di.bssid);
+    memcpy(event.data.deauth.mac, di.dest, sizeof di.dest);
+    event.data.deauth.reason = di.reason;
+    event.data.deauth.is_disassoc = di.is_disassoc;
+    event.data.deauth.rssi = pkt->rx_ctrl.rssi;
+    event.data.deauth.channel = ch;
+    event.data.deauth.count = total;
+    (void)ocp_event_submit(&event);
 }
 
 /* Timer task: just advance the hop. No periodic heartbeat event — unlike

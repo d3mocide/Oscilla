@@ -5,24 +5,25 @@
  */
 
 #include "model/gnss_model.h"
+#include "model/number_parse.h"
 
-#include <cerrno>
-#include <cstdlib>
+#include <climits>
+#include <cmath>
 
 namespace model {
 
 namespace {
 
-/* Whole-string strtod: no trailing garbage, no empty input. Same
- * never-trust-a-partial-field posture as lora_model.cpp's kvFloat. */
-bool parseDouble(const std::string &s, double *out)
+bool parseDigits(const std::string &s, int *out)
 {
     if (s.empty()) return false;
-    char *end = nullptr;
-    errno = 0;
-    double v = std::strtod(s.c_str(), &end);
-    if (errno || end != s.c_str() + s.size()) return false;
-    *out = v;
+    int value = 0;
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
+        if (value > (INT_MAX - (c - '0')) / 10) return false;
+        value = value * 10 + (c - '0');
+    }
+    *out = value;
     return true;
 }
 
@@ -32,17 +33,38 @@ bool parseDouble(const std::string &s, double *out)
 bool parseLatLon(const std::string &raw, const std::string &hemi, int deg_digits, double *out)
 {
     if (raw.size() <= static_cast<size_t>(deg_digits) || hemi.size() != 1) return false;
-    double deg = 0.0, min = 0.0;
-    if (!parseDouble(raw.substr(0, deg_digits), &deg)) return false;
-    if (!parseDouble(raw.substr(deg_digits), &min)) return false;
+    int deg = 0;
+    double min = 0.0;
+    if (!parseDigits(raw.substr(0, deg_digits), &deg)) return false;
+    if (!parseFiniteDouble(raw.substr(deg_digits), &min)) return false;
     if (min < 0.0 || min >= 60.0) return false;
 
-    double v = deg + min / 60.0;
+    double v = static_cast<double>(deg) + min / 60.0;
     char h = hemi[0];
     if (h == 'S' || h == 'W') v = -v;
     else if (h != 'N' && h != 'E') return false;
+    double limit = (h == 'N' || h == 'S') ? 90.0 : 180.0;
+    if (!std::isfinite(v) || v < -limit || v > limit) return false;
     *out = v;
     return true;
+}
+
+bool parseUtc(const std::string &raw, int *h, int *m, int *s)
+{
+    if (!h || !m || !s || raw.size() < 6) return false;
+    for (size_t i = 0; i < 6; ++i) {
+        if (raw[i] < '0' || raw[i] > '9') return false;
+    }
+    if (raw.size() > 6) {
+        if (raw[6] != '.' || raw.size() == 7) return false;
+        for (size_t i = 7; i < raw.size(); ++i) {
+            if (raw[i] < '0' || raw[i] > '9') return false;
+        }
+    }
+    *h = (raw[0] - '0') * 10 + (raw[1] - '0');
+    *m = (raw[2] - '0') * 10 + (raw[3] - '0');
+    *s = (raw[4] - '0') * 10 + (raw[5] - '0');
+    return *h < 24 && *m < 60 && *s < 60;
 }
 
 /* NMEA RMC date field: fixed "ddmmyy", no separators. yy -> 2000+yy (see
@@ -57,7 +79,12 @@ bool parseNmeaDate(const std::string &raw, int *year, int *month, int *day)
     int dd = (raw[0] - '0') * 10 + (raw[1] - '0');
     int mm = (raw[2] - '0') * 10 + (raw[3] - '0');
     int yy = (raw[4] - '0') * 10 + (raw[5] - '0');
-    if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return false;
+    if (mm < 1 || mm > 12) return false;
+    static const int days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    int full_year = 2000 + yy;
+    int max_day = days[mm - 1];
+    if (mm == 2 && full_year % 4 == 0) max_day = 29;
+    if (dd < 1 || dd > max_day) return false;
     *day = dd;
     *month = mm;
     *year = 2000 + yy;
@@ -81,24 +108,24 @@ void GnssModel::absorbGga(const gnss::Sentence &s, uint32_t now_ms)
 {
     if (s.fields.size() < 9) return;
 
-    long quality = -1;
-    if (!s.fields[5].empty()) {
-        char *end = nullptr;
-        errno = 0;
-        quality = std::strtol(s.fields[5].c_str(), &end, 10);
-        if (errno || *end || quality < 0) quality = -1;
-    }
+    int quality = -1;
+    (void)parseDigits(s.fields[5], &quality);
     fix_.valid = quality > 0;
-    if (!s.fields[0].empty()) fix_.utc = s.fields[0];
+    int utc_h = 0, utc_m = 0, utc_s = 0;
+    if (parseUtc(s.fields[0], &utc_h, &utc_m, &utc_s)) fix_.utc = s.fields[0];
 
     if (!fix_.valid) return;   /* no-fix report: don't overwrite stale-but-last-known fields */
 
     double lat = 0.0, lon = 0.0, alt = 0.0, hdop = 0.0;
     bool have_lat = parseLatLon(s.fields[1], s.fields[2], 2, &lat);
     bool have_lon = parseLatLon(s.fields[3], s.fields[4], 3, &lon);
-    bool have_alt = parseDouble(s.fields[8], &alt);
-    bool have_hdop = s.fields[7].empty() ? false : parseDouble(s.fields[7], &hdop);
-    if (!have_lat || !have_lon) return;   /* claims a fix but the position is unparsable: don't trust it */
+    bool have_alt = parseFiniteDouble(s.fields[8], &alt);
+    bool have_hdop = s.fields[7].empty() ? false : parseFiniteDouble(s.fields[7], &hdop);
+    have_hdop = have_hdop && hdop >= 0.0;
+    if (!have_lat || !have_lon) {
+        fix_.valid = false;
+        return;   /* claims a fix but the position is unparsable: don't trust it */
+    }
 
     fix_.lat_deg = lat;
     fix_.lon_deg = lon;
@@ -116,7 +143,8 @@ void GnssModel::absorbRmc(const gnss::Sentence &s, uint32_t now_ms)
 
     bool status_valid = s.fields[1] == "A";
     fix_.valid = status_valid;
-    if (!s.fields[0].empty()) fix_.utc = s.fields[0];
+    int utc_h = 0, utc_m = 0, utc_s = 0;
+    if (parseUtc(s.fields[0], &utc_h, &utc_m, &utc_s)) fix_.utc = s.fields[0];
 
     /* Date is parsed independent of status: a receiver's clock is commonly
      * RTC-backed and keeps a real calendar date even with no current fix
@@ -135,7 +163,10 @@ void GnssModel::absorbRmc(const gnss::Sentence &s, uint32_t now_ms)
     double lat = 0.0, lon = 0.0;
     bool have_lat = parseLatLon(s.fields[2], s.fields[3], 2, &lat);
     bool have_lon = parseLatLon(s.fields[4], s.fields[5], 3, &lon);
-    if (!have_lat || !have_lon) return;
+    if (!have_lat || !have_lon) {
+        fix_.valid = false;
+        return;
+    }
 
     /* RMC carries neither altitude nor HDOP: leave whatever GGA last set. */
     fix_.lat_deg = lat;
@@ -169,14 +200,7 @@ GnssState GnssModel::state(uint32_t now_ms) const
 bool splitUtcTime(const std::string &utc, int *h, int *m, int *s)
 {
     *h = *m = *s = 0;
-    if (utc.size() < 6) return false;
-    for (size_t i = 0; i < 6; i++) {
-        if (utc[i] < '0' || utc[i] > '9') return false;
-    }
-    *h = (utc[0] - '0') * 10 + (utc[1] - '0');
-    *m = (utc[2] - '0') * 10 + (utc[3] - '0');
-    *s = (utc[4] - '0') * 10 + (utc[5] - '0');
-    return true;
+    return parseUtc(utc, h, m, s);
 }
 
 const char *gnssStateName(GnssState s)

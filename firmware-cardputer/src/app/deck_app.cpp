@@ -16,6 +16,7 @@
 #include "storage/lora_logger.h"
 #include "storage/settings.h"
 #include "storage/wardrive_logger.h"
+#include "model/number_parse.h"
 #include "ui/gnss_view.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
@@ -183,10 +184,14 @@ void DeckApp::onReply(const ocp::Item &it)
         const auto *heap = it.get(OCP_K_HEAP);
         const auto *uptime = it.get(OCP_K_UPTIME_MS);
         if (heap && uptime) {
-            probe_heap_ = static_cast<uint32_t>(std::strtoul(heap->c_str(), nullptr, 10));
-            probe_uptime_ms_ = std::strtoull(uptime->c_str(), nullptr, 10);
-            probe_status_valid_ = true;
-            last_status_reply_ms_ = now_;
+            uint64_t heap_value = 0, uptime_value = 0;
+            if (model::parseUnsigned(*heap, &heap_value) && heap_value <= UINT32_MAX &&
+                model::parseUnsigned(*uptime, &uptime_value)) {
+                probe_heap_ = static_cast<uint32_t>(heap_value);
+                probe_uptime_ms_ = uptime_value;
+                probe_status_valid_ = true;
+                last_status_reply_ms_ = now_;
+            }
         }
     } else if (it.tag == OCP_MARK_STOP) {
         /* Clear only the lane the probe says it stopped (D-16). A pre-D-16
@@ -702,11 +707,16 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     }
     else if (cmd == "channel") {
         if (arg.empty()) { log("debug: channel needs a number"); return; }
-        startPacketMonitor(now_ms, static_cast<uint8_t>(std::strtol(arg.c_str(), nullptr, 10)));
+        uint64_t ch = 0;
+        if (!model::parseUnsigned(arg, &ch) || ch > 255) { log("debug: channel is invalid"); return; }
+        startPacketMonitor(now_ms, static_cast<uint8_t>(ch));
     }
     else if (cmd == "inspect") {
         if (!arg.empty()) {
-            long idx = std::strtol(arg.c_str(), nullptr, 10);
+            uint64_t idx = 0;
+            if (!model::parseUnsigned(arg, &idx) || idx > UINT16_MAX) {
+                log("debug: index is invalid"); return;
+            }
             bool found = false;
             for (size_t i = 0; i < scan_.rows().size(); i++) {
                 if (scan_.rows()[i].idx == idx) { cursor_ = i; found = true; break; }

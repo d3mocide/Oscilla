@@ -34,6 +34,20 @@ bool begin()
 
 bool ready() { return g_ready; }
 
+void markFault() { g_ready = false; }
+
+bool remount(uint32_t timeout_ms)
+{
+    if (!g_lock || !lock(timeout_ms)) return false;
+
+    g_ready = false;
+    SD.end();
+    g_ready = SD.begin(kCsPin, SPI, kSpiHz);
+
+    unlock();
+    return g_ready;
+}
+
 bool lock(uint32_t timeout_ms) { return xSemaphoreTake(g_lock, pdMS_TO_TICKS(timeout_ms)) == pdTRUE; }
 void unlock() { xSemaphoreGive(g_lock); }
 

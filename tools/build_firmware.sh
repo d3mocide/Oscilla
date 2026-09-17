@@ -6,6 +6,17 @@ cd "$(dirname "$0")/.."
 # shellcheck disable=SC1091
 source tools/env.sh
 
+EXPECTED_IDF_VERSION="5.5.1"
+EXPECTED_PIO_VERSION="6.2.0"
+if [ "$(idf.py --version)" != "ESP-IDF v$EXPECTED_IDF_VERSION" ]; then
+    echo "wrong ESP-IDF: expected v$EXPECTED_IDF_VERSION" >&2
+    exit 1
+fi
+if [ "$(pio --version)" != "PlatformIO Core, version $EXPECTED_PIO_VERSION" ]; then
+    echo "wrong PlatformIO Core: expected $EXPECTED_PIO_VERSION" >&2
+    exit 1
+fi
+
 # --bench builds the probe to talk OCP over USB instead of the Grove UART.
 # Each variant gets its own build dir and sdkconfig: once an sdkconfig exists,
 # idf.py ignores the defaults files, so a shared one would silently keep

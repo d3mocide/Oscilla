@@ -143,7 +143,32 @@ int main()
         gnss::Sentence bad = sentenceOf(kGgaFix);
         bad.fields[1] = "not-a-number";
         m.absorb(bad, 1000);
-        check(!m.everFixed(), "a fix-quality GGA with unparsable lat is not trusted as a fix");
+        check(!m.everFixed() && !m.hasFix(), "a fix-quality GGA with unparsable lat is not trusted as a fix");
+    }
+    {
+        model::GnssModel m;
+        m.absorb(sentenceOf(kGgaFix), 1000);
+        gnss::Sentence bad = sentenceOf(kGgaFix);
+        bad.fields[1] = "9010.00000";
+        m.absorb(bad, 2000);
+        check(!m.hasFix(), "latitude beyond 90 degrees invalidates the current fix");
+        check(near(m.fix().lat_deg, 47.2852331667, 1e-6), "impossible coordinates do not overwrite the last known position");
+
+        bad = sentenceOf(kGgaFix);
+        bad.fields[8] = "nan";
+        bad.fields[7] = "inf";
+        m.absorb(bad, 3000);
+        check(std::isfinite(m.fix().alt_m) && std::isfinite(m.fix().hdop),
+              "non-finite altitude and HDOP never enter the fix");
+        check(near(m.fix().alt_m, 499.6, 1e-9) && near(m.fix().hdop, 1.01, 1e-6),
+              "non-finite telemetry leaves the last finite values intact");
+
+        m.absorb(sentenceOf(kRmcFix), 3500);
+        bad = sentenceOf(kRmcFix);
+        bad.fields[8] = "310226";
+        m.absorb(bad, 4000);
+        check(m.fix().year == 2002 && m.fix().month == 12 && m.fix().day == 9,
+              "impossible calendar dates do not overwrite the last known date");
     }
 
     {
@@ -200,6 +225,11 @@ int main()
               "punctuation in the digits fails rather than parsing around it");
         check(!model::splitUtcTime("09272x.00", &h, &m, &sec),
               "a non-digit anywhere in the six fails");
+        check(!model::splitUtcTime("246000.00", &h, &m, &sec), "UTC hour 24 is rejected");
+        check(!model::splitUtcTime("126000.00", &h, &m, &sec), "UTC minute 60 is rejected");
+        check(!model::splitUtcTime("125960.00", &h, &m, &sec), "UTC second 60 is rejected");
+        check(!model::splitUtcTime("092725x00", &h, &m, &sec), "UTC suffix without a decimal point is rejected");
+        check(!model::splitUtcTime("092725.", &h, &m, &sec), "UTC decimal point without fractional digits is rejected");
     }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "gnss model test FAILED" : "gnss model test OK",

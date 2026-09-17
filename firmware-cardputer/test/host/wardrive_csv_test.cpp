@@ -86,6 +86,21 @@ int main()
               "empty SSID (hidden network) yields an empty field, not a shifted row");
     }
     {
+        const char prefixes[] = "=+-@";
+        for (char prefix : prefixes) {
+            if (!prefix) break;
+            auto a = ap(std::string(1, prefix) + "SUM(1,1)", "00:11:22:33:44:56", 1, "OPEN", -65, false);
+            std::string row = storage::wardriveCsvRow(a, 2026, 1, 1, 0, 0, 0, 0.0, 0.0, 0.0f, 0.0f);
+            const char *octal = prefix == '=' ? "075" : prefix == '+' ? "053" : prefix == '-' ? "055" : "100";
+            check(row.find(std::string(",\\") + octal) != std::string::npos,
+                  "formula-leading SSID byte uses reversible octal neutralization");
+        }
+        auto a = ap("  =SUM(1,1)", "00:11:22:33:44:57", 1, "OPEN", -65, false);
+        std::string row = storage::wardriveCsvRow(a, 2026, 1, 1, 0, 0, 0, 0.0, 0.0, 0.0f, 0.0f);
+        check(row.find(",  \\075SUM") != std::string::npos,
+              "formula after leading whitespace is also neutralized");
+    }
+    {
         // Southern/western hemisphere: negative lat/lon must format correctly.
         auto a = ap("Sydney", "00:00:00:00:00:01", 40, "WPA/WPA2", -50, true);
         std::string row = storage::wardriveCsvRow(a, 2026, 1, 1, 0, 0, 0, -33.868800, 151.209300, 40.0f, 3.5f);

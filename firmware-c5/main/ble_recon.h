@@ -17,6 +17,7 @@
 #include "esp_err.h"
 
 #define BLE_SCAN_DWELL_MS   6000   /* default scan_bt window */
+#define BLE_SCAN_DWELL_MAX_MS 60000 /* bounded so one session cannot monopolize PHY */
 
 /* Starts the NimBLE host (async: ble_recon_ready() flips true once it has
  * actually synced with the controller, not merely been asked to start —

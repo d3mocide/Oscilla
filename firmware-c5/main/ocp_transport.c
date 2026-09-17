@@ -50,9 +50,9 @@ int ocp_transport_read(uint8_t *buf, size_t len, uint32_t timeout_ms)
     return n < 0 ? 0 : n;
 }
 
-void ocp_transport_write(const char *data, size_t len)
+bool ocp_transport_write(const char *data, size_t len)
 {
-    uart_write_bytes(OCP_UART_PORT, data, len);
+    return uart_write_bytes(OCP_UART_PORT, data, len) == (int)len;
 }
 
 const char *ocp_transport_name(void) { return "uart0"; }
@@ -82,10 +82,10 @@ int ocp_transport_read(uint8_t *buf, size_t len, uint32_t timeout_ms)
     return n < 0 ? 0 : n;
 }
 
-void ocp_transport_write(const char *data, size_t len)
+bool ocp_transport_write(const char *data, size_t len)
 {
     /* Bounded wait: a host that stops reading must not wedge the probe. */
-    usb_serial_jtag_write_bytes(data, len, pdMS_TO_TICKS(100));
+    return usb_serial_jtag_write_bytes(data, len, pdMS_TO_TICKS(100)) == (int)len;
 }
 
 const char *ocp_transport_name(void) { return "usb"; }

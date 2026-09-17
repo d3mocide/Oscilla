@@ -43,6 +43,7 @@
 #include "ble_device_table.h"
 #include "ocp.h"
 #include "ocp_frame.h"
+#include "ocp_parse.h"
 #include "ocp_text.h"
 #include "radio_arbiter.h"
 
@@ -59,6 +60,14 @@ static int64_t s_started_us;
 static uint32_t s_elapsed_ms;
 static uint32_t s_dwell_ms;
 static uint32_t s_airtag_n;
+
+static struct ble_gap_disc_params ble_passive_disc_params(void)
+{
+    struct ble_gap_disc_params params = {0};
+    params.passive = 1;             /* receive-only: never a scan request (§11.1) */
+    params.filter_duplicates = 0;   /* every sighting should bump the table's rssi/n, not just the first */
+    return params;
+}
 
 /* Shared by the [BLE] row format (emit_ble_frame) and start_ble_scan's
  * per-device event (gap_event) — both need the same quoted-string shape
@@ -130,25 +139,39 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         memcpy(addr, event->disc.addr.val, 6);
         int8_t rssi = event->disc.rssi;
 
-        char name[4 * 32 + 3] = "", mfr[8] = "";
+        uint8_t name[32] = {0};
+        uint8_t name_len = 0;
+        uint16_t mfr_company_id = 0;
+        bool has_name = false, has_mfr = false;
         bool is_tracker = false;
-        if (report_new) {
-            format_device_fields(row, name, sizeof name, mfr, sizeof mfr);
+        if (report_new && row) {
+            memcpy(name, row->name, sizeof name);
+            name_len = row->name_len;
+            mfr_company_id = row->mfr_company_id;
+            has_name = row->has_name;
+            has_mfr = row->has_mfr;
             is_tracker = row->is_tracker;
         }
         xSemaphoreGive(s_lock);
 
         if (report_tracker) {
-            ocp_emit_event(OCP_EVT_KIND_AIRTAG, "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%lu",
-                           OCP_K_MAC, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
-                           OCP_K_RSSI, rssi, OCP_K_COUNT, (unsigned long)airtag_n);
+            ocp_event_record_t event_out = { .kind = OCP_EVENT_RECORD_AIRTAG };
+            memcpy(event_out.data.airtag.mac, addr, sizeof addr);
+            event_out.data.airtag.rssi = rssi;
+            event_out.data.airtag.count = airtag_n;
+            (void)ocp_event_submit(&event_out);
         }
         if (report_new) {
-            ocp_emit_event(OCP_EVT_KIND_BLE, "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%s %s=%s %s=%s %s=%d",
-                           OCP_K_MAC, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
-                           OCP_K_NAME, name, OCP_K_MFR, mfr,
-                           OCP_K_TRACKER, is_tracker ? "\"" OCP_EVT_KIND_AIRTAG "\"" : "\"\"",
-                           OCP_K_RSSI, rssi);
+            ocp_event_record_t event_out = { .kind = OCP_EVENT_RECORD_BLE };
+            memcpy(event_out.data.ble.mac, addr, sizeof addr);
+            memcpy(event_out.data.ble.name, name, sizeof name);
+            event_out.data.ble.name_len = name_len;
+            event_out.data.ble.mfr_company_id = mfr_company_id;
+            event_out.data.ble.has_name = has_name;
+            event_out.data.ble.has_mfr = has_mfr;
+            event_out.data.ble.is_tracker = is_tracker;
+            event_out.data.ble.rssi = rssi;
+            (void)ocp_event_submit(&event_out);
         }
         return 0;
     }
@@ -174,9 +197,7 @@ static int start_disc(int32_t duration_ms)
     int rc = ble_hs_id_infer_auto(0, &own_addr_type);
     if (rc != 0) return rc;
 
-    struct ble_gap_disc_params params = {0};
-    params.passive = 1;             /* receive-only: never a scan request (§11.1) */
-    params.filter_duplicates = 0;   /* every sighting should bump the table's rssi/n, not just the first */
+    struct ble_gap_disc_params params = ble_passive_disc_params();
 
     return ble_gap_disc(own_addr_type, duration_ms, &params, gap_event, NULL);
 }
@@ -199,13 +220,10 @@ void ble_cmd_scan_bt(int argc, char **argv)
 {
     uint32_t dwell_ms = BLE_SCAN_DWELL_MS;
     if (argc > 1) {
-        char *end;
-        long v = strtol(argv[1], &end, 10);
-        if (*end != '\0' || v <= 0) {
-            ocp_emit_error(OCP_ERR_BADARG, "dwell_ms must be a positive integer");
+        if (!ocp_parse_u32(argv[1], &dwell_ms) || dwell_ms == 0 || dwell_ms > BLE_SCAN_DWELL_MAX_MS) {
+            ocp_emit_error(OCP_ERR_BADARG, "dwell_ms must be 1..60000");
             return;
         }
-        dwell_ms = (uint32_t)v;
     }
 
     if (arbiter_acquire(PHY_OWNER_BLE, ble_teardown) != ESP_OK) {

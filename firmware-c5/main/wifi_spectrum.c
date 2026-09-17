@@ -28,6 +28,7 @@
 #include "freertos/semphr.h"
 
 #include "ocp.h"
+#include "ocp_parse.h"
 #include "ocp_frame.h"
 #include "radio_arbiter.h"
 #include "wifi_channels.h"
@@ -64,7 +65,10 @@ static void on_cv_hop(void *arg)
     uint8_t next_ch = k_channels[s_cv_idx];
     xSemaphoreGive(s_lock);
 
-    ocp_emit_event(OCP_EVT_KIND_CHAN, "%s=%u %s=%u", OCP_K_CH, k_channels[idx], OCP_K_PKTS, pkts);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_CHAN };
+    event.data.chan.channel = k_channels[idx];
+    event.data.chan.packets = pkts;
+    (void)ocp_event_submit(&event);
 
     esp_err_t err = esp_wifi_set_channel(next_ch, WIFI_SECOND_CHAN_NONE);
     if (err != ESP_OK) ESP_LOGE(TAG, "hop to ch %u: %s", next_ch, esp_err_to_name(err));
@@ -130,7 +134,10 @@ static void on_pm_tick(void *arg)
     s_pm_pkts = 0;
     xSemaphoreGive(s_lock);
 
-    ocp_emit_event(OCP_EVT_KIND_CHAN, "%s=%u %s=%u", OCP_K_CH, s_pm_channel, OCP_K_PKTS, pkts);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_CHAN };
+    event.data.chan.channel = s_pm_channel;
+    event.data.chan.packets = pkts;
+    (void)ocp_event_submit(&event);
 }
 
 static void pm_teardown(void)
@@ -154,9 +161,8 @@ static bool channel_supported(unsigned long ch)
 void wifi_cmd_packet_monitor(int argc, char **argv)
 {
     (void)argc;
-    char *end = NULL;
-    unsigned long ch = strtoul(argv[1], &end, 10);
-    if (!*argv[1] || *end || ch < 1 || ch > 255 || !channel_supported(ch)) {
+    uint32_t ch = 0;
+    if (!ocp_parse_u32(argv[1], &ch) || ch < 1 || ch > 255 || !channel_supported(ch)) {
         ocp_emit_error(OCP_ERR_BADARG, "channel is not in the supported hop list");
         return;
     }

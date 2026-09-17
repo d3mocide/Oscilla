@@ -1,3 +1,196 @@
+## 2026-09-17 — pre-commit SD card inspection
+
+**Phase:** security remediation pre-commit evidence · **By:** Codex
+
+The deck and probe were taken offline and the attached microSD was mounted
+read-only on the host. A structural inspection found 13 paired wardrive
+sessions (`drive_0001` through `drive_0013`): each CSV has the expected
+11-field metadata row followed by the 14-field column/data shape, and every
+KML parses as well-formed KML 2.2. The recovered sessions contain 6,901 data
+rows in total. The existing LoRa log also parses cleanly as a 10-column CSV.
+
+The first four historical KML files contain a legacy Google pushpin URL; the
+current KML generator emits no remote resource URL, and sessions `0005`-
+`0013` contain none. A temporary lock file is present on the card but is not a
+valid session name and is ignored by the exact-name discovery logic. No field
+data was copied into the repository, and no byte-for-byte expected-content
+claim is made from this structural pass.
+
+## 2026-09-17 — wardrive SD fault handling, bounded discovery, and live remount
+
+**Phase:** security remediation hardware evidence · **By:** Codex
+
+Implemented the two SD follow-up fixes and the requested live-remount path.
+Wardrive appends now verify the still-open file after each flush using the
+public SD API; a failed health check closes the logger, marks storage absent,
+and prevents further writes or row counting. A later explicit logging request
+performs one `SD.end()`/`SD.begin()` remount attempt; reinsertion alone does
+not silently reuse the old mount. Wardrive session discovery now enumerates
+the session directory once, repairs existing KML files found there, and picks
+the first unused exact `drive_NNNN.{csv,kml}` index instead of probing 9,999
+paths. Added host tests for strict filenames and index selection.
+
+Host validation passed through `ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh`, including the new wardrive-session test; normal
+firmware builds passed for the C5 UART and all three deck environments. The
+updated `cardputer-adv` image was flashed to the attached deck.
+
+Final hardware run: `drive_0012` opened immediately, the card pull changed the
+Home screen from `SD: READY` to `SD: ABSENT`, the logger closed with
+`wardrive_open=0`, and the Grove link remained `ready`. After reinsertion, one
+explicit `wardrive` request remounted the card and opened `drive_0013` without
+a reboot; the session then closed cleanly with `aps=0 nofix=0 trk=3`. The
+successful session open is the live remount gate; host-side byte-for-byte
+inspection of the recovered files remains open.
+
+## 2026-09-17 — audit remediation hardware follow-up: SD removal and power cut
+
+**Phase:** security remediation hardware evidence · **By:** Codex
+
+Started a wardrive session through the persisted deck debug console. Session
+allocation took approximately 53 seconds and opened `drive_0006`; a snapshot
+showed `link=ready`, a valid GNSS fix, and `wardrive_open=1`. Removed the
+disposable microSD card for about 10 seconds and reinserted it. The deck stayed
+responsive and the Grove link stayed ready, but the SD driver reported repeated
+`sdWait`/`sdSelectCard`/`ff_sd_status` failures followed by `sdCommand` card
+failures. A post-reinsert `dump` still reported `wardrive_open=1`. This is a
+failed live-card-removal gate: the logger did not close the dead session or
+remount the card in place. No file-integrity claim is made from the live-pull
+step.
+
+Then pulled only the Cardputer's USB power for about 5 seconds while leaving
+the probe powered. The deck's USB monitor disconnected as expected. After
+power was restored, the deck booted normally, re-established the Grove link
+(`link=ready`), and reported `wardrive_open=0`. Starting wardrive after the
+reboot allocated `drive_0007`, indicating that the interrupted `drive_0006`
+session was discovered before the next index was chosen; this is evidence that
+the boot recovery/index path ran, not an external byte-for-byte KML integrity
+check. The new session closed cleanly with `aps=0 nofix=0 trk=3`.
+
+The approximately 52–53 second start time on both sessions is also a usability
+and boundedness concern in the current numbered-session scan. Remaining work:
+make live card removal fail closed, define whether reinsertion remounts or
+requires reboot, inspect the recovered files from a host, and bound/shorten
+session discovery.
+
+## 2026-09-17 — audit remediation hardware follow-up: transport and 802.15.4
+
+**Phase:** security remediation hardware evidence · **By:** Codex
+
+Identified the attached boards by stable USB identity: Oscilla probe
+`38:44:BE:1F:4F:A0`, Cardputer ADV deck `50:78:7D:CE:6D:64`, and the extra
+ESP32-C5 source/bench instrument `10:BD:A3:CF:35:38`. Flashed the current
+UART probe image and current `cardputer-adv` deck image. The deck was
+temporarily switched to `grove-bridge` for host-driven Grove tests and restored
+to `cardputer-adv` afterward.
+
+The extra C5's isolated ESP-IDF 802.15.4 CLI sent 20 controlled channel-11
+frames with PAN `1a2b` and source short address `1234`. The current Oscilla
+probe captured the source as one deduplicated node with `dropped=0`; `stop
+phy` returned the lane to idle. A temporary ACK-test build configured the
+probe as PAN `1a2b` / short `0001`. Twenty addressed ACK-request frames were
+captured by Oscilla, while the source reported failure reason `3` for every
+attempt and no ACK. This is a no-ACK result; the independent-observer positive
+control was not repeated in this session.
+
+The current-image scoped-stop gate passed 15/15 with the Wio-SX1262 attached:
+both lanes ran concurrently and each scoped stop spared the other. The
+promiscuous sniffer gate passed 16 checks with 4 environment-dependent skips.
+The Wi-Fi scan gate had no nearby rows and therefore reported 4 expected
+environment-dependent failures (both bands, empty-result pagination/inspect
+abort assumptions), not a source/build failure.
+
+Three paced hostile UART-line floods produced `stop` responses in
+0.111–0.121 seconds with no probe reset or wedge. A separate fully saturated
+USB-to-Grove burst caused the Cardputer bridge's USB-host write timeout and
+delayed the queued stop; the probe remained alive and recovered with a later
+stop. This is recorded as a bridge-throughput limitation, not a clean pass for
+an unpaced saturated flood.
+
+The extra C5 remains on the isolated CLI image with receive mode disabled;
+Oscilla's probe and deck are restored to their normal UART/application images.
+
+## 2026-09-16 — security audit remediation A-02 through A-10
+
+**Phase:** security remediation · **By:** Codex
+
+Worked through the fresh code-audit findings in priority order. Receive-only
+is now enforced at the owning radio boundaries: Wi-Fi scan configuration is
+explicitly passive, NimBLE discovery requires passive mode, the SX1262 driver
+accepts only an RX/config/read opcode allowlist, and mutation tests prove that
+active-state, SetTx, and 802.15.4 auto-ACK changes go red. RF callbacks now
+submit fixed-size typed records to the shared `OCP_EVENT_QUEUE_DEPTH` queue;
+formatting and transport writes happen in the emitter task, with per-kind
+drop counters.
+
+Block replies now use a bounded transactional buffer and honor frame-lock and
+transport failures without emitting a partial logical frame. CSV export
+neutralizes formula-leading SSID bytes (`=`, `+`, `-`, `@`) reversibly. KML
+export emits reversible ASCII escapes for forbidden/non-UTF-8 bytes, removes
+remote icon URLs, closes/reopens track segments around AP placemarks, and
+finalizes incomplete files on the next logging start; the host recovery model
+re-parses 693 byte-cut prefixes successfully. Command and telemetry numbers
+now use whole-token overflow checks, BLE dwell is capped at 60000 ms, GNSS
+coordinates/time/dates/finite telemetry are range-checked, and 802.15.4
+readiness is advertised only after mutex, radio, queue, and task setup
+completes. PlatformIO, ESP-IDF, library inputs, build assertions, and a CI
+workflow are now pinned/documented. `SECURITY.md` was reconciled with the
+implemented engines and remaining evidence boundaries.
+
+Validation: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed the
+protocol, receive-only mutation, parser, sanitizer/fuzz, model, CSV, KML XML,
+and recovery gates. The focused readiness mutation test also passed.
+`./tools/build_firmware.sh` passed the C5 UART image and all three deck
+environments; `./tools/build_firmware.sh --bench` passed the C5 USB image and
+all three deck environments. The first sandboxed deck build was blocked by
+PlatformIO's parent-directory ownership check; the same pinned build passed
+with normal local toolchain access. No new hardware evidence was collected:
+live UART flood/stop, current-image RF receive-only, SD removal, and physical
+power-cut recovery remain unverified.
+
+## 2026-09-16 — A-01 remediation: bounded LoRa hex encoding
+
+**Phase:** security remediation · **By:** Codex
+
+Fixed audit finding A-01. `lora_recon.c` now uses the pure, host-testable
+`lora_hex.c` encoder, which writes an explicit terminator for zero-length
+payloads, reports required capacity, and refuses undersized or invalid output
+without partial writes. Added the module to the probe build and module map,
+and added the adversarial host test to `check_protocol.sh`.
+
+Validation: the focused ASan/UBSan test passed 266 checks with
+`ASAN_OPTIONS=detect_leaks=0`; the disposable pre-fix mutation failed exactly
+on the zero-length terminator check. `ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh` passed all host, parser, receive-only, model, and
+export gates. `./tools/build_firmware.sh` passed the C5 UART image and all
+three deck environments. No hardware was flashed and the real zero-length
+radio path remains unverified on silicon.
+
+## 2026-09-16 — security code audit
+
+**Phase:** cross-cutting audit · **By:** Codex
+
+Audited the protocol, both firmwares, host tools, storage/export paths, build
+configuration, and documented threat model. Saved the durable findings and
+acceptance gates in `docs/SECURITY_CODE_AUDIT_2026-09-16.md`, and linked it
+from `SECURITY.md` so agents and reporters find it. The highest-priority
+concrete defect is a zero-length LoRa packet reaching `%s` through an
+uninitialized stack buffer. The report also records that the receive-only
+denylist does not enforce passive configuration or the in-house radio opcode
+surface, several RF callbacks bypass the promised bounded OCP event queue, and
+frame-lock/write timeouts can produce interleaved or partial replies. Export
+formula/UTF-8 handling, strict numeric parsing, 802.15.4 readiness, toolchain
+pinning, and stale security documentation are lower-priority follow-ups.
+
+Validation: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed all
+protocol, fuzz, sanitizer, model, and export checks. Both
+`./tools/build_firmware.sh` and `./tools/build_firmware.sh --bench` passed the C5
+UART/USB variants and all three deck environments. The first unmodified check
+reached the sanitizer suites but LSAN could not run under the execution
+environment's tracing; only leak detection was disabled for the successful
+rerun. No hardware was flashed and no live-RF, UART-flood, SD-removal, or
+power-cut validation was performed.
+
 ## 2026-09-16 — D-17 documentation reconciliation
 
 **Phase:** P7 documentation · **By:** Codex

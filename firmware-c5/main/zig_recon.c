@@ -10,6 +10,7 @@
 #include "esp_timer.h"
 #include "ocp.h"
 #include "ocp_frame.h"
+#include "ocp_parse.h"
 #include "radio_arbiter.h"
 #include "zig_frame.h"
 #include "zig_radio.h"
@@ -19,6 +20,7 @@
 #define ZIG_DEFAULT_DWELL_MS 400
 static zig_table_t s_table;
 static SemaphoreHandle_t s_lock;
+static bool s_ready;
 static volatile bool s_running;
 static uint8_t s_ch = ZIG_DEFAULT_CH;
 static uint32_t s_dwell = ZIG_DEFAULT_DWELL_MS;
@@ -72,7 +74,14 @@ static void zig_task(void *arg)
                 bool fresh = zig_table_upsert(&s_table, f.pan_id, f.proto, rx.ch, f.short_addr, f.has_short, f.ext_addr,
                                               f.has_ext, rx.rssi, rx.lqi, rx.ts_ms);
                 xSemaphoreGive(s_lock);
-                if (fresh) ocp_emit_event(OCP_EVT_KIND_ZIG, "pan=%04x ch=%u rssi=%d lqi=%u", f.pan_id, rx.ch, rx.rssi, rx.lqi);
+                if (fresh) {
+                    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_ZIG };
+                    event.data.zig.pan = f.pan_id;
+                    event.data.zig.channel = rx.ch;
+                    event.data.zig.rssi = rx.rssi;
+                    event.data.zig.lqi = rx.lqi;
+                    (void)ocp_event_submit(&event);
+                }
             }
         }
         zig_radio_rearm();
@@ -94,18 +103,29 @@ static void zig_teardown(void)
 
 esp_err_t zig_recon_init(void)
 {
+    s_ready = false;
     s_lock = xSemaphoreCreateMutex(); if (!s_lock) return ESP_ERR_NO_MEM;
     zig_table_clear(&s_table); esp_err_t err = zig_radio_init();
     if (err == ESP_OK && xTaskCreate(zig_task, "zig", 4096, NULL, 5, NULL) != pdPASS) err = ESP_ERR_NO_MEM;
+    if (err == ESP_OK) s_ready = true;
     return err;
 }
-bool zig_recon_ready(void) { return s_lock != NULL; }
+bool zig_recon_ready(void) { return s_ready; }
 
 void zig_cmd_start(int argc, char **argv)
 {
     uint8_t ch = ZIG_DEFAULT_CH; uint32_t dwell = ZIG_DEFAULT_DWELL_MS;
-    if (argc > 1) ch = (uint8_t)strtoul(argv[1], NULL, 10);
-    if (argc > 2) dwell = (uint32_t)strtoul(argv[2], NULL, 10);
+    uint32_t parsed = 0;
+    if (argc > 1 && !ocp_parse_u32(argv[1], &parsed)) {
+        ocp_emit_error(OCP_ERR_BADARG, "ch=11..26 dwell_ms=50..60000"); return;
+    }
+    if (argc > 1 && (parsed < 11 || parsed > 26)) {
+        ocp_emit_error(OCP_ERR_BADARG, "ch=11..26 dwell_ms=50..60000"); return;
+    }
+    if (argc > 1) ch = (uint8_t)parsed;
+    if (argc > 2 && (!ocp_parse_u32(argv[2], &dwell))) {
+        ocp_emit_error(OCP_ERR_BADARG, "ch=11..26 dwell_ms=50..60000"); return;
+    }
     if (ch < 11 || ch > 26 || dwell < 50 || dwell > 60000) { ocp_emit_error(OCP_ERR_BADARG, "ch=11..26 dwell_ms=50..60000"); return; }
     if (arbiter_acquire(PHY_OWNER_IEEE802154, zig_teardown) != ESP_OK) { ocp_emit_error(OCP_ERR_BUSY, "radio in use"); return; }
     s_ch = ch; s_dwell = dwell; s_last_hop = (uint32_t)(esp_timer_get_time() / 1000);

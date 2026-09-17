@@ -81,18 +81,20 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
 
     if (kind == 1) {
         const sniff_client_t *c = &new_client;
-        ocp_emit_event(OCP_EVT_KIND_CLIENT,
-                       "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%02x:%02x:%02x:%02x:%02x:%02x %s=%u %s=%d",
-                       OCP_K_BSSID, c->bssid[0], c->bssid[1], c->bssid[2], c->bssid[3], c->bssid[4], c->bssid[5],
-                       OCP_K_MAC, c->mac[0], c->mac[1], c->mac[2], c->mac[3], c->mac[4], c->mac[5],
-                       OCP_K_CH, c->channel, OCP_K_RSSI, c->rssi);
+        ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_CLIENT };
+        memcpy(event.data.client.bssid, c->bssid, sizeof c->bssid);
+        memcpy(event.data.client.mac, c->mac, sizeof c->mac);
+        event.data.client.channel = c->channel;
+        event.data.client.rssi = c->rssi;
+        (void)ocp_event_submit(&event);
     } else if (kind == 2) {
         const sniff_probe_t *p = &new_probe;
-        char ssid_field[4 * 32 + 3];
-        ocp_escape_field(p->ssid, p->ssid_len, ssid_field, sizeof ssid_field);
-        ocp_emit_event(OCP_EVT_KIND_PROBE, "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%s %s=%d",
-                       OCP_K_MAC, p->mac[0], p->mac[1], p->mac[2], p->mac[3], p->mac[4], p->mac[5],
-                       OCP_K_SSID, ssid_field, OCP_K_RSSI, p->rssi);
+        ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_PROBE };
+        memcpy(event.data.probe.mac, p->mac, sizeof p->mac);
+        memcpy(event.data.probe.ssid, p->ssid, sizeof p->ssid);
+        event.data.probe.ssid_len = p->ssid_len;
+        event.data.probe.rssi = p->rssi;
+        (void)ocp_event_submit(&event);
     }
 }
 
@@ -110,7 +112,10 @@ static void on_hop(void *arg)
     esp_err_t err = esp_wifi_set_channel(next_ch, WIFI_SECOND_CHAN_NONE);
     if (err != ESP_OK) ESP_LOGE(TAG, "hop to ch %u: %s", next_ch, esp_err_to_name(err));
 
-    ocp_emit_event(OCP_EVT_KIND_SNIFF, "%s=%u %s=%u", OCP_K_PKTS, (unsigned)pkts, OCP_K_CH, finished_ch);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_SNIFF };
+    event.data.sniff.channel = finished_ch;
+    event.data.sniff.packets = pkts;
+    (void)ocp_event_submit(&event);
 }
 
 /* Dispatch task, via arbiter_stop_all(). No frame to close: [SNIFF] already

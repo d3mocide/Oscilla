@@ -6,6 +6,7 @@
 
 #include "storage/wardrive_logger.h"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -15,35 +16,117 @@
 #include "storage/sd_storage.h"
 #include "storage/wardrive_csv.h"
 #include "storage/wardrive_kml.h"
+#include "storage/wardrive_sessions.h"
 
 namespace storage {
 
 namespace {
 
 constexpr const char *kDir = "/oscilla/wardrive";
-constexpr int kMaxSessionIndex = 9999;
+constexpr std::size_t kMaxDirectoryEntries = 20000;
 
 File g_csv, g_kml;
 bool g_open = false;
 bool g_track_open = false;
+bool g_card_fault = false;
 char g_name[16] = "";
+char g_csv_path[64] = "";
+char g_kml_path[64] = "";
 WardriveLogStats g_stats;
 
-/* A write returning short (almost always 0) is the only signal Arduino's SD
- * layer gives for "the card is gone" - nothing else here polls for
- * presence. Confirmed live 2026-09-15: without this, g_open stays true
- * forever once set, so a session survives a card pull indefinitely and
- * keeps counting aps_no_fix in RAM against a card that no longer exists,
- * completely decoupled from reality (see WORKLOG). Don't attempt the KML
- * footer here - that write would fail the same way - just stop pretending. */
+std::array<bool, static_cast<std::size_t>(sessions::kLastIndex) + 1> g_used_sessions{};
+
+void recoverKml(const char *path);
+
+bool appendVerified(File &file, const char *path, const std::string &text)
+{
+    if (file.print(text.c_str()) != text.size()) return false;
+    file.flush();
+    /* Arduino File::flush() is void and can hide an fsync failure. A stat of
+     * the still-open file is the available public API health check. */
+    return SD.exists(path);
+}
+
+bool discoverSessions()
+{
+    g_used_sessions.fill(false);
+
+    File dir = SD.open(kDir, FILE_READ);
+    if (!dir || !dir.isDirectory()) {
+        if (dir) dir.close();
+        return false;
+    }
+
+    std::size_t inspected = 0;
+    while (inspected < kMaxDirectoryEntries) {
+        File entry = dir.openNextFile(FILE_READ);
+        if (!entry) break;
+
+        char name[32] = "";
+        std::snprintf(name, sizeof name, "%s", entry.name());
+        entry.close();
+
+        int index = 0;
+        bool is_kml = false;
+        if (sessions::parse(name, &index, &is_kml)) {
+            g_used_sessions[static_cast<std::size_t>(index)] = true;
+            if (is_kml) {
+                char path[64];
+                std::snprintf(path, sizeof path, "%s/%s", kDir, name);
+                recoverKml(path);
+            }
+        }
+        inspected++;
+    }
+
+    /* Do not silently allocate a name when the bounded directory walk was
+     * truncated. */
+    File extra = dir.openNextFile(FILE_READ);
+    const bool truncated = static_cast<bool>(extra);
+    if (extra) extra.close();
+    dir.close();
+    return !truncated;
+}
+
+void recoverKml(const char *path)
+{
+    File source = SD.open(path, FILE_READ);
+    if (!source) return;
+
+    const size_t size = source.size();
+    const size_t tail_size = kmlFooter().size() + kmlCloseTrack().size() + 32;
+    const size_t start = size > tail_size ? size - tail_size : 0;
+    if (!source.seek(start)) { source.close(); return; }
+
+    std::string tail;
+    tail.resize(size - start);
+    size_t got = tail.empty() ? 0 : source.read(reinterpret_cast<uint8_t *>(&tail[0]), tail.size());
+    tail.resize(got);
+    source.close();
+
+    std::string suffix = kmlRecoverySuffix(tail);
+    if (suffix.empty()) return;
+    File repair = SD.open(path, FILE_APPEND);
+    if (!repair) return;
+    (void)(repair.write(reinterpret_cast<const uint8_t *>(suffix.data()), suffix.size()) == suffix.size());
+    repair.flush();
+    repair.close();
+}
+
+/* Do not attempt a footer after a verified card failure; that write would
+ * fail the same way. The next explicit logging request owns remount/recovery. */
 void closeDead()
 {
     if (g_csv) g_csv.close();
     if (g_kml) g_kml.close();
     g_open = false;
     g_track_open = false;
+    g_card_fault = true;
+    markFault();
     g_stats.open = false;
     g_name[0] = '\0';
+    g_csv_path[0] = '\0';
+    g_kml_path[0] = '\0';
 }
 
 }  // namespace
@@ -51,30 +134,38 @@ void closeDead()
 bool wardriveLogBegin(const model::GnssFix &fix)
 {
     if (g_open) return true;
-    if (!ready()) return false;
+    if (g_card_fault) {
+        if (!remount()) return false;
+        g_card_fault = false;
+    } else if (!ready()) return false;
     if (!lock()) return false;
 
     SD.mkdir("/oscilla");
     SD.mkdir(kDir);
 
-    char csv_path[64], kml_path[64];
-    bool found = false;
-    for (int i = 1; i <= kMaxSessionIndex; i++) {
-        std::snprintf(g_name, sizeof g_name, "drive_%04d", i);
-        std::snprintf(csv_path, sizeof csv_path, "%s/%s.csv", kDir, g_name);
-        std::snprintf(kml_path, sizeof kml_path, "%s/%s.kml", kDir, g_name);
-        if (!SD.exists(csv_path) && !SD.exists(kml_path)) { found = true; break; }
+    /* A reset can leave a valid KML prefix without its fixed closing suffix.
+     * Repair existing KML files during one bounded directory walk, then
+     * allocate the first unused session number. */
+    if (!discoverSessions()) {
+        g_card_fault = true;
+        markFault();
+        unlock();
+        return false;
     }
-    if (!found) { g_name[0] = '\0'; unlock(); return false; }
+    const int index = sessions::firstFree(g_used_sessions.data(), g_used_sessions.size());
+    if (!index) { unlock(); return false; }
 
-    g_csv = SD.open(csv_path, FILE_WRITE);
-    g_kml = SD.open(kml_path, FILE_WRITE);
+    std::snprintf(g_name, sizeof g_name, "drive_%04d", index);
+    std::snprintf(g_csv_path, sizeof g_csv_path, "%s/%s.csv", kDir, g_name);
+    std::snprintf(g_kml_path, sizeof g_kml_path, "%s/%s.kml", kDir, g_name);
+
+    g_csv = SD.open(g_csv_path, FILE_WRITE);
+    g_kml = SD.open(g_kml_path, FILE_WRITE);
     g_open = static_cast<bool>(g_csv) && static_cast<bool>(g_kml);
 
     if (g_open) {
-        g_csv.print(wardriveCsvHeader(OSCILLA_DECK_VER).c_str());
-        g_csv.print(wardriveCsvColumnHeader().c_str());
-        g_csv.flush();
+        bool ok = appendVerified(g_csv, g_csv_path, wardriveCsvHeader(OSCILLA_DECK_VER));
+        ok = ok && appendVerified(g_csv, g_csv_path, wardriveCsvColumnHeader());
 
         /* Date in the session name when the receiver has one — it commonly
          * does even with no position fix (RTC-backed), which is why
@@ -85,13 +176,15 @@ bool wardriveLogBegin(const model::GnssFix &fix)
             std::snprintf(stamp, sizeof stamp, " %04d-%02d-%02d", fix.year, fix.month, fix.day);
             session += stamp;
         }
-        g_kml.print(kmlHeader(session).c_str());
-        g_kml.flush();
-        g_track_open = true;
+        ok = ok && appendVerified(g_kml, g_kml_path, kmlHeader(session));
+        if (ok) g_track_open = true;
+        else closeDead();
     } else {
         if (g_csv) g_csv.close();
         if (g_kml) g_kml.close();
         g_name[0] = '\0';
+        g_csv_path[0] = '\0';
+        g_kml_path[0] = '\0';
     }
 
     g_stats = WardriveLogStats{};
@@ -106,8 +199,7 @@ void wardriveLogTrackPoint(const model::GnssFix &fix)
     if (!lock()) return;   /* a contended lock drops this vertex, never blocks */
 
     std::string point = kmlTrackPoint(fix.lat_deg, fix.lon_deg, fix.alt_m);
-    bool ok = g_kml.print(point.c_str()) == point.size();
-    g_kml.flush();
+    bool ok = appendVerified(g_kml, g_kml_path, point);
 
     if (!ok) { closeDead(); unlock(); return; }
 
@@ -133,10 +225,16 @@ void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t f
                                           fix.lat_deg, fix.lon_deg, fix.alt_m, 0.0f);
     std::string kml_row = kmlApPlacemark(ap, fix.lat_deg, fix.lon_deg);
 
-    bool ok = g_csv.print(csv_row.c_str()) == csv_row.size();
-    g_csv.flush();
-    ok = ok && (g_kml.print(kml_row.c_str()) == kml_row.size());
-    g_kml.flush();
+    bool ok = appendVerified(g_csv, g_csv_path, csv_row);
+    if (ok && g_track_open) {
+        const std::string close = kmlCloseTrack();
+        ok = appendVerified(g_kml, g_kml_path, close);
+        g_track_open = false;
+    }
+    ok = ok && appendVerified(g_kml, g_kml_path, kml_row);
+    const std::string reopen = kmlTrackStart();
+    ok = ok && appendVerified(g_kml, g_kml_path, reopen);
+    g_track_open = ok;
 
     if (!ok) { closeDead(); unlock(); return; }
 
@@ -148,18 +246,25 @@ void wardriveLogEnd()
 {
     if (!g_open) return;
     if (lock()) {
+        bool ok = true;
         if (g_track_open) {
-            g_kml.print(kmlCloseTrack().c_str());
+            ok = appendVerified(g_kml, g_kml_path, kmlCloseTrack());
             g_track_open = false;
         }
-        g_kml.print(kmlFooter().c_str());
-        g_kml.close();
-        g_csv.close();
+        ok = ok && appendVerified(g_kml, g_kml_path, kmlFooter());
+        if (ok) {
+            g_kml.close();
+            g_csv.close();
+        } else {
+            closeDead();
+        }
         unlock();
     }
     g_open = false;
     g_stats.open = false;
     g_name[0] = '\0';
+    g_csv_path[0] = '\0';
+    g_kml_path[0] = '\0';
 }
 
 const WardriveLogStats &wardriveLogStats() { return g_stats; }

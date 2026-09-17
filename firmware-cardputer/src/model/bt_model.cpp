@@ -12,6 +12,7 @@
 
 #include "ocp.h"
 #include "ocp/ocp_csv.h"
+#include "model/number_parse.h"
 
 namespace model {
 
@@ -44,7 +45,9 @@ bool parseBtRow(const std::string &raw, BtDevice &row)
     row.mfr = f[2];
     row.tracker = f[3] == OCP_EVT_KIND_AIRTAG;
     row.rssi = static_cast<int>(rssi);
-    row.n = static_cast<uint32_t>(std::strtoul(f[5].c_str(), nullptr, 10));
+    uint64_t n = 0;
+    if (!parseUnsigned(f[5], &n) || n > UINT32_MAX) return false;
+    row.n = static_cast<uint32_t>(n);
     return true;
 }
 

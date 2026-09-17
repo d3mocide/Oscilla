@@ -263,7 +263,9 @@ isolated third-party dependencies.
 |---|---|
 | `main.c` | Boot: NVS → status LED → arbiter → platform (netif/event/esp_wifi NULL) → OCP server |
 | `ocp_transport.c` | Byte I/O: Grove UART0, or USB Serial/JTAG for bench builds (Kconfig) |
-| `ocp_frame.c` | Marker-frame emission; one whole line per write, under a lock |
+| `ocp_frame.c` | Marker-frame emission and typed event queue; one whole line per write, under a lock |
+| `ocp_block.c` | Bounded transactional block-frame buffer; host-tested and committed only as a whole |
+| `ocp_parse.c` | Overflow-safe whole-token command integer parsing; pure C, host-tested |
 | `ocp_server.c` | Line assembly, command table dispatch, system verbs |
 | `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity / fault; dark if dispatch stalls |
 | `radio_arbiter.c` | Single PHY owner + teardown hooks (§6.2); power interlock stub until P6 |
@@ -282,6 +284,7 @@ isolated third-party dependencies.
 | `zig_table.c` | Capped PAN/node deduplication and updates; pure C, host-tested and live-capture-confirmed |
 | `zig_recon.c` | 802.15.4 scan orchestration, arbiter/stop hooks, and `[ZIG]` OCP output; hardware-confirmed 2026-09-16 |
 | `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
+| `lora_hex.c` | Bounded, allocation-free LoRa payload-to-hex encoder; pure C, host-tested |
 | `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
 | `config.c` | NVS-backed settings (band, channel set, LoRa RX params) |
 

@@ -1,5 +1,10 @@
 # Security Policy
 
+> **Current implementation audit:**
+> [`docs/SECURITY_CODE_AUDIT_2026-09-16.md`](docs/SECURITY_CODE_AUDIT_2026-09-16.md)
+> records open findings and validation gates. It supplements this policy; it
+> does not mark the findings resolved.
+
 Oscilla is a **passive wireless-survey instrument**. It listens; it does not
 transmit. This document states that boundary precisely, describes how it is
 enforced, and explains how to report a problem.
@@ -48,12 +53,15 @@ The boundary is structural — a build-time fact, not a runtime toggle:
 
 | Mechanism                                       | Where                               | What it does                                                                                                                                                                                                                                                                                                              |
 | ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The command table **is** the capability surface | `protocol/ocp.h` → `OCP_VERB_TABLE` | A capability exists iff its verb is registered. All 29 registered verbs are receive-only.                                                                                                                                                                                                                                 |
+| The command table **is** the capability surface | `protocol/ocp.h` → `OCP_VERB_TABLE` | A capability exists iff its verb is registered. All 31 registered verbs are receive-only.                                                                                                                                                                                                                                 |
 | Build tripwire                                  | `protocol/ocp.h`                    | `#error`s if `OSCILLA_WIFI_TX`, `OSCILLA_BLE_TX`, `OSCILLA_154_TX`, `OSCILLA_LORA_TX` or `OSCILLA_TX` is defined. A build that tries to enable transmit does not compile.                                                                                                                                                 |
 | Verb-name audit                                 | `protocol/test_ocp_header.c`        | Fails the test suite if any registered verb matches a transmit-shaped name.                                                                                                                                                                                                                                               |
 | No transmit capability                          | handshake                           | Every advertised capability names a _receive_ capability, so no client — including a future third-party one — can discover or present transmit functionality.                                                                                                                                                             |
-| Transmit-API denylist                           | `tools/check_rx_only.py`            | Fails the build if probe source references a transmit-capable driver API — active Wi-Fi scan, raw 802.11 TX, association, soft-AP, ESP-NOW, BLE advertising/connection, 802.15.4 TX — or if deck source touches any radio API (deck radios are off in v1). A verb cannot smuggle transmission in behind an innocent name. |
-| Passive scanning                                | `OCP-SPEC §10.1`                    | Wi-Fi scans listen for beacons only and never send probe requests.                                                                                                                                                                                                                                                        |
+| Receive-only source and state audit              | `tools/check_rx_only.py`, `tools/test_check_rx_only.py` | Fails on transmit-capable APIs and mutation-tests the Wi-Fi passive initializer, BLE `passive=1`, 802.15.4 promiscuous mode, and the SX1262 RX opcode allowlist. |
+| Passive scanning                                | `firmware-c5/main/wifi_recon.c`, `ble_recon.c` | Wi-Fi scans use an explicit `WIFI_SCAN_TYPE_PASSIVE`; NimBLE discovery requires `params.passive=1`; the audit rejects bypasses or active-state mutations. |
+| SX1262 command surface                           | `firmware-c5/main/lora_radio.c`    | `cmd_write`/`cmd_read` accept only the explicit RX/config/read opcode allowlists; SetTx, SetTxParams, and PA configuration are rejected. |
+| Event backpressure                              | `firmware-c5/main/ocp_frame.c`     | RF producers submit fixed-size typed records to `OCP_EVENT_QUEUE_DEPTH`; full queues drop and count by kind, while one task formats and emits them. |
+| Transactional replies                           | `firmware-c5/main/ocp_block.c`, `ocp_frame.c` | Block frames are bounded and committed only as a whole after the frame lock is held; lock/write failure drops the complete frame. |
 | Protocol-only access                            | architecture                        | The deck cannot reach a radio directly. It speaks only OCP. A compromised or buggy deck cannot inject frames: there is no verb to carry the request and no handler to service it.                                                                                                                                         |
 
 Run it yourself:
@@ -117,15 +125,28 @@ Stated plainly, because a threat model that claims everything is worthless:
 
 ## Implementation status
 
-Oscilla is early. At the time of writing the repository has completed **P0**
-(the protocol contract and scaffold) — see [`ROADMAP.md`](ROADMAP.md). The
-receive-only guarantee, the escaping rules, and the parser hardening described
-above are implemented and tested in the protocol layer and the host tools. The
-firmware engines that will use them are not written yet.
+The repository contains the current Wi-Fi, BLE, 802.15.4, SX1262 LoRa, GNSS,
+OCP transport, and microSD export engines. The receive-only boundary,
+hostile-field escaping, typed event queue, transactional block framing, strict
+command/GNSS validation, and failed-init capability gating are implemented in
+source and covered by the host security suite. The precise finding-by-finding
+record is [`docs/SECURITY_CODE_AUDIT_2026-09-16.md`](docs/SECURITY_CODE_AUDIT_2026-09-16.md).
 
-Where this document describes a property, that property is enforced today.
-Nothing here is aspirational. As phases land, this file gets updated with them
-— not before.
+Build and host evidence is not hardware evidence. The 2026-09-17 bench run
+verified current-image 802.15.4 capture/no-ACK behavior, Wio lane isolation,
+promiscuous sniffing, and three paced UART flood/stop runs. The initial SD/power
+follow-up found that removing and reinserting a live card left the logger
+reporting `wardrive_open=1` while the SD driver reported repeated card-status
+failures. The working-tree fix now marks storage absent and closes the logger
+on verified failure; a later explicit logging request performs one remount
+attempt. The final hardware run changed the Home-screen indicator from
+`SD: READY` to `SD: ABSENT`, then remounted and opened the next session without
+rebooting. The recovered files have not yet been inspected byte-for-byte. The
+remaining boundary includes an independent 802.15.4 positive-control repeat,
+fully saturated USB-to-Grove flood behavior, complete Wi-Fi/LoRa receive-only
+coverage under suitable live sources, host-side file-integrity inspection, and
+clean CI builds resolving the pinned inputs. Those are named as partial or
+unverified rather than implied by a green compile.
 
 ---
 

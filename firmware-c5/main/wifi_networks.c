@@ -47,18 +47,19 @@ typedef struct {
 
 static void emit_network_event(const wifi_network_t *row)
 {
-    char ssid[4 * 32 + 3];
-    ocp_escape_field(row->ssid, row->has_ssid ? row->ssid_len : 0, ssid, sizeof ssid);
-    ocp_emit_event(OCP_EVT_KIND_NETWORK,
-                   "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%s %s=%u %s=%s %s=%d %s=%d %s=%d %s=%d %s=%d %s=%u",
-                   OCP_K_BSSID, row->bssid[0], row->bssid[1], row->bssid[2],
-                   row->bssid[3], row->bssid[4], row->bssid[5],
-                   OCP_K_SSID, ssid, OCP_K_CH, (unsigned)row->channel, OCP_K_BAND,
-                   row->channel <= 14 ? OCP_BAND_LABEL_24 : OCP_BAND_LABEL_5,
-                   OCP_K_RSSI, row->rssi, OCP_K_PRIVACY, row->privacy, OCP_K_RSN, row->has_rsn,
-                   OCP_K_MFP_CAPABLE, row->mfp_capable,
-                   OCP_K_MFP_REQUIRED, row->mfp_required,
-                   OCP_K_INTERVAL_MS, (unsigned)row->interval_ms);
+    ocp_event_record_t event = { .kind = OCP_EVENT_RECORD_NETWORK };
+    memcpy(event.data.network.bssid, row->bssid, sizeof row->bssid);
+    memcpy(event.data.network.ssid, row->ssid, sizeof row->ssid);
+    event.data.network.ssid_len = row->ssid_len;
+    event.data.network.channel = row->channel;
+    event.data.network.rssi = row->rssi;
+    event.data.network.has_ssid = row->has_ssid;
+    event.data.network.privacy = row->privacy;
+    event.data.network.has_rsn = row->has_rsn;
+    event.data.network.mfp_capable = row->mfp_capable;
+    event.data.network.mfp_required = row->mfp_required;
+    event.data.network.interval_ms = row->interval_ms;
+    (void)ocp_event_submit(&event);
 }
 
 /* UART writes are not allowed to stall the Wi-Fi driver task. */
