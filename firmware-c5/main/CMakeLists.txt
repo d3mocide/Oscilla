@@ -6,6 +6,8 @@ idf_component_register(
          "status_led.c"
          "radio_arbiter.c"
          "wifi_recon.c"
+         "wifi_networks.c"
+         "wifi_network_table.c"
          "wifi_inspect.c"
          "wifi_sniff.c"
          "sniff_track.c"

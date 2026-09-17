@@ -45,6 +45,13 @@ public:
     /* A scan was requested: forget the old one. */
     void begin();
 
+    /* start_wifi_scan was (re)issued: forget the old list and fill it from
+     * first-sighting network events instead of a paged snapshot. */
+    void beginContinuous();
+
+    /* [STOP] landed: keep the discovered rows for a last look. */
+    void stop() { scanning_ = false; continuous_active_ = false; }
+
     /* Probe rebooted: its stored indices are gone, so ours are meaningless. */
     void clear();
 
@@ -52,9 +59,13 @@ public:
      * the survey is complete (all pages, aborted, or kMaxRows reached). */
     uint16_t absorbPage(const ocp::Item &frame);
 
+    /* Absorb an [EVT] kind=network, upserting by BSSID. */
+    void absorbEvent(const ocp::Item &evt);
+
     void absorbInspect(const ocp::Item &frame);
 
     bool scanning() const { return scanning_; }
+    bool continuousActive() const { return continuous_active_; }
     bool aborted() const { return aborted_; }
     uint16_t total() const { return total_; }        /* as reported by the probe */
     bool truncated() const { return total_ > rows_.size() && !scanning_ && !aborted_; }
@@ -67,6 +78,7 @@ private:
     std::vector<ApRow> rows_;
     Inspect inspect_;
     bool scanning_ = false;
+    bool continuous_active_ = false;
     bool aborted_ = false;
     uint16_t total_ = 0;
     uint16_t malformed_ = 0;

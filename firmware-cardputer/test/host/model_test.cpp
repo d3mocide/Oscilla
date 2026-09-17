@@ -28,6 +28,15 @@ ocp::Item frameOf(const std::string &wire)
     return out;
 }
 
+ocp::Item eventOf(const std::string &wire)
+{
+    ocp::Parser p;
+    ocp::Item out;
+    p.feed(reinterpret_cast<const uint8_t *>(wire.data()), wire.size(),
+           [&](ocp::Item &&it) { if (it.kind == ocp::ItemKind::Event) out = std::move(it); });
+    return out;
+}
+
 std::string row(unsigned idx, int rssi = -50, unsigned ch = 6)
 {
     char b[160];
@@ -116,6 +125,27 @@ int main()
         m.absorbInspect(frameOf("[INSPECT] BEGIN idx=1 bssid=aa:bb:cc:dd:ee:01 ch=6 band=2.4 aborted=1\n"
                                 "[INSPECT] beacons=0\n[INSPECT] END\n"));
         check(m.inspect().aborted && m.inspect().beacons == 0 && !m.inspect().rsn, "aborted inspect, no beacons");
+    }
+    {
+        model::ScanModel m;
+        m.beginContinuous();
+        check(m.continuousActive() && m.rows().empty(), "continuous Wi-Fi mode starts clean");
+        m.absorbEvent(eventOf(
+            "[EVT] kind=network bssid=aa:bb:cc:dd:ee:01 ssid=\"Home\\x0aNet\" ch=6 band=2.4 "
+            "rssi=-52 privacy=1 rsn=1 mfp_capable=1 mfp_required=0 interval_ms=102\n"));
+        check(m.rows().size() == 1 && m.rows()[0].idx == 1 && m.rows()[0].ssid == std::string("Home\nNet") &&
+              m.rows()[0].auth == "RSN" && m.rows()[0].rssi == -52, "network event inserts and decodes fields");
+        m.absorbEvent(eventOf(
+            "[EVT] kind=network bssid=aa:bb:cc:dd:ee:01 ssid=\"HomeNet\" ch=36 band=5 "
+            "rssi=-40 privacy=1 rsn=1 mfp_capable=1 mfp_required=1 interval_ms=100\n"));
+        check(m.rows().size() == 1 && m.rows()[0].ch == 36 && m.rows()[0].band5 &&
+              m.rows()[0].rssi == -40, "repeat BSSID updates in place");
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=6 pkts=1\n"));
+        check(m.rows().size() == 1, "a different event kind is ignored");
+        m.absorbEvent(eventOf("[EVT] kind=network bssid=bad ssid=\"x\" ch=6 band=2.4 rssi=-50 privacy=0 rsn=0 mfp_capable=0 mfp_required=0 interval_ms=100\n"));
+        check(m.malformedRows() == 1, "malformed network event is counted and dropped");
+        m.stop();
+        check(!m.continuousActive() && m.rows().size() == 1, "stop clears live state but keeps rows");
     }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "model test FAILED" : "model test OK", g_pass, g_fail);

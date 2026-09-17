@@ -16,6 +16,7 @@
 #include "status_led.h"
 #include "wifi_deauth.h"
 #include "wifi_inspect.h"
+#include "wifi_networks.h"
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
@@ -41,6 +42,7 @@ void app_main(void)
      * just doesn't advertise that cap. */
     err = wifi_recon_init();
     if (err == ESP_OK) err = wifi_inspect_init();
+    if (err == ESP_OK) err = wifi_networks_init();
     if (err == ESP_OK) err = wifi_sniff_init();
     if (err == ESP_OK) err = wifi_deauth_init();
     if (err == ESP_OK) err = wifi_spectrum_init();

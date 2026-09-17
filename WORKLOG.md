@@ -1,3 +1,76 @@
+## 2026-09-16 — live hardware proof: continuous Wi-Fi rows reach the deck
+
+**Phase:** P7 · **By:** Will + Codex
+
+Both boards were connected and flashed over their stable USB serial identities:
+the C5 probe on the Grove/UART image and the Cardputer deck on `cardputer-adv`.
+The bounded passive scan found 154 APs, proving RF reception and the Grove
+link were healthy.
+
+The continuous path initially delivered events to the deck, but every row was
+rejected because the C5 event formatter omitted the `mfp_required` key while
+the deck validator correctly required it. Restoring that field produced 151
+accepted live rows with zero malformed rows in the deck diagnostic. Stop
+handling also completed cleanly, returning the PHY lane to idle.
+
+The temporary bench-only diagnostic trigger and field logging were removed
+after the retest. Visual inspection of the physical TFT was not captured by
+the host tooling; the deck’s live model and Sweep-screen selection are
+confirmed over the hardware console.
+
+---
+
+## 2026-09-16 — continuous Wi-Fi events: move emission out of the Wi-Fi callback
+
+**Phase:** P7 · **By:** Will + Codex
+
+The host path already parsed `[EVT] kind=network` correctly, but the live
+implementation emitted each event directly from ESP-IDF's promiscuous Wi-Fi
+callback. That callback runs in the Wi-Fi driver task; a UART write can block
+behind a full TX buffer and stall the same task that must keep receiving.
+
+- Added a bounded event queue and a dedicated C5 task for OCP event formatting
+  and UART writes. Events carry a session number, so queued rows from a stopped
+  scan are discarded after a restart rather than appearing in the next scan.
+- The deck now clears the pending/live state when the start command is rejected,
+  selects Sweep when `wifiscan` is issued through the PC debug console, and
+  scopes Sweep back/stop handling to the PHY lane.
+- Verified: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed all
+  host/protocol/model checks; `idf.py -C firmware-c5 build` passed; the
+  `cardputer-adv` PlatformIO build passed. No boards were connected for a
+  post-flash RF/display test, so live event delivery and on-screen rendering
+  remain the next hardware gate.
+
+---
+
+## 2026-09-16 — C5 bench flashing recovery path
+
+**Phase:** P7 bench tooling · **By:** Will + Claude
+
+The USB bench image exposed a repeatable operational problem: flashing the
+normal UART image worked while the probe was running its UART build, but once
+the bench image owned the native USB Serial/JTAG stream, the usual reset dance
+could fail with `Write timeout`. This was a reset/transport boundary issue,
+not a Wi-Fi engine failure.
+
+- Added [`tools/flash_c5.sh`](tools/flash_c5.sh), with separate `--bench` and
+  `--uart` image directories, an explicit `--loader` recovery mode, the stable
+  C5 `/dev/serial/by-id` default, and an explicit `--chip esp32c5`.
+- The helper uses the C5 USB reset sequence plus `--after hard_reset` from a
+  running application. A targeted hardware test showed that this boots the
+  bench image and keeps its USB OCP endpoint responsive. If the chip is already
+  in ROM loader mode, the fallback uses `--before no_reset` plus
+  `--after watchdog_reset` to escape that manually-entered session.
+- The restore was hardware-verified: ESP32-C5 identified, bootloader,
+  partition table, and 1,177,600-byte UART application written, and all three
+  hashes verified. The C5 is back on the Grove/UART build.
+- Updated the README and link bring-up guide with the commands and the reason
+  for the two reset modes. This does not yet claim the native-USB bench-to-UART
+  transition is button-free on this board; the next controlled test is from a
+  healthy UART app into bench mode, with no continuous scan running.
+
+---
+
 ## 2026-09-16 — start_ble_scan: continuous BLE discovery, requested after seeing the Beacons card live
 
 **Phase:** P7 · **By:** Will + Claude
@@ -1967,3 +2040,50 @@ Three gaps Will caught in the first pass:
 - Created ROADMAP.md (P0–P8 with entry/exit gates), docs/DECISIONS.md (D-1…D-13), this worklog.
 - **Blocking threads flagged:** D-9 (LoRa region — needed before TX), D-10 (TCXO startup delay — don't guess), D-12 (Cardputer ADV support in M5Unified — verify before P1).
 - **Next:** P0 remaining — monorepo skeleton, `protocol/ocp.h` v1, `OCP-SPEC.md`, `tools/ocp_repl.py`, NOTICE.
+## 2026-09-16 — start_wifi_scan: continuous passive AP/SSID discovery slice
+
+**Phase:** P7 · **By:** Will + Codex
+
+Picked up the Wi-Fi follow-up from Claude's `start_ble_scan` work. The
+existing `scan_networks` is a driver-level bounded passive sweep, so it could
+not be extended into a live event stream. Added the missing promiscuous
+management-frame path instead:
+
+- **Protocol:** `start_wifi_scan` and `[EVT] kind=network`. Each first-sighting
+  event carries BSSID, escaped SSID, hopper-selected channel/band, RSSI,
+  privacy, bounds-valid RSN, MFP flags, and beacon interval. No scan request,
+  association, or transmit path was added.
+- **Probe:** `wifi_networks.c` reuses `wifi_channels.h`, the existing passive
+  management callback shape, `beacon_parse.c`, and `PHY_OWNER_WIFI` teardown.
+  `wifi_network_table.c` is the pure-C bounded BSSID upsert table; it retains
+  the latest observation and drops new rows once its 256-entry cap is full.
+- **Deck:** Sweep `c` toggles the live mode and `wifiscan` drives the same
+  action from the debug console. `ScanModel` upserts events into the existing
+  AP list, keeps rows after `stop`, and refuses Trace entry while live so an
+  inspect cannot race the Wi-Fi PHY owner.
+- **Spectrum boundary:** `channel_view`/`packet_monitor` already provide the
+  continuous channel-activity side. They remain separate because network
+  discovery needs bounded beacon parsing and BSSID state, while spectrum
+  counting deliberately reads no frame payload.
+
+Validation on this host: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh`
+passed the protocol invariants, parser fuzz/diff checks, the new table test
+(262 checks), all deck model tests, and all existing host checks. The initial
+C5 ESP-IDF build passed. The elevated full build then passed the C5 UART
+variant and all three deck PlatformIO environments (`cardputer-adv`,
+`grove-bridge`, `adv-check`). **Not yet hardware-confirmed:** real AP events,
+stop/restart handoff to `channel_view` or `scan_networks`, event-loss behavior,
+and Sweep rendering on the physical display.
+
+---
+## 2026-09-16 — promote Sweep to a home card
+
+**Phase:** P7 · **By:** Will + Codex
+
+The continuous Wi-Fi trigger was technically `c` after `w` opened Sweep, but
+that was not discoverable enough. Sweep is now in the main `,`/`/` card cycle.
+On Sweep, `r` starts the bounded passive scan and `c` starts/stops continuous
+passive AP discovery. The existing Link-card `w` shortcut remains available,
+and leaving Sweep with the back key stops its PHY-lane activity.
+
+---

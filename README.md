@@ -169,6 +169,13 @@ Both toolchains are installed on the bench machine:
 source tools/env.sh
 cd firmware-c5 && idf.py build
 cd firmware-cardputer && pio run
+
+# Flash the C5 over native USB Serial/JTAG. The reset modes in this helper
+# are required for reliable C5 download-mode entry/exit, especially after a
+# manual BOOT-button entry:
+./tools/flash_c5.sh --bench   # USB OCP bench image
+./tools/flash_c5.sh --uart    # Grove OCP image (default)
+./tools/flash_c5.sh --uart --loader  # if already in ROM loader mode
 ```
 
 > [!CAUTION]

@@ -76,6 +76,25 @@ openocd -f board/esp32c5-builtin.cfg -c "adapter serial 38:44:BE:1F:4F:A0" -c in
 
 ## Open
 
+## C5 native-USB flash procedure
+
+Use [`tools/flash_c5.sh`](../../tools/flash_c5.sh) for both probe variants.
+From a running application it selects `--before usb_reset` and
+`--after hard_reset`; that combination was verified to leave the bench USB
+application responsive on this C5. If the first handshake misses after the
+USB reset, it retries an already-open loader with `--before no_reset` and uses
+`--after watchdog_reset` to escape a manually-entered download session.
+
+```sh
+./tools/build_firmware.sh --bench
+./tools/flash_c5.sh --bench
+# If BOOT+RESET has already put the chip in ROM loader mode:
+./tools/flash_c5.sh --uart --loader
+```
+
+Pass a stable `/dev/serial/by-id/...` path as the final argument when more
+than one C5 is attached. The helper always supplies `--chip esp32c5`.
+
 - **Cause of the post-soldering boot failure is unknown.** After a cold
   power-up the C5 parked in ROM and never ran the app. Flash was rewritten over
   JTAG *before* the RESET that fixed it, so corrupted flash and a

@@ -475,6 +475,37 @@ non-DFS 5 GHz) — anything else is `code=badarg`, checked against the same
 list `start_sniffer` uses rather than handed straight to the radio, so an
 unsupported channel never silently mislabels frames the way D-14 describes.
 
+### 10.7 `start_wifi_scan`
+
+This is the continuous counterpart to `scan_networks`: it passively hops the
+same fixed channel list as `start_sniffer` and `channel_view`, listens only
+for beacon and probe-response management frames, and returns immediately.
+There are no probe requests and no association. The probe emits one event for
+each newly seen BSSID in the session:
+
+```
+> start_wifi_scan
+[CFG] ch=1 END
+[EVT] kind=network bssid=aa:bb:cc:dd:ee:01 ssid="HomeNet" ch=6 band=2.4 rssi=-52 privacy=1 rsn=1 mfp_capable=1 mfp_required=0 interval_ms=102
+[EVT] kind=network bssid=aa:bb:cc:dd:ee:02 ssid="" ch=36 band=5 rssi=-71 privacy=1 rsn=1 mfp_capable=1 mfp_required=1 interval_ms=102
+```
+
+`bssid` and `ssid` are the observed network identity; an empty SSID means
+the beacon carried a hidden SSID. `ch` is the channel currently selected by
+the hopper, not an untrusted channel IE. `privacy` is the 802.11 capability
+privacy bit, while `rsn` is true only when a bounds-valid RSN element was
+present. `mfp_capable` and `mfp_required` are the RSN capability flags, and
+`interval_ms` is the beacon interval converted from TU. These fields describe
+the beacon's advertised posture; they do not prove authentication, ownership,
+or that a network is reachable.
+
+Events are first-sighting-only and lossy like the sniffer's new-pairing
+events. The probe's BSSID table and the deck's AP list are bounded; a full
+table drops a new BSSID rather than evicting an older one. The mode continues
+until `stop`, which disables promiscuous capture and releases `PHY_OWNER_WIFI`.
+Use `channel_view` or `packet_monitor` alongside this mode only after stopping
+it: all three require the one shared Wi-Fi/BLE/802.15.4 PHY lane.
+
 ## 11. BLE frames
 
 ### 11.1 Scans are passive here too

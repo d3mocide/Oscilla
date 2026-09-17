@@ -109,6 +109,7 @@ typedef enum {
 
 /* Wi-Fi */
 #define OCP_V_SCAN_NETWORKS     "scan_networks"
+#define OCP_V_START_WIFI_SCAN   "start_wifi_scan"
 #define OCP_V_SHOW_SCAN_RESULTS "show_scan_results"
 #define OCP_V_INSPECT_NETWORK   "inspect_network"
 #define OCP_V_START_SNIFFER     "start_sniffer"
@@ -157,6 +158,7 @@ typedef enum {
     X(STOP,              OCP_V_STOP,              OCP_CC_NONE,        0,  1,  OCP_MARK_STOP)       \
     X(REBOOT,            OCP_V_REBOOT,            OCP_CC_NONE,        0,  0,  "")                  \
     X(SCAN_NETWORKS,     OCP_V_SCAN_NETWORKS,     OCP_CC_WIFI,        0,  0,  OCP_MARK_SCAN)       \
+    X(START_WIFI_SCAN,   OCP_V_START_WIFI_SCAN,   OCP_CC_WIFI,         0,  0,  OCP_MARK_CFG)        \
     X(SHOW_SCAN_RESULTS, OCP_V_SHOW_SCAN_RESULTS, OCP_CC_WIFI,        0,  1,  OCP_MARK_SCAN)       \
     X(INSPECT_NETWORK,   OCP_V_INSPECT_NETWORK,   OCP_CC_WIFI,        1,  1,  OCP_MARK_INSPECT)    \
     X(START_SNIFFER,     OCP_V_START_SNIFFER,     OCP_CC_WIFI,        0,  0,  OCP_MARK_SNIFF)      \
@@ -197,6 +199,7 @@ typedef enum {
 #define OCP_EVT_KIND_FOLLOWER   "follower"
 #define OCP_EVT_KIND_AIRTAG     "airtag"
 #define OCP_EVT_KIND_BLE        "ble"       /* start_ble_scan: a newly seen device */
+#define OCP_EVT_KIND_NETWORK   "network"   /* start_wifi_scan: a newly seen AP */
 #define OCP_EVT_KIND_CHAN       "chan"
 #define OCP_EVT_KIND_LORA       "lora"
 #define OCP_EVT_KIND_CLIENT     "client"
@@ -239,6 +242,7 @@ typedef enum {
 #define OCP_K_BEACONS           "beacons"
 #define OCP_K_RSSI              "rssi"
 #define OCP_K_RSN               "rsn"
+#define OCP_K_PRIVACY           "privacy"  /* 802.11 capability privacy bit */
 #define OCP_K_MFP_CAPABLE       "mfp_capable"
 #define OCP_K_MFP_REQUIRED      "mfp_required"
 #define OCP_K_UPTIME_S          "uptime_s"

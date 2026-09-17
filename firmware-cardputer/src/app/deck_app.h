@@ -1,8 +1,8 @@
 /*
  * deck_app.h — screen flow and command orchestration for the deck.
  *
- *   Link <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> Drive <-,/-> (wraps)
- *   Link --w--> Sweep --enter--> Trace                               drill-down
+ *   Link <-,/-> Sweep <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> Drive <-,/-> (wraps)
+ *   Sweep --enter--> Trace                                           drill-down
  *   Spectrum --enter--> (locks to one channel, same screen)
  *   ` = stop + back (DESIGN §7.3)
  *
@@ -108,6 +108,7 @@ private:
      * to Sweep each time. */
     void requestScan(uint32_t now_ms);
     void startScan(uint32_t now_ms);
+    void toggleWifiContinuous(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
     void startSniffer(uint32_t now_ms);
     void startChannelView(uint32_t now_ms);
@@ -178,6 +179,7 @@ private:
     std::string notice_;
     uint16_t next_page_ = 0;
     uint32_t scan_started_ms_ = 0;
+    bool wifi_continuous_pending_ = false;
     uint32_t last_draw_ms_ = 0;
     uint32_t last_attempt_ms_ = 0;
     uint32_t last_keepalive_ms_ = 0;

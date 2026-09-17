@@ -14,6 +14,7 @@
 #include "status_led.h"
 #include "wifi_deauth.h"
 #include "wifi_inspect.h"
+#include "wifi_networks.h"
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
@@ -163,6 +164,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SCAN_NETWORKS:
         wifi_cmd_scan();
+        break;
+
+    case OCP_VID_START_WIFI_SCAN:
+        wifi_cmd_start_network_scan();
         break;
 
     case OCP_VID_SHOW_SCAN_RESULTS:

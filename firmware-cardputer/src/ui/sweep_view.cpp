@@ -47,7 +47,9 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     d.setTextColor(TFT_CYAN, TFT_BLACK);
     d.print("SWEEP  ");
     d.setTextColor(TFT_WHITE, TFT_BLACK);
-    if (scan.scanning()) {
+    if (scan.continuousActive()) {
+        d.printf("live %u APs  %.1fs", (unsigned)scan.rows().size(), scanning_ms / 1000.0);
+    } else if (scan.scanning()) {
         d.printf("listening... %us", (unsigned)(scanning_ms / 1000));
     } else if (scan.aborted()) {
         d.print("stopped");
@@ -83,7 +85,7 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     d.print(printable(notice, 38).c_str());
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - kLineH);
-    d.print(";. move  enter trace  r rescan  ` back");
+    d.print(";. move  enter trace  c live  r rescan  ` back");
 }
 
 }  // namespace ui

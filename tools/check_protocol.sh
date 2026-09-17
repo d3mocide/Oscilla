@@ -70,6 +70,13 @@ python3 tools/check_deck_parser.py --count 150
     -Ifirmware-c5/main -o "$out/sniff_track_test" firmware-c5/test/host/sniff_track_test.c firmware-c5/main/sniff_track.c
 "$out/sniff_track_test" 100000 | tail -1 | sed 's/^/  /'
 
+# Continuous Wi-Fi AP/BSSID table: dedup, latest observation and bounded
+# overflow behavior, with no radio or hardware needed.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/wifi_network_table_test" \
+    firmware-c5/test/host/wifi_network_table_test.c firmware-c5/main/wifi_network_table.c
+"$out/wifi_network_table_test" | tail -1 | sed 's/^/  /'
+
 # Deauth/disassoc frame parser (deauth_detector's classification path).
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -o "$out/deauth_parse_test" firmware-c5/test/host/deauth_parse_test.c firmware-c5/main/deauth_parse.c

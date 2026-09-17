@@ -8,7 +8,9 @@
 #include "model/scan_model.h"
 
 #include <cerrno>
+#include <cctype>
 #include <cstdlib>
+#include <utility>
 
 #include "ocp.h"
 #include "ocp/ocp_csv.h"
@@ -58,6 +60,24 @@ bool parseRow(const std::string &raw, uint16_t expect_idx, ApRow &row)
     return true;
 }
 
+bool looksLikeMac(const std::string &s)
+{
+    if (s.size() != 17) return false;
+    for (size_t i = 0; i < s.size(); i++) {
+        if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
+            if (s[i] != ':') return false;
+        } else if (!std::isxdigit(static_cast<unsigned char>(s[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+long eventBool(const ocp::Item &evt, const char *key)
+{
+    return kvLong(evt, key, 0, 1, -1);
+}
+
 }  // namespace
 
 void ScanModel::begin()
@@ -66,6 +86,20 @@ void ScanModel::begin()
     rows_.shrink_to_fit();
     inspect_ = Inspect();
     scanning_ = true;
+    continuous_active_ = false;
+    aborted_ = false;
+    total_ = 0;
+    malformed_ = 0;
+    elapsed_ms_ = 0;
+}
+
+void ScanModel::beginContinuous()
+{
+    rows_.clear();
+    rows_.shrink_to_fit();
+    inspect_ = Inspect();
+    scanning_ = false;
+    continuous_active_ = true;
     aborted_ = false;
     total_ = 0;
     malformed_ = 0;
@@ -110,6 +144,52 @@ uint16_t ScanModel::absorbPage(const ocp::Item &frame)
         return 0;
     }
     return next;
+}
+
+void ScanModel::absorbEvent(const ocp::Item &evt)
+{
+    if (!continuous_active_ || evt.kind != ocp::ItemKind::Event) return;
+    const auto *kind = evt.get(OCP_K_KIND);
+    if (!kind || *kind != OCP_EVT_KIND_NETWORK) return;
+
+    const auto *bssid = evt.get(OCP_K_BSSID);
+    const auto *band = evt.get(OCP_K_BAND);
+    const auto *ssid = evt.get(OCP_K_SSID);
+    long ch = kvLong(evt, OCP_K_CH, 1, 196, -1);
+    long rssi = kvLong(evt, OCP_K_RSSI, -128, 127, -129);
+    long privacy = eventBool(evt, OCP_K_PRIVACY);
+    long rsn = eventBool(evt, OCP_K_RSN);
+    long mfp_capable = eventBool(evt, OCP_K_MFP_CAPABLE);
+    long mfp_required = eventBool(evt, OCP_K_MFP_REQUIRED);
+    long interval = kvLong(evt, OCP_K_INTERVAL_MS, 0, 65535, -1);
+    if (!bssid || !looksLikeMac(*bssid) || !band || !ssid || ch < 0 || rssi < -128 ||
+        privacy < 0 || rsn < 0 || mfp_capable < 0 || mfp_required < 0 || interval < 0 ||
+        (*band != OCP_BAND_LABEL_24 && *band != OCP_BAND_LABEL_5)) {
+        malformed_++;
+        return;
+    }
+
+    for (auto &row : rows_) {
+        if (row.bssid != *bssid) continue;
+        row.ssid = *ssid;
+        row.ch = static_cast<uint8_t>(ch);
+        row.band5 = *band == OCP_BAND_LABEL_5;
+        row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
+        row.rssi = static_cast<int>(rssi);
+        return;
+    }
+    if (rows_.size() >= kMaxRows) return;   /* bounded deck table: drop, don't churn old rows */
+
+    ApRow row;
+    row.idx = static_cast<uint16_t>(rows_.size() + 1);
+    row.ssid = *ssid;
+    row.bssid = *bssid;
+    row.ch = static_cast<uint8_t>(ch);
+    row.band5 = *band == OCP_BAND_LABEL_5;
+    row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
+    row.rssi = static_cast<int>(rssi);
+    rows_.push_back(std::move(row));
+    total_ = static_cast<uint16_t>(rows_.size());
 }
 
 void ScanModel::absorbInspect(const ocp::Item &frame)

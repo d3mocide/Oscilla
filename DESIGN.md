@@ -267,6 +267,8 @@ Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
 | `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity / fault; dark if dispatch stalls |
 | `radio_arbiter.c` | Single PHY owner + teardown hooks (§6.2); power interlock stub until P6 |
 | `wifi_recon.c` | **Passive** dual-band scan, RSSI-sorted store, paging (OCP-SPEC §10) |
+| `wifi_networks.c` | Continuous passive beacon/probe-response discovery; channel hop, first-sighting `[EVT] kind=network` stream |
+| `wifi_network_table.c` | Capped BSSID dedup/update table for continuous Wi-Fi discovery; pure C, host-tested |
 | `wifi_inspect.c` | Passive beacon capture from one AP → MFP, uptime, interval |
 | `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
 | `radio_arbiter.c` | **Single-owner PHY arbitration** + power interlock. The load-bearing safety invariant. |
@@ -334,8 +336,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | Module | Layer | Responsibility |
 |---|---|---|
 | `src/main.cpp` | wiring | M5 + Grove UART (16 KB, drained before drawing) + keyboard + app |
-| `src/app/deck_app` | app | Screen flow Link → Sweep → Trace, command orchestration, auto-paging, reconnect/keepalive |
-| `src/model/scan_model` | model | Validated scan rows (never trusted), paging, 512-row cap, inspect result |
+| `src/app/deck_app` | app | Home-card flow including Sweep, Sweep → Trace drill-down, command orchestration, auto-paging, reconnect/keepalive |
+| `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap, inspect result |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
 | `src/ui/sweep_view` · `src/ui/trace_view` | view | AP list; one AP in depth |
 | `src/ocp/ocp_parser` | OCP client | Byte-exact line reader; mirrors `tools/ocp.py`, diffed on the fuzz corpus |
@@ -360,7 +362,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 
 | View | Verb(s) | Shows |
 |---|---|---|
-| **Sweep** | `scan_networks` | AP list: SSID · ch · band · sec · RSSI bar. Select → Trace. |
+| **Sweep** | `scan_networks` / `start_wifi_scan` | AP list: SSID · ch · band · sec · RSSI bar. Bounded sweep (`r`) or continuous first-sighting discovery (`c`). Select → Trace after stopping live mode. |
 | **Trace** | `inspect_network <i>` | One AP deep-dive: security (WPA2/3), **MFP** state, AP uptime, RSSI meter. |
 | **Contacts** | `start_sniffer` / `show_clients` | Live AP↔client map + probe-request SSIDs (streamed via `[EVT]`). |
 | **Spectrum** | `channel_view` / `packet_monitor` | Per-channel utilization bars — the "scope" screen. |
@@ -390,7 +392,7 @@ An earlier design held `d` through boot instead. Dropped after hardware testing 
 
 Off by default; the Link card shows a `DEBUG` badge when it's on, so it's never silently active.
 
-Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, GNSS, wardrive session) — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
+Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, GNSS, wardrive session) — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
 
 ---
 

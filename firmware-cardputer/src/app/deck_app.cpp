@@ -42,9 +42,9 @@ constexpr uint32_t kTrackPointMs = 5000;
 constexpr uint32_t kGnssDiagMs = 5000;
 
 /* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
- * physical arrow-key cluster on the Cardputer's keyboard. Sweep/Trace are a
- * drill-down from Link instead (DESIGN §7.3), not part of this cycle. */
-constexpr Screen kCards[] = { Screen::Link,   Screen::Contacts, Screen::Info,
+ * physical arrow-key cluster on the Cardputer's keyboard. Trace remains a
+ * drill-down from Sweep (DESIGN §7.3). */
+constexpr Screen kCards[] = { Screen::Link,   Screen::Sweep,   Screen::Contacts, Screen::Info,
                               Screen::Spectrum, Screen::SubGhz, Screen::Deauth,
                               Screen::Drive, Screen::Beacons };
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
@@ -93,6 +93,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
          * is moot. */
         if (s != ocp::LinkState::Ready) {
             lora_listen_pending_ = false;
+            wifi_continuous_pending_ = false;
             /* Same reasoning: a queued retry is moot once the link isn't
              * Ready, and must never fire later against something unrelated
              * after a reconnect. */
@@ -145,6 +146,10 @@ void DeckApp::onReply(const ocp::Item &it)
 
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
+        if (wifi_continuous_pending_) {
+            wifi_continuous_pending_ = false;
+            scan_.stop();
+        }
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
         /* A same-PHY-lane conflict (radio_arbiter's "radio in use by ...")
@@ -162,6 +167,9 @@ void DeckApp::onReply(const ocp::Item &it)
     }
 
     last_reply_ = it.tag;
+    if (it.tag == OCP_MARK_CFG && wifi_continuous_pending_) {
+        wifi_continuous_pending_ = false;
+    }
     if (it.tag == OCP_MARK_STATUS) {
         const auto *heap = it.get(OCP_K_HEAP);
         const auto *uptime = it.get(OCP_K_UPTIME_MS);
@@ -177,6 +185,7 @@ void DeckApp::onReply(const ocp::Item &it)
         const auto *lane = it.get(OCP_K_LANE);
         bool all = !lane || *lane == OCP_LANE_ALL;
         if (all || *lane == OCP_LANE_PHY) {
+            scan_.stop();
             contacts_.stopSniffing();
             spectrum_.stop();
             deauth_.stop();
@@ -262,6 +271,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
+    scan_.absorbEvent(it);       /* kind=network: first-sighting AP discovery */
 }
 
 void DeckApp::requestScan(uint32_t now_ms)
@@ -278,6 +288,7 @@ void DeckApp::requestScan(uint32_t now_ms)
 
 void DeckApp::startScan(uint32_t now_ms)
 {
+    if (scan_.continuousActive()) { notice("stop live scan first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     requestScan(now_ms);
     cursor_ = 0;
@@ -285,9 +296,27 @@ void DeckApp::startScan(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::toggleWifiContinuous(uint32_t now_ms)
+{
+    if (scan_.continuousActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (wifi_continuous_pending_) { notice("starting live scan..."); return; }
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_START_WIFI_SCAN, now_ms)) {
+        retrySoon([this](uint32_t t) { toggleWifiContinuous(t); }, now_ms);
+        return;
+    }
+    wifi_continuous_pending_ = true;
+    scan_.beginContinuous();
+    cursor_ = 0;
+    scan_started_ms_ = now_ms;
+    screen_ = Screen::Sweep;
+    notice("");
+}
+
 void DeckApp::startInspect(uint32_t now_ms)
 {
     if (scan_.rows().empty()) return;
+    if (scan_.continuousActive()) { notice("stop live scan first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     trace_idx_ = scan_.rows()[cursor_].idx;
     if (!client_.send(std::string(OCP_V_INSPECT_NETWORK) + " " + std::to_string(trace_idx_), now_ms)) {
@@ -490,7 +519,7 @@ void DeckApp::back(uint32_t now_ms)
      * layer, just reachable again if this call didn't scope it too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
-    } else if (screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Deauth) {
+    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Deauth) {
         client_.stop(now_ms, OCP_LANE_PHY);
     } else if (client_.pending()) {
         /* Only Sweep/Trace/Link reach here with something pending, and
@@ -528,6 +557,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && cursor_ > 0) cursor_--;
             else if (c == '.' && cursor_ + 1 < scan_.rows().size()) cursor_++;
             else if (c == 'r') startScan(now_ms);
+            else if (c == 'c') toggleWifiContinuous(now_ms);
             break;
         case Screen::Trace:
             if (c == 'i') startInspect(now_ms);
@@ -587,7 +617,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         }
         dirty_ = true;
     }
-    if (keys.enter && screen_ == Screen::Sweep && !scan_.scanning()) startInspect(now_ms);
+    if (keys.enter && screen_ == Screen::Sweep && !scan_.scanning() && !scan_.continuousActive()) startInspect(now_ms);
     if (keys.enter && screen_ == Screen::Spectrum && !spectrum_.locked() &&
         spectrum_cursor_ < spectrum_.readings().size()) {
         startPacketMonitor(now_ms, spectrum_.readings()[spectrum_cursor_].ch);
@@ -632,6 +662,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "sniff") { if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY); else startSniffer(now_ms); }
     else if (cmd == "spectrum") { if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startChannelView(now_ms); }
     else if (cmd == "deauth") { if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startDeauthDetector(now_ms); }
+    else if (cmd == "wifiscan") toggleWifiContinuous(now_ms);
     else if (cmd == "beacons") startBtScan(now_ms);
     else if (cmd == "blescan") toggleBtContinuous(now_ms);
     else if (cmd == "airtag") toggleAirtagScan(now_ms);
@@ -747,7 +778,7 @@ void DeckApp::tick(uint32_t now_ms)
 bool DeckApp::dirty(uint32_t now_ms) const
 {
     if (now_ms - last_draw_ms_ < kRedrawMs) return false;
-    bool busy = scan_.scanning() || (screen_ == Screen::Trace && client_.pending());
+    bool busy = scan_.scanning() || scan_.continuousActive() || (screen_ == Screen::Trace && client_.pending());
     return dirty_ || (busy && now_ms - last_draw_ms_ >= kBusyRedrawMs);
 }
 
