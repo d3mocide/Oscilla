@@ -23,6 +23,8 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -44,7 +46,7 @@ static size_t k_num_channels;
 static SemaphoreHandle_t s_lock;
 static esp_timer_handle_t s_hop_timer;
 
-static sniff_track_t s_track;
+static sniff_track_t *s_track;
 static uint8_t s_chan_idx;
 static uint32_t s_total_pkts;
 static int64_t s_started_us;
@@ -72,10 +74,10 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
         probe_req_info_t pi;
         if (probe_req_parse(frame, len, &pi) == PROBE_OK) {
             uint8_t slen = pi.has_ssid ? pi.ssid_len : 0;
-            if (sniff_track_probe(&s_track, pi.mac, pi.ssid, slen, rssi, &new_probe)) kind = 2;
+            if (sniff_track_probe(s_track, pi.mac, pi.ssid, slen, rssi, &new_probe)) kind = 2;
         }
     } else if (type == WIFI_PKT_DATA) {
-        if (sniff_track_data_frame(&s_track, frame, len, ch, rssi, &new_client)) kind = 1;
+        if (sniff_track_data_frame(s_track, frame, len, ch, rssi, &new_client)) kind = 1;
     }
     xSemaphoreGive(s_lock);
 
@@ -130,8 +132,15 @@ static void sniff_teardown(void)
 esp_err_t wifi_sniff_init(void)
 {
     k_channels = wifi_channels(&k_num_channels);
+    s_track = heap_caps_calloc(1, sizeof *s_track,
+                               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_track) {
+        s_track = heap_caps_calloc(1, sizeof *s_track,
+                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     s_lock = xSemaphoreCreateMutex();
-    if (!s_lock) return ESP_ERR_NO_MEM;
+    if (!s_track || !s_lock) return ESP_ERR_NO_MEM;
+    ESP_LOGI(TAG, "sniff table in %s RAM", esp_ptr_external_ram(s_track) ? "PSRAM" : "internal");
     const esp_timer_create_args_t args = { .callback = on_hop, .name = "sniff_hop" };
     return esp_timer_create(&args, &s_hop_timer);
 }
@@ -146,7 +155,7 @@ void wifi_cmd_start_sniffer(void)
     }
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    sniff_track_reset(&s_track);
+    sniff_track_reset(s_track);
     s_total_pkts = 0;
     s_chan_idx = 0;
     s_started_us = esp_timer_get_time();
@@ -175,10 +184,10 @@ void wifi_cmd_show_clients(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     uint32_t elapsed = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
-    unsigned n = s_track.client_count;
+    unsigned n = s_track->client_count;
     ocp_emit_begin(OCP_MARK_CLIENTS, "%s=%u %s=%u %s=%u", OCP_K_COUNT, n, OCP_K_TOTAL, n, OCP_K_ELAPSED_MS, elapsed);
     for (unsigned i = 0; i < n; i++) {
-        const sniff_client_t *c = &s_track.clients[i];
+        const sniff_client_t *c = &s_track->clients[i];
         ocp_emit_row(OCP_MARK_CLIENTS,
                      "\"%02x:%02x:%02x:%02x:%02x:%02x\",\"%02x:%02x:%02x:%02x:%02x:%02x\",\"%u\",\"%s\",\"%d\",\"%u\"",
                      c->bssid[0], c->bssid[1], c->bssid[2], c->bssid[3], c->bssid[4], c->bssid[5],
@@ -194,10 +203,10 @@ void wifi_cmd_show_probes(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     uint32_t elapsed = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
-    unsigned n = s_track.probe_count;
+    unsigned n = s_track->probe_count;
     ocp_emit_begin(OCP_MARK_PROBES, "%s=%u %s=%u %s=%u", OCP_K_COUNT, n, OCP_K_TOTAL, n, OCP_K_ELAPSED_MS, elapsed);
     for (unsigned i = 0; i < n; i++) {
-        const sniff_probe_t *p = &s_track.probes[i];
+        const sniff_probe_t *p = &s_track->probes[i];
         char ssid[4 * 32 + 3];
         ocp_escape_field(p->ssid, p->ssid_len, ssid, sizeof ssid);
         ocp_emit_row(OCP_MARK_PROBES, "\"%02x:%02x:%02x:%02x:%02x:%02x\",%s,\"%d\",\"%u\"",

@@ -83,6 +83,21 @@ int main()
         check(r.events.size() == 1, "event routed to the event sink");
         check(!r.c.pending() && r.replies.back().tag == "[STATUS]", "[STATUS] answers status");
 
+        /* Regression for P7: a bare [CFG] END is a late terminator, not an
+         * empty acknowledgement. The valid zero-row block must complete the
+         * same start command. */
+        r.c.send("start_antisurveillance", r.now);
+        r.probe("[CFG] END\n");
+        check(r.c.pending() && r.c.stats().noise > 0,
+              "bare empty CFG is noise and cannot complete a start");
+        r.advance(ocp::Client::kReplyTimeoutMs);
+        check(!r.c.pending() && r.c.state() == S::Ready,
+              "a malformed CFG start times out without disconnecting the link");
+        r.c.send("start_antisurveillance", r.now);
+        r.probe("[CFG] BEGIN\n[CFG] END\n");
+        check(!r.c.pending() && r.replies.back().tag == "[CFG]",
+              "valid zero-row CFG block completes the start");
+
         r.c.send("version", r.now);
         r.probe("[SCAN] BEGIN\n[SCAN] END\n");
         check(r.c.pending() && r.c.stats().stray == 1, "a frame for nothing pending is stray, not a reply");

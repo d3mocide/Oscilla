@@ -99,6 +99,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             lora_listen_pending_ = false;
             wifi_continuous_pending_ = false;
             mesh_start_pending_ = false;
+            anti_start_pending_ = false;
+            anti_.stop();
             /* Same reasoning: a queued retry is moot once the link isn't
              * Ready, and must never fire later against something unrelated
              * after a reconnect. */
@@ -117,6 +119,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         lora_.clear();
         storage::loraLogEnd();
         deauth_.clear();
+        anti_.clear();
         mesh_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
@@ -160,6 +163,10 @@ void DeckApp::onReply(const ocp::Item &it)
             mesh_start_pending_ = false;
             mesh_.stop();
         }
+        if (anti_start_pending_) {
+            anti_start_pending_ = false;
+            anti_.stop();
+        }
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
         /* A same-PHY-lane conflict (radio_arbiter's "radio in use by ...")
@@ -180,6 +187,14 @@ void DeckApp::onReply(const ocp::Item &it)
     if (it.tag == OCP_MARK_CFG && wifi_continuous_pending_) {
         wifi_continuous_pending_ = false;
     }
+    if (it.tag == OCP_MARK_CFG && anti_start_pending_) {
+        anti_start_pending_ = false;
+        anti_.begin();
+        anti_.observePosition(gnss_.fix().lat_deg, gnss_.fix().lon_deg,
+                              gnss_.state(now_) == model::GnssState::Fixed,
+                              gnss_.fixAgeMs(now_), now_);
+        notice("");
+    }
     if (it.tag == OCP_MARK_STATUS) {
         const auto *heap = it.get(OCP_K_HEAP);
         const auto *uptime = it.get(OCP_K_UPTIME_MS);
@@ -189,6 +204,18 @@ void DeckApp::onReply(const ocp::Item &it)
                 model::parseUnsigned(*uptime, &uptime_value)) {
                 probe_heap_ = static_cast<uint32_t>(heap_value);
                 probe_uptime_ms_ = uptime_value;
+                const auto readOptional = [&](const char *key, uint32_t *out) {
+                    const auto *value = it.get(key);
+                    uint64_t parsed = 0;
+                    if (value && model::parseUnsigned(*value, &parsed) && parsed <= UINT32_MAX) {
+                        *out = static_cast<uint32_t>(parsed);
+                    }
+                };
+                readOptional(OCP_K_HEAP_MIN, &probe_heap_min_);
+                readOptional(OCP_K_HEAP_LARGEST, &probe_heap_largest_);
+                readOptional(OCP_K_PSRAM_TOTAL, &probe_psram_total_);
+                readOptional(OCP_K_PSRAM_FREE, &probe_psram_free_);
+                readOptional(OCP_K_PSRAM_LARGEST, &probe_psram_largest_);
                 probe_status_valid_ = true;
                 last_status_reply_ms_ = now_;
             }
@@ -199,11 +226,13 @@ void DeckApp::onReply(const ocp::Item &it)
         const auto *lane = it.get(OCP_K_LANE);
         bool all = !lane || *lane == OCP_LANE_ALL;
         if (all || *lane == OCP_LANE_PHY) {
+            anti_start_pending_ = false;
             scan_.stop();
             contacts_.stopSniffing();
             spectrum_.stop();
             deauth_.stop();
             bt_.stop();
+            anti_.stop();
             mesh_.stop();
         }
         if (all || *lane == OCP_LANE_LORA) {
@@ -237,7 +266,7 @@ void DeckApp::onReply(const ocp::Item &it)
          * it): which verb it's for is whatever we just sent, not decodable
          * from the frame itself — this is diagnostic-only, so "cfg" is fine. */
         const auto *ch = it.get(OCP_K_CH);
-        log("cfg ack ch=" + (ch ? *ch : std::string("?")));
+        log(std::string("cfg ack") + (ch ? " ch=" + *ch : std::string()));
     } else if (it.tag == OCP_MARK_SCAN) {
         next_page_ = scan_.absorbPage(it);   /* requested from tick(): not re-entrant here */
         logScanRows();
@@ -291,6 +320,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
+    anti_.absorbEvent(it, now_); /* kind=airtag + deck-local movement correlation */
     scan_.absorbEvent(it);       /* kind=network: first-sighting AP discovery */
 }
 
@@ -471,6 +501,20 @@ void DeckApp::toggleAirtagScan(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::toggleAntisurveillance(uint32_t now_ms)
+{
+    if (anti_.active()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (anti_start_pending_) { notice("starting anti-surveillance..."); return; }
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_START_ANTISURV, now_ms)) {
+        retrySoon([this](uint32_t t) { toggleAntisurveillance(t); }, now_ms);
+        return;
+    }
+    anti_start_pending_ = true;
+    bt_.resetTrackerLog();
+    notice("starting anti-surveillance...");
+}
+
 void DeckApp::toggleMesh(uint32_t now_ms)
 {
     if (mesh_.active()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
@@ -548,7 +592,7 @@ void DeckApp::back(uint32_t now_ms)
      * layer, just reachable again if this call didn't scope it too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
-    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth) {
+    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth || screen_ == Screen::Beacons) {
         client_.stop(now_ms, OCP_LANE_PHY);
     } else if (client_.pending()) {
         /* Only Sweep/Trace/Link reach here with something pending, and
@@ -647,6 +691,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 's') startBtScan(now_ms);
             else if (c == 'c') toggleBtContinuous(now_ms);
             else if (c == 'a') toggleAirtagScan(now_ms);
+            else if (c == 'f') toggleAntisurveillance(now_ms);
             break;
         }
         dirty_ = true;
@@ -700,6 +745,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "beacons") startBtScan(now_ms);
     else if (cmd == "blescan") toggleBtContinuous(now_ms);
     else if (cmd == "airtag") toggleAirtagScan(now_ms);
+    else if (cmd == "antisurv") toggleAntisurveillance(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
@@ -744,6 +790,14 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
             " trackers=" + std::to_string(bt_.trackerCount()) +
+            " anti_alerts=" + std::to_string(anti_.alertCount()) +
+            " anti_starting=" + std::string(anti_start_pending_ ? "1" : "0") +
+            " probe_heap=" + std::to_string(probe_heap_) +
+            " probe_heap_min=" + std::to_string(probe_heap_min_) +
+            " probe_heap_largest=" + std::to_string(probe_heap_largest_) +
+            " probe_psram_total=" + std::to_string(probe_psram_total_) +
+            " probe_psram_free=" + std::to_string(probe_psram_free_) +
+            " probe_psram_largest=" + std::to_string(probe_psram_largest_) +
             " gnss=" + std::string(model::gnssStateName(gnss_.state(now_ms))) +
             " wardrive_open=" + std::string(storage::wardriveLogStats().open ? "1" : "0"));
         return;
@@ -757,6 +811,16 @@ void DeckApp::tick(uint32_t now_ms)
 {
     now_ = now_ms;
     client_.tick(now_ms);
+
+    /* Client timeouts intentionally have no callback. Clean up the optimistic
+     * UI state here so a lost/invalid CFG cannot leave anti-surveillance
+     * visibly stuck in "starting". */
+    if (anti_start_pending_ && !client_.pending()) {
+        anti_start_pending_ = false;
+        anti_.stop();
+        notice("anti-surveillance start timed out");
+        log("anti start timeout");
+    }
 
     if (pending_retry_) {
         if (!client_.pending()) {
@@ -805,6 +869,12 @@ void DeckApp::tick(uint32_t now_ms)
         now_ms - last_keepalive_ms_ >= kKeepaliveMs) {
         last_keepalive_ms_ = now_ms;
         client_.send(OCP_V_PING, now_ms);
+    }
+
+    if (anti_.active()) {
+        anti_.observePosition(gnss_.fix().lat_deg, gnss_.fix().lon_deg,
+                              gnss_.state(now_ms) == model::GnssState::Fixed,
+                              gnss_.fixAgeMs(now_ms), now_ms);
     }
 
     /* Distinguishes a marginal fix from GNSS bytes being lost in transit
@@ -869,7 +939,7 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawGnssView(gnss_, now_ms, notice_);
         break;
     case Screen::Beacons:
-        ui::drawBtView(bt_, bt_cursor_, notice_);
+        ui::drawBtView(bt_, anti_, bt_cursor_, notice_);
         break;
     }
     ui::present();

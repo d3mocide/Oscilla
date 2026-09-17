@@ -13,6 +13,8 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -35,7 +37,7 @@ static size_t k_num_channels;
 static SemaphoreHandle_t s_lock;
 static QueueHandle_t s_event_queue;
 static esp_timer_handle_t s_hop_timer;
-static wifi_network_table_t s_table;
+static wifi_network_table_t *s_table;
 static uint8_t s_chan_idx;
 static uint32_t s_session;
 static bool s_running;
@@ -89,7 +91,7 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
     wifi_network_t row;
     xSemaphoreTake(s_lock, portMAX_DELAY);
     uint8_t channel = k_channels[s_chan_idx];
-    bool is_new = wifi_network_table_upsert(&s_table, &info, channel,
+    bool is_new = wifi_network_table_upsert(s_table, &info, channel,
                                             pkt->rx_ctrl.rssi, &row);
     xSemaphoreGive(s_lock);
     if (!is_new) return;
@@ -126,9 +128,16 @@ static void teardown(void)
 esp_err_t wifi_networks_init(void)
 {
     k_channels = wifi_channels(&k_num_channels);
+    s_table = heap_caps_calloc(1, sizeof *s_table,
+                               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_table) {
+        s_table = heap_caps_calloc(1, sizeof *s_table,
+                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     s_lock = xSemaphoreCreateMutex();
     s_event_queue = xQueueCreate(64, sizeof(network_event_t));
-    if (!s_lock || !s_event_queue) return ESP_ERR_NO_MEM;
+    if (!s_table || !s_lock || !s_event_queue) return ESP_ERR_NO_MEM;
+    ESP_LOGI(TAG, "network table in %s RAM", esp_ptr_external_ram(s_table) ? "PSRAM" : "internal");
     const esp_timer_create_args_t args = { .callback = on_hop, .name = "network_hop" };
     esp_err_t err = esp_timer_create(&args, &s_hop_timer);
     if (err != ESP_OK) return err;
@@ -146,7 +155,7 @@ void wifi_cmd_start_network_scan(void)
     }
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    wifi_network_table_reset(&s_table);
+    wifi_network_table_reset(s_table);
     s_chan_idx = 0;
     s_session++;
     if (s_session == 0) s_session = 1;

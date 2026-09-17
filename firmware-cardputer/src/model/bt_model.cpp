@@ -77,6 +77,13 @@ void BtModel::beginAirtag()
     airtag_active_ = true;
 }
 
+void BtModel::resetTrackerLog()
+{
+    tracker_hits_.clear();
+    tracker_hits_.shrink_to_fit();
+    tracker_total_ = 0;
+}
+
 void BtModel::stop()
 {
     scanning_ = false;

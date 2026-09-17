@@ -25,6 +25,7 @@
 
 #include "esp_app_desc.h"
 #include "esp_idf_version.h"
+#include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 
@@ -118,13 +119,18 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%llu %s=%u",
+                         "%s=%s lora=%s link=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
-                         OCP_K_HEAP, (unsigned)esp_get_free_heap_size());
+                         OCP_K_HEAP, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                         OCP_K_HEAP_MIN, (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                         OCP_K_HEAP_LARGEST, (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                         OCP_K_PSRAM_TOTAL, (unsigned)heap_caps_get_total_size(MALLOC_CAP_SPIRAM),
+                         OCP_K_PSRAM_FREE, (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                         OCP_K_PSRAM_LARGEST, (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
         break;
 
     case OCP_VID_STOP: {
@@ -216,6 +222,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SCAN_AIRTAG:
         ble_cmd_scan_airtag();
+        break;
+
+    case OCP_VID_START_ANTISURV:
+        ble_cmd_start_antisurveillance();
         break;
 
     case OCP_VID_START_ZIG_RECON:

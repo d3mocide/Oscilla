@@ -14,7 +14,7 @@
 #include "esp_err.h"
 
 #define WIFI_SCAN_DWELL_MS   250    /* per channel; beacons arrive every ~102 ms */
-#define WIFI_STORE_MAX       512    /* results kept for paging */
+#define WIFI_STORE_MAX       256    /* deck persists larger field captures */
 
 /* Brings up Wi-Fi in station mode without associating. */
 esp_err_t wifi_recon_init(void);

@@ -7,7 +7,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "ocp.h"
 #include "ocp_frame.h"
 #include "ocp_parse.h"
@@ -18,7 +21,7 @@
 
 #define ZIG_DEFAULT_CH 11
 #define ZIG_DEFAULT_DWELL_MS 400
-static zig_table_t s_table;
+static zig_table_t *s_table;
 static SemaphoreHandle_t s_lock;
 static bool s_ready;
 static volatile bool s_running;
@@ -30,29 +33,29 @@ static void emit_table(const char *only_pan)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     unsigned pans = 0, nodes = 0;
-    for (unsigned i = 0; i < s_table.pan_count; ++i) {
+    for (unsigned i = 0; i < s_table->pan_count; ++i) {
         char pan[5];
-        snprintf(pan, sizeof pan, "%04x", s_table.pans[i].pan);
+        snprintf(pan, sizeof pan, "%04x", s_table->pans[i].pan);
         if (!only_pan || !strcmp(only_pan, pan)) ++pans;
     }
-    for (unsigned i = 0; i < s_table.node_count; ++i) {
+    for (unsigned i = 0; i < s_table->node_count; ++i) {
         char pan[5];
-        snprintf(pan, sizeof pan, "%04x", s_table.nodes[i].pan);
+        snprintf(pan, sizeof pan, "%04x", s_table->nodes[i].pan);
         if (!only_pan || !strcmp(only_pan, pan)) ++nodes;
     }
     ocp_emit_begin(OCP_MARK_ZIG, "%s=%u %s=%u %s=%u %s=%u %s=%u %s=%u", OCP_K_COUNT, pans + nodes,
-                   OCP_K_PANS, pans, OCP_K_NODES, nodes, OCP_K_DROPPED, s_table.dropped,
+                   OCP_K_PANS, pans, OCP_K_NODES, nodes, OCP_K_DROPPED, s_table->dropped,
                    OCP_K_CH, s_ch, OCP_K_DWELL_MS, s_dwell);
-    for (unsigned i = 0; i < s_table.pan_count; ++i) {
-        zig_pan_t *p = &s_table.pans[i]; char channels[5] = "";
+    for (unsigned i = 0; i < s_table->pan_count; ++i) {
+        zig_pan_t *p = &s_table->pans[i]; char channels[5] = "";
         char pan[5]; snprintf(pan, sizeof pan, "%04x", p->pan);
         if (only_pan && strcmp(only_pan, pan)) continue;
         snprintf(channels, sizeof channels, "%04x", p->channels);
         ocp_emit_row(OCP_MARK_ZIG, "\"pan\",\"%04x\",\"%s\",\"mac\",\"%s\",\"%u\",\"%d\",\"%u\"",
                      p->pan, p->proto, channels, p->nodes, p->rssi, p->lqi);
     }
-    for (unsigned i = 0; i < s_table.node_count; ++i) {
-        zig_node_t *n = &s_table.nodes[i]; char pan[5], short_a[5], ext[17] = "";
+    for (unsigned i = 0; i < s_table->node_count; ++i) {
+        zig_node_t *n = &s_table->nodes[i]; char pan[5], short_a[5], ext[17] = "";
         snprintf(pan, sizeof pan, "%04x", n->pan); if (only_pan && strcmp(only_pan, pan)) continue;
         if (n->has_short) snprintf(short_a, sizeof short_a, "%04x", n->short_addr); else strcpy(short_a, "");
         if (n->has_ext) for (unsigned j = 0; j < 8; ++j) snprintf(ext + j * 2, sizeof ext - j * 2, "%02x", n->ext[j]);
@@ -71,7 +74,7 @@ static void zig_task(void *arg)
             zig_frame_t f;
             if (zig_frame_parse(rx.data, rx.len, &f)) {
                 xSemaphoreTake(s_lock, portMAX_DELAY);
-                bool fresh = zig_table_upsert(&s_table, f.pan_id, f.proto, rx.ch, f.short_addr, f.has_short, f.ext_addr,
+                bool fresh = zig_table_upsert(s_table, f.pan_id, f.proto, rx.ch, f.short_addr, f.has_short, f.ext_addr,
                                               f.has_ext, rx.rssi, rx.lqi, rx.ts_ms);
                 xSemaphoreGive(s_lock);
                 if (fresh) {
@@ -104,8 +107,16 @@ static void zig_teardown(void)
 esp_err_t zig_recon_init(void)
 {
     s_ready = false;
+    s_table = heap_caps_calloc(1, sizeof *s_table,
+                               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_table) {
+        s_table = heap_caps_calloc(1, sizeof *s_table,
+                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     s_lock = xSemaphoreCreateMutex(); if (!s_lock) return ESP_ERR_NO_MEM;
-    zig_table_clear(&s_table); esp_err_t err = zig_radio_init();
+    if (!s_table) return ESP_ERR_NO_MEM;
+    ESP_LOGI("zig", "802.15.4 table in %s RAM", esp_ptr_external_ram(s_table) ? "PSRAM" : "internal");
+    zig_table_clear(s_table); esp_err_t err = zig_radio_init();
     if (err == ESP_OK && xTaskCreate(zig_task, "zig", 4096, NULL, 5, NULL) != pdPASS) err = ESP_ERR_NO_MEM;
     if (err == ESP_OK) s_ready = true;
     return err;
@@ -135,7 +146,7 @@ void zig_cmd_start(int argc, char **argv)
 void zig_cmd_status(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    uint16_t pans = s_table.pan_count, nodes = s_table.node_count;
+    uint16_t pans = s_table->pan_count, nodes = s_table->node_count;
     xSemaphoreGive(s_lock);
     ocp_emit_compact(OCP_MARK_ZIG, "%s=%s %s=%u %s=%u %s=%u %s=%u", OCP_K_STATE,
                      s_running ? "rx" : "idle", OCP_K_CH, s_ch, OCP_K_DWELL_MS, s_dwell,
@@ -153,4 +164,4 @@ void zig_cmd_nodes(int argc, char **argv)
     if (argc > 1 && !pan_arg_valid(argv[1])) { ocp_emit_error(OCP_ERR_BADARG, "pan=four lowercase hex digits"); return; }
     emit_table(argc > 1 ? argv[1] : NULL);
 }
-void zig_cmd_clear(void) { xSemaphoreTake(s_lock, portMAX_DELAY); zig_table_clear(&s_table); xSemaphoreGive(s_lock); ocp_emit_compact(OCP_MARK_ZIG, "%s=cleared", OCP_K_STATE); }
+void zig_cmd_clear(void) { xSemaphoreTake(s_lock, portMAX_DELAY); zig_table_clear(s_table); xSemaphoreGive(s_lock); ocp_emit_compact(OCP_MARK_ZIG, "%s=cleared", OCP_K_STATE); }

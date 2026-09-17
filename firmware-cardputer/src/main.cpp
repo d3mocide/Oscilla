@@ -38,6 +38,8 @@ app::DeckApp g_app([](const char *data, size_t len) {
  * command semantics aren't. */
 debug::LineReader g_debug_reader;
 
+void logDeckMemory(const char *tag, uint32_t uptime_ms);
+
 }  // namespace
 
 void setup()
@@ -83,15 +85,29 @@ void setup()
 
     g_app.onLog([](const std::string &line) { Serial.printf("deck %s\n", line.c_str()); });
     g_app.begin(millis());
+    logDeckMemory("boot", millis());
 }
 
 namespace {
 /* Diagnostic only, not tied to any view: a slow leak shows up as a trend in
- * this number over hours, not as a crash. Independent of which screen is
- * shown, since info_view's own heap readout only samples while you're
- * looking at it. */
+ * these numbers over hours, not as a crash. The ADV has no populated PSRAM;
+ * the zero-valued PSRAM fields make that a measured result rather than an
+ * assumption about the board SKU. */
 constexpr uint32_t kHeapLogMs = 5UL * 60UL * 1000UL;
 uint32_t g_last_heap_log_ms = 0;
+
+void logDeckMemory(const char *tag, uint32_t uptime_ms)
+{
+    Serial.printf("deck memory tag=%s heap_free=%u heap_min=%u heap_largest=%u psram_total=%u psram_free=%u psram_largest=%u uptime_s=%lu\n",
+                  tag,
+                  (unsigned)ESP.getFreeHeap(),
+                  (unsigned)ESP.getMinFreeHeap(),
+                  (unsigned)ESP.getMaxAllocHeap(),
+                  (unsigned)ESP.getPsramSize(),
+                  (unsigned)ESP.getFreePsram(),
+                  (unsigned)ESP.getMaxAllocPsram(),
+                  (unsigned long)(uptime_ms / 1000));
+}
 }  // namespace
 
 void loop()
@@ -100,7 +116,7 @@ void loop()
 
     if (now - g_last_heap_log_ms >= kHeapLogMs) {
         g_last_heap_log_ms = now;
-        Serial.printf("deck heap=%u uptime_s=%lu\n", (unsigned)ESP.getFreeHeap(), (unsigned long)(now / 1000));
+        logDeckMemory("periodic", now);
     }
 
     /* Drain the link completely before any drawing. */
@@ -131,7 +147,16 @@ void loop()
         uint8_t dbuf[64];
         size_t dn = 0;
         while (Serial.available() && dn < sizeof dbuf) dbuf[dn++] = Serial.read();
-        g_debug_reader.feed(dbuf, dn, [&](const std::string &line) { g_app.runDebugCommand(line, now); });
+        g_debug_reader.feed(dbuf, dn, [&](const std::string &line) {
+            if (line == "memory") {
+                if (g_app.debugEnabled()) {
+                    logDeckMemory("command", now);
+                    Serial.println("deck debug: ok memory");
+                }
+            } else {
+                g_app.runDebugCommand(line, now);
+            }
+        });
     }
 
     M5Cardputer.update();

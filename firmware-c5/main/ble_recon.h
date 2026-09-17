@@ -1,8 +1,9 @@
 /*
  * ble_recon.h — BLE passive scanning over NimBLE (OCP-SPEC §11): a bounded
  * device-table snapshot (`scan_bt`), continuous new-device discovery
- * (`start_ble_scan`), and continuous Find My / AirTag classification
- * (`scan_airtag`). Thin glue over ble_adv_parse.h (parsing) and
+ * (`start_ble_scan`), continuous Find My / AirTag classification
+ * (`scan_airtag`), and the anti-surveillance tracker stream
+ * (`start_antisurveillance`). Thin glue over ble_adv_parse.h (parsing) and
  * ble_device_table.h (the table `scan_bt` replies with, and that
  * `start_ble_scan` keeps growing) — NimBLE host plumbing, the
  * radio_arbiter, and OCP framing live here, nothing else.
@@ -42,5 +43,10 @@ void ble_cmd_start_scan(void);
  * advertisement seen, regardless of what scan_bt/start_ble_scan has or
  * hasn't found (OCP-SPEC §11.4). */
 void ble_cmd_scan_airtag(void);
+
+/* Runs until `stop`; streams the same passive `kind=airtag` sightings as
+ * scan_airtag. The deck owns the movement correlation because GNSS is
+ * deck-local and never crosses OCP. */
+void ble_cmd_start_antisurveillance(void);
 
 #endif /* OSCILLA_BLE_RECON_H */

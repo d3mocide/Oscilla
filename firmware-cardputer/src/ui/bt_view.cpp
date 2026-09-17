@@ -50,19 +50,21 @@ void drawDeviceRows(const model::BtModel &bt, size_t cursor, int list_top, int v
 
 }  // namespace
 
-void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &notice)
+void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &anti,
+                size_t cursor, const std::string &notice)
 {
     auto &d = ui::canvas();
     d.fillScreen(TFT_BLACK);
     d.setTextSize(1);
     d.setCursor(0, 0);
 
-    /* scan_bt, start_ble_scan and scan_airtag all hold PHY_OWNER_BLE
-     * exclusively (radio_arbiter, DESIGN §6.2), so at most one of these
-     * three is ever true at once — one status word covers all of it. */
+    /* All BLE sessions hold PHY_OWNER_BLE exclusively (radio_arbiter,
+     * DESIGN §6.2), so one status word covers the four modes. */
     d.setTextColor(TFT_CYAN, TFT_BLACK);
     d.print("BEACONS ");
-    if (bt.scanning()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("scanning"); }
+    if (anti.active() && anti.alertCount()) { d.setTextColor(TFT_MAGENTA, TFT_BLACK); d.println("anti-alert"); }
+    else if (anti.active()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("anti-live"); }
+    else if (bt.scanning()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("scanning"); }
     else if (bt.continuousActive()) { d.setTextColor(TFT_GREEN, TFT_BLACK); d.println("live"); }
     else if (bt.airtagActive()) { d.setTextColor(TFT_ORANGE, TFT_BLACK); d.println("airtag-live"); }
     else { d.setTextColor(TFT_DARKGREY, TFT_BLACK); d.println("idle"); }
@@ -71,6 +73,10 @@ void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &noti
     d.printf("[devices %u]", (unsigned)bt.devices().size());
     d.setTextColor(bt.trackerCount() ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
     d.printf(" [trackers %u]", (unsigned)bt.trackerCount());
+    if (anti.active()) {
+        d.setTextColor(anti.alertCount() ? TFT_MAGENTA : TFT_YELLOW, TFT_BLACK);
+        d.printf(" [anti %u]", (unsigned)anti.alertCount());
+    }
     if (bt.malformedRows()) {
         d.setTextColor(TFT_ORANGE, TFT_BLACK);
         d.printf("  %u bad", bt.malformedRows());
@@ -82,7 +88,13 @@ void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &noti
 
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - 3 * kLineH);
-    if (!bt.trackerHits().empty()) {
+    if (const auto *alert = anti.latestAlert()) {
+        d.setTextColor(TFT_MAGENTA, TFT_BLACK);
+        d.printf("FOLLOW? %s %u legs", printable(alert->mac, 17).c_str(),
+                 (unsigned)alert->movement_legs);
+    } else if (anti.active()) {
+        d.print("anti: need 2 x 25m movement legs");
+    } else if (!bt.trackerHits().empty()) {
         const auto &last = bt.trackerHits()[0];
         d.printf("last tracker: %s %d", printable(last.mac, 17).c_str(), last.rssi);
     }
@@ -91,7 +103,7 @@ void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &noti
     d.print(printable(notice, 38).c_str());
     d.setTextColor(TFT_DARKGREY, TFT_BLACK);
     d.setCursor(0, d.height() - kLineH);
-    d.print(";. move  ,/ cards  s scan  c live  a airtag");
+    d.print(";. move  ,/ cards  s scan c live a airtag f anti");
 }
 
 }  // namespace ui

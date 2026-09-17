@@ -12,9 +12,11 @@
 #include <string>
 
 #include "model/bt_model.h"
+#include "model/anti_surveillance_model.h"
 
 namespace ui {
 
-void drawBtView(const model::BtModel &bt, size_t cursor, const std::string &notice);
+void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &anti,
+                size_t cursor, const std::string &notice);
 
 }  // namespace ui

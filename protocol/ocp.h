@@ -224,6 +224,11 @@ typedef enum {
 #define OCP_K_UPTIME_MS         "uptime_ms"
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
 #define OCP_K_HEAP              "heap"     /* [STATUS]: free heap, bytes  */
+#define OCP_K_HEAP_MIN          "heap_min" /* [STATUS]: minimum free heap since boot */
+#define OCP_K_HEAP_LARGEST      "heap_largest" /* [STATUS]: largest free heap block */
+#define OCP_K_PSRAM_TOTAL       "psram_total" /* [STATUS]: PSRAM bytes, zero when absent */
+#define OCP_K_PSRAM_FREE        "psram_free" /* [STATUS]: free PSRAM bytes */
+#define OCP_K_PSRAM_LARGEST     "psram_largest" /* [STATUS]: largest free PSRAM block */
 #define OCP_K_PKTS              "pkts"
 #define OCP_K_MAC               "mac"
 #define OCP_K_SSID              "ssid"

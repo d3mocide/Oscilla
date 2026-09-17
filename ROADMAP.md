@@ -5,8 +5,8 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P4 complete → **P5 — External TFT** (⚪ not started, entry gate met) |
-| **Last updated** | 2026-09-16 |
+| **Current phase** | P4 complete → **P5 — External TFT** (🔴 blocked on panel/regulator); P7 passive-suite work continues in parallel |
+| **Last updated** | 2026-09-17 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -21,9 +21,9 @@
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
 | **P4** | GNSS on the deck | 🟢 Exit gate met | ✅ 2026-09-16 |
-| **P5** | External TFT | ⚪ Not started | — |
+| **P5** | External TFT | 🔴 Blocked — panel/regulator pending | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
-| **P7** | Passive suite completion | ⚪ Not started | — |
+| **P7** | Passive suite completion | 🟡 In progress (out of sequence) | — |
 | **P8** | Polish | ⚪ Not started | — |
 
 Legend: ⚪ not started · 🟡 in progress · 🟢 exit gate met · 🔴 blocked
@@ -142,6 +142,8 @@ Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, exten
 
 **Exit gate: MET — 2026-09-16.** All three requirements demonstrated on real hardware in one session: a live fix acquired outdoors and held continuously for 21+ minutes with age shown (`age_ms` fresh every ~5s, zero drops); unplugging the antenna produced `fix lost` — not `no data` — while NMEA sentences kept arriving over UART (`chkfail`/`overlong` stayed at 0 through the drop, confirming the link itself never broke); reconnecting recovered cleanly back to `fix`. The wardrive session logged through the same window confirms the CSV/KML side of the gate too: every fixed observation was written, an earlier all-no-fix session (`drive_0003`) confirmed the `nofix` counter and empty CSV path both work when there's never a fix at all. Full detail in WORKLOG 2026-09-16.
 
+**Follow-up 2026-09-17:** an indoor, poorly placed receiver remained in `fix lost`; the cumulative `chkfail=63` and `overlong=0` counters stayed flat for a 90-second read-only capture, with no new UART error. This is not a reproduced parser fault. A fresh outdoor, undisturbed receiver run remains the appropriate follow-up to the earlier connector disturbance.
+
 ---
 
 ## P5 — External TFT
@@ -181,6 +183,11 @@ Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, exten
 
 **Entry gate:** P2 + P6 exits met.
 
+P7 work is being exercised out of sequence while the external TFT and measured
+power gates are pending. The items below distinguish implementation and
+receive-only RF evidence from the final phase exit gate; P7 is not declared
+complete until its remaining real-frame and view checks are demonstrated.
+
 **Work:**
 - [x] **BLE (2026-09-16).** `ble_recon.c` — NimBLE passive scan (`scan_bt`/`scan_airtag`, OCP-SPEC §11), device table, Find My/AirTag tracker classification (Apple company ID `004c` + type byte `0x12`, confirmed against public Find My protocol write-ups). Split probe-side into `ble_adv_parse.c` (AD-structure parsing) and `ble_device_table.c` (upsert logic), both pure C and host-tested (13 + 14 checks, plus 200k fuzz iterations under ASan/UBSan) — same shape as `beacon_parse.c`/`sniff_track.c`. Deck-side `src/model/bt_model` + **Beacons** view (`src/ui/bt_view`), 16 host tests. Enabling NimBLE overflowed the default 1 MB app partition by ~126 KB; fixed with Espressif's own "large single-app" table (1500 KB) rather than trimming anything — 8 MB of physical flash made that the easy call. Both firmwares build clean on the real toolchain (probe now at 76% of its larger partition). **Hardware-confirmed same day.** `scan_bt`/`scan_airtag` both verified against real BLE traffic (70–75 real devices per scan, 0 malformed rows) after fixing two real bugs a client-timeout mismatch (`scan_bt`'s reply arrived after the deck's generic 2s timeout had already given up — added `kBleScanTimeoutMs`) and a NimBLE semantics bug (`ble_gap_disc_cancel()` doesn't emit a completion event the way `esp_wifi_scan_stop()` does, so cancelling `scan_airtag`'s unbounded scan left the radio arbiter stuck forever — fixed with an idempotent `finish_scan()` called from both the natural-completion and forced-cancel paths). Full detail in WORKLOG. **Still open:** the Beacons card hasn't been looked at on the deck's actual display yet (same gap Spectrum has); no real AirTag on hand to confirm the tracker classification against genuine hardware. The in-house 802.15.4 recon slice is now planned under D-17.
 - [x] **802.15.4 passive recon (in-house, 2026-09-16).** Oscilla-native,
@@ -198,9 +205,19 @@ Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, exten
 - [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
 - [x] `deauth_detector` + a Deauth card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG). **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
 - [x] `channel_view`, `packet_monitor` + **Spectrum** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.
-- [x] **Wi-Fi continuous AP discovery (software slice, 2026-09-16).** `start_wifi_scan` passively hops the shared channel list, parses beacon/probe-response frames, deduplicates BSSIDs in a bounded table, and streams first-sighting `[EVT] kind=network` rows into the Sweep model (`c` key / `wifiscan` debug command). Host/protocol and both firmware builds pass; real RF discovery, stop/restart, and deck-display behavior remain unverified.
+- [x] **Wi-Fi continuous AP discovery (2026-09-16/17).** `start_wifi_scan` passively hops the shared channel list, parses beacon/probe-response frames, deduplicates BSSIDs in a bounded table, and streams first-sighting `[EVT] kind=network` rows into the Sweep model (`c` key / `wifiscan` debug command). Host/protocol and both firmware builds pass. Live RF discovery, stop/restart, and a no-reset 10-minute soak are hardware-confirmed; the best uncontrolled baseline retained 216 rows with stable current heap and no run exceeded the 256-row cap. A controlled authorized fixture with more than 256 passive APs and final view inspection remain open.
 - [x] Wardrive: stream observations, deck-side geotag against local fix + age, write WigleWifi CSV + KML; **Drive** view. `storage::wardriveCsv*`/`storage::kml*` format writers, `storage::wardrive_logger` for SD I/O, wired to `ScanModel`+`GnssModel`. **Fully hardware-confirmed 2026-09-16**: a 21-minute outdoor session produced `aps=5254 nofix=0 trk=252`, every count matching the device's own — see WORKLOG for the full antenna-unplug/GNSS-diagnostics story this closed out alongside P4.
-- [ ] `start_antisurveillance` (deck correlates BLE sightings with its own movement).
+- [x] **Anti-surveillance software slice (2026-09-17).** `start_antisurveillance`
+  now runs the same passive Find My/AirTag classifier on the probe and streams
+  `kind=airtag` sightings; the deck's Beacons card (`f` / `antisurv`) correlates
+  repeated sightings with fresh GNSS fixes in bounded RAM. It requires two
+  separated movement legs of at least 25 m with a fix no older than 10 s before
+  showing a conservative `FOLLOW?` candidate. Host/protocol tests and both
+  firmware builds pass. Live tracker-classified traffic and the start/stop
+  lifecycle were smoke-tested on the deck without the prior stuck-start state.
+  **Still open:** a controlled moving-tracker run with two qualifying movement
+  legs, final physical view inspection, and the external TFT rendering once P5
+  is available.
 
 **Exit gate:** every DESIGN §7.2 view backed by real frames; a wardrive session produces a valid WiGLE-importable CSV and a KML track.
 

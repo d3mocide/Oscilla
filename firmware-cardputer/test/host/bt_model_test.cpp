@@ -109,6 +109,10 @@ int main()
         check(!m.scanning() && !m.airtagActive() && m.devices().size() == 1 && m.trackerHits().size() == 1,
               "stop clears live state but keeps the tables");
 
+        m.resetTrackerLog();
+        check(!m.airtagActive() && m.trackerHits().empty() && m.trackerCount() == 0,
+              "anti-surveillance can reset the shared tracker ticker without starting airtag mode");
+
         m.clear();
         check(m.devices().empty() && m.trackerHits().empty() && m.trackerCount() == 0,
               "probe reset clears everything");

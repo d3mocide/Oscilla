@@ -278,7 +278,7 @@ isolated third-party dependencies.
 | `wifi_recon.c` | Managed scan; promiscuous sniffer + inspect + channel views; manual hop (optionally D-UCB) |
 | `ble_adv_parse.c` | Bounds-checked BLE AD-structure parser (name, manufacturer data, Find My/AirTag classification); pure C, fuzzed under ASan/UBSan — same split as `beacon_parse.c` |
 | `ble_device_table.c` | `scan_bt`'s capped, deduplicated device table — pure C, host-tested upsert logic, same split as `sniff_track.c` |
-| `ble_recon.c` | NimBLE passive scan — a bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), continuous tracker classification (`scan_airtag`), OCP-SPEC §11; thin glue over the two modules above, the arbiter, and OCP framing — **hardware-confirmed 2026-09-16** (see WORKLOG) |
+| `ble_recon.c` | NimBLE passive scan — a bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), continuous tracker classification (`scan_airtag`), and the passive anti-surveillance stream (`start_antisurveillance`), OCP-SPEC §11; thin glue over the two modules above, the arbiter, and OCP framing — **hardware-confirmed 2026-09-16** for the existing modes (see WORKLOG) |
 | `zig_radio.c` | Passive 802.15.4 radio lifecycle, channel dwell/hop, ISR callback handoff; hardware-confirmed 2026-09-16 |
 | `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing; pure C, host-tested and live-capture-confirmed |
 | `zig_table.c` | Capped PAN/node deduplication and updates; pure C, host-tested and live-capture-confirmed |
@@ -360,7 +360,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
 | `src/model/bt_model` | model | `scan_bt`/`start_ble_scan`'s shared device table + `scan_airtag`'s tracker log (OCP-SPEC §11). Named "Bt" not "Ble" — `tools/check_rx_only.py` bans any `ble_`/`NimBLE` identifier from deck source outright (DESIGN §3), so the deck side spells it differently on purpose even though this only ever parses text |
-| `src/ui/bt_view` | view | The Beacons card: device list, tracker count, last tracker sighting |
+| `src/model/anti_surveillance_model` | model | Deck-local, bounded correlation of repeated tracker sightings with fresh GNSS movement; position never crosses OCP or enters storage |
+| `src/ui/bt_view` | view | The Beacons card: device list, tracker count, last tracker sighting, and anti-surveillance movement candidates |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
 | `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
@@ -373,7 +374,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **Trace** | `inspect_network <i>` | One AP deep-dive: security (WPA2/3), **MFP** state, AP uptime, RSSI meter. |
 | **Contacts** | `start_sniffer` / `show_clients` | Live AP↔client map + probe-request SSIDs (streamed via `[EVT]`). |
 | **Spectrum** | `channel_view` / `packet_monitor` | Per-channel utilization bars — the "scope" screen. |
-| **Beacons (BLE)** | `scan_bt` / `start_ble_scan` / `scan_airtag` | BLE device list — a bounded sweep (`s`), a continuous live discovery (`c`), or continuous Find My/AirTag-only classification (`a`); all three share one device list and are mutually exclusive (one `PHY_OWNER_BLE`). Tracker counts. **Not yet built:** a drill-down to track one selected device's RSSI over time — v1 is a list, not a per-device detail view (`src/ui/bt_view`). |
+| **Beacons (BLE)** | `scan_bt` / `start_ble_scan` / `scan_airtag` / `start_antisurveillance` | BLE device list — a bounded sweep (`s`), continuous live discovery (`c`), tracker-only stream (`a`), or deck-local movement correlation (`f`); all share the passive BLE PHY owner. The anti-surveillance result is a conservative candidate, not proof of following. |
 | **Mesh (154)** | `start_zig_recon` + `zig_*` | PAN → node tree, protocol guess, signal quality. |
 | **Sub-GHz (LoRa)** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
 | **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — logging each AP row against the local fix and re-triggering on completion; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
@@ -399,7 +400,7 @@ An earlier design held `d` through boot instead. Dropped after hardware testing 
 
 Off by default; the Link card shows a `DEBUG` badge when it's on, so it's never silently active.
 
-Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, GNSS, wardrive session) — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
+Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `antisurv`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, anti-surveillance, GNSS, wardrive session) plus probe memory telemetry — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. The wiring-level `memory` command reports the deck's heap/PSRAM readings. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
 
 ---
 

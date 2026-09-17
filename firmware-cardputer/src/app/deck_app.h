@@ -45,6 +45,7 @@
 #include "model/bt_model.h"
 #include "model/contacts_model.h"
 #include "model/deauth_model.h"
+#include "model/anti_surveillance_model.h"
 #include "model/gnss_model.h"
 #include "model/lora_model.h"
 #include "model/mesh_model.h"
@@ -120,6 +121,7 @@ private:
     void startBtScan(uint32_t now_ms);
     void toggleBtContinuous(uint32_t now_ms);
     void toggleAirtagScan(uint32_t now_ms);
+    void toggleAntisurveillance(uint32_t now_ms);
     void toggleMesh(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();
@@ -139,6 +141,7 @@ private:
     model::LoraModel lora_;
     model::DeauthModel deauth_;
     model::BtModel bt_;
+    model::AntiSurveillanceModel anti_;
     model::MeshModel mesh_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;
@@ -169,6 +172,7 @@ private:
     size_t mesh_cursor_ = 0;
     uint32_t last_mesh_poll_ms_ = 0;
     bool mesh_start_pending_ = false;
+    bool anti_start_pending_ = false;
 
     /* Queued because the client couldn't send yet (something else was
      * still pending) - retried once that clears, see retrySoon(). */
@@ -177,6 +181,11 @@ private:
 
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;
+    uint32_t probe_heap_min_ = 0;
+    uint32_t probe_heap_largest_ = 0;
+    uint32_t probe_psram_total_ = 0;
+    uint32_t probe_psram_free_ = 0;
+    uint32_t probe_psram_largest_ = 0;
     uint64_t probe_uptime_ms_ = 0;
     uint32_t last_status_reply_ms_ = 0;
     uint32_t last_status_poll_ms_ = 0;

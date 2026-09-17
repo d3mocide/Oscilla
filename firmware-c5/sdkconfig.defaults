@@ -5,6 +5,13 @@ CONFIG_IDF_TARGET="esp32c5"
 # XIAO ESP32-C5 has 8 MB flash (boot log: "Detected size(8192k)").
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 
+# The delivered XIAO ESP32-C5 variant carries 8 MB of PSRAM. Keep
+# performance-sensitive stacks and radio queues internal; app-owned bulk
+# state opts into PSRAM explicitly with MALLOC_CAP_SPIRAM.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_USE_CAPS_ALLOC=y
+CONFIG_SPIRAM_MEMTEST=y
+
 # App and bootloader logs go to native USB, never the command channel
 # (Rev D §3). ROM boot text still appears on UART0; OCP-SPEC §1.1 tolerates it.
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

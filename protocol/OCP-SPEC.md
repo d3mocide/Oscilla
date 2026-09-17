@@ -193,7 +193,7 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, and uptime.
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, and bounded memory telemetry: `heap` (current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
 
 **The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
 
@@ -551,6 +551,7 @@ discoveries, not a packet trace:
 
 ```
 > start_ble_scan
+[CFG] BEGIN
 [CFG] END
 [EVT] kind=ble mac=f4:12:34:56:78:9a name="Pixel Buds" mfr=0075 tracker="" rssi=-58
 [EVT] kind=ble mac=aa:bb:cc:dd:ee:ff name="" mfr=004c tracker="airtag" rssi=-71
@@ -577,6 +578,7 @@ seen:
 
 ```
 > scan_airtag
+[CFG] BEGIN
 [CFG] END
 [EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-71 n=1
 [EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-69 n=2
@@ -592,9 +594,10 @@ seen:
 
 Every matching advertisement produces an event, same posture as
 `deauth_detector` (§10.5) — a tracker re-advertising rapidly nearby is
-itself part of the signal, not noise to deduplicate away. (`start_ble_scan`
-and `scan_airtag` can't run together — both need `PHY_OWNER_BLE` — but
-either can run alongside a Wi-Fi-lane engine, same two-lane arbitration as
+itself part of the signal, not noise to deduplicate away. (`start_ble_scan`,
+`scan_airtag`, and `start_antisurveillance` can't run together — all need
+`PHY_OWNER_BLE` — but either can run alongside a Wi-Fi-lane engine, same
+two-lane arbitration as
 everything else on the PHY lane, DESIGN §6.2.)
 
 ### 11.5 Tracker classification
@@ -605,6 +608,25 @@ Find My network only, matching the verb name `scan_airtag` was chosen for.
 Other vendors' tracker beacon formats (Tile, Samsung SmartTag, Chipolo) are
 a future addition — `OCP_K_TRACKER`'s value is a string specifically so a
 new classification is additive, not a wire-format change.
+
+### 11.6 `start_antisurveillance`
+
+This is a defensive session over the same passive BLE tracker classifier. It
+acquires `PHY_OWNER_BLE`, sets the controller's discovery parameters to
+passive, and streams one `[EVT] kind=airtag mac=... rssi=... n=...` event for
+every matching Find My advertisement until `stop`. It intentionally does not
+send the deck's GNSS position to the probe: the deck correlates repeated
+sightings with its own fresh fixes and keeps that correlation in bounded RAM.
+
+The correlation is conservative and is not proof that a person or device is
+being followed. A tracker becomes an on-device candidate only after the same
+advertiser is observed at two movement legs of at least 25 m each, with a fix
+no older than 10 seconds. No candidate or tracker identifier is written to the
+wardrive files by this mode. The command replies with an empty `[CFG]` block
+(`[CFG] BEGIN` followed by `[CFG] END`) when the passive session has started;
+`[STOP] lane=phy ...` ends it. A bare `[CFG] END` is intentionally not a valid
+empty reply: the parser must treat that shape as a late terminator, so a start
+acknowledgement cannot be mistaken for noise.
 
 ## 12. Passive 802.15.4 frames
 

@@ -29,6 +29,8 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -49,13 +51,19 @@
 
 static const char *TAG = "ble";
 
-typedef enum { BLE_MODE_NONE, BLE_MODE_SCAN_BT, BLE_MODE_SCAN_CONTINUOUS, BLE_MODE_SCAN_AIRTAG } ble_mode_t;
+typedef enum {
+    BLE_MODE_NONE,
+    BLE_MODE_SCAN_BT,
+    BLE_MODE_SCAN_CONTINUOUS,
+    BLE_MODE_SCAN_AIRTAG,
+    BLE_MODE_ANTISURVEILLANCE,
+} ble_mode_t;
 
 static SemaphoreHandle_t s_lock;
 static bool s_ready;
 
 static ble_mode_t s_mode;
-static ble_device_table_t s_table;
+static ble_device_table_t *s_table;
 static int64_t s_started_us;
 static uint32_t s_elapsed_ms;
 static uint32_t s_dwell_ms;
@@ -83,12 +91,12 @@ static void format_device_fields(const ble_device_t *d, char *name, size_t name_
 static void emit_ble_frame(bool aborted)
 {
     ocp_emit_begin(OCP_MARK_BLE, "%s=%u %s=%u %s=%u %s=%u%s",
-                   OCP_K_COUNT, s_table.count, OCP_K_TOTAL, s_table.count,
+                   OCP_K_COUNT, s_table->count, OCP_K_TOTAL, s_table->count,
                    OCP_K_DWELL_MS, s_dwell_ms, OCP_K_ELAPSED_MS, s_elapsed_ms,
                    aborted ? " " OCP_K_ABORTED "=1" : "");
 
-    for (unsigned i = 0; i < s_table.count; i++) {
-        const ble_device_t *d = &s_table.devices[i];
+    for (unsigned i = 0; i < s_table->count; i++) {
+        const ble_device_t *d = &s_table->devices[i];
         char name[4 * 32 + 3], mfr[8];
         format_device_fields(d, name, sizeof name, mfr, sizeof mfr);
         const uint8_t *a = d->addr;
@@ -127,12 +135,13 @@ static int gap_event(struct ble_gap_event *event, void *arg)
 
         ble_adv_info_t info;
         ble_adv_parse(event->disc.data, event->disc.length_data, &info);
-        unsigned before = s_table.count;
-        ble_device_t *row = ble_device_table_upsert(&s_table, event->disc.addr.val, &info, event->disc.rssi);
-        bool is_new = s_table.count > before;   /* count only grows on a genuine insert, never on an update */
+        unsigned before = s_table->count;
+        ble_device_t *row = ble_device_table_upsert(s_table, event->disc.addr.val, &info, event->disc.rssi);
+        bool is_new = s_table->count > before;   /* count only grows on a genuine insert, never on an update */
 
         bool report_new = (s_mode == BLE_MODE_SCAN_CONTINUOUS) && is_new;
-        bool report_tracker = (s_mode == BLE_MODE_SCAN_AIRTAG) && info.is_tracker;
+        bool report_tracker = (s_mode == BLE_MODE_SCAN_AIRTAG ||
+                               s_mode == BLE_MODE_ANTISURVEILLANCE) && info.is_tracker;
         uint32_t airtag_n = report_tracker ? ++s_airtag_n : 0;
 
         uint8_t addr[6];
@@ -234,7 +243,7 @@ void ble_cmd_scan_bt(int argc, char **argv)
     }
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    ble_device_table_reset(&s_table);
+    ble_device_table_reset(s_table);
     s_mode = BLE_MODE_SCAN_BT;
     s_dwell_ms = dwell_ms;
     s_started_us = esp_timer_get_time();
@@ -249,6 +258,14 @@ void ble_cmd_scan_bt(int argc, char **argv)
     }
 }
 
+/* OCP-SPEC §3.2 rejects a bare `[CFG] END` as a late terminator. These
+ * commands have no context fields, so acknowledge them as a valid empty
+ * block instead. */
+static void emit_empty_cfg(void)
+{
+    if (ocp_emit_begin(OCP_MARK_CFG, NULL)) (void)ocp_emit_end(OCP_MARK_CFG);
+}
+
 void ble_cmd_start_scan(void)
 {
     if (arbiter_acquire(PHY_OWNER_BLE, ble_teardown) != ESP_OK) {
@@ -259,7 +276,7 @@ void ble_cmd_start_scan(void)
     }
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    ble_device_table_reset(&s_table);   /* fresh table each session, same as scan_bt/start_sniffer */
+    ble_device_table_reset(s_table);   /* fresh table each session, same as scan_bt/start_sniffer */
     s_mode = BLE_MODE_SCAN_CONTINUOUS;
     xSemaphoreGive(s_lock);
 
@@ -271,7 +288,7 @@ void ble_cmd_start_scan(void)
         ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
         return;
     }
-    ocp_emit_compact(OCP_MARK_CFG, "%s", "");
+    emit_empty_cfg();
 }
 
 void ble_cmd_scan_airtag(void)
@@ -296,7 +313,32 @@ void ble_cmd_scan_airtag(void)
         ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
         return;
     }
-    ocp_emit_compact(OCP_MARK_CFG, "%s", "");
+    emit_empty_cfg();
+}
+
+void ble_cmd_start_antisurveillance(void)
+{
+    if (arbiter_acquire(PHY_OWNER_BLE, ble_teardown) != ESP_OK) {
+        char msg[48];
+        snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
+        ocp_emit_error(OCP_ERR_BUSY, msg);
+        return;
+    }
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_mode = BLE_MODE_ANTISURVEILLANCE;
+    s_airtag_n = 0;
+    xSemaphoreGive(s_lock);
+
+    if (start_disc(BLE_HS_FOREVER) != 0) {
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        s_mode = BLE_MODE_NONE;
+        xSemaphoreGive(s_lock);
+        arbiter_release(PHY_OWNER_BLE);
+        ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
+        return;
+    }
+    emit_empty_cfg();
 }
 
 static void on_reset(int reason)
@@ -319,8 +361,15 @@ static void host_task(void *param)
 
 esp_err_t ble_recon_init(void)
 {
+    s_table = heap_caps_calloc(1, sizeof *s_table,
+                               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_table) {
+        s_table = heap_caps_calloc(1, sizeof *s_table,
+                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     s_lock = xSemaphoreCreateMutex();
-    if (!s_lock) return ESP_ERR_NO_MEM;
+    if (!s_table || !s_lock) return ESP_ERR_NO_MEM;
+    ESP_LOGI(TAG, "BLE table in %s RAM", esp_ptr_external_ram(s_table) ? "PSRAM" : "internal");
 
     esp_err_t err = nimble_port_init();
     if (err != ESP_OK) return err;

@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "esp_event.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -123,7 +124,14 @@ static void on_scan_done(void *arg, esp_event_base_t base, int32_t id, void *dat
     esp_wifi_scan_get_ap_num(&count);
     if (count > WIFI_STORE_MAX) count = WIFI_STORE_MAX;
 
-    wifi_ap_record_t *recs = count ? malloc(count * sizeof *recs) : NULL;
+    wifi_ap_record_t *recs = count
+                                ? heap_caps_malloc(count * sizeof *recs,
+                                                   MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+                                : NULL;
+    if (count && !recs) {
+        recs = heap_caps_malloc(count * sizeof *recs,
+                                MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     if (count && !recs) {
         ESP_LOGE(TAG, "no memory for %u results", count);
         count = 0;
@@ -136,14 +144,14 @@ static void on_scan_done(void *arg, esp_event_base_t base, int32_t id, void *dat
 
     bool aborted = s_aborting;
     if (aborted) {                          /* partial results are not a scan */
-        free(recs);
+        heap_caps_free(recs);
         recs = NULL;
         count = 0;
     } else if (count > 1) {
         qsort(recs, count, sizeof *recs, by_rssi_desc);
     }
 
-    free(s_results);
+    heap_caps_free(s_results);
     s_results = recs;
     s_total = count;
     s_elapsed_ms = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
@@ -172,7 +180,7 @@ static void scan_teardown(void)
     /* No SCAN_DONE: close the scan ourselves rather than leave the deck hanging. */
     xSemaphoreTake(s_lock, portMAX_DELAY);
     if (s_scanning) {
-        free(s_results);
+        heap_caps_free(s_results);
         s_results = NULL;
         s_total = 0;
         s_elapsed_ms = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);

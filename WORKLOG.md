@@ -1,3 +1,136 @@
+## 2026-09-17 — P7 live gate retry stopped at wedged probe USB endpoint
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Retried the repository's live Wi-Fi gate with the installed PlatformIO Python
+environment after the system Python correctly reported that `pyserial` was
+absent. The gate never reached an OCP command: the probe's serial write of
+the initial newline blocked in the host serial layer. The retry was stopped
+without resetting or reflashing the probe. This matches the known
+post-console-closure USB endpoint failure mode; it is a host/USB transport
+blocker, not a failed Wi-Fi or P7 firmware assertion. Earlier live RF gates
+and the no-reset Wi-Fi soak remain the applicable hardware evidence.
+
+## 2026-09-17 — GNSS indoor follow-up: stale checksum count, no ongoing corruption
+
+**Phase:** P4/P7 hardware follow-up · **By:** Codex
+
+Read the attached deck's diagnostics for approximately 90 seconds without
+flashing or changing firmware. The deck remained `gnss fix lost` with the
+fix-age counter increasing, which is consistent with the user's report that
+the receiver was indoors and poorly placed. The cumulative parser counters
+remained flat at `chkfail=63` and `overlong=0` throughout the capture; no new
+UART error line appeared. This does not reproduce an active parser or UART
+corruption fault. The 63 checksum failures remain evidence from the earlier
+bench/connector disturbance and need a fresh outdoor, well-positioned run to
+classify further. No raw NMEA, coordinates, SSIDs, BSSIDs, or other field
+identifiers were retained.
+
+## 2026-09-17 — P7 C5 PSRAM confirmation and heap bucket split
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Confirmed the delivered XIAO ESP32-C5's external PSRAM in the flashed
+Grove-UART image: `psram_total=8,388,608`, `psram_free=8,350,756`, and
+`psram_largest=8,257,536`. The official XIAO specification also lists 8 MB
+PSRAM and 8 MB flash. Enabled explicit PSRAM-capability allocation with a
+startup memtest in `sdkconfig.defaults`; performance-sensitive task stacks,
+radio queues, and driver-owned buffers remain internal SRAM.
+
+Moved the long-lived Wi-Fi network table, Wi-Fi sniff table, BLE table,
+802.15.4 table, and Wi-Fi scan-result buffer to PSRAM with an internal-heap
+fallback in the allocation sites. Capped retained Wi-Fi scan results at 256;
+larger captures remain a deck/SD persistence concern rather than a probe SRAM
+buffer. Status telemetry now reports internal 8-bit heap separately from
+PSRAM, so `heap` no longer becomes misleadingly large after PSRAM is enabled.
+
+The C5 link report fell from 208,276 to 179,906 bytes of high-performance SRAM
+used, reclaiming 28,370 bytes of static space. Live idle status after flashing
+reported 100,780 bytes internal free with a 77,824-byte largest block; during
+anti-surveillance it reported 98,076 free with the same largest block. The
+anti-surveillance start/stop lifecycle and passive scan teardown were smoke
+tested through the deck, and no stuck `anti_starting` state recurred.
+
+Both firmware families build successfully. OCP self-test passes all 27 checks,
+and the full host/protocol suite passes with LeakSanitizer disabled for this
+ptrace-host environment. A populated 256-result Wi-Fi scan and long-duration
+PSRAM soak remain open hardware gates; no CC1101 allocation or driver work is
+included here.
+
+## 2026-09-17 — P7 anti-surveillance start acknowledgement and memory telemetry
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+The deck's anti-surveillance start could remain visibly pending because the
+probe emitted an empty `[CFG] END`; OCP-SPEC §3.2 correctly classifies a bare
+terminator as noise. Empty BLE start acknowledgements now use a valid zero-row
+`[CFG] BEGIN` / `[CFG] END` block. The deck commits anti-surveillance active
+state only after that acknowledgement and clears it on command timeout, link
+loss, error, or scoped PHY stop, so a missing acknowledgement cannot leave a
+stuck "starting" state.
+
+Added bounded `[STATUS]` heap telemetry for current free heap, boot minimum,
+largest free block, and PSRAM total/free/largest. The deck's boot and periodic
+diagnostics now report the same fields locally. Existing findings remain: the
+C5 build has no PSRAM enabled; its static HP-SRAM link report was 208,276 used
+of 320,928 with 112,652 remaining, and direct bench runtime was 70,020 bytes
+idle versus 67,316 bytes during anti-surveillance. The flashed Cardputer
+measured `heap_free=229,932`, `heap_min=227,732`, and `heap_largest=204,788`
+at boot-time command capture; during anti-surveillance it measured 228,868,
+227,312, and 204,788. Its PSRAM fields were all zero. The probe's live status
+measured `heap=68,620` idle and `heap=65,916` during anti-surveillance, with
+`heap_min=64,048`, `heap_largest=47,104`, and all PSRAM fields zero. No
+external TFT is assumed.
+
+Host coverage adds the empty-block acknowledgement regression and timeout
+cleanup path. Live reflash and the deck-mediated start/stop sequence remain
+the final hardware gate for this fix.
+
+## 2026-09-17 — P7 flash and passive BLE lifecycle test
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Flashed the Cardputer `cardputer-adv` image and the C5 probe's Grove-UART
+image using the stable USB identities. A temporary rebuilt USB-bench image
+was used for direct probe validation because the deck's persisted debug mode
+was off: `hello`, `ping`, `status`, `start_antisurveillance`, `stop phy`, and
+post-stop `ping` all passed; the probe reported `owner=ble` while active and
+`owner=none` after stop, and five passive `kind=airtag` events were observed
+near the setup. No identifiers or payloads were logged.
+
+The temporary bench image was restored to Grove-UART from ROM loader mode;
+flash hashes verified. The deck currently reaches OCP `ready` with the probe,
+but its debug console is off, so the deck-mediated anti-surveillance command
+path still needs one Cardputer `d` toggle. Controlled GNSS movement correlation
+and TFT inspection remain unverified.
+
+## 2026-09-17 — P7 anti-surveillance movement correlation
+
+**Phase:** P7 software slice · **By:** Codex
+
+Finished the previously declared-but-unhandled `start_antisurveillance` path.
+The C5 now acquires the passive BLE PHY owner and streams the existing
+`kind=airtag` event shape for Find My/AirTag advertisements until `stop`; it
+adds no scan request, connection, or transmit path. The deck keeps the
+correlation local: the Beacons card uses `f`, and the debug console uses
+`antisurv`.
+
+Added a bounded `anti_surveillance_model` with a conservative rule: the same
+validated advertiser must be observed at two fresh movement legs of at least
+25 m each, with a GNSS fix no older than 10 seconds, before the card shows a
+`FOLLOW?` candidate. Stationary repeats, stale/no-fix observations, malformed
+MAC/RSSI fields, and tracker-table overflow do not advance the alert. Tracker
+identifiers and positions remain in bounded RAM; this mode does not add them
+to wardrive CSV/KML output.
+
+Updated OCP-SPEC §11.6, the DESIGN module/view maps, and the P7 roadmap entry.
+The host model test passes 9 checks; `ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh` passes all protocol, receive-only, parser, fuzz,
+model, and export checks; `./tools/build_firmware.sh` passes the C5 UART image,
+Cardputer app, Grove bridge, and adv-check. No hardware was connected for this
+slice, so live tracker traffic, a controlled movement correlation, and physical
+TFT inspection remain open evidence gates.
+
 ## 2026-09-17 — CI ESP-IDF installer hardening
 
 **Phase:** security remediation CI follow-up · **By:** Codex
@@ -2500,3 +2633,137 @@ passive AP discovery. The existing Link-card `w` shortcut remains available,
 and leaving Sweep with the back key stops its PHY-lane activity.
 
 ---
+## 2026-09-17 — P7 no-reset heap sequence after bench disturbance
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+After the Cardputer was knocked off the bench, the deck was reset once using
+its verified ESP32-S3 USB identity; the C5 probe was not reset or reflashed.
+The host's `/dev/serial/by-id` links remained unreliable, so the run resolved
+the deck by USB serial and kept the udev refresh plus measurement in one host
+session. The first attempted run aborted at the first Wi-Fi scan on a serial
+`EIO`; no later modes ran.
+
+The no-reset sanity run then completed: repeated passive Wi-Fi scans,
+40-second passive Wi-Fi probe/BSSID sniffing, 40-second continuous SSID/BSSID
+discovery, 40-second continuous BLE discovery, 40-second LoRa receive listen,
+and wardrive left open. Baseline probe telemetry was 100,504 bytes free,
+84,048-byte cumulative minimum, and a 65,536-byte largest internal block.
+The repeated Wi-Fi scans held current free heap at 100,504 and moved the
+cumulative minimum to 82,212. Sniffing grew to 29 clients and 12 probes while
+free heap remained 100,376. Continuous SSID/BSSID discovery grew to 173 rows
+with free heap unchanged at 100,376. BLE grew to 74 devices; its start and
+steady-state free heap was 97,676. LoRa received six packets; free heap reached
+95,636 during RX and recovered to 100,076 after the scoped stop.
+
+Wardrive was observed open at start and through the 30-second sample, with
+100,076 bytes free and no internal-heap decline. Two wardrive snapshots were
+missed while the deck was busy handling scan output, and the final host query
+lost the deck's `/dev/ttyACM` node again; wardrive was not stopped. This is
+valid lifecycle/heap evidence, not a complete wardrive row-count proof.
+## 2026-09-17 — P7 ten-minute Wi-Fi table soak
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Ran a 600-second continuous passive SSID/BSSID discovery soak with no board
+reset. The probe's observed table grew from 51 rows at start to 207 rows and
+then plateaued; the available RF environment did not reach the 256-row bound,
+so this is not a direct over-cap rejection proof. The deck's row count remained
+below its separate 512-row UI cap.
+
+Internal probe free heap stayed at 100,076 bytes for every successful sample,
+and the largest internal block stayed at 65,536 bytes. The cumulative minimum
+watermark was 81,408 bytes through 570 seconds, then reached 74,036 near the
+end; current free heap recovered/stayed unchanged, so this is a transient
+allocation watermark rather than evidence of a leak or fragmentation trend.
+The session ended with `stop phy` and the same 100,076-byte free heap. PSRAM
+held the growing network table; no internal-heap decline accompanied the 207
+observed networks.
+
+Open gate: use an authorized controlled RF fixture with more than 256 distinct
+passive AP/BSSID beacons to prove the probe's exact drop-at-cap behavior. Keep
+that separate from the soak result above.
+## 2026-09-17 — P7 ten-minute Wi-Fi soak with 8 dB antenna
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Repeated the 600-second continuous passive SSID/BSSID soak without resetting
+either board after attaching the 8 dB antenna. The prior retained deck count
+was 207; starting the new continuous session reset the observed table to 49,
+then the run peaked at 172 distinct networks and ended at 172. This was lower
+than the previous 207-row run, but RF population, placement, and orientation
+were not controlled, so it does not establish that the antenna reduced or
+increased sensitivity.
+
+Probe heap behavior was unchanged and clean: current internal free heap stayed
+at 100,076 bytes, the cumulative minimum watermark stayed at 74,036 bytes,
+and the largest internal block stayed at 65,536 bytes for all 23 samples. The
+session ended with `stop phy` and no wardrive session open. No 256-row cap proof
+was obtained; verify the antenna's band/connector/seating and use a controlled
+authorized beacon fixture for the exact over-cap gate.
+## 2026-09-17 — P7 ten-minute Wi-Fi soak with 3 dBi directional antenna
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Repeated the 600-second continuous passive SSID/BSSID soak without resetting
+either board after attaching the 3 dBi directional antenna. The prior retained
+deck count was 172; the new session started at 46 and reached 181 networks by
+the end. This was modestly better than the 8 dB run's 172 but below the
+earlier 207-row run; orientation, placement, RF population, and antenna
+calibration were not controlled, so this is not a sensitivity conclusion.
+
+Current internal free heap stayed at 100,076 bytes and the largest internal
+block stayed at 65,536 bytes for all 23 samples. The cumulative minimum
+watermark fell from 74,036 to 40,556 bytes around 390 seconds and then stayed
+there while current free heap recovered/remained unchanged. This is not a
+current-heap leak, but the transient is materially larger than either earlier
+soak and should be investigated before adding more probe features. The run
+ended with `stop phy`, no wardrive session open, and no 256-row cap proof.
+## 2026-09-17 — P7 ten-minute Wi-Fi soak with 5 dBi omni antenna
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Repeated the 600-second continuous passive SSID/BSSID soak without resetting
+either board after attaching the 5 dBi omni antenna. The new session started
+at 56 and reached 182 networks by the end, essentially tied with the 3 dBi
+directional run at 181 and below the earlier 207-row baseline. This remains an
+uncontrolled RF comparison because placement, orientation, nearby traffic,
+and antenna matching were not held to a calibrated test fixture.
+
+Heap behavior was flat: current internal free heap stayed at 100,076 bytes,
+the cumulative minimum watermark stayed at 40,556 bytes, and the largest
+internal block stayed at 65,536 bytes for all 23 samples. The run ended with
+`stop phy`, no wardrive session open, and no 256-row cap proof. The antenna
+change did not expose a new memory issue.
+## 2026-09-17 — P7 baseline antenna comparison rerun
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Restored the baseline antenna and repeated the 600-second continuous passive
+SSID/BSSID soak without resetting either board. The session reached 216
+networks, improving on the earlier baseline peak of 207 and clearly exceeding
+the 5 dBi omni (182), 3 dBi directional (181), and 8 dB antenna (172) runs in
+the same bench campaign. This is the strongest local RF result, although the
+environment was not a calibrated or simultaneous A/B fixture.
+
+Current internal free heap stayed at 100,076 bytes, the cumulative minimum
+watermark stayed at 40,556 bytes, and the largest internal block stayed at
+65,536 bytes for all 23 samples. The run ended with `stop phy`, no wardrive
+session open, and no 256-row cap proof. The baseline antenna should remain the
+default for the controlled over-cap fixture attempt.
+## 2026-09-17 — P7 bench shutdown snapshot
+
+**Phase:** P7 hardware follow-up · **By:** Codex
+
+Before teardown, issued idempotent `stop phy` and `stop lora` commands. The
+deck remained OCP-ready with `wardrive_open=0`; the final probe telemetry was
+100,076 bytes internal free, 40,556-byte cumulative minimum, 65,536-byte
+largest internal block, 8,388,608-byte PSRAM total, 8,336,448-byte PSRAM free,
+and an 8,257,536-byte largest PSRAM block. Retained deck/probe counts were
+216 Wi-Fi rows, 29 clients, 12 probes, 74 BLE devices, and 6 LoRa packets;
+these are counts only and no field identifiers were recorded.
+
+The deck's GNSS diagnostic showed `chkfail=63` and `overlong=0` during the
+final cleanup window. This was not part of the Wi-Fi heap test and needs a
+fresh GNSS wiring/stream investigation next session; it does not block radio
+shutdown.

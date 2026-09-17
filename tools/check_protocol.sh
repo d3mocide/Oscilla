@@ -135,6 +135,14 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/bt_model_test" | tail -1 | sed 's/^/  /'
 
+# The deck-local anti-surveillance correlator: bounded tracker table, fresh-fix
+# requirement, two-leg movement threshold, and stop/clear semantics.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/anti_surveillance_model_test" \
+    firmware-cardputer/test/host/anti_surveillance_model_test.cpp \
+    firmware-cardputer/src/model/anti_surveillance_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/anti_surveillance_model_test" | tail -1 | sed 's/^/  /'
+
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/mesh_model_test" \
     firmware-cardputer/test/host/mesh_model_test.cpp firmware-cardputer/src/model/mesh_model.cpp \
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
