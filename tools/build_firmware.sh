@@ -31,7 +31,7 @@ echo "=== probe: firmware-c5 (esp32c5, $VARIANT) ==="
 (
     cd firmware-c5
     idf.py -B "$BUILD_DIR" -DSDKCONFIG="$BUILD_DIR/sdkconfig" \
-        -DSDKCONFIG_DEFAULTS="$DEFAULTS" -DIDF_TARGET=esp32c5 build 2>&1 | tail -3
+        -DSDKCONFIG_DEFAULTS="$DEFAULTS" -DIDF_TARGET=esp32c5 build
     grep -q "^CONFIG_OSCILLA_OCP_TRANSPORT_$([ "$VARIANT" = bench ] && echo USB || echo UART)=y" \
         "$BUILD_DIR/sdkconfig" || { echo "transport mismatch in $BUILD_DIR" >&2; exit 1; }
     echo "  transport verified: $VARIANT -> firmware-c5/$BUILD_DIR"
@@ -40,7 +40,7 @@ echo
 echo "=== deck: firmware-cardputer (esp32s3) ==="
 (
     cd firmware-cardputer
-    pio run 2>&1 | tail -5
+    pio run
 )
 
 echo

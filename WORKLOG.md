@@ -1,3 +1,22 @@
+## 2026-09-17 — CI firmware failure diagnosis
+
+**Phase:** security remediation CI follow-up · **By:** Codex
+
+The first pushed workflow run (`35244703931`, commit `06e2427`) passed the
+entire `host-security` job and failed only in `firmware` at `Build C5 UART and
+deck` with exit code 2; the bench build was skipped. The public GitHub job
+summary did not include the command output, and anonymous log download was
+not permitted. The local build script was also truncating the C5 and
+PlatformIO output to its final few lines, which would hide the actionable
+error.
+
+The workflow now installs pinned PlatformIO Core 6.2.0 into a dedicated
+runner-temporary virtualenv and exports that bin directory through
+`GITHUB_PATH`. `tools/build_firmware.sh` now leaves both build outputs intact
+so the next run exposes the real failure. No firmware or security gate was
+weakened; the existing local host suite and hardware-proven receive-only
+boundary remain the acceptance gates.
+
 ## 2026-09-17 — pre-commit SD card inspection
 
 **Phase:** security remediation pre-commit evidence · **By:** Codex

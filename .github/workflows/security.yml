@@ -22,7 +22,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install pinned PlatformIO Core
-        run: python -m pip install platformio==6.2.0
+        run: |
+          python -m venv "$RUNNER_TEMP/platformio-venv"
+          "$RUNNER_TEMP/platformio-venv/bin/python" -m pip install platformio==6.2.0
+          echo "$RUNNER_TEMP/platformio-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned ESP-IDF
         run: |
           mkdir -p "$HOME/esp"

@@ -12,8 +12,11 @@ own hardware behavior:
 `tools/build_firmware.sh` asserts the first two versions before either board
 build starts. The platform and library versions are declared in
 `platformio.ini`; generated `.pio` package state remains a build artifact and
-is not treated as reviewable source. CI runs the same host security gate and
-both C5 build variants.
+is not treated as reviewable source. CI installs PlatformIO into a dedicated
+Python virtualenv so the pinned `pio` executable is on PATH independently of
+the runner's user-install layout, then runs the same host security gate and
+both C5 build variants. Build output is left intact in CI so a failed toolchain
+or compile step remains diagnosable.
 
 The resulting binaries still require board, RF, storage, and power validation;
 identical toolchain inputs do not constitute hardware evidence.
