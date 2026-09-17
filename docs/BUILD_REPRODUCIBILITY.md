@@ -18,9 +18,11 @@ the runner's user-install layout. CI deliberately adds that virtualenv to
 `PATH` only after ESP-IDF has created its own Python environment; otherwise the
 ESP-IDF installer rejects the nested virtualenv. The resulting path is written
 to the runner environment from a step, rather than using the unavailable
-`runner` context at job-level `env`. CI then runs the same host security gate
-and both C5 build variants. Build output is left intact in CI so a failed
-toolchain or compile step remains diagnosable.
+`runner` context at job-level `env`. CI then runs the same host security gate,
+the production C5 UART plus deck build, and a probe-only C5 USB bench build.
+The bench check covers the distinct USB transport without rebuilding the
+unchanged deck. Build output is left intact in CI so a failed toolchain or
+compile step remains diagnosable.
 
 The resulting binaries still require board, RF, storage, and power validation;
 identical toolchain inputs do not constitute hardware evidence.

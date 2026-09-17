@@ -165,6 +165,9 @@ Both toolchains are installed on the bench machine:
 # Build both images:
 ./tools/build_firmware.sh
 
+# Build only the C5 USB bench image (the CI optimization):
+./tools/build_firmware.sh --bench --probe-only
+
 # Or build individually:
 source tools/env.sh
 cd firmware-c5 && idf.py build

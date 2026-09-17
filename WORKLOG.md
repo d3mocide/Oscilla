@@ -33,6 +33,19 @@ Added a tracked placeholder to preserve the reserved component directory on a
 clean checkout. No firmware behavior or component code changed; the next gate
 is the C5 UART build followed by the bench and deck builds.
 
+## 2026-09-17 — CI bench build narrowed to probe-only
+
+**Phase:** security remediation CI efficiency · **By:** Codex
+
+The production CI invocation already builds the C5 UART image and the complete
+Cardputer deck. The bench invocation changes only the C5 OCP transport to USB
+Serial/JTAG, but previously rebuilt the unchanged deck a second time.
+
+Added `--probe-only` to `tools/build_firmware.sh` and changed CI to run
+`--bench --probe-only`. Local `--bench` remains a full two-firmware build for
+developer convenience; CI retains the distinct USB transport compile coverage
+without spending runner time on a duplicate deck build.
+
 ## 2026-09-17 — CI firmware failure diagnosis
 
 **Phase:** security remediation CI follow-up · **By:** Codex

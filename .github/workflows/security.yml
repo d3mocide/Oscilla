@@ -37,5 +37,5 @@ jobs:
           echo "OSCILLA_PIO_BIN=$RUNNER_TEMP/platformio-venv/bin" >> "$GITHUB_ENV"
       - name: Build C5 UART and deck
         run: ./tools/build_firmware.sh
-      - name: Build C5 USB bench variant and deck
-        run: ./tools/build_firmware.sh --bench
+      - name: Build C5 USB bench variant (probe only)
+        run: ./tools/build_firmware.sh --bench --probe-only
