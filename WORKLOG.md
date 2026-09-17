@@ -19,6 +19,20 @@ smaller context set at that key. The next revision will set `OSCILLA_PIO_BIN`
 through `GITHUB_ENV` in the post-install runner step. The next gate is another
 pushed workflow run; firmware compilation is not CI-validated yet.
 
+## 2026-09-17 — CI C5 components directory packaging
+
+**Phase:** security remediation CI follow-up · **By:** Codex
+
+The next pushed run passed workflow validation and toolchain installation, then
+failed at the first C5 CMake configure because `firmware-c5/CMakeLists.txt`
+unconditionally names `firmware-c5/components` in `EXTRA_COMPONENT_DIRS`.
+That directory was empty and therefore absent from the Git checkout; the local
+build had masked the problem with its machine-local directory.
+
+Added a tracked placeholder to preserve the reserved component directory on a
+clean checkout. No firmware behavior or component code changed; the next gate
+is the C5 UART build followed by the bench and deck builds.
+
 ## 2026-09-17 — CI firmware failure diagnosis
 
 **Phase:** security remediation CI follow-up · **By:** Codex
