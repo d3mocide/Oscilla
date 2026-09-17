@@ -6,23 +6,23 @@ Licensed under the MIT License. See LICENSE.
 Third-party material
 ================================================================================
 
-Oscilla's probe firmware studies and, in one case, incorporates code from two
-upstream MIT-licensed projects. Both remain under their original licenses and
-copyrights; nothing here relicenses them.
+Oscilla's probe firmware studies two upstream MIT-licensed projects. No source
+from either project is copied into the current 802.15.4 implementation. Both
+remain under their original licenses and copyrights; nothing here relicenses
+them.
 
 --------------------------------------------------------------------------------
 C5Lab projectZero
 --------------------------------------------------------------------------------
 License: MIT
 
-Used in Oscilla as follows (DESIGN.md §11):
+Referenced by Oscilla as follows (DESIGN.md §11):
 
-  * Lifted verbatim
-      - zig_recon/  (IEEE 802.15.4 PAN and node discovery)
-        Target location: firmware-c5/components/zig_recon/ (scheduled for P7/P8)
-        Original copyright and author headers are preserved in every lifted
-        file. Lifted code is kept isolated under components/ so its provenance
-        stays obvious.
+  * Studied and reimplemented clean-room
+      - zig_recon/ behavior and protocol boundaries (IEEE 802.15.4 PAN and
+        node discovery)
+        Oscilla's implementation lives in firmware-c5/main/zig_*.c and copies
+        no projectZero source.
 
   * Referenced and reimplemented (no code copied)
       - the D-UCB discounted-bandit channel picker
@@ -56,7 +56,8 @@ Obligations
 ================================================================================
 
 The MIT License requires that the copyright notice and permission notice be
-included in all copies or substantial portions of the software. Accordingly:
+included in all copies or substantial portions of copied software. Oscilla
+currently has no copied projectZero or risinek source. If that changes:
 
   1. Every lifted file keeps its original header intact.
   2. Lifted components live under firmware-c5/components/, never mixed into

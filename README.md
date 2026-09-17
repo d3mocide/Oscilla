@@ -208,7 +208,7 @@ To maintain rigorous code health, modularity, and licensing integrity, Oscilla f
 
 | Component / Subsystem | Upstream Source | Integration Method | Implementation Status |
 |---|---|---|---|
-| **802.15.4 Zigbee Recon (`zig_recon/`)** | C5Lab projectZero (MIT) | **To be lifted verbatim** with original headers | Scheduled for P7/P8 (will be isolated under `firmware-c5/components/zig_recon/`) |
+| **802.15.4 Zigbee Recon** | C5Lab projectZero (MIT) | **Clean-room reimplementation; no source copied** | Scheduled for P7/P8 in `firmware-c5/main/zig_*.c`, limited to passive PAN/node discovery and protocol classification |
 | **D-UCB Channel Picker** | projectZero (MIT) | **Clean-room reimplementation** | Discounted-bandit adaptive channel allocation in `firmware-c5/main/` |
 | **Wi-Fi Promiscuous Sniffer** | @risinek / projectZero (MIT) | **Clean-room reimplementation** | Passive non-blocking 2.4/5 GHz frame parser in `firmware-c5/main/` |
 | **NimBLE Passive Tracker** | projectZero (MIT) | **Clean-room reimplementation** | BLE beacon, AirTag, and RPA rotation tracking in `firmware-c5/main/` |
@@ -218,6 +218,7 @@ To maintain rigorous code health, modularity, and licensing integrity, Oscilla f
 > **Deliberately Excluded Upstream Code:**
 > 1. **All transmit & offensive engines:** Oscilla rejects all deauth, beacon spam, PMKID injection, and active attack modules from upstream tools. Oscilla is strictly receive-only by construction ([DESIGN.md §8](DESIGN.md), [D-8](docs/DECISIONS.md)).
 > 2. **Monolithic source files:** projectZero's `main.c` monolith is explicitly on the do-not-copy list ([AGENTS.md §7.2](AGENTS.md)). Oscilla enforces single-responsibility modules (~300 lines soft cap).
+> 3. **802.15.4 recon:** projectZero's `zig_recon/` is a reference for behavior and protocol boundaries only. Oscilla's implementation is in-house, receive-only, and limited to passive MAC observations.
 
 ### License & Obligations
 

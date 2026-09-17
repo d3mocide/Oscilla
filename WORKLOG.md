@@ -1,3 +1,22 @@
+## 2026-09-16 — choose an in-house 802.15.4 recon implementation
+
+**Phase:** P7 planning · **By:** Will + Codex
+
+Replaced the earlier plan to lift projectZero's `zig_recon/` verbatim. Although
+the upstream code is MIT-licensed, copying it would create avoidable derivative
+optics and could import assumptions from a broader wireless-pentesting stack
+into Oscilla's strict receive-only architecture.
+
+P7 will implement a bounded, passive observer in four small probe modules:
+`zig_radio.c`, `zig_frame.c`, `zig_table.c`, and `zig_recon.c`. The scope is
+802.15.4 channel dwell, promiscuous RX, MAC-header parsing, conservative
+Zigbee/Thread/unknown classification, capped PAN/node tracking, `[ZIG]`
+frames, and the deck Mesh view. Association, commissioning, keys,
+network-layer decoding, and any transmit path remain out of scope.
+
+Updated DESIGN.md §6/§10/§11, ROADMAP P7, README reuse boundaries, NOTICE,
+and added D-17 to record the source strategy.
+
 ## 2026-09-16 — live hardware proof: continuous Wi-Fi rows reach the deck
 
 **Phase:** P7 · **By:** Will + Codex

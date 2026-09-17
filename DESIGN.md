@@ -254,7 +254,8 @@ v0.1 specified a resumable block protocol for pulling files off the probe SD. **
 
 ## 6. `oscilla-c5` — the probe firmware
 
-Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
+Built ESP-IDF-native. A clean app layer over small in-house engines and
+isolated third-party dependencies.
 
 ### 6.1 Module map
 
@@ -276,7 +277,10 @@ Built ESP-IDF-native. A clean app layer over lifted, battle-tested components.
 | `ble_adv_parse.c` | Bounds-checked BLE AD-structure parser (name, manufacturer data, Find My/AirTag classification); pure C, fuzzed under ASan/UBSan — same split as `beacon_parse.c` |
 | `ble_device_table.c` | `scan_bt`'s capped, deduplicated device table — pure C, host-tested upsert logic, same split as `sniff_track.c` |
 | `ble_recon.c` | NimBLE passive scan — a bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), continuous tracker classification (`scan_airtag`), OCP-SPEC §11; thin glue over the two modules above, the arbiter, and OCP framing — **hardware-confirmed 2026-09-16** (see WORKLOG) |
-| `zig_recon/` | **Lifted verbatim** from projectZero — 802.15.4 PAN/node discovery — **blocked: projectZero source not available locally yet** |
+| `zig_radio.c` | Passive 802.15.4 radio lifecycle, channel dwell/hop, RX callback handoff |
+| `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing and conservative Zigbee/Thread classification; pure C, host-tested |
+| `zig_table.c` | Capped PAN/node deduplication, updates, and eviction; pure C, host-tested |
+| `zig_recon.c` | 802.15.4 scan orchestration, arbiter/stop hooks, and `[ZIG]` OCP output |
 | `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
 | `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
 | `config.c` | NVS-backed settings (band, channel set, LoRa RX params) |
@@ -468,8 +472,7 @@ oscilla/
 │   ├── CMakeLists.txt
 │   ├── sdkconfig.defaults        ← target esp32c5, NimBLE, 802.15.4
 │   ├── main/                     ← app layer (ocp_server, arbiter, engines, lora)
-│   └── components/
-│       └── zig_recon/            ← lifted (MIT)
+│   └── components/               ← isolated third-party components only
 ├── firmware-cardputer/           ← PlatformIO (Arduino + M5Unified) — the deck
 │   ├── platformio.ini
 │   └── src/                      ← ocp client, model, gnss, logger, views, HAL
@@ -490,16 +493,19 @@ oscilla/
 
 | Source | Action | Where |
 |---|---|---|
-| projectZero `zig_recon/` | **Lift verbatim** (MIT) | `firmware-c5/components/zig_recon/` |
+| projectZero `zig_recon/` | **Study only; clean-room reimplementation** | `firmware-c5/main/zig_radio.c`, `zig_frame.c`, `zig_table.c`, `zig_recon.c` |
 | projectZero `frame_analyzer`, `sniffer`, `pcap_serializer`, `hccapx_serializer` | **Deferred** — needs frame streaming without a probe SD | — |
 | projectZero D-UCB, promiscuous hop, NimBLE params, band-mode | **Reference → reimplement** | `firmware-c5/main/` |
 | projectZero `main.c` monolith | **Do not copy** | — |
 | SX1262 driver | **Thin in-house**, datasheet-transcribed, no third-party library ([D-11](docs/DECISIONS.md), decided) | `firmware-c5/main/lora_radio.c` |
 
-**Licensing:** projectZero and the risinek core are **MIT**. Oscilla ships under **MIT** and:
-- preserves original copyright/`@risinek` headers in any lifted file,
-- adds a `NOTICE` crediting C5Lab projectZero and the upstream tool,
-- keeps lifted components isolated in `components/` so provenance is obvious.
+**Licensing:** projectZero and the risinek core are **MIT** reference projects.
+Oscilla ships under **MIT** and keeps their lineage visible in `README.md` and
+`NOTICE`, but copies no source from `projectZero` for the 802.15.4 engine. The
+in-house implementation is limited to passive observation and uses the ESP-IDF
+802.15.4 receive primitives directly. If third-party source is ever added, it
+must retain its headers, remain isolated in `components/`, and be recorded in
+`NOTICE` in the same change.
 
 ---
 
