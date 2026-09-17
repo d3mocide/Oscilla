@@ -126,6 +126,18 @@ def deck_finder(line):
 
 def main() -> int:
     problems = check(PROBE_DIRS, probe_finder) + check(DECK_DIRS, deck_finder, DECK_BANNED_INCLUDE)
+    # ESP-IDF changes auto-ACK state with promiscuous mode. D-17's 802.15.4
+    # adapter must enable it before RX, and must never turn it back off while
+    # the radio is enabled (that would re-enable automatic ACK transmission).
+    zig_radio = ROOT / "firmware-c5/main/zig_radio.c"
+    if not zig_radio.exists():
+        problems.append("firmware-c5/main/zig_radio.c: missing D-17 802.15.4 receive-only adapter")
+    else:
+        code = strip_comments_and_strings(zig_radio.read_text(errors="replace"))
+        if not re.search(r"\besp_ieee802154_set_promiscuous\s*\(\s*true\s*\)", code):
+            problems.append("firmware-c5/main/zig_radio.c: missing promiscuous=true required to disable 802.15.4 auto-ACK TX")
+        if re.search(r"\besp_ieee802154_set_promiscuous\s*\(\s*false\s*\)", code):
+            problems.append("firmware-c5/main/zig_radio.c: promiscuous=false can re-enable 802.15.4 auto-ACK TX")
     if problems:
         print("FAIL: transmit-capable API reachable from firmware source (D-8):")
         print("\n".join(f"  {p}" for p in problems))

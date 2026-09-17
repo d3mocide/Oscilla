@@ -18,6 +18,7 @@
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
+#include "zig_recon.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -53,7 +54,7 @@ static const struct {
 /* Advertise only engines that actually came up: caps are a promise (§4). */
 const char *ocp_server_caps(void)
 {
-    static char caps[32];
+    static char caps[64];
     int n = 0;
     if (wifi_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s" OCP_CAP_SEP "%s", OCP_CAP_WIFI24, OCP_CAP_WIFI5);
@@ -63,6 +64,9 @@ const char *ocp_server_caps(void)
     }
     if (ble_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_BLE);
+    }
+    if (zig_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_IEEE802154);
     }
     return caps;
 }
@@ -212,6 +216,22 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SCAN_AIRTAG:
         ble_cmd_scan_airtag();
+        break;
+
+    case OCP_VID_START_ZIG_RECON:
+        zig_cmd_start(argc, argv);
+        break;
+    case OCP_VID_ZIG_STATUS:
+        zig_cmd_status();
+        break;
+    case OCP_VID_ZIG_LIST:
+        zig_cmd_list();
+        break;
+    case OCP_VID_ZIG_NODES:
+        zig_cmd_nodes(argc, argv);
+        break;
+    case OCP_VID_ZIG_CLEAR:
+        zig_cmd_clear();
         break;
 
     case OCP_VID_REBOOT:

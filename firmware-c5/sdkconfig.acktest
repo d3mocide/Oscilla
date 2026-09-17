@@ -1,0 +1,3 @@
+# Bench overlay: known unicast identity for the external ACK/no-ACK control.
+# This retains UART OCP; combine with sdkconfig.defaults, not sdkconfig.bench.
+CONFIG_OSCILLA_ZIG_ACK_TEST_IDENTITY=y

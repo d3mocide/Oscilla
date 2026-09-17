@@ -19,6 +19,7 @@
 #include "ui/gnss_view.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
+#include "ui/mesh_view.h"
 #include "ui/spectrum_view.h"
 #include "ui/subghz_view.h"
 #include "ui/sweep_view.h"
@@ -32,6 +33,7 @@ constexpr uint32_t kKeepaliveMs = 3000;   /* ping when idle, to notice a lost pr
 constexpr uint32_t kRedrawMs = 200;
 constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
+constexpr uint32_t kMeshPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
 constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
 /* Drive-track vertex cadence. A 1 Hz fix logged raw is 3600 points an hour
@@ -45,7 +47,7 @@ constexpr uint32_t kGnssDiagMs = 5000;
  * physical arrow-key cluster on the Cardputer's keyboard. Trace remains a
  * drill-down from Sweep (DESIGN §7.3). */
 constexpr Screen kCards[] = { Screen::Link,   Screen::Sweep,   Screen::Contacts, Screen::Info,
-                              Screen::Spectrum, Screen::SubGhz, Screen::Deauth,
+                              Screen::Spectrum, Screen::Mesh, Screen::SubGhz, Screen::Deauth,
                               Screen::Drive, Screen::Beacons };
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
 
@@ -73,6 +75,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "contacts") *out = Screen::Contacts;
     else if (name == "info") *out = Screen::Info;
     else if (name == "spectrum") *out = Screen::Spectrum;
+    else if (name == "mesh") *out = Screen::Mesh;
     else if (name == "subghz" || name == "lora") *out = Screen::SubGhz;
     else if (name == "deauth") *out = Screen::Deauth;
     else if (name == "drive") *out = Screen::Drive;
@@ -94,6 +97,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         if (s != ocp::LinkState::Ready) {
             lora_listen_pending_ = false;
             wifi_continuous_pending_ = false;
+            mesh_start_pending_ = false;
             /* Same reasoning: a queued retry is moot once the link isn't
              * Ready, and must never fire later against something unrelated
              * after a reconnect. */
@@ -112,6 +116,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         lora_.clear();
         storage::loraLogEnd();
         deauth_.clear();
+        mesh_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
         notice("probe rebooted - resynced");
@@ -149,6 +154,10 @@ void DeckApp::onReply(const ocp::Item &it)
         if (wifi_continuous_pending_) {
             wifi_continuous_pending_ = false;
             scan_.stop();
+        }
+        if (mesh_start_pending_) {
+            mesh_start_pending_ = false;
+            mesh_.stop();
         }
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
@@ -190,6 +199,7 @@ void DeckApp::onReply(const ocp::Item &it)
             spectrum_.stop();
             deauth_.stop();
             bt_.stop();
+            mesh_.stop();
         }
         if (all || *lane == OCP_LANE_LORA) {
             lora_.stop();
@@ -258,6 +268,11 @@ void DeckApp::onReply(const ocp::Item &it)
         bt_.absorbScan(it);
         log("ble scan devices=" + std::to_string(bt_.devices().size()) +
             " malformed=" + std::to_string(bt_.malformedRows()));
+    } else if (it.tag == OCP_MARK_ZIG) {
+        mesh_start_pending_ = false;
+        mesh_.absorb(it);
+        log("mesh pans=" + std::to_string(mesh_.pans().size()) + " nodes=" + std::to_string(mesh_.nodes().size()) +
+            " malformed=" + std::to_string(mesh_.malformedRows()));
     }
 }
 
@@ -451,6 +466,15 @@ void DeckApp::toggleAirtagScan(uint32_t now_ms)
     notice("");
 }
 
+void DeckApp::toggleMesh(uint32_t now_ms)
+{
+    if (mesh_.active()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!client_.send(OCP_V_START_ZIG_RECON, now_ms)) { retrySoon([this](uint32_t t) { toggleMesh(t); }, now_ms); return; }
+    mesh_start_pending_ = true;
+    mesh_.begin(); mesh_cursor_ = 0; screen_ = Screen::Mesh; notice("");
+}
+
 void DeckApp::feedGnss(const uint8_t *data, size_t len, uint32_t now_ms)
 {
     now_ = now_ms;
@@ -519,7 +543,7 @@ void DeckApp::back(uint32_t now_ms)
      * layer, just reachable again if this call didn't scope it too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
-    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Deauth) {
+    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth) {
         client_.stop(now_ms, OCP_LANE_PHY);
     } else if (client_.pending()) {
         /* Only Sweep/Trace/Link reach here with something pending, and
@@ -586,6 +610,11 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY);
                 else startChannelView(now_ms);
             }
+            break;
+        case Screen::Mesh:
+            if (c == ';' && mesh_cursor_ > 0) mesh_cursor_--;
+            else if (c == '.' && mesh_cursor_ + 1 < mesh_.nodes().size()) mesh_cursor_++;
+            else if (c == 's') toggleMesh(now_ms);
             break;
         case Screen::SubGhz:
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
@@ -757,6 +786,11 @@ void DeckApp::tick(uint32_t now_ms)
         last_status_poll_ms_ = now_ms;
         client_.send(OCP_V_STATUS, now_ms);
     }
+    if (screen_ == Screen::Mesh && mesh_.active() && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_mesh_poll_ms_ >= kMeshPollMs) {
+        last_mesh_poll_ms_ = now_ms;
+        client_.send(OCP_V_ZIG_LIST, now_ms);
+    }
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
         now_ms - last_keepalive_ms_ >= kKeepaliveMs) {
         last_keepalive_ms_ = now_ms;
@@ -811,6 +845,9 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Spectrum:
         ui::drawSpectrumView(spectrum_, spectrum_cursor_, notice_);
+        break;
+    case Screen::Mesh:
+        ui::drawMeshView(mesh_, mesh_cursor_, notice_);
         break;
     case Screen::SubGhz:
         ui::drawSubGhzView(lora_, lora_cursor_, notice_);

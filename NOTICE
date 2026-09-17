@@ -7,7 +7,7 @@ Third-party material
 ================================================================================
 
 Oscilla's probe firmware studies two upstream MIT-licensed projects. No source
-from either project is copied into the current 802.15.4 implementation. Both
+from either project is copied into Oscilla's 802.15.4 implementation. Both
 remain under their original licenses and copyrights; nothing here relicenses
 them.
 
@@ -18,10 +18,10 @@ License: MIT
 
 Referenced by Oscilla as follows (DESIGN.md §11):
 
-  * Studied and reimplemented clean-room
+  * Studied as a behavior/protocol reference; reimplemented in-house
       - zig_recon/ behavior and protocol boundaries (IEEE 802.15.4 PAN and
         node discovery)
-        Oscilla's implementation lives in firmware-c5/main/zig_*.c and copies
+        Oscilla's in-house implementation lives in firmware-c5/main/zig_*.c and copies
         no projectZero source.
 
   * Referenced and reimplemented (no code copied)

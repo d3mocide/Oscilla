@@ -20,6 +20,7 @@
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
+#include "zig_recon.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -55,6 +56,7 @@ void app_main(void)
      * checking OCP_CAP_BLE via ble_recon_ready() covers the narrow boot
      * window before that, same "stays local" posture as the others. */
     if (ble_recon_init() != ESP_OK) ESP_LOGE(TAG, "ble unavailable");
+    if (zig_recon_init() != ESP_OK) ESP_LOGE(TAG, "802154 unavailable");
 
     ESP_ERROR_CHECK(ocp_transport_init());
     ESP_ERROR_CHECK(ocp_frame_init());

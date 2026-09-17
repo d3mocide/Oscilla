@@ -10,8 +10,8 @@
 
 [![Zero Transmit](https://img.shields.io/badge/INVARIANT-ZERO_TRANSMIT-85E37D?style=flat-square&labelColor=060806)](AGENTS.md#3-invariants--do-not-break-these)
 [![Architecture](https://img.shields.io/badge/CONTRACT-TWO_MACHINES_%C2%B7_ONE_WIRE-F5D658?style=flat-square&labelColor=060806)](protocol/OCP-SPEC.md)
-[![Status](https://img.shields.io/badge/ROADMAP-P3_COMPLETE_%C2%B7_P4_NEXT-87D5CB?style=flat-square&labelColor=060806)](ROADMAP.md)
-[![Dual Radios](https://img.shields.io/badge/RADIOS-WI--FI_%C2%B7_BLE_%C2%B7_802.15.4_%C2%B7_SX1262_%2B_CC1101-6C8A67?style=flat-square&labelColor=060806)](docs/hardware/c5-dual-radio-wiring.md)
+[![Status](https://img.shields.io/badge/ROADMAP-P4_COMPLETE_%C2%B7_P5_NEXT-87D5CB?style=flat-square&labelColor=060806)](ROADMAP.md)
+[![Radios](https://img.shields.io/badge/RADIOS-WI--FI_%C2%B7_BLE_%C2%B7_802.15.4_%C2%B7_SX1262-6C8A67?style=flat-square&labelColor=060806)](docs/hardware/c5-dual-radio-wiring.md)
 [![External Viewports](https://img.shields.io/badge/UI_SYSTEM-320%C3%97240_ILI9341-FAF4D3?style=flat-square&labelColor=060806)](docs/brand/oscilla-master-brand-ui-guide.html#external-display-cards)
 [![License](https://img.shields.io/badge/LICENSE-MIT-1D2A1F?style=flat-square&labelColor=060806)](LICENSE)
 
@@ -44,29 +44,29 @@ Oscilla splits physical responsibilities cleanly between two microcontrollers jo
 │                                              │      G2 (TX) ──► D7   G1 (RX) ◄── D6    │                                              │
 │  • ESP32-S3 Dual-Core (UI, Storage, GNSS)    │                                         │  • ESP32-C5 RISC-V (2.4 / 5 GHz Wi-Fi 6)     │
 │  • 56-Key Matrix Keyboard + Navigation D-Pad │           OSCILLA CONTROL PROTOCOL      │  • Bluetooth 5.0 LE (Coded PHY / 1M / 2M)    │
-│  • ST7789 240×135 Built-in Screen (Primary)  │           `protocol/ocp.h` Contract     │  • IEEE 802.15.4 (Zigbee / Thread)           │
-│  • ILI9341 320×240 External Panel (SPI DMA)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
-│  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • TI CC1101 (387–464 MHz / Legacy OOK/FSK)  │
-│  • MAX-M10S GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[WIFI]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
+│  • ST7789 240×135 Built-in Screen (Primary)  │           `protocol/ocp.h` Contract     │  • IEEE 802.15.4 MAC observer                 │
+│  • ILI9341 320×240 External Panel (P5 plan)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
+│  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • CC1101 extension planned (D-15)            │
+│  • ATGM336H GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[WIFI]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
 └──────────────────────────────────────────────┘                                         └──────────────────────────────────────────────┘
 ```
 
-### Dual Sub-GHz Architecture (SX1262 + CC1101)
+### Sub-GHz Architecture (SX1262 + planned CC1101)
 
-The C5 probe integrates **two complementary sub-GHz receive peripherals** over a shared hardware SPI bus ([`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md), [D-15](docs/DECISIONS.md)):
+The C5 probe uses the SX1262 receiver today; the CC1101 is a planned D-15 extension sharing its SPI bus ([`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md), [D-15](docs/DECISIONS.md)):
 
 | Peripheral           | Primary Band              | Demodulation Target              | Example Target Traffic                                       |
 | -------------------- | ------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | **Seeed Wio-SX1262** | **915 MHz** (862–930 MHz) | LoRa Chirp Spread Spectrum       | Meshtastic mesh, LoRaWAN sensors, decentralized telemetry    |
-| **TI CC1101**        | **433 MHz** (387–464 MHz) | Narrowband OOK, ASK, 2-FSK, GFSK | Legacy ISM weather stations, TPMS, security sensors, remotes |
+| **TI CC1101 (planned)** | **433 MHz** (387–464 MHz) | Narrowband OOK, ASK, 2-FSK, GFSK | Legacy ISM weather stations, TPMS, security sensors, remotes |
 
 - **Pin-Efficient Shared Bus:** Both modules share SPI clock (`D8` / GPIO8), MOSI (`D10` / GPIO10), and MISO (`D9` / GPIO9). Wio chip select is dedicated on `D4` (GPIO23) and CC1101 chip select on `D3` (GPIO7). No extra pins are needed for CC1101 (SPI strobe reset + FIFO polling).
-- **Mutual Desense Prevention:** Oscilla v1 schedules only one sub-GHz receive engine at a time (`lora_rx` XOR `legacy_rx`) and equips each module with an independent, band-matched antenna.
+- **Mutual Desense Prevention:** The planned CC1101 extension will schedule only one sub-GHz receive engine at a time (`lora_rx` XOR `legacy_rx`) and use independent, band-matched antennas.
 
 ### Why two machines?
 
 - **Isolation & Robustness:** The deck is an ESP32-S3 with a keyboard and dual screens; its internal radios stay off in v1. The C5 is a dedicated RF platform with zero human interface. The UI never blocks on radio tasks, an RF fault never freezes the display, and the probe can be operated standalone over USB from a laptop workstation.
-- **Authoritative Geotagging:** The probe never handles GPS coordinates. It streams timestamped observation frames; the deck attaches its own MAX-M10S 3D GNSS fix and fix-age before serializing to SD.
+- **Authoritative Geotagging:** The probe never handles GPS coordinates. It streams timestamped observation frames; the deck attaches its own ATGM336H GNSS fix and fix-age before serializing to SD.
 
 ---
 
@@ -88,19 +88,19 @@ Explore the complete master design system in [`docs/brand/oscilla-master-brand-u
 | **Drive Log**     | Dynamic N/W geospatial vector moving map & rolling density sparkline | GNSS track, heading rose, GPS accuracy error circle, serialized SD rate  | P4/P7         |
 | **Frame List**    | LoRa chirp modulation spectrogram & live Protobuf packet dissector   | Preamble/sync chirp ramps, bitstream pills, hex dump, SNR/RSSI telemetry | **P3 proven** |
 | **BLE Beacons**   | Polar advertiser proximity reticle & rotation burst tracker          | Apple Find My / AirTag tracking, RPA epoch rotation bursts, range est.   | P7/P8         |
-| **Mesh Topology** | Multi-hop receive-only node graph & route telemetry                  | Meshtastic route tracing, hop boundaries (1H–3H), delivery health        | P8            |
+| **Mesh** | Passive 802.15.4 PAN/node inventory                                  | MAC-only PAN and address sightings; no route or network-layer claims     | P7 capture proven; display unverified |
 
 ---
 
 ## 3. Current Status & Roadmap
 
-Current Milestone: **P3 Complete.**
+Current Milestone: **P4 Complete; P5 next.**
 
 - Protocol contract (`protocol/ocp.h`) and framing parser proven against hostile conformance fixtures.
 - Grove physical crossover link bench-verified with stable bidirectional communications.
 - Passive Wi-Fi 2.4/5 GHz scanning verified on hardware.
 - LoRa RX verified on hardware: Wio-SX1262 backpack receiving and decoding real MeshCore packets end-to-end with zero RX stalls over extended sessions (>66 min).
-- Next Phase: **P4 (GNSS Integration & Deck Geotagging Engine)**.
+- Next Phase: **P5 (external TFT shared-SPI integration)**.
 
 See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test evidence, and [`WORKLOG.md`](WORKLOG.md) for session-by-session engineering logs.
 
@@ -208,7 +208,7 @@ To maintain rigorous code health, modularity, and licensing integrity, Oscilla f
 
 | Component / Subsystem | Upstream Source | Integration Method | Implementation Status |
 |---|---|---|---|
-| **802.15.4 Zigbee Recon** | C5Lab projectZero (MIT) | **Clean-room reimplementation; no source copied** | Scheduled for P7/P8 in `firmware-c5/main/zig_*.c`, limited to passive PAN/node discovery and protocol classification |
+| **802.15.4 Recon** | C5Lab projectZero (MIT) | **Clean-room reimplementation; no source copied** | P7 passive MAC PAN/node discovery in `firmware-c5/main/zig_*.c`; live capture and no-auto-ACK control verified, with no Zigbee/Thread identity or network decode ([hardware evidence](docs/hardware/ieee802154-validation.md)) |
 | **D-UCB Channel Picker** | projectZero (MIT) | **Clean-room reimplementation** | Discounted-bandit adaptive channel allocation in `firmware-c5/main/` |
 | **Wi-Fi Promiscuous Sniffer** | @risinek / projectZero (MIT) | **Clean-room reimplementation** | Passive non-blocking 2.4/5 GHz frame parser in `firmware-c5/main/` |
 | **NimBLE Passive Tracker** | projectZero (MIT) | **Clean-room reimplementation** | BLE beacon, AirTag, and RPA rotation tracking in `firmware-c5/main/` |

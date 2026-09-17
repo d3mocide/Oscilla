@@ -1,3 +1,137 @@
+## 2026-09-16 — D-17 documentation reconciliation
+
+**Phase:** P7 documentation · **By:** Codex
+
+Reconciled README, DESIGN, NOTICE, ROADMAP, the hardware-notes index, and the
+brand guide with the completed D-17 evidence. The authoritative description
+is now passive raw 802.15.4 MAC PAN/node observation, never a Zigbee, Thread,
+or topology decoder. README no longer says the implementation lacks RF
+validation, DESIGN no longer calls its four modules hardware-unvalidated, and
+the P8 topology mockup is explicitly a future concept rather than a current
+Mesh capability. Corrected unrelated stale README inventory claims too:
+ATGM336H rather than MAX-M10S, and planned rather than installed ILI9341 and
+CC1101 hardware.
+
+Added `docs/hardware/ieee802154-validation.md`, which records equipment,
+controlled-frame limits, capture/stop evidence, the known-address positive
+ACK control, and the no-auto-ACK result. It also names what remains open:
+physical Mesh-display inspection and extended-loss characterization.
+
+## 2026-09-16 — D-17 over-air no-ACK control demonstrated
+
+**Phase:** P7 hardware evidence · **By:** Codex
+
+Corrected the external C5 antennas and repeated the third-C5 observer setup
+with both USB consoles held open; the observer then completed a channel-11
+calibration receive at -80 dBm. A positive control configured that external
+receiver with PAN `1a2b` / short address `0001`; the source sent the
+ACK-requested unicast (sequence `0e`) and received `Rx ack 5 bytes`.
+
+Built a default-off `sdkconfig.acktest` overlay that sets that same fixed
+identity before `zig_radio` enables promiscuous receive. The overlay adds no
+transmit API and `check_rx_only.py` remained green. With that temporary
+receive-only probe image running a passive channel-11 recon, the identical
+ACK-requested unicast (sequence `0f`) was observed by the independent C5 and
+captured by Oscilla as PAN `1a2b` / node `1234` (`dropped=0`, RSSI -56 dBm).
+The source returned ESP-IDF transmit error `3`, whose public enum is
+`ESP_IEEE802154_TX_ERR_NO_ACK`; unlike the positive control, it received no
+ACK before the timeout.
+
+This demonstrates no over-air automatic ACK from an eligible, known-address
+Oscilla receiver while promiscuous passive RX is active. The normal probe
+UART image and Cardputer application were restored with verified uploads.
+It does not replace the remaining Mesh-display or long-duration validation.
+
+## 2026-09-16 — D-17 independent ACK-observer setup (blocked)
+
+**Phase:** P7 hardware evidence · **By:** Codex
+
+Attached and identified a third C5 (`10:BD:A3:CF:35:38`, ESP32-C5 rev 1.0,
+8 MB). Flashed the same isolated ESP-IDF `ieee802154_cli` instrument used by
+the controlled source, and configured it as a channel-11 receiver. Its
+source counterpart (`38:44:BE:1F:55:FC`) sent single CCA-gated frames at
+-80 dBm and then -50 dBm; both reported `Tx Done 11 bytes`. The new receiver
+did not produce a completed `Rx Done` callback (the first promiscuous setup
+only logged two RX-SFD notifications), including after being configured with
+matching PAN `1a2b` and short address `0001` for a unicast calibration.
+
+Stopped the observer receive session and restored the source's configured
+power to -80 dBm. No ACK-request traffic was sent, no inference about
+Oscilla's ACK behavior is made, and no Oscilla firmware changed. The next
+gate is physical: place the source and observer together with known-good
+antenna orientation/connection and obtain a completed external receiver
+calibration before the positive-control and no-ACK runs.
+
+## 2026-09-16 — D-17 controlled over-air capture
+
+**Phase:** P7 hardware evidence · **By:** Codex
+
+Flashed a separate ESP32-C5 (`38:44:BE:1F:55:FC`) with an isolated copy of
+the ESP-IDF 5.5.1 `ieee802154_cli` example, built for its verified 8 MB
+flash and configured to expose its console over USB Serial/JTAG. This is a
+bench-only traffic source, outside Oscilla; no transmit capability was added
+to either Oscilla firmware. With the Oscilla probe held in
+promiscuous passive RX on channel 11 through the temporarily flashed
+USB↔Grove bridge, the source sent exactly one 11-byte MAC data frame at
+-80 dBm, CCA-gated, with no ACK-request bit. Its source PAN/short address
+were `1a2b`/`1234`.
+
+The source reported `Tx Done 11 bytes`. `zig_recon_list` then returned two
+rows, `pan │ 1a2b` and `node │ 1a2b │ 1234`, with `pans=1`, `nodes=1`, and
+`dropped=0` (RSSI -59 dBm, channel 11 at reception). `stop phy` produced an
+idle 802.15.4 state, and the normal Cardputer application was restored with
+an upload hash verification.
+
+This demonstrates live passive MAC capture, parser/table/OCP delivery, and
+stop integration. It does not demonstrate the physical Mesh TFT view, long
+duration/loss behavior, or absence of over-the-air ACKs: the deliberate test
+frame did not request an ACK, and that last claim needs an independent
+802.15.4 observer or targeted ACK-request test.
+
+## 2026-09-16 — D-17 hardware control-path smoke test
+
+**Phase:** P7 software slice · **By:** Codex
+
+Flashed the C5 `build-uart` image over its native USB identity
+`38:44:BE:1F:4F:A0` (esptool hash verified), then temporarily flashed the
+Cardputer USB↔Grove bridge over `50:78:7D:CE:6D:64` to exercise the actual
+four-wire control path. Restored the normal Cardputer application afterward
+(its upload hash also verified).
+
+The live C5 advertised `ieee802154`; `start_zig_recon 11 400` answered
+`[ZIG] state=rx`, status observed channel hopping (`11` → `13`), table output
+was a well-formed empty `[ZIG]` frame, and `stop phy` emitted the 802.15.4
+teardown followed by `[STOP] lane=phy running=1`. A post-stop status was idle.
+
+This proves flashed-image capability negotiation, Grove transport, bounded
+start/hop/status/list/stop integration, and teardown control flow. The bench
+heard no 802.15.4 MAC frames, so it does **not** prove frame reception, the
+Mesh TFT rendering, or absence of over-the-air ACKs; those need an instrumented
+802.15.4 source and a second receiver/sniffer.
+
+## 2026-09-16 — D-17 in-house 802.15.4 software slice
+
+**Phase:** P7 software slice (entry/exit gates still unmet) · **By:** Codex
+
+Implemented the four D-17 modules (zig_radio, zig_frame, zig_table, and
+zig_recon), the [ZIG] wire contract, and the deck Mesh model/view. The radio
+adapter only enters ESP-IDF promiscuous RX, which disables automatic ACK TX;
+its teardown disables the subsystem without flipping that setting back. The
+ISR copies into a fixed queue and always returns the vendor buffer; parsing
+and OCP writes run in a task. MAC-only observations are labelled 802154, not
+Zigbee/Thread, because classifying either would require the excluded
+network-layer decoder.
+
+Validation: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed,
+including the new hostile-MAC/table and Mesh-model tests, the structural
+auto-ACK guard, all 27 OCP-SPEC checks, and the existing protocol suites.
+`idf.py -C firmware-c5 build` passed (22% smallest-app-partition free), as did
+`pio run -d firmware-cardputer -e cardputer-adv`.
+
+This is not hardware/RF proof, does not satisfy P7's P6 entry gate, and
+requires real no-ACK and stop-under-RX-flood validation before any
+receive-only or operational claim is extended.
+
 ## 2026-09-16 — choose an in-house 802.15.4 recon implementation
 
 **Phase:** P7 planning · **By:** Will + Codex
@@ -9,8 +143,8 @@ into Oscilla's strict receive-only architecture.
 
 P7 will implement a bounded, passive observer in four small probe modules:
 `zig_radio.c`, `zig_frame.c`, `zig_table.c`, and `zig_recon.c`. The scope is
-802.15.4 channel dwell, promiscuous RX, MAC-header parsing, conservative
-Zigbee/Thread/unknown classification, capped PAN/node tracking, `[ZIG]`
+802.15.4 channel dwell, promiscuous RX, MAC-header parsing, MAC-only `802154`
+labeling (never a Zigbee/Thread identity claim), capped PAN/node tracking, `[ZIG]`
 frames, and the deck Mesh view. Association, commissioning, keys,
 network-layer decoding, and any transmit path remain out of scope.
 

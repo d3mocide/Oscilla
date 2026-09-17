@@ -12,6 +12,7 @@ Expected contents as phases land:
 | `link-bringup.md` | P1 | Grove UART bring-up: boot-noise capture, resync behaviour, reset recovery |
 | `lora-harness.md` | P3 | Wio-SX1262 harness continuity check, BUSY/TCXO observations, the D-10 resolution and its source |
 | `gnss.md` | P4 | ATGM336H baud, NMEA sentences seen, cold/warm fix times |
+| `ieee802154-validation.md` | P7 | Controlled passive MAC capture and no-auto-ACK positive-control evidence |
 | `shared-spi.md` | P5 | SD + TFT shared-bus soak results |
 | `power-budget.md` | P6 | **Measurement method written 2026-09-15; no measurements yet.** Will hold measured current at the module pins under combined load, superseding the provisional Rev D §9 table and setting the arbiter's interlock thresholds |
 

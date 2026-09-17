@@ -605,3 +605,34 @@ Find My network only, matching the verb name `scan_airtag` was chosen for.
 Other vendors' tracker beacon formats (Tile, Samsung SmartTag, Chipolo) are
 a future addition — `OCP_K_TRACKER`'s value is a string specifically so a
 new classification is additive, not a wire-format change.
+
+## 12. Passive 802.15.4 frames
+
+`start_zig_recon [ch] [dwell_ms]` acquires the PHY lane and listens on
+channels 11–26 (default 11), hopping after `dwell_ms` (50–60000, default 400).
+It enables ESP-IDF hardware promiscuous mode before RX; that mode disables
+automatic ACK transmission. The teardown disables the subsystem directly and
+never changes promiscuous mode back while enabled. There is no association,
+commissioning, key handling, network-layer decode, or transmission.
+
+`zig_recon_status` is compact: `[ZIG] state=rx|idle ch= dwell_ms= pans= nodes= END`.
+`zig_recon_list` emits the full capped table; `zig_recon_nodes [pan]` filters
+node rows by four-lowercase-hex PAN ID; `zig_recon_clear` clears both tables.
+Every table frame has `n= pans= nodes= dropped= ch= dwell_ms=`. Rows are CSV:
+
+```
+[ZIG] BEGIN n=2 pans=1 nodes=1 dropped=0 ch=11 dwell_ms=400
+[ZIG] "pan","1a2b","802154","mac","0001","1","-60","91"
+[ZIG] "node","1a2b","1234","","unknown","-60","91","12345"
+[ZIG] END
+```
+
+PAN columns are `kind,pan,proto,confidence,channels,nodes,rssi,lqi`; node
+columns are `kind,pan,short,ext,role,rssi,lqi,seen`. `channels` is a 16-bit
+hex mask for channels 11–26. `seen` is the monotonic probe timestamp in ms.
+`n` is the number of emitted CSV rows (`pans + nodes`), including both row
+types. A `zig_recon_nodes pan` response contains only that PAN and its nodes.
+The P7 parser intentionally labels observed MAC traffic only as `802154`:
+Zigbee and Thread cannot be safely inferred from a generic MAC header without
+the network-layer decoding this slice deliberately excludes. Unknown/invalid
+rows are dropped, never rendered as identity claims.

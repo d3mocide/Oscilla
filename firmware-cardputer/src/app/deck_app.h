@@ -47,6 +47,7 @@
 #include "model/deauth_model.h"
 #include "model/gnss_model.h"
 #include "model/lora_model.h"
+#include "model/mesh_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
 #include "ocp/ocp_client.h"
@@ -54,7 +55,7 @@
 
 namespace app {
 
-enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, SubGhz, Deauth, Drive, Beacons };
+enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, Mesh, SubGhz, Deauth, Drive, Beacons };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -119,6 +120,7 @@ private:
     void startBtScan(uint32_t now_ms);
     void toggleBtContinuous(uint32_t now_ms);
     void toggleAirtagScan(uint32_t now_ms);
+    void toggleMesh(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();
     void back(uint32_t now_ms);
@@ -137,6 +139,7 @@ private:
     model::LoraModel lora_;
     model::DeauthModel deauth_;
     model::BtModel bt_;
+    model::MeshModel mesh_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;
     /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
@@ -163,6 +166,9 @@ private:
     bool lora_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
     size_t bt_cursor_ = 0;
+    size_t mesh_cursor_ = 0;
+    uint32_t last_mesh_poll_ms_ = 0;
+    bool mesh_start_pending_ = false;
 
     /* Queued because the client couldn't send yet (something else was
      * still pending) - retried once that clears, see retrySoon(). */

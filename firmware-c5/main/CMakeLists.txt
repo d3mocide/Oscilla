@@ -22,7 +22,11 @@ idf_component_register(
          "ble_adv_parse.c"
          "ble_device_table.c"
          "ble_recon.c"
+         "zig_radio.c"
+         "zig_frame.c"
+         "zig_table.c"
+         "zig_recon.c"
          "${CMAKE_CURRENT_LIST_DIR}/../../protocol/ocp_text.c"
     INCLUDE_DIRS "." "${CMAKE_CURRENT_LIST_DIR}/../../protocol"
-    REQUIRES driver esp_timer nvs_flash app_update esp_wifi esp_event bt
+    REQUIRES driver esp_timer nvs_flash app_update esp_wifi esp_event bt ieee802154
 )

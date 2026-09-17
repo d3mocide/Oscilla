@@ -39,7 +39,7 @@
 
 ## 1. Vision & scope
 
-**Oscilla is a handheld wireless-recon instrument.** You carry a Cardputer ADV; it drives a dedicated ESP32-C5 radio backpack over a short Grove UART link. The Cardputer is the *deck* — keyboard, displays, GNSS, storage, menus, saved data. The C5 is the *probe* — it owns the radios and does all the RF. Together they scan, inspect, and map Wi-Fi (2.4 + 5 GHz), Bluetooth LE, 802.15.4 (Zigbee/Thread), and sub-GHz LoRa environments.
+**Oscilla is a handheld wireless-recon instrument.** You carry a Cardputer ADV; it drives a dedicated ESP32-C5 radio backpack over a short Grove UART link. The Cardputer is the *deck* — keyboard, displays, GNSS, storage, menus, saved data. The C5 is the *probe* — it owns the radios and does all the RF. Together they scan, inspect, and map Wi-Fi (2.4 + 5 GHz), Bluetooth LE, raw 802.15.4 MAC traffic, and sub-GHz LoRa environments.
 
 The name is the frame: an **oscilloscope for the air**. The product's job is to make invisible RF *legible* — what's transmitting, on which channel, how strong, how secured — not to interfere with it. **Every radio is receive-only.** No transmit verb is compiled into any build, so there is no reachable firmware path to transmission on any radio ([§8](#8-feature-scope--the-receive-only-boundary)).
 
@@ -277,10 +277,10 @@ isolated third-party dependencies.
 | `ble_adv_parse.c` | Bounds-checked BLE AD-structure parser (name, manufacturer data, Find My/AirTag classification); pure C, fuzzed under ASan/UBSan — same split as `beacon_parse.c` |
 | `ble_device_table.c` | `scan_bt`'s capped, deduplicated device table — pure C, host-tested upsert logic, same split as `sniff_track.c` |
 | `ble_recon.c` | NimBLE passive scan — a bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), continuous tracker classification (`scan_airtag`), OCP-SPEC §11; thin glue over the two modules above, the arbiter, and OCP framing — **hardware-confirmed 2026-09-16** (see WORKLOG) |
-| `zig_radio.c` | Passive 802.15.4 radio lifecycle, channel dwell/hop, RX callback handoff |
-| `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing and conservative Zigbee/Thread classification; pure C, host-tested |
-| `zig_table.c` | Capped PAN/node deduplication, updates, and eviction; pure C, host-tested |
-| `zig_recon.c` | 802.15.4 scan orchestration, arbiter/stop hooks, and `[ZIG]` OCP output |
+| `zig_radio.c` | Passive 802.15.4 radio lifecycle, channel dwell/hop, ISR callback handoff; hardware-confirmed 2026-09-16 |
+| `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing; pure C, host-tested and live-capture-confirmed |
+| `zig_table.c` | Capped PAN/node deduplication and updates; pure C, host-tested and live-capture-confirmed |
+| `zig_recon.c` | 802.15.4 scan orchestration, arbiter/stop hooks, and `[ZIG]` OCP output; hardware-confirmed 2026-09-16 |
 | `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
 | `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
 | `config.c` | NVS-backed settings (band, channel set, LoRa RX params) |
@@ -432,7 +432,7 @@ If transmit features are ever wanted — LoRa telemetry, range testing, or autho
 // BLE advertiser
 { addr[6]; addr_type; name[]; rssi; company_id; is_airtag; is_smarttag; last_seen; }
 // 802.15.4 PAN / node
-{ pan_id; proto(802154|zigbee|thread|matter?); confidence; channel_mask; nodes; }
+{ pan_id; proto(802154); confidence; channel_mask; nodes; }
 { pan_id; short/ext addr; role(coordinator|router|end); rssi(last/best/avg); lqi; }
 // LoRa packet observation
 { freq_hz; sf; bw; cr; rssi; snr; len; crc_ok; framing_guess(meshtastic|lorawan|unknown); }
@@ -489,7 +489,7 @@ oscilla/
 
 ## 11. Reuse plan & licensing
 
-**Clean-room the app layers, lift the well-factored components.**
+**Clean-room the app layers, lift the well-factored components only when needed.**
 
 | Source | Action | Where |
 |---|---|---|
@@ -547,7 +547,7 @@ v1 probe verbs. All replies are marker-framed ([Appendix B](#appendix-b--marker-
 | `deauth_detector` | wifi | `[EVT]` | detect deauth frames (defensive) |
 | `scan_bt [secs]` | ble | `[BLE]` | BLE passive scan |
 | `scan_airtag` | ble | `[EVT]` | tracker counts |
-| `start_zig_recon [ch] [dwell]` | ieee802154 | `[ZIG]` | passive Zigbee/Thread |
+| `start_zig_recon [ch] [dwell]` | ieee802154 | `[ZIG]` | passive 802.15.4 MAC observer |
 | `zig_recon_status/list/nodes/clear` | ieee802154 | `[ZIG]` | recon tables |
 | `lora_config <freq> <sf> <bw> <cr>` | lora_rx | `[CFG]` | RX radio params; no default frequency |
 | `lora_listen` | lora_rx | `[LORA]`+`[EVT]` | RX survey; stream packet observations |

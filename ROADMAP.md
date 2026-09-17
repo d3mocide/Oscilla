@@ -183,14 +183,18 @@ Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, exten
 
 **Work:**
 - [x] **BLE (2026-09-16).** `ble_recon.c` — NimBLE passive scan (`scan_bt`/`scan_airtag`, OCP-SPEC §11), device table, Find My/AirTag tracker classification (Apple company ID `004c` + type byte `0x12`, confirmed against public Find My protocol write-ups). Split probe-side into `ble_adv_parse.c` (AD-structure parsing) and `ble_device_table.c` (upsert logic), both pure C and host-tested (13 + 14 checks, plus 200k fuzz iterations under ASan/UBSan) — same shape as `beacon_parse.c`/`sniff_track.c`. Deck-side `src/model/bt_model` + **Beacons** view (`src/ui/bt_view`), 16 host tests. Enabling NimBLE overflowed the default 1 MB app partition by ~126 KB; fixed with Espressif's own "large single-app" table (1500 KB) rather than trimming anything — 8 MB of physical flash made that the easy call. Both firmwares build clean on the real toolchain (probe now at 76% of its larger partition). **Hardware-confirmed same day.** `scan_bt`/`scan_airtag` both verified against real BLE traffic (70–75 real devices per scan, 0 malformed rows) after fixing two real bugs a client-timeout mismatch (`scan_bt`'s reply arrived after the deck's generic 2s timeout had already given up — added `kBleScanTimeoutMs`) and a NimBLE semantics bug (`ble_gap_disc_cancel()` doesn't emit a completion event the way `esp_wifi_scan_stop()` does, so cancelling `scan_airtag`'s unbounded scan left the radio arbiter stuck forever — fixed with an idempotent `finish_scan()` called from both the natural-completion and forced-cancel paths). Full detail in WORKLOG. **Still open:** the Beacons card hasn't been looked at on the deck's actual display yet (same gap Spectrum has); no real AirTag on hand to confirm the tracker classification against genuine hardware. The in-house 802.15.4 recon slice is now planned under D-17.
-- [ ] **802.15.4 passive recon (in-house).** Implement an Oscilla-native
-  receive-only observer informed by projectZero's public behavior, not copied
-  source: `zig_radio.c` for bounded radio lifecycle and channel dwell,
-  `zig_frame.c` for hostile-frame-safe MAC parsing and conservative
-  Zigbee/Thread/unknown classification, `zig_table.c` for capped PAN/node
-  tracking, and `zig_recon.c` for arbiter/stop integration and `[ZIG]` frames;
-  add the **Mesh** view. No association, commissioning, network-layer decode,
-  keys, or transmit path belongs in this P7 slice.
+- [x] **802.15.4 passive recon (in-house, 2026-09-16).** Oscilla-native,
+  receive-only `zig_radio.c` (bounded lifecycle/channel dwell), `zig_frame.c`
+  (hostile-frame-safe MAC parsing and MAC-only `802154` label), `zig_table.c`
+  (capped PAN/node tracking), and `zig_recon.c` (arbiter/stop and `[ZIG]`),
+  plus the **Mesh** view. No association, commissioning, network-layer decode,
+  keys, or transmit path. **Hardware-confirmed:** a separate C5 at -80 dBm
+  yielded live PAN `1a2b` / node `1234` with zero drops through Grove/OCP;
+  a known-address external positive control returned a 5-byte ACK, while the
+  identical ACK-requested unicast to the temporary fixed-identity, promiscuous
+  Oscilla image returned ESP-IDF `NO_ACK` and was independently observed and
+  captured by Oscilla. Normal images restored. Remaining: physical Mesh-view
+  inspection and long-duration/loss characterization.
 - [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
 - [x] `deauth_detector` + a Deauth card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG). **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
 - [x] `channel_view`, `packet_monitor` + **Spectrum** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.

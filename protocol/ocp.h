@@ -206,6 +206,7 @@ typedef enum {
 #define OCP_EVT_KIND_PROBE      "probe"
 #define OCP_EVT_KIND_DEAUTH     "deauth"
 #define OCP_EVT_KIND_WARDRIVE   "wardrive"
+#define OCP_EVT_KIND_ZIG        "zig"       /* first sighting from start_zig_recon */
 
 /* --- Well-known keys and row shapes --------------------------------------- */
 
@@ -254,6 +255,20 @@ typedef enum {
 #define OCP_K_SNR               "snr"
 #define OCP_K_LEN               "len"
 #define OCP_K_HEX               "hex"
+
+/* 802.15.4 frames (OCP-SPEC §12). */
+#define OCP_K_STATE             "state"
+#define OCP_K_DROPPED           "dropped"
+#define OCP_K_PANS              "pans"
+#define OCP_K_NODES             "nodes"
+#define OCP_ZIG_PAN_CSV_HEADER  "\"kind\",\"pan\",\"proto\",\"confidence\",\"channels\",\"nodes\",\"rssi\",\"lqi\""
+#define OCP_ZIG_PAN_CSV_FIELDS  8
+#define OCP_ZIG_NODE_CSV_HEADER "\"kind\",\"pan\",\"short\",\"ext\",\"role\",\"rssi\",\"lqi\",\"seen\""
+#define OCP_ZIG_NODE_CSV_FIELDS 8
+#define OCP_ZIG_ROW_PAN         "pan"
+#define OCP_ZIG_ROW_NODE        "node"
+#define OCP_ZIG_PROTO_UNKNOWN   "unknown"
+#define OCP_ZIG_PROTO_802154    "802154"
 
 /* BLE frames (OCP-SPEC §11). */
 #define OCP_K_NAME              "name"      /* AD type 0x08/0x09, "" if absent */

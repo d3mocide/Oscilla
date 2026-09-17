@@ -28,6 +28,10 @@ CONFIG_COMPILER_STACK_CHECK_MODE_NORM=y
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 
+# D-17 802.15.4 observer. zig_radio.c enables hardware promiscuous mode before
+# receiving; ESP-IDF then disables automatic ACK transmission.
+CONFIG_IEEE802154_ENABLED=y
+
 # NimBLE overflows the default 1 MB factory-app partition by ~126 KB; the
 # XIAO's 8 MB flash has plenty of room, so grow the app partition instead of
 # trimming anything (1500 KB, Espressif's own "large" single-app table —

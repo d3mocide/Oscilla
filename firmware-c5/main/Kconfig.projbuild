@@ -33,4 +33,21 @@ config OSCILLA_STATUS_LED_PERIOD_MS
     range 500 10000
     default 2000
 
+config OSCILLA_ZIG_ACK_TEST_IDENTITY
+    bool "Fixed 802.15.4 identity for ACK bench test"
+    default n
+    help
+        Bench-only: make a known unicast eligible for automatic ACK before
+        zig_radio enables promiscuous receive, which disables automatic ACK.
+
+config OSCILLA_ZIG_ACK_TEST_PANID
+    hex "ACK test PAN ID"
+    depends on OSCILLA_ZIG_ACK_TEST_IDENTITY
+    default 0x1A2B
+
+config OSCILLA_ZIG_ACK_TEST_SHORT_ADDR
+    hex "ACK test short address"
+    depends on OSCILLA_ZIG_ACK_TEST_IDENTITY
+    default 0x0001
+
 endmenu
