@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oscilla — Deck UI State</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #0B090D;
+    --panel: #151018;
+    --panel2: #1b1620;
+    --cream: #F4ECD9;
+    --muted: #9DAF96;
+    --muted-dim: #6C5D69;
+    --green: #A8DF65;
+    --dim: #51763D;
+    --dim-dark: #263528;
+    --pink: #F05D9D;
+    --yellow: #F5D658;
+    --red: #EF514C;
+    --line: #4b3c49;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+    --display: "Chakra Petch", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 85% 0, #241722 0, transparent 34rem), var(--void);
+    color: var(--cream);
+    font: 15px/1.55 var(--mono);
+    padding-bottom: 60px;
+  }
+  main { max-width: 1180px; margin: auto; padding: 0 20px; }
+  a { color: var(--green); }
+  h1, h2, h3, h4 { font-family: var(--display); margin: 0 0 10px; letter-spacing: -.02em; }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: -.04em; margin: 18px 0 6px; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); border-top: 1px solid var(--line); padding-top: 46px; margin-top: 46px; }
+  h3 { font-size: 1.05rem; color: var(--cream); }
+  p { margin: 0 0 14px; }
+  code, .mono { font-family: var(--mono); }
+  .eyebrow {
+    font: 700 11px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--green);
+  }
+  .lead { max-width: 780px; color: #d2c6c0; }
+  header.top { padding: 40px 0 20px; border-bottom: 1px solid var(--line); }
+  .badge {
+    display: inline-block; font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted);
+  }
+  .badge.planned { color: var(--yellow); border-color: var(--yellow); }
+  .badge.live { color: var(--green); border-color: var(--green); }
+  .note {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
+    padding: 14px 16px; font-size: 13px; color: var(--muted); margin: 18px 0;
+  }
+  .note b { color: var(--cream); }
+  .note.warn { border-color: #5a4a2a; color: #d9c98a; }
+  table {
+    border-collapse: collapse; width: 100%; font-size: 13px; margin: 12px 0 20px;
+    display: block; max-width: 100%; overflow-x: auto;
+  }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--green); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+  td.mono, th.mono { font-family: var(--mono); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 22px; }
+  .swatch { width: 128px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .swatch .chip { height: 44px; }
+  .swatch .lbl { padding: 6px 8px; font-size: 11px; }
+  .swatch .lbl b { display: block; color: var(--cream); }
+  .swatch .lbl span { color: var(--muted-dim); }
+
+  /* device frame */
+  .device-frame {
+    display: inline-block; background: #121116; border: 1px solid #232029; border-radius: 10px;
+    padding: 10px; box-shadow: 0 10px 30px -12px rgba(0,0,0,.7);
+  }
+  .device-frame canvas {
+    display: block; width: 100%; max-width: 420px; height: auto;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    border: 1px solid #2e2a36; border-radius: 3px;
+  }
+  .device-label {
+    display: flex; justify-content: space-between; font-size: 10px; color: var(--muted-dim);
+    letter-spacing: .06em; text-transform: uppercase; margin-top: 8px;
+  }
+
+  /* simulator */
+  .sim-wrap {
+    display: grid; grid-template-columns: minmax(260px, 460px) 1fr; gap: 28px; align-items: start;
+    margin: 20px 0 10px;
+  }
+  @media (max-width: 760px) { .sim-wrap { grid-template-columns: 1fr; } }
+  .sim-controls { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: var(--panel); }
+  .sim-controls h4 { margin-bottom: 10px; }
+  .keyrow { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px dashed #2a2430; font-size: 12.5px; }
+  .keyrow:last-child { border-bottom: none; }
+  .kcap {
+    font: 700 11px var(--mono); background: #18161d; border: 1px solid #2e2a36; border-radius: 4px;
+    padding: 3px 7px; min-width: 22px; text-align: center; color: var(--cream);
+  }
+  .sim-touch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
+  .sim-touch button {
+    font: 700 11px var(--mono); background: #18161d; border: 1px solid #2e2a36; color: var(--cream);
+    border-radius: 5px; padding: 9px 4px; cursor: pointer; letter-spacing: .03em;
+  }
+  .sim-touch button:hover { border-color: var(--green); color: var(--green); }
+  .sim-touch button:active { background: #241f28; }
+  .sim-status { margin-top: 12px; font-size: 11.5px; color: var(--muted-dim); }
+  .sim-status b { color: var(--green); }
+
+  /* gallery */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px; margin: 18px 0 10px; }
+  .gcard { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #100d13; }
+  .gcard h4 { font-size: 13px; margin: 0 0 2px; color: var(--cream); }
+  .gcard .path { font-size: 10.5px; color: var(--muted-dim); margin-bottom: 10px; display:block; }
+  .gcard .tags { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tag { font: 700 9px var(--mono); letter-spacing: .05em; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 10px 0 22px; font-size: 12.5px; }
+  .legend .item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dotp { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  /* external display schematic */
+  .ext-schema { max-width: 480px; border: 2px solid var(--line); border-radius: 4px; overflow: hidden; background: #0d0b10; }
+  .ext-schema .viz { height: 154px; display: flex; align-items: center; justify-content: center; color: var(--muted-dim); font-size: 11px; letter-spacing: .08em; border-bottom: 1px dashed var(--line); background: repeating-linear-gradient(135deg, #151018, #151018 8px, #17121b 8px, #17121b 16px); }
+  .ext-schema .insp { height: 86px; display: grid; grid-template-columns: repeat(3,1fr); }
+  .ext-schema .insp div { border-right: 1px dashed var(--line); display: flex; align-items: center; justify-content: center; color: var(--muted-dim); font-size: 10.5px; text-align: center; padding: 6px; }
+  .ext-schema .insp div:last-child { border-right: none; }
+
+  footer.page { border-top: 1px solid var(--line); margin-top: 50px; padding-top: 20px; color: var(--muted-dim); font-size: 12px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .toc a {
+    border: 1px solid var(--line); padding: 6px 9px; color: var(--cream); font: 11px var(--mono);
+    text-decoration: none; border-radius: 3px;
+  }
+  .toc a:hover { border-color: var(--green); color: var(--green); }
+</style>
+</head>
+<body>
+<main>
+
+<header class="top">
+  <div class="eyebrow">As-built reference · not the brand spec</div>
+  <h1>Deck UI State</h1>
+  <p class="lead">
+    What the Cardputer ADV deck actually renders right now, read directly out of
+    <code>firmware-cardputer/src/ui/*.cpp</code> and <code>src/app/deck_navigation.cpp</code> — plus a preview
+    section for the external ILI9341 panel, which is spec'd but <b>not yet implemented</b>.
+    Where the brand guide (<a href="brand/oscilla-master-brand-ui-guide.html">docs/brand/oscilla-master-brand-ui-guide.html</a>)
+    shows the target design language, this file shows what actually compiles and runs today.
+  </p>
+  <div class="toc">
+    <a href="#simulator">Simulator</a>
+    <a href="#nav-map">Navigation map</a>
+    <a href="#chrome">Chrome anatomy</a>
+    <a href="#gallery">Screen gallery</a>
+    <a href="#keys">Keyboard contract</a>
+    <a href="#palette">Palette &amp; layout</a>
+    <a href="#external">External display (planned)</a>
+  </div>
+</header>
+
+<div class="note warn">
+  <b>This is a hand-drawn simulation, not a framebuffer capture.</b> Canvas text uses a
+  proportional web font standing in for M5GFX's fixed 6×8 / 12×16 bitmap glyphs, so line
+  wrapping and exact character widths will drift slightly from the real screen. Every
+  color, coordinate, and state string below was copied from source at commit
+  <code>5e7466e</code> (2026-09-18) — if a view changes, this file goes stale and should
+  be updated in the same PR that changes the view. Verify against
+  <code>firmware-cardputer/src/ui/</code> before trusting a pixel position for real layout work.
+</div>
+
+<section id="simulator">
+  <h2>Interactive simulator</h2>
+  <p>A working model of the deck's card system: real navigation order, real cursor
+    behaviour, real footer states. Click the panel and use your keyboard, or use the
+    on-screen buttons.</p>
+
+  <div class="sim-wrap">
+    <div class="device-frame" tabindex="0" id="simFrame">
+      <canvas id="simCanvas"></canvas>
+      <div class="device-label"><span id="simScreenName">LINK</span><span>240 × 135 · CLICK TO FOCUS</span></div>
+    </div>
+    <div class="sim-controls">
+      <h4>Keyboard contract</h4>
+      <div class="keyrow"><span class="kcap">,</span><span class="kcap">/</span> move between cards</div>
+      <div class="keyrow"><span class="kcap">;</span><span class="kcap">.</span> move / scroll rows</div>
+      <div class="keyrow"><span class="kcap">⏎</span> select / open (Wi-Fi Scan row → AP Detail)</div>
+      <div class="keyrow"><span class="kcap">`</span> back / stop · Settings from Link</div>
+      <div class="keyrow"><span class="kcap">s</span> start / stop watching</div>
+      <div class="keyrow"><span class="kcap">c</span> configure / stream</div>
+      <div class="keyrow"><span class="kcap">m</span> drop a Drive marker</div>
+      <div class="keyrow"><span class="kcap">h</span> toggle this help overlay</div>
+      <div class="sim-touch">
+        <button data-act="prev">‹ CARD</button>
+        <button data-act="up">▲ ROW</button>
+        <button data-act="next">CARD ›</button>
+        <button data-act="back">` BACK</button>
+        <button data-act="down">▼ ROW</button>
+        <button data-act="enter">⏎ SELECT</button>
+        <button data-act="s">s START</button>
+        <button data-act="help">h HELP</button>
+        <button data-act="mark">m MARK</button>
+      </div>
+      <div class="sim-status">Now on <b id="simStatusName">LINK</b> · <span id="simStatusSection">SYSTEM</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="nav-map">
+  <h2>Navigation map</h2>
+  <p>The exact route table from
+    <code>firmware-cardputer/src/app/deck_navigation.cpp</code>. <code>,</code> and
+    <code>/</code> cycle only the eleven home cards, in this order; Settings and AP Detail
+    are reached by context (backtick from Link, Enter on a Wi-Fi Scan row) and are not
+    part of the cycle.</p>
+  <table>
+    <thead><tr><th>#</th><th>Section</th><th>Card label</th><th>Screen</th><th>Source view</th></tr></thead>
+    <tbody id="navTableBody"></tbody>
+  </table>
+</section>
+
+<section id="chrome">
+  <h2>Chrome anatomy</h2>
+  <p>Every card shares the same header, body, and footer — drawn by
+    <code>ui/chrome.cpp</code>, never duplicated per-view. Body content owns rows
+    <code>y = 20 → 121</code>; a card is not supposed to draw outside that band.</p>
+  <div class="gallery" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">
+    <div class="gcard">
+      <h4>Header — 0 to 19px</h4>
+      <span class="path">chrome.cpp · beginChrome()</span>
+      <table>
+        <tr><td>Title</td><td class="mono">(2,5), clipped to 16 chars</td></tr>
+        <tr><td>Status dots</td><td class="mono">B 146 · G 159 · S 172 · R 185, r=3, y=9</td></tr>
+        <tr><td>DBG badge</td><td class="mono">(112,5), yellow, debug builds only</td></tr>
+        <tr><td>Battery %</td><td class="mono">cursor (194,5), right-padded 3 chars</td></tr>
+        <tr><td>Battery glyph</td><td class="mono">outline (218,4,16,10) + tip (234,7,2,4)</td></tr>
+        <tr><td>Divider</td><td class="mono">hline y=19, Dim Green</td></tr>
+      </table>
+    </div>
+    <div class="gcard">
+      <h4>Footer — 121 to 135px</h4>
+      <span class="path">chrome.cpp · endChrome()</span>
+      <table>
+        <tr><td>Divider</td><td class="mono">hline y=121, Line Border</td></tr>
+        <tr><td>Text origin</td><td class="mono">cursor (3,124)</td></tr>
+        <tr><td>Notice mode</td><td class="mono">yellow, clipped 38 chars — overrides transport</td></tr>
+        <tr><td>Transport mode</td><td class="mono">LIVE (green) / CACHED (pink) / IDLE (slate) + muted transport string, clipped 30</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="legend" id="dotLegend"></div>
+</section>
+
+<section id="gallery">
+  <h2>Screen gallery</h2>
+  <p>All eleven home cards plus the two context screens (AP Detail, Settings) and the
+    Help overlay, each rendered from the same drawing code as the simulator above, with
+    one representative populated state. Boot screen included for completeness.</p>
+  <div class="gallery" id="galleryGrid"></div>
+</section>
+
+<section id="keys">
+  <h2>Keyboard contract</h2>
+  <p>From <code>ui/help_view.cpp</code> (the deck's own <code>h</code> overlay) plus the
+    context-specific bindings each view's footer advertises.</p>
+  <table>
+    <thead><tr><th>Key</th><th>Global meaning</th><th>Context-specific</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">, /</td><td>Move between the 11 home cards</td><td>—</td></tr>
+      <tr><td class="mono">; .</td><td>Move / scroll rows in the current list</td><td>Settings: brighter / dimmer</td></tr>
+      <tr><td class="mono">⏎</td><td>Select / act</td><td>Wi-Fi Scan row → opens AP Detail; AP Detail → start beacon capture</td></tr>
+      <tr><td class="mono">`</td><td>Back / stop active work</td><td>On Link → opens Settings; Settings → back to Link</td></tr>
+      <tr><td class="mono">s</td><td>Start / stop</td><td>Toggles watching on Deauth, Anti-Surv, LoRa RX, BLE Scan, 802.15.4</td></tr>
+      <tr><td class="mono">c</td><td>Stream / configure</td><td>LoRa RX: opens radio config when unconfigured</td></tr>
+      <tr><td class="mono">m</td><td>Add a Drive marker</td><td>Wardrive card only</td></tr>
+      <tr><td class="mono">h</td><td>Toggle keyboard help</td><td>Overlays any card; drawn with title "HELP"</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="palette">
+  <h2>Palette &amp; layout constants</h2>
+  <p>RGB565 values from <code>ui/theme.h</code>, shown here as their nearest 24-bit
+    equivalent (the header comment on each constant). The deck's actual screen ground is
+    literal TFT black (<code>0x0000</code>) — not the brand guide's Void Ink
+    (<code>#0B090D</code>); the two only agree conceptually.</p>
+  <div class="swatches" id="paletteSwatches"></div>
+  <table>
+    <thead><tr><th>Constant</th><th>Value (px)</th></tr></thead>
+    <tbody>
+      <tr><td>Header height</td><td class="mono">20</td></tr>
+      <tr><td>Body top / height</td><td class="mono">20 / 101</td></tr>
+      <tr><td>Footer top / height</td><td class="mono">121 / 14</td></tr>
+      <tr><td>List row height / visible rows</td><td class="mono">13 / 4 (the "four-row budget")</td></tr>
+      <tr><td>Screen resolution</td><td class="mono">240 × 135</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="external">
+  <h2>External display <span class="badge planned">planned — not implemented</span></h2>
+  <p>No code in <code>firmware-cardputer</code> or <code>firmware-c5</code> talks to an
+    ILI9341 yet — <code>ROADMAP.md</code> still lists "ILI9341 write-only init on the
+    shared bus" as an open checkbox. What follows is the target spec from
+    <a href="brand/README.md">docs/brand/README.md</a>, not a capture of running code.
+    When this lands, its section here should switch to a rendered gallery exactly like
+    the deck cards above.</p>
+
+  <h3 style="margin-top:26px;">Target composition — 320 × 240 landscape</h3>
+  <div class="ext-schema">
+    <div class="viz">UPPER 64% · VISUALIZATION / DENSE CONTEXT FIELD</div>
+    <div class="insp">
+      <div>IDENTITY</div>
+      <div>MEASURED VALUES</div>
+      <div>CONDITION / ANNOTATION</div>
+    </div>
+  </div>
+
+  <table style="margin-top:20px;">
+    <thead><tr><th>Deck counterpart</th><th>Planned external companion</th></tr></thead>
+    <tbody>
+      <tr><td>Packet Monitor</td><td>Channel occupancy bars, baseline comparison, focused-channel RF inspector</td></tr>
+      <tr><td>Sniffer</td><td>Ranked relationship table, client counts, security/freshness detail, anomaly context</td></tr>
+      <tr><td>Wardrive</td><td>GNSS breadcrumb and marker-event history, accuracy, movement/session context</td></tr>
+      <tr><td>LoRa RX / BLE / 802.15.4</td><td>Protocol cadence or dense frame context, RSSI/SNR, selected-frame decode</td></tr>
+      <tr><td>Logs</td><td>Session comparison, timeline/density overview, preview counts, explicit cached state</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>Non-negotiables carried over from the brand spec:</b> no duplicated top bar,
+    battery, status dots, live strip, footer hints, navigation, or touch affordance — the
+    deck stays the sole control surface and remains fully operable if this panel is
+    unplugged. It shares one SPI bus with the internal SD card
+    (<code>SD init first, TFT write-only, single lock</code>) per Rev D §5.2.
+  </div>
+</section>
+
+<footer class="page">
+  Sources: <code>firmware-cardputer/src/ui/*.cpp</code>,
+  <code>firmware-cardputer/src/app/deck_navigation.cpp</code>,
+  <code>docs/brand/README.md</code>, <code>ROADMAP.md</code>. Generated by hand for
+  commit <code>5e7466e</code>, 2026-09-18 — re-check against source, don't trust this file
+  blind.
+</footer>
+
+</main>
+
+<script>
+/* ---------------------------------------------------------------------
+ * Oscilla deck UI simulator / gallery.
+ * Drawing helpers below intentionally mirror the M5Canvas call shapes
+ * used in firmware-cardputer/src/ui/*.cpp (fillRect, drawRect, print at
+ * a cursor) so each screen function stays a close, checkable port of its
+ * C++ counterpart rather than a free reinterpretation.
+ * ------------------------------------------------------------------- */
+(function () {
+'use strict';
+
+const COLORS = {
+  void: '#000000',       // literal TFT black, not brand Void Ink
+  paper: '#F4ECD9',
+  green: '#A8DF65',
+  pink: '#F05D9D',
+  yellow: '#F5D658',
+  red: '#EF514C',
+  slate: '#AAA0A5',
+  line: '#4B3C49',
+  dimGreen: '#51763D',
+  trackDark: '#263528',
+  panelDark: '#151018',
+  glow: '#241F0D',
+};
+
+const kBodyTop = 20, kFooterTop = 121, kW = 240, kH = 135;
+
+function clip(s, n) {
+  s = String(s);
+  if (s.length <= n) return s;
+  return n < 2 ? s.slice(0, n) : s.slice(0, n - 1) + '>';
+}
+function rssiColour(rssi) {
+  if (rssi >= -55) return COLORS.green;
+  if (rssi >= -70) return COLORS.yellow;
+  return COLORS.red;
+}
+function indicatorColour(state) {
+  switch (state) {
+    case 'ready': case 'active': return COLORS.green;
+    case 'pending': return COLORS.yellow;
+    case 'fault': return COLORS.red;
+    case 'off': return COLORS.dimGreen;
+    default: return COLORS.slate;
+  }
+}
+function linkIndicator(state) {
+  if (state === 'ready') return 'ready';
+  if (state === 'hello') return 'pending';
+  return 'fault'; // incompatible or disconnected
+}
+
+/* --- primitives, 1:1 with the M5Canvas calls they stand in for --- */
+function R(ctx, x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
+function RO(ctx, x, y, w, h, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+function HL(ctx, x, y, w, color) {
+  ctx.strokeStyle = color; ctx.beginPath();
+  ctx.moveTo(x, y + 0.5); ctx.lineTo(x + w, y + 0.5); ctx.stroke();
+}
+function CIRC(ctx, x, y, r, color) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+/* A local monospace stack, deliberately not the page's IBM Plex Mono webfont:
+ * canvas text is drawn once at load, and a webfont that finishes loading
+ * asynchronously (or fails to, offline) can leave individual glyphs
+ * corrupted rather than just falling back — a local font never races. */
+const CANVAS_MONO = "ui-monospace, 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', monospace";
+function T(ctx, x, y, str, color, size) {
+  size = size || 1;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'top';
+  ctx.font = (size === 2 ? '16px ' : '8px ') + CANVAS_MONO;
+  ctx.fillText(str, x, y);
+}
+function Printer(ctx, size) {
+  this.ctx = ctx; this.size = size || 1; this.cw = this.size === 2 ? 12 : 6; this.x = 0; this.y = 0;
+}
+Printer.prototype.at = function (x, y) { this.x = x; this.y = y; return this; };
+Printer.prototype.color = function (c) { this._c = c; return this; };
+Printer.prototype.print = function (str) {
+  T(this.ctx, this.x, this.y, str, this._c, this.size);
+  this.x += String(str).length * this.cw;
+  return this;
+};
+function rowSel(ctx, y, h, selected) {
+  if (!selected) return;
+  R(ctx, 0, y - 2, kW, h, COLORS.glow);
+  R(ctx, 0, y - 2, 2, h, COLORS.yellow);
+}
+
+/* --- chrome: header + footer, shared by every screen --- */
+function drawChrome(ctx, chrome, bodyFn) {
+  R(ctx, 0, 0, kW, kH, COLORS.void);
+
+  T(ctx, 2, 5, clip(chrome.title, 16), COLORS.paper, 1);
+
+  CIRC(ctx, 146, 9, 3, indicatorColour(linkIndicator(chrome.link)));
+  CIRC(ctx, 159, 9, 3, indicatorColour(chrome.gnss));
+  CIRC(ctx, 172, 9, 3, indicatorColour(chrome.storage));
+  CIRC(ctx, 185, 9, 3, indicatorColour(chrome.rf));
+
+  if (chrome.debug) T(ctx, 112, 5, 'DBG', COLORS.yellow, 1);
+
+  const pct = chrome.battery_pct;
+  const pctText = (pct < 0 ? '--' : String(Math.max(0, Math.min(100, pct)))).padStart(3);
+  T(ctx, 194, 5, pctText, pct < 0 ? COLORS.slate : pct <= 20 ? COLORS.red : COLORS.paper, 1);
+  const rectColor = (pct >= 0 && pct <= 20) ? COLORS.red : COLORS.paper;
+  RO(ctx, 218, 4, 16, 10, rectColor);
+  R(ctx, 234, 7, 2, 4, rectColor);
+  if (pct > 0) {
+    const w = Math.max(1, Math.min(12, Math.floor(pct * 12 / 100)));
+    R(ctx, 220, 6, w, 6, pct <= 20 ? COLORS.red : COLORS.green);
+  }
+  if (chrome.charging) R(ctx, 214, 6, 2, 6, COLORS.yellow);
+
+  HL(ctx, 0, kBodyTop - 1, kW, COLORS.dimGreen);
+
+  bodyFn(ctx);
+
+  R(ctx, 0, kFooterTop, kW, kH - kFooterTop, COLORS.void);
+  HL(ctx, 0, kFooterTop, kW, COLORS.line);
+  let cx = 3;
+  const fy = kFooterTop + 3;
+  if (chrome.notice) {
+    T(ctx, cx, fy, clip(chrome.notice, 38), COLORS.yellow, 1);
+    return;
+  }
+  const label = chrome.cached ? 'CACHED' : chrome.live ? 'LIVE' : 'IDLE';
+  const labelColor = chrome.cached ? COLORS.pink : chrome.live ? COLORS.green : COLORS.slate;
+  T(ctx, cx, fy, label, labelColor, 1); cx += label.length * 6;
+  T(ctx, cx, fy, '  ', COLORS.slate, 1); cx += 12;
+  T(ctx, cx, fy, clip(chrome.transport || '', 30), COLORS.slate, 1);
+}
+
+/* =======================================================================
+ * Per-screen drawing — ports of firmware-cardputer/src/ui/*.cpp
+ * ===================================================================== */
+
+function drawLink(ctx, chrome, m, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    const p = new Printer(ctx, 1);
+    if (m.disconnected) {
+      p.at(4, kBodyTop + 2).color(COLORS.slate).print('PROBE C5 / NOT PRESENT');
+    } else {
+      p.at(4, kBodyTop + 2).color(COLORS.slate).print('PROBE C5 / ' + m.ver);
+      p.at(190, kBodyTop + 2).color(COLORS.slate).print('P' + m.proto);
+    }
+
+    function statusPanel(y, label, value, color, selected) {
+      if (selected) { R(ctx, 0, y, kW, 20, COLORS.glow); R(ctx, 0, y, 3, 20, COLORS.yellow); }
+      R(ctx, 5, y + 7, 5, 5, color);
+      T(ctx, 16, y + 4, label, selected ? COLORS.paper : COLORS.slate, 1);
+      const lit = color === COLORS.green ? 4 : color === COLORS.yellow ? 2 : 1;
+      for (let i = 0; i < 4; i++) R(ctx, 113 + i * 7, y + 8, 4, 4, i < lit ? color : COLORS.trackDark);
+      T(ctx, 148, y + 4, value, color, 1);
+    }
+    function checkRow(y, label, value, color, selected) {
+      if (selected) { R(ctx, 0, y - 2, kW, 13, COLORS.glow); R(ctx, 0, y - 2, 2, 13, COLORS.yellow); }
+      R(ctx, 6, y + 3, 4, 4, color);
+      T(ctx, 16, y, label, selected ? COLORS.paper : COLORS.slate, 1);
+      T(ctx, 112, y, value, color, 1);
+    }
+
+    statusPanel(kBodyTop + 16, 'PROBE LINK', m.linkStatus, m.linkColor, cursor === 0);
+    checkRow(kBodyTop + 42, 'GNSS', m.gnssValue, indicatorColour(chrome.gnss), cursor === 1);
+    checkRow(kBodyTop + 55, 'SD CARD', m.sdReady ? 'READY' : 'ABSENT', m.sdReady ? COLORS.green : COLORS.red, cursor === 2);
+    checkRow(kBodyTop + 68, 'BUS', m.busText, m.busColor, cursor === 3);
+
+    HL(ctx, 4, kBodyTop + 80, kW - 8, COLORS.line);
+    T(ctx, 4, kBodyTop + 85, 'CAPS', COLORS.slate, 1);
+    T(ctx, 38, kBodyTop + 85, m.caps, m.capsReady ? COLORS.green : COLORS.yellow, 1);
+  });
+}
+
+function drawSweep(ctx, chrome, scan, cursor) {
+  const chX = 126, bandX = 154, rssiX = 186, meterX = 216;
+  drawChrome(ctx, chrome, function (ctx) {
+    const p = new Printer(ctx, 1);
+    p.at(4, kBodyTop + 2).color(COLORS.slate).print(scan.header);
+    p.at(178, kBodyTop + 2).color(COLORS.slate).print(scan.rows.length ? 'RX' : '--');
+
+    const rows = scan.rows, listTop = kBodyTop + 16, rowH = 13, visible = 4;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < rows.length; i++) {
+      const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      const name = (r.ssid || '<hidden>').padEnd(15).slice(0, 15);
+      T(ctx, 6, y, name, r.hidden ? COLORS.dimGreen : COLORS.paper, 1);
+      T(ctx, chX, y, String(r.ch).padStart(3), COLORS.slate, 1);
+      T(ctx, bandX, y, r.band.padStart(4), COLORS.slate, 1);
+      T(ctx, rssiX, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
+      const filled = Math.max(0, Math.min(5, Math.floor((r.rssi + 100) * 5 / 70)));
+      for (let k = 0; k < 5; k++) R(ctx, meterX + k * 4, y + 1, 3, 5, k < filled ? rssiColour(r.rssi) : COLORS.trackDark);
+    }
+    if (!rows.length) T(ctx, 4, listTop, 'NO OBSERVATIONS YET', COLORS.dimGreen, 1);
+
+    T(ctx, 4, kBodyTop + 83, scan.bottom, scan.bottomColor, 1);
+  });
+}
+
+function drawTrace(ctx, chrome, row, insp) {
+  drawChrome(ctx, chrome, function (ctx) {
+    if (!row) { T(ctx, 4, kBodyTop + 4, 'NO TARGET · RETURN TO WIFI SCAN', COLORS.yellow, 1); return; }
+    T(ctx, 3, kBodyTop + 1, '> ' + (row.ssid || '<hidden>'), COLORS.yellow, 2);
+    T(ctx, 4, kBodyTop + 27, 'CH ' + row.ch + ' · ' + (row.band5 ? '5' : '2.4') + ' GHz', COLORS.slate, 1);
+    T(ctx, 132, kBodyTop + 27, 'RSSI ' + row.rssi + ' dBm', rssiColour(row.rssi), 1);
+
+    function metric(x, name, value, sub, color) {
+      RO(ctx, x, kBodyTop + 42, 75, 25, COLORS.line);
+      T(ctx, x + 4, kBodyTop + 45, name, COLORS.slate, 1);
+      T(ctx, x + 4, kBodyTop + 54, value, color, 1);
+      T(ctx, x + 4, kBodyTop + 63, sub, COLORS.dimGreen, 1);
+    }
+    if (insp.listening) {
+      T(ctx, 4, kBodyTop + 83, 'CAPTURE ACTIVE · CH ' + row.ch, COLORS.yellow, 1);
+    } else if (!insp.valid) {
+      metric(3, 'SECURITY', row.auth, 'NOT INSPECTED', COLORS.paper);
+      metric(82, 'MFP', '--', 'PRESS ENTER', COLORS.slate);
+      metric(161, 'BEACONS', '--', 'PRESS ENTER', COLORS.slate);
+    } else if (insp.beacons === 0) {
+      metric(3, 'SECURITY', row.auth, 'NO BEACONS', COLORS.paper);
+      metric(82, 'MFP', '--', 'NO DATA', COLORS.yellow);
+      metric(161, 'BEACONS', '0', insp.aborted ? 'STOPPED' : 'NONE HEARD', COLORS.yellow);
+    } else {
+      const mfp = !insp.rsn ? 'NO RSN' : insp.mfp_required ? 'REQ' : insp.mfp_capable ? 'CAP' : 'OFF';
+      const mfpColor = insp.mfp_required ? COLORS.green : insp.mfp_capable ? COLORS.yellow : COLORS.pink;
+      metric(3, 'SECURITY', row.auth, 'AUTH MODE', COLORS.paper);
+      metric(82, 'MFP', mfp, insp.interval_ms + 'ms', mfpColor);
+      metric(161, 'BEACONS', String(insp.beacons), 'CAPTURED', COLORS.green);
+      T(ctx, 4, kBodyTop + 83, insp.mfp_required ? '◇ MFP REQUIRED' : insp.mfp_capable ? '◇ MFP CAPABLE' : '◇ MFP NOT OBSERVED', mfpColor, 1);
+    }
+  });
+}
+
+function drawContacts(ctx, chrome, model, tab, cursor) {
+  const chX = 104, bandX = 128, rssiX = 204;
+  drawChrome(ctx, chrome, function (ctx) {
+    const clients = tab === 'clients';
+    T(ctx, 4, kBodyTop + 2, 'CLIENTS ' + model.clients.length, clients ? COLORS.paper : COLORS.slate, 1);
+    T(ctx, 76, kBodyTop + 2, 'PROBES ' + model.probes.length, clients ? COLORS.slate : COLORS.paper, 1);
+    T(ctx, 142, kBodyTop + 2, 'CH ' + model.channel, COLORS.slate, 1);
+    let px = 184;
+    T(ctx, px, kBodyTop + 2, 'PKTS ' + model.pkts, COLORS.slate, 1); px += ('PKTS ' + model.pkts).length * 6;
+    if (model.malformed) T(ctx, px, kBodyTop + 2, ' BAD ' + model.malformed, COLORS.pink, 1);
+
+    const rows = clients ? model.clients : model.probes;
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < rows.length; i++) {
+      const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      if (clients) {
+        T(ctx, 6, y, r.mac.padEnd(15), COLORS.paper, 1);
+        T(ctx, chX, y, String(r.ch).padStart(3), COLORS.slate, 1);
+        T(ctx, bandX, y, r.band.padStart(4), COLORS.slate, 1);
+        T(ctx, rssiX, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
+      } else {
+        const ssid = (r.ssid || '<wildcard>').padEnd(21).slice(0, 21);
+        T(ctx, 6, y, ssid, r.ssid ? COLORS.paper : COLORS.dimGreen, 1);
+        T(ctx, rssiX, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
+      }
+    }
+
+    if (model.lastSighting) {
+      let cx = 4;
+      T(ctx, cx, kBodyTop + 83, 'LAST ', COLORS.yellow, 1); cx += 30;
+      T(ctx, cx, kBodyTop + 83, model.lastSighting, model.sniffing ? COLORS.green : COLORS.slate, 1);
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'CLIENTS ' + model.clients.length + ' · PROBES ' + model.probes.length + ' · PKTS ' + model.pkts,
+        model.sniffing ? COLORS.green : COLORS.slate, 1);
+    }
+  });
+}
+
+function drawDeauth(ctx, chrome, model, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 2, 'DETECTIONS ' + model.events.length + '  ' + (model.active ? 'WATCHING' : 'IDLE'), COLORS.slate, 1);
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4, events = model.events;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < events.length; i++) {
+      const e = events[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      const p = new Printer(ctx, 1);
+      p.at(6, y).color(e.disassoc ? COLORS.yellow : COLORS.pink).print(e.mac.padEnd(15));
+      p.color(COLORS.slate).print(' r' + String(e.reason).padEnd(3));
+      p.color(rssiColour(e.rssi)).print(' ' + String(e.rssi).padStart(4));
+    }
+    if (!events.length) T(ctx, 0, listTop, model.active ? 'LISTENING FOR MANAGEMENT FRAMES...' : 'NO DETECTIONS YET', COLORS.dimGreen, 1);
+
+    if (events.length && cursor < events.length) {
+      const e = events[cursor];
+      T(ctx, 4, kBodyTop + 83, e.mac + ' R' + e.reason + ' ' + e.rssi + ' dBm', COLORS.slate, 1);
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'EVENTS ' + events.length + ' · ' + (model.active ? 'WATCHING' : 'IDLE'), model.active ? COLORS.green : COLORS.slate, 1);
+    }
+  });
+}
+
+function drawAntiSurv(ctx, chrome, model, cursor, starting) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 2, 'TRACKERS ' + model.trackers.length, COLORS.slate, 1);
+    T(ctx, 164, kBodyTop + 2, starting ? 'STARTING' : model.active ? 'WATCH' : 'IDLE',
+      starting ? COLORS.yellow : model.active ? COLORS.green : COLORS.slate, 1);
+
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4, trackers = model.trackers;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < trackers.length; i++) {
+      const t = trackers[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      T(ctx, 6, y, t.mac.padEnd(15), t.alert ? COLORS.pink : COLORS.paper, 1);
+      T(ctx, 102, y, 'L' + t.legs, COLORS.slate, 1);
+      T(ctx, 132, y, 'N' + t.sightings, COLORS.slate, 1);
+      T(ctx, 204, y, String(t.rssi).padStart(4), rssiColour(t.rssi), 1);
+    }
+
+    const alert = trackers.find(t => t.alert);
+    if (alert) {
+      T(ctx, 4, kBodyTop + 83, 'FOLLOW? ' + alert.mac + ' · ' + alert.legs + ' LEGS', COLORS.pink, 1);
+    } else if (starting) {
+      T(ctx, 4, kBodyTop + 83, 'AWAITING PASSIVE TRACKER STREAM', COLORS.yellow, 1);
+    } else if (model.active) {
+      T(ctx, 4, kBodyTop + 83, (model.hasPosition ? 'FIX READY' : 'NO FRESH FIX') + ' · NEED 2 x 25m LEGS',
+        model.hasPosition ? COLORS.green : COLORS.yellow, 1);
+    } else if (trackers.length && cursor < trackers.length) {
+      const t = trackers[cursor];
+      T(ctx, 4, kBodyTop + 83, t.mac + ' · ' + t.legs + '/2 LEGS · ' + t.traveled + 'm', COLORS.slate, 1);
+    } else if (trackers.length) {
+      T(ctx, 4, kBodyTop + 83, trackers.length + ' TRACKERS · RESULTS HELD IN RAM', COLORS.slate, 1);
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'PASSIVE ONLY · PRESS s TO WATCH', COLORS.dimGreen, 1);
+    }
+  });
+}
+
+function drawMesh(ctx, chrome, model, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 2, 'PANS ' + model.pans + '  NODES ' + model.nodes.length + '  ' + (model.active ? 'LISTENING' : 'IDLE'), COLORS.slate, 1);
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4, nodes = model.nodes;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < nodes.length; i++) {
+      const n = nodes[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      const p = new Printer(ctx, 1);
+      p.at(6, y).color(COLORS.paper).print(n.pan.padEnd(8));
+      p.color(COLORS.slate).print(' ' + (n.short || '--------').padEnd(8));
+      p.color(n.rssi >= -70 ? COLORS.green : COLORS.yellow).print(' ' + String(n.rssi).padStart(4));
+      p.color(COLORS.slate).print(' L' + n.lqi);
+    }
+    if (!nodes.length) T(ctx, 4, listTop, model.active ? 'LISTENING FOR PAN/NODE FRAMES...' : 'NO 802.15.4 OBSERVATIONS YET', COLORS.dimGreen, 1);
+
+    if (nodes.length && cursor < nodes.length) {
+      const n = nodes[cursor];
+      T(ctx, 4, kBodyTop + 83, n.pan + ' RSSI ' + n.rssi + ' LQI ' + n.lqi, model.active ? COLORS.green : COLORS.slate, 1);
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'NODES ' + nodes.length + ' · ' + (model.active ? 'LISTENING' : 'IDLE'), model.active ? COLORS.green : COLORS.slate, 1);
+    }
+  });
+}
+
+function drawSubGhz(ctx, chrome, model, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 2, 'PACKETS ' + model.packets.length + '  ' + (model.active ? 'LISTENING' : 'IDLE'), COLORS.slate, 1);
+    if (model.hasConfig) T(ctx, 184, kBodyTop + 2, 'SF' + model.sf + ' BW' + model.bw, COLORS.slate, 1);
+    else T(ctx, 164, kBodyTop + 2, 'UNCONFIGURED', COLORS.yellow, 1);
+
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4, packets = model.packets;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < packets.length; i++) {
+      const pkt = packets[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      const p = new Printer(ctx, 1);
+      p.at(6, y).color(COLORS.paper).print(String(pkt.rssi).padStart(4));
+      p.color(pkt.snr >= 7 ? COLORS.green : pkt.snr >= 0 ? COLORS.yellow : COLORS.pink).print(' ' + pkt.snr.toFixed(1).padStart(5));
+      p.color(COLORS.slate).print(' ' + String(pkt.len).padStart(3) + ' ');
+      p.color(pkt.framing === 'M' ? COLORS.pink : pkt.framing === 'C' ? COLORS.green : pkt.framing === 'L' ? COLORS.paper : COLORS.slate).print(pkt.framing + ' ');
+      p.color(COLORS.dimGreen).print(pkt.hex.slice(0, 20));
+    }
+    if (!packets.length) T(ctx, 0, listTop, model.active ? 'LISTENING FOR LORA RX...' : model.hasConfig ? 'PRESS s TO START' : 'PRESS c TO CONFIGURE', COLORS.dimGreen, 1);
+
+    if (model.hasConfig) {
+      const mhz = (model.freqHz / 1e6).toFixed(3);
+      T(ctx, 4, kBodyTop + 83, mhz + ' SF' + model.sf + ' BW' + model.bw + ' N' + model.packets.length,
+        model.active ? COLORS.green : COLORS.slate, 1);
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'CFG REQUIRED · PRESS c', COLORS.yellow, 1);
+    }
+  });
+}
+
+function drawSpectrumBroad(ctx, chrome, model, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    const readings = model.readings;
+    const maxPkts = Math.max(1, ...readings.map(r => r.pkts));
+    const chartTop = kBodyTop + 4, chartBottom = kBodyTop + 72, chartH = chartBottom - chartTop;
+    let barW = readings.length ? Math.floor(kW / readings.length) : 1;
+    barW = Math.max(1, Math.min(14, barW));
+    const chartW = Math.min(kW, barW * readings.length);
+    const chartLeft = Math.floor((kW - chartW) / 2);
+
+    readings.forEach((r, i) => {
+      const x = chartLeft + i * barW;
+      if (x >= kW) return;
+      let h = Math.round((r.pkts / maxPkts) * chartH);
+      if (h < 1 && r.pkts > 0) h = 1;
+      const w = barW > 1 ? barW - 1 : 1;
+      if (i === cursor) RO(ctx, x, chartTop, w, chartH, COLORS.paper);
+      const frac = r.pkts / maxPkts;
+      const barColor = frac > 0.66 ? COLORS.pink : frac > 0.33 ? COLORS.yellow : COLORS.green;
+      if (h > 0) R(ctx, x, chartBottom - h, w, h, barColor);
+      else R(ctx, x, chartBottom - 2, w, 2, COLORS.dimGreen);
+    });
+
+    if (cursor < readings.length) {
+      const r = readings[cursor];
+      T(ctx, 4, kBodyTop + 78, 'CH ' + r.ch + ' ' + r.band + '  ' + r.pkts + ' PKTS', COLORS.slate, 1);
+    } else if (!readings.length) {
+      T(ctx, 4, kBodyTop + 78, model.active ? 'CHANNELS 0 · WAITING' : 'NO CHANNEL READINGS', COLORS.slate, 1);
+    }
+  });
+}
+function drawSpectrumLocked(ctx, chrome, model) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 2, 'PACKET MONITOR LIVE  CH ' + model.lockedChannel, COLORS.green, 1);
+    T(ctx, 4, kBodyTop + 22, String(model.pkts), COLORS.yellow, 2);
+    T(ctx, 4, kBodyTop + 45, 'PACKETS / SEC  ·  PRESS ` TO RELEASE', COLORS.slate, 1);
+  });
+}
+
+function drawGnss(ctx, chrome, model) {
+  drawChrome(ctx, chrome, function (ctx) {
+    const stateColor = { Fixed: COLORS.green, FixLost: COLORS.pink, Searching: COLORS.yellow, NoUartData: COLORS.red }[model.state] || COLORS.slate;
+    T(ctx, 4, kBodyTop + 2, 'GNSS ' + model.stateName, stateColor, 1);
+    T(ctx, 154, kBodyTop + 2, model.alive ? 'UART DATA' : 'UART SILENT', model.alive ? COLORS.green : COLORS.red, 1);
+
+    function row(y, label, value, color) {
+      T(ctx, 4, y, label, COLORS.slate, 1);
+      T(ctx, 94, y, value, color, 1);
+    }
+    if (model.everFixed) {
+      row(kBodyTop + 16, 'POSITION', model.lat.toFixed(4) + ' ' + model.lon.toFixed(4), COLORS.paper);
+      row(kBodyTop + 29, 'ALT / HDOP', model.alt.toFixed(0) + 'm / ' + model.hdop.toFixed(1) + ' HDOP', COLORS.paper);
+      row(kBodyTop + 42, 'FIX AGE', model.fixAge, model.state === 'Fixed' ? COLORS.green : COLORS.pink);
+    } else {
+      row(kBodyTop + 16, 'POSITION', 'NO FIX THIS SESSION', COLORS.yellow);
+      row(kBodyTop + 29, 'FIX AGE', '--', COLORS.slate);
+      row(kBodyTop + 42, 'UTC', '--', COLORS.slate);
+    }
+    row(kBodyTop + 55, 'WARDRIVE', model.logOpen ? model.aps + ' AP / ' + model.trk + ' TRK' : 'IDLE', model.logOpen ? COLORS.green : COLORS.slate);
+
+    if (model.logOpen) T(ctx, 4, kBodyTop + 83, 'LOG ' + model.aps + ' AP · ' + model.trk + ' TRK', COLORS.green, 1);
+    else if (model.everFixed) T(ctx, 4, kBodyTop + 83, 'FIX AGE ' + model.fixAge + ' · LOG IDLE', COLORS.slate, 1);
+    else T(ctx, 4, kBodyTop + 83, 'NO FIX · LOG IDLE', COLORS.slate, 1);
+  });
+}
+
+function drawBt(ctx, chrome, model, cursor) {
+  drawChrome(ctx, chrome, function (ctx) {
+    const trackerCount = model.trackerCount;
+    T(ctx, 4, kBodyTop + 2, 'DEVICES ' + model.devices.length, COLORS.slate, 1);
+    let cx = 132;
+    T(ctx, cx, kBodyTop + 2, 'TRACKERS ', COLORS.slate, 1); cx += 9 * 6;
+    T(ctx, cx, kBodyTop + 2, String(trackerCount), trackerCount ? COLORS.pink : COLORS.slate, 1);
+
+    const listTop = kBodyTop + 16, rowH = 13, visible = 4, rows = model.devices;
+    const first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let i = 0; i < visible && first + i < rows.length; i++) {
+      const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
+      rowSel(ctx, y, rowH, sel);
+      const label = (r.name || r.mac).padEnd(18).slice(0, 18);
+      T(ctx, 6, y, label, r.name ? COLORS.paper : COLORS.dimGreen, 1);
+      T(ctx, 156, y, r.tracker ? 'TRK' : '   ', r.tracker ? COLORS.pink : COLORS.slate, 1);
+      T(ctx, 196, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
+    }
+
+    if (model.lastTracker) {
+      T(ctx, 4, kBodyTop + 83, 'LAST TRACKER ' + model.lastTracker.mac + ' ' + model.lastTracker.rssi, COLORS.slate, 1);
+    } else if (cursor < rows.length) {
+      const r = rows[cursor];
+      const p = new Printer(ctx, 1);
+      p.at(4, kBodyTop + 83).color(COLORS.slate).print((r.name || r.mac).slice(0, 18));
+      p.color(rssiColour(r.rssi)).print('  ' + r.rssi + ' dBm');
+      p.color(COLORS.slate).print(' · ' + r.n + ' seen');
+    } else {
+      T(ctx, 4, kBodyTop + 83, 'NO BLE DEVICES', COLORS.slate, 1);
+    }
+  });
+}
+
+function drawSettings(ctx, chrome, brightness) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 3, 'DISPLAY BRIGHTNESS', COLORS.green, 1);
+    const pct = Math.round((brightness * 100 + 127) / 255);
+    T(ctx, 4, kBodyTop + 18, String(pct).padStart(3) + '%', COLORS.paper, 2);
+
+    const barX = 4, barY = kBodyTop + 42, segW = 18, gap = 3, count = 10;
+    const filled = Math.round((brightness * count + 254) / 255);
+    for (let i = 0; i < count; i++) R(ctx, barX + i * (segW + gap), barY, segW, 10, i < filled ? COLORS.green : COLORS.trackDark);
+
+    T(ctx, 4, kBodyTop + 62, '; .   BRIGHTER / DIMMER', COLORS.slate, 1);
+    T(ctx, 4, kBodyTop + 75, '`     BACK TO LINK', COLORS.slate, 1);
+  });
+}
+
+function drawInfo(ctx, chrome, model) {
+  drawChrome(ctx, chrome, function (ctx) {
+    function heapColour(free, total) {
+      if (!total) return COLORS.slate;
+      const pct = free >= total ? 100 : free * 100 / total;
+      return pct <= 20 ? COLORS.red : pct <= 40 ? COLORS.yellow : COLORS.green;
+    }
+    function heapPanel(x, y, w, label, available, free, total) {
+      R(ctx, x, y, w, 58, COLORS.panelDark);
+      RO(ctx, x, y, w, 58, COLORS.line);
+      T(ctx, x + 5, y + 4, label, COLORS.slate, 1);
+      if (!available) T(ctx, x + 5, y + 15, '--', COLORS.slate, 2);
+      else T(ctx, x + 5, y + 15, Math.floor(free / 1024) + ' KB', heapColour(free, total), 2);
+      T(ctx, x + 5, y + 37, available ? 'FREE' : 'WAITING', available ? COLORS.slate : COLORS.yellow, 1);
+      if (available && total) {
+        const pct = Math.min(100, Math.round(free * 100 / total));
+        T(ctx, x + w - 35, y + 37, String(pct).padStart(3) + '%', heapColour(free, total), 1);
+      }
+      const bx = x + 5, by = y + 47, segW = 8, gap = 2, count = 10;
+      let filled = 0;
+      if (available && total) filled = Math.ceil(Math.min(100, free * 100 / total) * count / 100);
+      for (let i = 0; i < count; i++) R(ctx, bx + i * (segW + gap), by, segW, 6, i < filled ? heapColour(free, total) : COLORS.trackDark);
+    }
+    heapPanel(4, kBodyTop + 3, 112, 'DECK HEAP', true, model.deckFree, model.deckTotal);
+    heapPanel(124, kBodyTop + 3, 112, 'PROBE HEAP', model.probeAvailable, model.probeFree, model.probeTotal);
+
+    function metric(x, y, label, value, color) {
+      T(ctx, x, y, label, COLORS.slate, 1);
+      T(ctx, x + 48, y, value, color, 1);
+    }
+    metric(4, kBodyTop + 67, 'DECK UP', model.deckUptime, COLORS.slate);
+    metric(124, kBodyTop + 67, 'PROBE UP', model.probeAvailable ? model.probeUptime : '--', model.probeAvailable ? COLORS.slate : COLORS.yellow);
+    metric(4, kBodyTop + 83, 'LINK', model.linkName, model.ready ? COLORS.green : COLORS.red);
+    metric(124, kBodyTop + 83, 'SD', model.sdReady ? 'READY' : 'ABSENT', model.sdReady ? COLORS.green : COLORS.red);
+  });
+}
+
+function drawHelp(ctx, chrome) {
+  drawChrome(ctx, chrome, function (ctx) {
+    T(ctx, 4, kBodyTop + 3, 'QUICK CONTROLS', COLORS.green, 1);
+    const lines = [
+      ', /   CARDS', '; .   ROWS', 'ENTER SELECT / ACT',
+      '`     BACK/STOP, SETTINGS ON LINK', 's/c   START / STREAM', 'h     CLOSE HELP',
+    ];
+    lines.forEach((l, i) => T(ctx, 4, kBodyTop + 18 + i * 13, l, COLORS.paper, 1));
+  });
+}
+
+function drawBoot(ctx) {
+  R(ctx, 0, 0, kW, kH, COLORS.void);
+  const cx = 120, cy = 50, hy = 21;
+  ctx.strokeStyle = COLORS.green; ctx.lineWidth = 1;
+  const hex = [[cx, cy - hy], [cx + 18, cy - 11], [cx + 18, cy + 11], [cx, cy + hy], [cx - 18, cy + 11], [cx - 18, cy - 11]];
+  ctx.beginPath();
+  hex.forEach((pt, i) => i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]));
+  ctx.closePath(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx, cy, 17, 7, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx, cy, 7, 17, 0, 0, Math.PI * 2); ctx.stroke();
+
+  const lx = 9, ly = 6;
+  const pts = [[cx - lx, cy], [cx - 6, cy - ly], [cx, cy - ly - 1], [cx + 6, cy - ly], [cx + lx, cy], [cx + 6, cy + ly], [cx, cy + ly + 1], [cx - 6, cy + ly]];
+  ctx.strokeStyle = COLORS.paper;
+  ctx.beginPath();
+  pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]));
+  ctx.closePath(); ctx.stroke();
+  CIRC(ctx, cx, cy, 3, COLORS.yellow);
+
+  T(ctx, 78, 88, 'OSCILLA', COLORS.paper, 2);
+}
+
+/* =======================================================================
+ * Sample data — illustrative, not captured field data.
+ * ===================================================================== */
+
+const NAV = [
+  { screen: 'link', section: 'SYSTEM', label: 'LINK', file: 'link_view.cpp' },
+  { screen: 'info', section: 'SYSTEM', label: 'SYSTEM', file: 'info_view.cpp' },
+  { screen: 'sweep', section: 'OBSERVE', label: 'WIFI SCAN', file: 'sweep_view.cpp' },
+  { screen: 'beacons', section: 'OBSERVE', label: 'BLE SCAN', file: 'bt_view.cpp' },
+  { screen: 'mesh', section: 'OBSERVE', label: '802.15.4', file: 'mesh_view.cpp' },
+  { screen: 'subghz', section: 'OBSERVE', label: 'LORA RX', file: 'subghz_view.cpp' },
+  { screen: 'spectrum', section: 'ANALYZE', label: 'PACKET MONITOR', file: 'spectrum_view.cpp' },
+  { screen: 'contacts', section: 'ANALYZE', label: 'SNIFFER', file: 'contacts_view.cpp' },
+  { screen: 'deauth', section: 'ANALYZE', label: 'DEAUTH DETECT', file: 'deauth_view.cpp' },
+  { screen: 'antisurv', section: 'ANALYZE', label: 'ANTI-SURV', file: 'anti_surveillance_view.cpp' },
+  { screen: 'drive', section: 'DRIVE', label: 'WARDRIVE', file: 'gnss_view.cpp' },
+];
+const CONTEXT_SCREENS = [
+  { screen: 'trace', section: '(context)', label: 'AP DETAIL', file: 'trace_view.cpp', note: 'Enter on a Wi-Fi Scan row' },
+  { screen: 'settings', section: '(context)', label: 'SETTINGS', file: 'settings_view.cpp', note: '` from Link' },
+];
+
+const CHROME_BASE = { debug: false, battery_pct: 84, charging: false };
+
+const DATA = {
+  link: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'LINK', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'BPK PING 12ms · PONG 15ms', notice: '' }),
+    model: { disconnected: false, ver: 'v1', proto: 2, linkStatus: 'ACTIVE', linkColor: COLORS.green, gnssValue: 'FIXED', sdReady: true, busText: 'OK R0 T0 E0', busColor: COLORS.green, caps: '2.4 5G BLE 154 LORA', capsReady: true },
+    cursor: 0,
+  },
+  sweep: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'WIFI SCAN', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'RX 2.4/5G · CH HOP' }),
+    rows: [
+      { ssid: 'CoffeeShop_5G', ch: 149, band: '5G', rssi: -47, auth: 'WPA2-PSK' },
+      { ssid: '', hidden: true, ch: 6, band: '2.4G', rssi: -52, auth: 'WPA3' },
+      { ssid: 'NETGEAR-24', ch: 11, band: '2.4G', rssi: -61, auth: 'WPA2' },
+      { ssid: 'IoT_Cam_02', ch: 1, band: '2.4G', rssi: -74, auth: 'OPEN' },
+      { ssid: 'Lobby-Guest', ch: 36, band: '5G', rssi: -58, auth: 'WPA2' },
+      { ssid: 'PrintServer', ch: 6, band: '2.4G', rssi: -81, auth: 'WPA2' },
+      { ssid: 'xfinitywifi', ch: 11, band: '2.4G', rssi: -88, auth: 'OPEN' },
+    ],
+    cursor: 2,
+    header: 'TOTAL 7 APs  LIVE 42s',
+    bottom: 'CH 11 2.4G · -61 dBm · WPA2', bottomColor: COLORS.green,
+  },
+  trace: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'AP DETAIL', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 11 CAPTURE' }),
+    row: { ssid: 'NETGEAR-24', ch: 11, band5: false, rssi: -61, auth: 'WPA2-PSK' },
+    insp: { valid: true, listening: false, beacons: 112, interval_ms: 102, rsn: true, mfp_required: false, mfp_capable: true, aborted: false },
+  },
+  contacts: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'SNIFFER', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 6 CAPTURE' }),
+    model: {
+      channel: 6, pkts: 1842, malformed: 3, sniffing: true,
+      lastSighting: 'AA:BB:CC:11:22:33 assoc CoffeeShop_5G',
+      clients: [
+        { mac: 'AA:BB:CC:11:22:33', ch: 6, band: '2.4G', rssi: -55 },
+        { mac: 'DE:AD:BE:EF:00:01', ch: 6, band: '2.4G', rssi: -63 },
+        { mac: '12:34:56:78:9A:BC', ch: 11, band: '2.4G', rssi: -71 },
+        { mac: 'FE:ED:FA:CE:01:02', ch: 1, band: '2.4G', rssi: -48 },
+      ],
+      probes: [
+        { ssid: 'CoffeeShop_5G', rssi: -50 },
+        { ssid: '', rssi: -66 },
+        { ssid: 'HomeNet', rssi: -74 },
+      ],
+    },
+    tab: 'clients', cursor: 0,
+  },
+  deauth: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'DEAUTH DETECT', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'MGMT FRAME WATCH' }),
+    model: {
+      active: true,
+      events: [
+        { mac: 'AA:11:22:33:44:55', reason: 7, rssi: -58, disassoc: false },
+        { mac: '66:77:88:99:AA:BB', reason: 3, rssi: -66, disassoc: true },
+        { mac: 'CC:DD:EE:FF:00:11', reason: 7, rssi: -72, disassoc: false },
+        { mac: '22:33:44:55:66:77', reason: 6, rssi: -80, disassoc: false },
+      ],
+    },
+    cursor: 0,
+  },
+  antisurv: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'ANTI-SURV', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'PASSIVE TRACK WATCH' }),
+    model: {
+      active: true, hasPosition: true,
+      trackers: [
+        { mac: 'F0:9E:4A:1B:2C:3D', legs: 2, sightings: 14, rssi: -51, alert: true, traveled: 61 },
+        { mac: '33:44:AA:BB:CC:DD', legs: 1, sightings: 6, rssi: -68, alert: false, traveled: 22 },
+      ],
+    },
+    cursor: 0, starting: false,
+  },
+  mesh: {
+    chrome: Object.assign({}, CHROME_BASE, { title: '802.15.4', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CHANNEL 15 LISTEN' }),
+    model: {
+      pans: 2, active: true,
+      nodes: [
+        { pan: 'FACE', short: '1A2B', rssi: -61, lqi: 210 },
+        { pan: 'FACE', short: '3C4D', rssi: -74, lqi: 140 },
+        { pan: 'BEEF', short: '', rssi: -69, lqi: 180 },
+      ],
+    },
+    cursor: 0,
+  },
+  subghz: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'LORA RX', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: '915.000 MHz' }),
+    model: {
+      active: true, hasConfig: true, sf: 9, bw: 125, freqHz: 915000000,
+      packets: [
+        { rssi: -102, snr: 8.2, len: 34, framing: 'M', hex: 'A3F1B02C99DEADBEEF001122' },
+        { rssi: -110, snr: 3.1, len: 22, framing: 'L', hex: '10203040AABBCCDDEE' },
+        { rssi: -96, snr: -1.4, len: 18, framing: '-', hex: 'FF00FF00CAFEBABE' },
+      ],
+    },
+    cursor: 0,
+  },
+  spectrumBroad: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'PACKET MONITOR', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'FULL SWEEP 2.4/5G' }),
+    model: {
+      active: true,
+      readings: [1, 6, 11].map(ch => ({ ch, band: '2.4G', pkts: Math.floor(Math.random() * 40) })).concat(
+        [36, 40, 44, 149, 153, 157].map(ch => ({ ch, band: '5G', pkts: Math.floor(Math.random() * 90) }))
+      ),
+    },
+    cursor: 3,
+  },
+  spectrumLocked: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'PACKET MONITOR', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 6 LOCKED' }),
+    model: { lockedChannel: 6, pkts: 214 },
+  },
+  drive: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'WARDRIVE', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'GNSS + SD LOG' }),
+    model: { state: 'Fixed', stateName: 'FIXED', alive: true, everFixed: true, lat: 37.7749, lon: -122.4194, alt: 52, hdop: 1.1, fixAge: '4s', logOpen: true, aps: 132, trk: 884 },
+  },
+  beacons: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'BLE SCAN', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'BLE ADV SCAN' }),
+    model: {
+      trackerCount: 2,
+      devices: [
+        { name: 'AirTag 4F2E', mac: 'D1:9A:0F:22:11:03', tracker: true, rssi: -55, n: 22 },
+        { name: '', mac: 'DE:AD:00:11:22:33', tracker: false, rssi: -62, n: 4 },
+        { name: 'Pixel Buds', mac: 'C4:11:99:AA:BB:CC', tracker: false, rssi: -70, n: 9 },
+        { name: 'SmartTag_88', mac: '90:0F:A1:BB:22:44', tracker: true, rssi: -80, n: 3 },
+      ],
+      lastTracker: { mac: 'F0:9E:4A:1B:2C:3D', rssi: -51 },
+    },
+    cursor: 0,
+  },
+  settings: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'SETTINGS', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'off', live: false, transport: '' }),
+    brightness: 178,
+  },
+  info: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'SYSTEM', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'off', live: false, transport: '' }),
+    model: {
+      deckFree: 178000, deckTotal: 327680, probeAvailable: true, probeFree: 141000, probeTotal: 327680,
+      deckUptime: '0d 3h 18m', probeUptime: '0d 3h 17m', linkName: 'READY', ready: true, sdReady: true,
+    },
+  },
+  help: {
+    chrome: Object.assign({}, CHROME_BASE, { title: 'HELP', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: '' }),
+  },
+};
+
+/* =======================================================================
+ * Static gallery
+ * ===================================================================== */
+
+function mkCanvas(scale) {
+  const c = document.createElement('canvas');
+  c.width = kW * scale; c.height = kH * scale;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(scale, scale);
+  return { canvas: c, ctx: ctx };
+}
+
+const GALLERY_SCALE = 3;
+const GALLERY = [
+  { key: 'link', title: 'System / Link', file: 'link_view.cpp', tags: ['SYSTEM'], draw: ctx => drawLink(ctx, DATA.link.chrome, DATA.link.model, DATA.link.cursor) },
+  { key: 'info', title: 'System / Info', file: 'info_view.cpp', tags: ['SYSTEM'], draw: ctx => drawInfo(ctx, DATA.info.chrome, DATA.info.model) },
+  { key: 'sweep', title: 'Observe / Wi-Fi Scan', file: 'sweep_view.cpp', tags: ['OBSERVE'], draw: ctx => drawSweep(ctx, DATA.sweep.chrome, DATA.sweep, DATA.sweep.cursor) },
+  { key: 'beacons', title: 'Observe / BLE Scan', file: 'bt_view.cpp', tags: ['OBSERVE'], draw: ctx => drawBt(ctx, DATA.beacons.chrome, DATA.beacons.model, DATA.beacons.cursor) },
+  { key: 'mesh', title: 'Observe / 802.15.4', file: 'mesh_view.cpp', tags: ['OBSERVE'], draw: ctx => drawMesh(ctx, DATA.mesh.chrome, DATA.mesh.model, DATA.mesh.cursor) },
+  { key: 'subghz', title: 'Observe / LoRa RX', file: 'subghz_view.cpp', tags: ['OBSERVE'], draw: ctx => drawSubGhz(ctx, DATA.subghz.chrome, DATA.subghz.model, DATA.subghz.cursor) },
+  { key: 'spectrumBroad', title: 'Analyze / Packet Monitor (broad)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrumBroad(ctx, DATA.spectrumBroad.chrome, DATA.spectrumBroad.model, DATA.spectrumBroad.cursor) },
+  { key: 'spectrumLocked', title: 'Analyze / Packet Monitor (locked)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrumLocked(ctx, DATA.spectrumLocked.chrome, DATA.spectrumLocked.model) },
+  { key: 'contacts', title: 'Analyze / Sniffer', file: 'contacts_view.cpp', tags: ['ANALYZE'], draw: ctx => drawContacts(ctx, DATA.contacts.chrome, DATA.contacts.model, DATA.contacts.tab, DATA.contacts.cursor) },
+  { key: 'deauth', title: 'Analyze / Deauth Detect', file: 'deauth_view.cpp', tags: ['ANALYZE'], draw: ctx => drawDeauth(ctx, DATA.deauth.chrome, DATA.deauth.model, DATA.deauth.cursor) },
+  { key: 'antisurv', title: 'Analyze / Anti-Surveillance', file: 'anti_surveillance_view.cpp', tags: ['ANALYZE'], draw: ctx => drawAntiSurv(ctx, DATA.antisurv.chrome, DATA.antisurv.model, DATA.antisurv.cursor, DATA.antisurv.starting) },
+  { key: 'drive', title: 'Drive / Wardrive', file: 'gnss_view.cpp', tags: ['DRIVE'], draw: ctx => drawGnss(ctx, DATA.drive.chrome, DATA.drive.model) },
+  { key: 'trace', title: 'AP Detail (context)', file: 'trace_view.cpp', tags: ['CONTEXT'], draw: ctx => drawTrace(ctx, DATA.trace.chrome, DATA.trace.row, DATA.trace.insp) },
+  { key: 'settings', title: 'Settings (context)', file: 'settings_view.cpp', tags: ['CONTEXT'], draw: ctx => drawSettings(ctx, DATA.settings.chrome, DATA.settings.brightness) },
+  { key: 'help', title: 'Help overlay', file: 'help_view.cpp', tags: ['OVERLAY'], draw: ctx => drawHelp(ctx, DATA.help.chrome) },
+  { key: 'boot', title: 'Boot screen', file: 'boot_screen.cpp', tags: ['BOOT'], draw: ctx => drawBoot(ctx) },
+];
+
+function buildGallery() {
+  const grid = document.getElementById('galleryGrid');
+  GALLERY.forEach(entry => {
+    const card = document.createElement('div');
+    card.className = 'gcard';
+    const tags = entry.tags.map(t => `<span class="tag">${t}</span>`).join('');
+    card.innerHTML = `<div class="tags">${tags}</div><h4>${entry.title}</h4><span class="path">ui/${entry.file}</span>`;
+    const frame = document.createElement('div');
+    frame.className = 'device-frame';
+    const { canvas, ctx } = mkCanvas(GALLERY_SCALE);
+    frame.appendChild(canvas);
+    card.appendChild(frame);
+    grid.appendChild(card);
+    entry.draw(ctx);
+  });
+}
+
+function buildNavTable() {
+  const body = document.getElementById('navTableBody');
+  NAV.forEach((n, i) => {
+    body.insertAdjacentHTML('beforeend',
+      `<tr><td class="mono">${i + 1}</td><td>${n.section}</td><td class="mono">${n.label}</td><td class="mono">${n.screen}</td><td class="mono">ui/${n.file}</td></tr>`);
+  });
+  CONTEXT_SCREENS.forEach(n => {
+    body.insertAdjacentHTML('beforeend',
+      `<tr><td class="mono">—</td><td>${n.section}</td><td class="mono">${n.label}</td><td class="mono">${n.screen}</td><td class="mono">ui/${n.file}<br><span style="color:var(--muted-dim)">${n.note}</span></td></tr>`);
+  });
+}
+
+function buildDotLegend() {
+  const legend = document.getElementById('dotLegend');
+  const states = [
+    ['ready', 'Ready / Active'], ['pending', 'Pending'], ['fault', 'Fault'], ['off', 'Off'],
+  ];
+  states.forEach(([state, label]) => {
+    legend.insertAdjacentHTML('beforeend',
+      `<span class="item"><span class="dotp" style="background:${indicatorColour(state)}"></span>${label}</span>`);
+  });
+}
+
+function buildPalette() {
+  const wrap = document.getElementById('paletteSwatches');
+  const entries = [
+    ['Void Ink (screen)', '#000000', 'kVoidInk'],
+    ['Paper Phosphor', '#F4ECD9', 'kPaperPhosphor'],
+    ['Field Green', '#A8DF65', 'kFieldGreen'],
+    ['Signal Pink', '#F05D9D', 'kSignalPink'],
+    ['Calibration Yellow', '#F5D658', 'kCalibrationYellow'],
+    ['Fault Red', '#EF514C', 'kFaultRed'],
+    ['Muted Slate', '#AAA0A5', 'kMutedSlate'],
+    ['Line Border', '#4B3C49', 'kLineBorder'],
+    ['Dim Green', '#51763D', 'kDimGreen'],
+    ['Track Dark', '#263528', 'kTrackDark'],
+    ['Panel Dark', '#151018', 'kPanelDark'],
+    ['Selection Glow', '#241F0D', 'kSelectionGlow'],
+  ];
+  entries.forEach(([name, hex, constName]) => {
+    wrap.insertAdjacentHTML('beforeend', `
+      <div class="swatch">
+        <div class="chip" style="background:${hex}"></div>
+        <div class="lbl"><b>${name}</b><span>${hex} · ${constName}</span></div>
+      </div>`);
+  });
+}
+
+/* =======================================================================
+ * Interactive simulator
+ * ===================================================================== */
+
+const SIM_ORDER = NAV.map(n => n.screen);
+const SIM = {
+  screen: 'link',
+  cursor: {},
+  helpVisible: false,
+  states: {
+    deauthWatch: true, antisurvWatch: true, subghzListen: true, meshListen: true, beaconsListen: true,
+  },
+  trace: { row: DATA.sweep.rows[2], insp: { valid: false } },
+};
+SIM_ORDER.forEach(s => (SIM.cursor[s] = 0));
+
+const simCanvasWrap = mkCanvas(4);
+document.getElementById('simCanvas').replaceWith(simCanvasWrap.canvas);
+simCanvasWrap.canvas.id = 'simCanvas';
+const simCtx = simCanvasWrap.ctx;
+
+function rowsForScreen(screen) {
+  switch (screen) {
+    case 'sweep': return DATA.sweep.rows;
+    case 'contacts': return DATA.contacts.tab === 'clients' ? DATA.contacts.model.clients : DATA.contacts.model.probes;
+    case 'deauth': return DATA.deauth.model.events;
+    case 'antisurv': return DATA.antisurv.model.trackers;
+    case 'mesh': return DATA.mesh.model.nodes;
+    case 'subghz': return DATA.subghz.model.packets;
+    case 'beacons': return DATA.beacons.model.devices;
+    case 'spectrumBroad': return DATA.spectrumBroad.model.readings;
+    default: return [];
+  }
+}
+
+function renderSim() {
+  const screen = SIM.screen;
+  const nameEl = document.getElementById('simScreenName');
+  const statusEl = document.getElementById('simStatusName');
+  const sectionEl = document.getElementById('simStatusSection');
+
+  if (SIM.helpVisible) {
+    drawHelp(simCtx, Object.assign({}, DATA.link.chrome, { title: 'HELP' }));
+    nameEl.textContent = 'HELP'; statusEl.textContent = 'HELP OVERLAY'; sectionEl.textContent = '(overlay)';
+    return;
+  }
+
+  const navEntry = NAV.find(n => n.screen === screen) || CONTEXT_SCREENS.find(n => n.screen === screen);
+  nameEl.textContent = navEntry ? navEntry.label : screen.toUpperCase();
+  statusEl.textContent = navEntry ? navEntry.label : screen.toUpperCase();
+  sectionEl.textContent = navEntry ? navEntry.section : '';
+
+  const cursor = SIM.cursor[screen] || 0;
+  switch (screen) {
+    case 'link': drawLink(simCtx, DATA.link.chrome, DATA.link.model, cursor); break;
+    case 'info': drawInfo(simCtx, DATA.info.chrome, DATA.info.model); break;
+    case 'sweep': drawSweep(simCtx, DATA.sweep.chrome, DATA.sweep, cursor); break;
+    case 'beacons': {
+      const chrome = Object.assign({}, DATA.beacons.chrome, { rf: SIM.states.beaconsListen ? 'active' : 'off' });
+      drawBt(simCtx, chrome, DATA.beacons.model, cursor);
+      break;
+    }
+    case 'mesh': {
+      const model = Object.assign({}, DATA.mesh.model, { active: SIM.states.meshListen });
+      drawMesh(simCtx, DATA.mesh.chrome, model, cursor);
+      break;
+    }
+    case 'subghz': {
+      const model = Object.assign({}, DATA.subghz.model, { active: SIM.states.subghzListen });
+      drawSubGhz(simCtx, DATA.subghz.chrome, model, cursor);
+      break;
+    }
+    case 'spectrumBroad': drawSpectrumBroad(simCtx, DATA.spectrumBroad.chrome, DATA.spectrumBroad.model, cursor); break;
+    case 'contacts': drawContacts(simCtx, DATA.contacts.chrome, DATA.contacts.model, DATA.contacts.tab, cursor); break;
+    case 'deauth': {
+      const model = Object.assign({}, DATA.deauth.model, { active: SIM.states.deauthWatch });
+      drawDeauth(simCtx, DATA.deauth.chrome, model, cursor);
+      break;
+    }
+    case 'antisurv': {
+      const model = Object.assign({}, DATA.antisurv.model, { active: SIM.states.antisurvWatch });
+      drawAntiSurv(simCtx, DATA.antisurv.chrome, model, cursor, false);
+      break;
+    }
+    case 'drive': drawGnss(simCtx, DATA.drive.chrome, DATA.drive.model); break;
+    case 'trace': drawTrace(simCtx, DATA.trace.chrome, SIM.trace.row, SIM.trace.insp); break;
+    case 'settings': drawSettings(simCtx, DATA.settings.chrome, DATA.settings.brightness); break;
+    default: drawLink(simCtx, DATA.link.chrome, DATA.link.model, cursor);
+  }
+}
+
+function simCycleCard(dir) {
+  if (SIM.screen === 'trace' || SIM.screen === 'settings') { SIM.screen = 'link'; renderSim(); return; }
+  const idx = SIM_ORDER.indexOf(SIM.screen);
+  const next = idx === -1 ? 0 : (idx + dir + SIM_ORDER.length) % SIM_ORDER.length;
+  SIM.screen = SIM_ORDER[next];
+  renderSim();
+}
+function simMoveRow(dir) {
+  const rows = rowsForScreen(SIM.screen);
+  if (!rows.length) return;
+  SIM.cursor[SIM.screen] = ((SIM.cursor[SIM.screen] || 0) + dir + rows.length) % rows.length;
+  renderSim();
+}
+function simEnter() {
+  if (SIM.screen === 'sweep') {
+    SIM.trace.row = DATA.sweep.rows[SIM.cursor.sweep] || DATA.sweep.rows[0];
+    SIM.trace.insp = { valid: false };
+    SIM.screen = 'trace';
+  } else if (SIM.screen === 'trace' && SIM.trace.row) {
+    SIM.trace.insp = { valid: true, listening: false, beacons: 88, interval_ms: 102, rsn: true, mfp_required: true, mfp_capable: true, aborted: false };
+  }
+  renderSim();
+}
+function simBack() {
+  if (SIM.screen === 'link') SIM.screen = 'settings';
+  else SIM.screen = 'link';
+  renderSim();
+}
+function simToggleStart() {
+  const map = { deauth: 'deauthWatch', antisurv: 'antisurvWatch', subghz: 'subghzListen', mesh: 'meshListen', beacons: 'beaconsListen' };
+  const key = map[SIM.screen];
+  if (key) SIM.states[key] = !SIM.states[key];
+  renderSim();
+}
+function simMark() {
+  if (SIM.screen !== 'drive') return;
+  const chrome = DATA.drive.chrome;
+  const prevNotice = chrome.notice;
+  chrome.notice = 'MARKER LOGGED';
+  renderSim();
+  setTimeout(() => { chrome.notice = prevNotice; renderSim(); }, 900);
+}
+function simToggleHelp() { SIM.helpVisible = !SIM.helpVisible; renderSim(); }
+
+document.getElementById('simFrame').addEventListener('keydown', function (e) {
+  switch (e.key) {
+    case ',': simCycleCard(-1); e.preventDefault(); break;
+    case '/': simCycleCard(1); e.preventDefault(); break;
+    case ';': simMoveRow(-1); e.preventDefault(); break;
+    case '.': simMoveRow(1); e.preventDefault(); break;
+    case 'Enter': simEnter(); e.preventDefault(); break;
+    case '`': simBack(); e.preventDefault(); break;
+    case 's': simToggleStart(); e.preventDefault(); break;
+    case 'm': simMark(); e.preventDefault(); break;
+    case 'h': simToggleHelp(); e.preventDefault(); break;
+  }
+});
+document.querySelectorAll('.sim-touch [data-act]').forEach(btn => {
+  btn.addEventListener('click', function () {
+    document.getElementById('simFrame').focus();
+    switch (btn.dataset.act) {
+      case 'prev': simCycleCard(-1); break;
+      case 'next': simCycleCard(1); break;
+      case 'up': simMoveRow(-1); break;
+      case 'down': simMoveRow(1); break;
+      case 'enter': simEnter(); break;
+      case 'back': simBack(); break;
+      case 's': simToggleStart(); break;
+      case 'help': simToggleHelp(); break;
+      case 'mark': simMark(); break;
+    }
+  });
+});
+
+buildGallery();
+buildNavTable();
+buildDotLegend();
+buildPalette();
+renderSim();
+
+})();
+</script>
+</body>
+</html>

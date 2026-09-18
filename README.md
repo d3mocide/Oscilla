@@ -20,7 +20,7 @@
 **Wireless discovery, packet dissection, and field telemetry instrument for the M5Stack Cardputer ADV.**  
 *An open-source RF instrumentation initiative by **d3FRAG Networks**.*
 
-[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Dual-Radio Wiring (Rev E)](docs/hardware/c5-dual-radio-wiring.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
+[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Dual-Radio Wiring (Rev E)](docs/hardware/c5-dual-radio-wiring.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
 
 </div>
 
@@ -121,6 +121,7 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | [`firmware-cardputer/`](firmware-cardputer/)                                     | **The Deck**: PlatformIO / Arduino C++ firmware for Cardputer ADV.                  | Bypass the shared SD/TFT SPI bus lock.          |
 | [`tools/`](tools/)                                                               | **Host Client & Verification**: CLI parser, REPL, and compliance test suites.       | Require hardware for protocol verification.     |
 | [`docs/brand/`](docs/brand/)                                                     | **Visual System**: Master Brand & UI Guide for primary and external displays.       | Deviate from brand color and font tokens.       |
+| [`docs/deck-ui-state.html`](docs/deck-ui-state.html)                             | **As-Built UI Reference**: what the deck actually renders today, read from `ui/*.cpp`. | Treat as design authority — that's `docs/brand/`. |
 
 ---
 
