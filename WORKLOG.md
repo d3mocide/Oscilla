@@ -1,3 +1,76 @@
+## 2026-09-18 — Continuous list-selection rail
+
+**Phase:** P8 UI reliability · **By:** Codex
+
+Physical review found that the new row-selection rail was broken through its
+middle. After removing the `>` caret, the replacement leading space still
+painted its background at x=0 and overlaid the rail through the glyph cell.
+Every scrollable list now begins its text at x=6 with no synthetic leading
+space, preserving the x=0–1 rail as one continuous line.
+
+Extended `test_card_selection_style.py` to reject a list renderer that writes
+row text at x=0 or lacks the fixed x=6 gutter; it failed before this correction
+and passes afterward. `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh`
+and `./tools/build_firmware.sh` passed. Flashed only the Cardputer ADV image
+to the attached ESP32-S3, with every image hash verified. Prepared the BLE
+Scan card with a completed bounded passive snapshot (63 device rows, 11
+tracker-classified rows, no malformed rows) for final physical visual review;
+no identifiers or advertisement contents were retained. The operator then
+confirmed the continuous rail on the physical card was the intended fix,
+closing this visual gate.
+
+---
+
+## 2026-09-18 — Sniffer polish and rail-only list selection
+
+**Phase:** P8 UI direction · **By:** Codex
+
+The Link card's selection treatment is now the shared visual language for
+scrollable data cards: the selection glow and yellow left rail identify the
+row, while the redundant `>` text caret is gone. Applied to Wi-Fi Sweep, BLE
+Scan, Sniffer, 802.15.4, Deauth, and LoRa RX. Spectrum remains a bar chart
+with its own selected-channel outline; static/detail cards have no row cursor.
+
+Sniffer now highlights its active Clients/Probes tab, uses fixed right-aligned
+channel, band, and RSSI columns for client rows, aligns probe RSSI to that same
+edge, and labels the live ticker `LAST`. Added `test_card_selection_style.py`
+to reject a returned text caret, a missing rail, or a missing Sniffer metadata
+column. It failed before the implementation and passes afterward.
+
+`ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` and
+`./tools/build_firmware.sh` passed. Flashed only the Cardputer ADV image to
+the attached ESP32-S3, with every image hash verified. A deck-mediated,
+receive-only Sniffer smoke test navigated to the card, started, returned a
+ready count-only snapshot with 8 clients and 5 probes, then stopped the PHY
+lane cleanly. No identifiers or frame contents were retained. The updated
+physical-card visual review remains open.
+
+---
+
+## 2026-09-18 — BLE snapshot tracker count restored
+
+**Phase:** P8 UI reliability · **By:** Codex
+
+The BLE Scan card could render a `TRK` row while its `TRACKERS` header stayed
+at zero. The header was using the separate `scan_airtag` advertisement-sighting
+tally; a bounded `scan_bt` result instead carries its classification on each
+device-table row. The model now counts the distinct tracker-classified rows in
+that table. AirTag-watch mode intentionally keeps its existing per-sighting
+counter, so repeated advertisements remain visible there without corrupting
+the snapshot count.
+
+Added a host assertion for a complete `[BLE]` frame with one tracker row; it
+failed before the new model method existed and rejects a deliberate forced-zero
+counter mutation. `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` and
+`./tools/build_firmware.sh` passed. Flashed only the Cardputer ADV image to
+the attached ESP32-S3, with every image hash verified. A fresh bounded passive
+deck-mediated BLE snapshot found 61 device rows and 10 tracker-classified rows
+with no malformed rows; the count-only debug snapshot reported
+`bt_devices=61 bt_trackers=10 airtag_sightings=0`. No BLE identifiers or
+advertisement contents were retained.
+
+---
+
 ## 2026-09-18 — Right-aligned Wi-Fi Sweep metadata columns
 
 **Phase:** P8 UI direction · **By:** Will + Codex

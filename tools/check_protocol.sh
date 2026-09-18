@@ -37,6 +37,7 @@ python3 tools/test_zig_readiness.py | tail -1 | sed 's/^/  /'
 python3 tools/check_event_queue.py | tail -1 | sed 's/^/  /'
 python3 tools/test_wifi_inspect_arm.py | tail -1 | sed 's/^/  /'
 python3 tools/test_sweep_layout.py | tail -1 | sed 's/^/  /'
+python3 tools/test_card_selection_style.py | tail -1 | sed 's/^/  /'
 
 # Spec rules: the OCP-SPEC §9 conformance checklist.
 python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'

@@ -80,9 +80,9 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
         }
 
         std::string name = r.ssid.empty() ? "<hidden>" : printable(r.ssid, 15);
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(r.ssid.empty() ? kDimGreen : kPaperPhosphor, bg);
-        d.printf("%c%-15s", sel ? '>' : ' ', name.c_str());
+        d.printf("%-15s", name.c_str());
         d.setTextColor(kMutedSlate, bg);
         d.setCursor(kSweepChannelX, y);
         d.printf("%3u", r.ch);

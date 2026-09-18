@@ -28,9 +28,9 @@ void drawMeshView(const model::MeshModel &m, size_t cursor, const ChromeState &c
             d.fillRect(0, y - 2, d.width(), row_height, bg);
             d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
         }
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
-        d.printf("%c%-8s", sel ? '>' : ' ', printable(n.pan, 8).c_str());
+        d.printf("%-8s", printable(n.pan, 8).c_str());
         const std::string short_addr = n.short_addr.empty() ? "--------" : printable(n.short_addr, 8);
         d.setTextColor(kMutedSlate, bg);
         d.printf(" %-8s", short_addr.c_str());

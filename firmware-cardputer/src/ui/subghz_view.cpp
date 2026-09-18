@@ -83,9 +83,9 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
             d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
         }
 
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
-        d.printf("%c%4d", sel ? '>' : ' ', p.rssi);
+        d.printf("%4d", p.rssi);
         d.setTextColor(snrColour(p.snr), bg);
         d.printf(" %5.1f", static_cast<double>(p.snr));
         d.setTextColor(kMutedSlate, bg);

@@ -52,9 +52,9 @@ void drawDeauthView(const model::DeauthModel &deauth, size_t cursor, const Chrom
         }
 
         /* Colour carries deauth-vs-disassoc so the text stays this compact. */
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(e.disassoc ? kCalibrationYellow : kSignalPink, bg);
-        d.printf("%c%-15s", sel ? '>' : ' ', printable(e.mac, 15).c_str());
+        d.printf("%-15s", printable(e.mac, 15).c_str());
         d.setTextColor(kMutedSlate, bg);
         d.printf(" r%-3ld", e.reason);
         d.setTextColor(rssiColour(e.rssi), bg);

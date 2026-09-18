@@ -121,6 +121,15 @@ void BtModel::absorbScan(const ocp::Item &frame)
     scanning_ = false;   /* [BLE] has no paging: this frame is already the whole result */
 }
 
+uint16_t BtModel::deviceTrackerCount() const
+{
+    uint16_t count = 0;
+    for (const auto &device : devices_) {
+        if (device.tracker) count++;
+    }
+    return count;
+}
+
 BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
 {
     for (auto &d : devices_) {

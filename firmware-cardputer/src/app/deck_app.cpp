@@ -944,7 +944,8 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
-            " trackers=" + std::to_string(bt_.trackerCount()) +
+            " bt_trackers=" + std::to_string(bt_.deviceTrackerCount()) +
+            " airtag_sightings=" + std::to_string(bt_.trackerCount()) +
             " anti_alerts=" + std::to_string(anti_.alertCount()) +
             " anti_starting=" + std::string(anti_start_pending_ ? "1" : "0") +
             " probe_heap=" + std::to_string(probe_heap_) +

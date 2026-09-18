@@ -16,6 +16,14 @@ namespace ui {
 
 namespace {
 
+constexpr int kSniffHeaderClientsX = 4;
+constexpr int kSniffHeaderProbesX = 76;
+constexpr int kSniffHeaderChannelX = 142;
+constexpr int kSniffHeaderPacketsX = 184;
+constexpr int kSniffClientChannelX = 104;
+constexpr int kSniffClientBandX = 128;
+constexpr int kSniffRssiX = 204;
+
 uint16_t rssiColour(int rssi)
 {
     if (rssi >= -55) return kFieldGreen;
@@ -42,13 +50,17 @@ void drawClientRows(const model::ContactsModel &contacts, size_t cursor)
             d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
         }
 
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
-        d.printf("%c%-15s", sel ? '>' : ' ', printable(r.mac, 15).c_str());
+        d.printf("%-15s", printable(r.mac, 15).c_str());
         d.setTextColor(kMutedSlate, bg);
-        d.printf(" %3u %-4s", r.ch, r.band5 ? "5G" : "2.4G");
+        d.setCursor(kSniffClientChannelX, y);
+        d.printf("%3u", r.ch);
+        d.setCursor(kSniffClientBandX, y);
+        d.printf("%4s", r.band5 ? "5G" : "2.4G");
         d.setTextColor(rssiColour(r.rssi), bg);
-        d.printf(" %4d", r.rssi);
+        d.setCursor(kSniffRssiX, y);
+        d.printf("%4d", r.rssi);
     }
 }
 
@@ -72,11 +84,12 @@ void drawProbeRows(const model::ContactsModel &contacts, size_t cursor)
         }
 
         std::string ssid = r.ssid.empty() ? "<wildcard>" : printable(r.ssid, 22);
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(r.ssid.empty() ? kDimGreen : kPaperPhosphor, bg);
-        d.printf("%c%-21s", sel ? '>' : ' ', ssid.c_str());
+        d.printf("%-21s", ssid.c_str());
         d.setTextColor(rssiColour(r.rssi), bg);
-        d.printf(" %4d", r.rssi);
+        d.setCursor(kSniffRssiX, y);
+        d.printf("%4d", r.rssi);
     }
 }
 
@@ -90,12 +103,17 @@ void drawContactsView(const model::ContactsModel &contacts, ContactsTab tab, siz
     d.setTextSize(1);
 
     const bool clients = tab == ContactsTab::Clients;
-    d.setCursor(4, kBodyTop + 2);
+    d.setCursor(kSniffHeaderClientsX, kBodyTop + 2);
+    d.setTextColor(clients ? kPaperPhosphor : kMutedSlate, kVoidInk);
+    d.printf("CLIENTS %u", (unsigned)contacts.clients().size());
+    d.setCursor(kSniffHeaderProbesX, kBodyTop + 2);
+    d.setTextColor(clients ? kMutedSlate : kPaperPhosphor, kVoidInk);
+    d.printf("PROBES %u", (unsigned)contacts.probes().size());
+    d.setCursor(kSniffHeaderChannelX, kBodyTop + 2);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.printf("%s %u  PROBES %u  CH %u  PKTS %u", clients ? "CLIENTS" : "PROBES",
-             clients ? (unsigned)contacts.clients().size() : (unsigned)contacts.probes().size(),
-             (unsigned)contacts.probes().size(), contacts.currentChannel(),
-             (unsigned)contacts.totalPkts());
+    d.printf("CH %u", contacts.currentChannel());
+    d.setCursor(kSniffHeaderPacketsX, kBodyTop + 2);
+    d.printf("PKTS %u", (unsigned)contacts.totalPkts());
     if (contacts.malformedRows()) {
         d.setTextColor(kSignalPink, kVoidInk);
         d.printf(" BAD %u", contacts.malformedRows());
@@ -106,8 +124,10 @@ void drawContactsView(const model::ContactsModel &contacts, ContactsTab tab, siz
 
     d.setCursor(4, kBodyTop + 83);
     if (!contacts.lastSighting().empty()) {
+        d.setTextColor(kCalibrationYellow, kVoidInk);
+        d.print("LAST ");
         d.setTextColor(contacts.sniffing() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.print(printable(contacts.lastSighting(), 38).c_str());
+        d.print(printable(contacts.lastSighting(), 32).c_str());
     } else {
         d.setTextColor(contacts.sniffing() ? kFieldGreen : kMutedSlate, kVoidInk);
         d.printf("CLIENTS %u · PROBES %u · PKTS %u",

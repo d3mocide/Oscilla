@@ -44,9 +44,9 @@ void drawDeviceRows(const model::BtModel &bt, size_t cursor)
         }
 
         std::string label = r.name.empty() ? printable(r.mac, 18) : printable(r.name, 18);
-        d.setCursor(0, y);
+        d.setCursor(6, y);
         d.setTextColor(r.name.empty() ? kDimGreen : kPaperPhosphor, bg);
-        d.printf("%c%-18s", sel ? '>' : ' ', label.c_str());
+        d.printf("%-18s", label.c_str());
         d.setCursor(156, y);
         d.setTextColor(r.tracker ? kSignalPink : kMutedSlate, bg);
         d.print(r.tracker ? "TRK" : "   ");
@@ -66,13 +66,15 @@ void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &an
     d.setTextSize(1);
 
     const bool listening = bt.scanning() || bt.continuousActive() || bt.airtagActive();
+    const unsigned tracker_count = bt.airtagActive() ? (unsigned)bt.trackerCount()
+                                                      : (unsigned)bt.deviceTrackerCount();
     d.setCursor(4, kBodyTop + 2);
     d.setTextColor(kMutedSlate, kVoidInk);
     d.printf("DEVICES %u", (unsigned)bt.devices().size());
     d.setCursor(132, kBodyTop + 2);
     d.printf("TRACKERS ");
-    d.setTextColor(bt.trackerCount() ? kSignalPink : kMutedSlate, kVoidInk);
-    d.printf("%u", (unsigned)bt.trackerCount());
+    d.setTextColor(tracker_count ? kSignalPink : kMutedSlate, kVoidInk);
+    d.printf("%u", tracker_count);
     if (bt.malformedRows()) d.printf("  BAD %u", bt.malformedRows());
 
     drawDeviceRows(bt, cursor);
@@ -107,7 +109,7 @@ void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &an
         d.setCursor(4, kBodyTop + 83);
         d.setTextColor(kFieldGreen, kVoidInk);
         d.printf("DEVICES %u · TRACKERS %u", (unsigned)bt.devices().size(),
-                 (unsigned)bt.trackerCount());
+                 tracker_count);
     } else {
         d.setCursor(4, kBodyTop + 83);
         d.setTextColor(kMutedSlate, kVoidInk);

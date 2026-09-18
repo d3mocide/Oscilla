@@ -83,6 +83,10 @@ public:
     uint16_t malformedRows() const { return malformed_; }
     const std::vector<BtDevice> &devices() const { return devices_; }
 
+    /* Distinct tracker-classified rows in the current device table. */
+    uint16_t deviceTrackerCount() const;
+
+    /* AirTag-watch sightings; repeated advertisements intentionally count. */
     uint32_t trackerCount() const { return tracker_total_; }
     const std::vector<BtTrackerHit> &trackerHits() const { return tracker_hits_; }
 

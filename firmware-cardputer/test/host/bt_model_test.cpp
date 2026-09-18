@@ -58,6 +58,8 @@ int main()
         check(m.devices()[1].mac == "aa:bb:cc:dd:ee:ff" && m.devices()[1].name.empty() &&
               m.devices()[1].mfr == "004c" && m.devices()[1].tracker && m.devices()[1].rssi == -71 &&
               m.devices()[1].n == 6, "tracker row: empty name, tracker flag set from the 'airtag' column");
+        check(m.deviceTrackerCount() == 1,
+              "snapshot tracker count derives from the device rows, not the AirTag event tally");
     }
     {
         model::BtModel m;
