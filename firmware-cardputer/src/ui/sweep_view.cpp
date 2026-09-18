@@ -17,6 +17,11 @@ namespace ui {
 
 namespace {
 
+constexpr int kSweepChannelX = 126;
+constexpr int kSweepBandX = 154;
+constexpr int kSweepRssiX = 186;
+constexpr int kSweepMeterX = 216;
+
 uint16_t rssiColour(int rssi)
 {
     if (rssi >= -55) return kFieldGreen;
@@ -79,10 +84,14 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
         d.setTextColor(r.ssid.empty() ? kDimGreen : kPaperPhosphor, bg);
         d.printf("%c%-15s", sel ? '>' : ' ', name.c_str());
         d.setTextColor(kMutedSlate, bg);
-        d.printf(" %3u %-4s", r.ch, r.band5 ? "5G" : "2.4G");
+        d.setCursor(kSweepChannelX, y);
+        d.printf("%3u", r.ch);
+        d.setCursor(kSweepBandX, y);
+        d.printf("%4s", r.band5 ? "5G" : "2.4G");
         d.setTextColor(rssiColour(r.rssi), bg);
-        d.printf(" %4d", r.rssi);
-        drawMeter(d, 216, y + 1, r.rssi);
+        d.setCursor(kSweepRssiX, y);
+        d.printf("%4d", r.rssi);
+        drawMeter(d, kSweepMeterX, y + 1, r.rssi);
     }
 
     if (rows.empty()) {

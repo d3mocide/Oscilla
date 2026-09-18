@@ -1,3 +1,88 @@
+## 2026-09-18 — Right-aligned Wi-Fi Sweep metadata columns
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Physical-card feedback showed that the existing left-aligned four-character
+band field left `5G` visibly adrift from `2.4G`, especially beside a
+three-digit 5 GHz channel. Sweep rows now use fixed pixel columns: channel at
+126, a right-aligned band ending at 178, RSSI ending at 210, and the existing
+meter at 216. This moves the compact channel/band/RSSI block into the unused
+space before the signal bars while keeping long SSIDs isolated at the left.
+
+Added `test_sweep_layout.py` to the host suite; it failed against the prior
+inline formatting and rejects a deliberate right-alignment mutation.
+`ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` and
+`./tools/build_firmware.sh` passed. Flashed only the Cardputer ADV image to
+the attached ESP32-S3, with every image hash verified; its Grove link returned
+`ready`, and a fresh passive Sweep populated 124 rows. The operator then
+physically confirmed the updated right-aligned metadata layout on the deck
+("This is beautiful"), closing the visual gate.
+
+---
+
+## 2026-09-18 — AP Detail visual gate confirmed
+
+**Phase:** P8 reliability · **By:** Will + Codex
+
+After the repaired C5 image and live capture regression, Will reopened AP
+Detail on the physical Cardputer and confirmed that beacon/MFP information now
+renders instead of `NO DATA`. This closes the remaining visual gate for the
+inspection-callback repair; the separate environment-dependent
+`mfp_required=1` observation remains open.
+
+---
+
+## 2026-09-18 — AP Detail promiscuous capture hardware-verified
+
+**Phase:** P8 reliability · **By:** Codex
+
+Corrected the earlier host-device visibility assumption: the C5 and deck were
+attached through their stable USB serial identities. Flashed the production
+Grove/UART C5 image; esptool identified the ESP32-C5 and verified the
+bootloader, partition table, and application hashes before the hard reset.
+The deck re-established a `ready` OCP link.
+
+Live deck-mediated regression (counts/flags only; no AP identifiers retained):
+a fresh passive snapshot found 135 rows, then `inspect 1` captured 3 beacons
+with RSN present and MFP-capable set. The exact stale-callback sequence also
+passed: Packet Monitor started on channel 1, `stop phy` completed, a fresh
+snapshot returned 130 rows, and the subsequent inspection captured 3 beacons
+with the same RSN/MFP-capable result. The observed AP did not require MFP;
+the real `mfp_required=1` path remains environment-dependent.
+
+This demonstrates the repaired probe-to-deck data path after another Wi-Fi
+receiver has owned the promiscuous callback. The AP Detail pixels have not
+been physically re-inspected after this C5-only flash, so that is the small
+remaining UI gate.
+
+---
+
+## 2026-09-18 — Re-armed AP Detail's passive capture
+
+**Phase:** P8 reliability · **By:** Codex
+
+AP Detail already uses a short, channel-locked, receive-only promiscuous
+capture to obtain the selected AP's beacon RSN information (and therefore its
+MFP state). A `BEACONS 0 / NO DATA` result means that capture received no
+matching beacon, not that the UI hides a scan field.
+
+The capture callback and management-frame filter had been installed only at
+probe initialization, even though they are mutable global Wi-Fi-driver state.
+Packet Monitor deliberately clears its callback during teardown and other
+Wi-Fi receivers install their own; a later `inspect_network` enabled
+promiscuous mode without first restoring its own callback. Inspection now
+reinstalls its management-frame filter and callback immediately before each
+capture. This retains the receive-only boundary: it listens only for
+management frames and sends no probe request or association.
+
+Added `test_wifi_inspect_arm.py`, wired into `check_protocol.sh`. It failed
+against the prior source shape and rejects a deliberately mutated callback;
+the repaired source passes. `ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh` and `./tools/build_firmware.sh` both passed. The
+later hardware entry records the C5 flash and live Sweep → AP Detail proof.
+
+---
+
 ## 2026-09-18 — Restored Wi-Fi after Packet Monitor and gated PHY handoffs
 
 **Phase:** P8 reliability · **By:** Codex

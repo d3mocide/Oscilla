@@ -72,6 +72,15 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
     }
 }
 
+/* The promiscuous callback is global Wi-Fi-driver state; every capture owns it. */
+static esp_err_t arm_capture(void)
+{
+    const wifi_promiscuous_filter_t filter = { .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT };
+    esp_err_t err = esp_wifi_set_promiscuous_filter(&filter);
+    if (err == ESP_OK) err = esp_wifi_set_promiscuous_rx_cb(on_frame);
+    return err;
+}
+
 static void finish(bool aborted)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
@@ -127,9 +136,7 @@ esp_err_t wifi_inspect_init(void)
     esp_err_t err = esp_timer_create(&args, &s_timer);
     if (err != ESP_OK) return err;
 
-    const wifi_promiscuous_filter_t filter = { .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT };
-    if ((err = esp_wifi_set_promiscuous_filter(&filter)) != ESP_OK) return err;
-    return esp_wifi_set_promiscuous_rx_cb(on_frame);
+    return ESP_OK;
 }
 
 void wifi_cmd_inspect(int argc, char **argv)
@@ -162,6 +169,7 @@ void wifi_cmd_inspect(int argc, char **argv)
     portEXIT_CRITICAL(&s_mux);
 
     esp_err_t err = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+    if (err == ESP_OK) err = arm_capture();
     if (err == ESP_OK) err = esp_wifi_set_promiscuous(true);
     if (err == ESP_OK) err = esp_timer_start_once(s_timer, (uint64_t)INSPECT_WINDOW_MS * 1000);
     xSemaphoreGive(s_lock);
