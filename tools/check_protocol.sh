@@ -116,6 +116,14 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/client_test.cpp firmware-cardputer/src/ocp/ocp_client.cpp \
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/client_test" | tail -1 | sed 's/^/  /'
+# A PHY handoff must wait for [STOP] before it starts the requested successor.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/phy_handoff_test" \
+    firmware-cardputer/test/host/phy_handoff_test.cpp firmware-cardputer/src/app/phy_handoff.cpp
+"$out/phy_handoff_test" | tail -1 | sed 's/^/  /'
+
+# Packet-monitor teardown must leave Wi-Fi ready for the next passive engine.
+python3 tools/test_wifi_spectrum_teardown.py | tail -1 | sed 's/^/  /'
+
 
 # The deck's scan model: paging, validation, caps.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/model_test" \

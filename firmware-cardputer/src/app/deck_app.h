@@ -41,6 +41,7 @@
 #include <functional>
 #include <string>
 
+#include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
 #include "model/contacts_model.h"
@@ -109,6 +110,10 @@ private:
      * so it can re-trigger a scan every ~10s without yanking the view back
      * to Sweep each time. */
     void requestScan(uint32_t now_ms);
+    bool phyToolActive() const;
+    bool preparePhyStart(PhyHandoff::Start start, uint32_t now_ms);
+    void stopPhy(uint32_t now_ms);
+    void stopPhyForNavigation(uint32_t now_ms);
     void startScan(uint32_t now_ms);
     void toggleWifiContinuous(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
@@ -135,6 +140,7 @@ private:
     void retrySoon(std::function<void(uint32_t)> action, uint32_t now_ms);
 
     ocp::Client client_;
+    PhyHandoff phy_handoff_;
     model::ScanModel scan_;
     model::ContactsModel contacts_;
     model::SpectrumModel spectrum_;

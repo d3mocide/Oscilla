@@ -32,6 +32,7 @@
 #include "ocp_frame.h"
 #include "radio_arbiter.h"
 #include "wifi_channels.h"
+#include "wifi_recon.h"
 
 static const char *TAG = "spectrum";
 
@@ -74,11 +75,21 @@ static void on_cv_hop(void *arg)
     if (err != ESP_OK) ESP_LOGE(TAG, "hop to ch %u: %s", next_ch, esp_err_to_name(err));
 }
 
+static void spectrum_wifi_teardown(void)
+{
+    esp_err_t err = esp_wifi_set_promiscuous(false);
+    if (err != ESP_OK) ESP_LOGW(TAG, "disable promiscuous: %s", esp_err_to_name(err));
+    err = esp_wifi_set_promiscuous_rx_cb(NULL);
+    if (err != ESP_OK) ESP_LOGW(TAG, "clear promiscuous callback: %s", esp_err_to_name(err));
+    err = wifi_recon_restore_after_promiscuous();
+    if (err != ESP_OK) ESP_LOGW(TAG, "restart Wi-Fi after promiscuous mode: %s", esp_err_to_name(err));
+    arbiter_release(PHY_OWNER_WIFI);
+}
+
 static void cv_teardown(void)
 {
     esp_timer_stop(s_cv_timer);
-    esp_wifi_set_promiscuous(false);
-    arbiter_release(PHY_OWNER_WIFI);
+    spectrum_wifi_teardown();
 }
 
 void wifi_cmd_channel_view(void)
@@ -104,8 +115,7 @@ void wifi_cmd_channel_view(void)
     if (err == ESP_OK) err = esp_timer_start_periodic(s_cv_timer, (uint64_t)WIFI_CHAN_DWELL_MS * 1000);
 
     if (err != ESP_OK) {
-        esp_wifi_set_promiscuous(false);
-        arbiter_release(PHY_OWNER_WIFI);
+        spectrum_wifi_teardown();
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
         return;
     }
@@ -143,8 +153,7 @@ static void on_pm_tick(void *arg)
 static void pm_teardown(void)
 {
     esp_timer_stop(s_pm_timer);
-    esp_wifi_set_promiscuous(false);
-    arbiter_release(PHY_OWNER_WIFI);
+    spectrum_wifi_teardown();
 }
 
 /* True if `ch` is one of the channels this build actually hops (D-14: not
@@ -187,8 +196,7 @@ void wifi_cmd_packet_monitor(int argc, char **argv)
     if (err == ESP_OK) err = esp_timer_start_periodic(s_pm_timer, (uint64_t)PACKET_MONITOR_INTERVAL_MS * 1000);
 
     if (err != ESP_OK) {
-        esp_wifi_set_promiscuous(false);
-        arbiter_release(PHY_OWNER_WIFI);
+        spectrum_wifi_teardown();
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
         return;
     }

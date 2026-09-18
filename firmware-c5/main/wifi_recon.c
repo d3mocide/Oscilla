@@ -224,6 +224,19 @@ esp_err_t wifi_recon_init(void)
 
 bool wifi_recon_ready(void) { return s_ready; }
 
+esp_err_t wifi_recon_restore_after_promiscuous(void)
+{
+    if (!s_ready) return ESP_ERR_INVALID_STATE;
+
+    esp_err_t err = esp_wifi_stop();
+    if (err != ESP_OK) return err;
+    err = esp_wifi_start();
+    if (err != ESP_OK) return err;
+    err = esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);
+    if (err != ESP_OK) return err;
+    return esp_wifi_set_ps(WIFI_PS_NONE);
+}
+
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel)
 {
     bool ok = false;

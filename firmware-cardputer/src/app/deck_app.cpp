@@ -96,6 +96,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
          * true otherwise. Any drop out of Ready means whatever was pending
          * is moot. */
         if (s != ocp::LinkState::Ready) {
+            phy_handoff_.clear();
             lora_listen_pending_ = false;
             wifi_continuous_pending_ = false;
             mesh_start_pending_ = false;
@@ -109,6 +110,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         dirty_ = true;
     });
     client_.onReset([this] {
+        phy_handoff_.clear();
         /* The probe's stored results died with it; so did our indices. */
         const auto &st = client_.stats();
         log("probe-reset resets=" + std::to_string(st.resets) + " noise=" + std::to_string(st.noise) +
@@ -239,6 +241,10 @@ void DeckApp::onReply(const ocp::Item &it)
             lora_.stop();
             storage::loraLogEnd();
         }
+        if (all || *lane == OCP_LANE_PHY) {
+            PhyHandoff::Start start;
+            if (phy_handoff_.takeAfterStop(&start)) start(now_);
+        }
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
     } else if (it.tag == OCP_MARK_CLIENTS) {
@@ -336,10 +342,32 @@ void DeckApp::requestScan(uint32_t now_ms)
     scan_started_ms_ = now_ms;
 }
 
+bool DeckApp::phyToolActive() const
+{
+    return scan_.scanning() || scan_.continuousActive() || wifi_continuous_pending_ ||
+           contacts_.sniffing() || spectrum_.active() || deauth_.active() ||
+           bt_.scanning() || bt_.continuousActive() || bt_.airtagActive() || anti_.active() ||
+           anti_start_pending_ || mesh_.active() || mesh_start_pending_;
+}
+
+bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
+{
+    const auto request = phy_handoff_.request(phyToolActive(), client_.stopPending(), std::move(start));
+    if (request == PhyHandoff::Request::StartNow) return true;
+    if (request == PhyHandoff::Request::SendStop && !client_.stop(now_ms, OCP_LANE_PHY)) {
+        phy_handoff_.clear();
+        notice("unable to stop current PHY tool");
+        return false;
+    }
+    notice("stopping current PHY tool...");
+    return false;
+}
+
 void DeckApp::startScan(uint32_t now_ms)
 {
     if (scan_.continuousActive()) { notice("stop live scan first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startScan(now); }, now_ms)) return;
     requestScan(now_ms);
     cursor_ = 0;
     screen_ = Screen::Sweep;
@@ -348,9 +376,10 @@ void DeckApp::startScan(uint32_t now_ms)
 
 void DeckApp::toggleWifiContinuous(uint32_t now_ms)
 {
-    if (scan_.continuousActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (scan_.continuousActive()) { stopPhy(now_ms); return; }
     if (wifi_continuous_pending_) { notice("starting live scan..."); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { toggleWifiContinuous(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_WIFI_SCAN, now_ms)) {
         retrySoon([this](uint32_t t) { toggleWifiContinuous(t); }, now_ms);
         return;
@@ -368,6 +397,7 @@ void DeckApp::startInspect(uint32_t now_ms)
     if (scan_.rows().empty()) return;
     if (scan_.continuousActive()) { notice("stop live scan first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startInspect(now); }, now_ms)) return;
     trace_idx_ = scan_.rows()[cursor_].idx;
     if (!client_.send(std::string(OCP_V_INSPECT_NETWORK) + " " + std::to_string(trace_idx_), now_ms)) {
         retrySoon([this](uint32_t t) { startInspect(t); }, now_ms);
@@ -380,6 +410,7 @@ void DeckApp::startInspect(uint32_t now_ms)
 void DeckApp::startSniffer(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startSniffer(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_SNIFFER, now_ms)) {
         retrySoon([this](uint32_t t) { startSniffer(t); }, now_ms);
         return;
@@ -396,6 +427,7 @@ void DeckApp::startSniffer(uint32_t now_ms)
 void DeckApp::startChannelView(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startChannelView(now); }, now_ms)) return;
     if (!client_.send(OCP_V_CHANNEL_VIEW, now_ms)) {
         retrySoon([this](uint32_t t) { startChannelView(t); }, now_ms);
         return;
@@ -408,6 +440,7 @@ void DeckApp::startChannelView(uint32_t now_ms)
 void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this, ch](uint32_t now) { startPacketMonitor(now, ch); }, now_ms)) return;
     if (!client_.send(std::string(OCP_V_PACKET_MONITOR) + " " + std::to_string(ch), now_ms)) {
         retrySoon([this, ch](uint32_t t) { startPacketMonitor(t, ch); }, now_ms);
         return;
@@ -455,6 +488,7 @@ void DeckApp::startLoraListen(uint32_t now_ms)
 void DeckApp::startDeauthDetector(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startDeauthDetector(now); }, now_ms)) return;
     if (!client_.send(OCP_V_DEAUTH_DETECTOR, now_ms)) {
         retrySoon([this](uint32_t t) { startDeauthDetector(t); }, now_ms);
         return;
@@ -467,6 +501,7 @@ void DeckApp::startDeauthDetector(uint32_t now_ms)
 void DeckApp::startBtScan(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { startBtScan(now); }, now_ms)) return;
     if (!client_.send(OCP_V_SCAN_BT, now_ms)) {
         retrySoon([this](uint32_t t) { startBtScan(t); }, now_ms);
         return;
@@ -478,8 +513,9 @@ void DeckApp::startBtScan(uint32_t now_ms)
 
 void DeckApp::toggleBtContinuous(uint32_t now_ms)
 {
-    if (bt_.continuousActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (bt_.continuousActive()) { stopPhy(now_ms); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { toggleBtContinuous(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_BLE_SCAN, now_ms)) {
         retrySoon([this](uint32_t t) { toggleBtContinuous(t); }, now_ms);
         return;
@@ -491,8 +527,9 @@ void DeckApp::toggleBtContinuous(uint32_t now_ms)
 
 void DeckApp::toggleAirtagScan(uint32_t now_ms)
 {
-    if (bt_.airtagActive()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (bt_.airtagActive()) { stopPhy(now_ms); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { toggleAirtagScan(now); }, now_ms)) return;
     if (!client_.send(OCP_V_SCAN_AIRTAG, now_ms)) {
         retrySoon([this](uint32_t t) { toggleAirtagScan(t); }, now_ms);
         return;
@@ -503,9 +540,10 @@ void DeckApp::toggleAirtagScan(uint32_t now_ms)
 
 void DeckApp::toggleAntisurveillance(uint32_t now_ms)
 {
-    if (anti_.active()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (anti_.active()) { stopPhy(now_ms); return; }
     if (anti_start_pending_) { notice("starting anti-surveillance..."); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { toggleAntisurveillance(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_ANTISURV, now_ms)) {
         retrySoon([this](uint32_t t) { toggleAntisurveillance(t); }, now_ms);
         return;
@@ -517,8 +555,9 @@ void DeckApp::toggleAntisurveillance(uint32_t now_ms)
 
 void DeckApp::toggleMesh(uint32_t now_ms)
 {
-    if (mesh_.active()) { client_.stop(now_ms, OCP_LANE_PHY); return; }
+    if (mesh_.active()) { stopPhy(now_ms); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this](uint32_t now) { toggleMesh(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_ZIG_RECON, now_ms)) { retrySoon([this](uint32_t t) { toggleMesh(t); }, now_ms); return; }
     mesh_start_pending_ = true;
     mesh_.begin(); mesh_cursor_ = 0; screen_ = Screen::Mesh; notice("");
@@ -563,7 +602,9 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
      * the SCAN handler keeps it looping (onReply(), OCP_MARK_SCAN) for as
      * long as the log stays open. Skipped if one's already running: let it
      * finish rather than restarting it and losing its progress. */
-    if (!scan_.scanning()) requestScan(now_ms);
+    if (!scan_.scanning() && preparePhyStart([this](uint32_t now) { requestScan(now); }, now_ms)) {
+        requestScan(now_ms);
+    }
 }
 
 void DeckApp::logScanRows()
@@ -593,16 +634,25 @@ void DeckApp::back(uint32_t now_ms)
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
     } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth || screen_ == Screen::Beacons) {
-        client_.stop(now_ms, OCP_LANE_PHY);
-    } else if (client_.pending()) {
-        /* Only Sweep/Trace/Link reach here with something pending, and
-         * every command they can issue is PHY-lane (scan/inspect) or
-         * lane-agnostic (status/ping/version) - "all" is exact, not just
-         * a safe default. */
-        client_.stop(now_ms);
+        stopPhy(now_ms);
+    } else if (screen_ == Screen::Trace && client_.pending()) {
+        stopPhy(now_ms);
     }
     screen_ = screen_ == Screen::Trace ? Screen::Sweep : Screen::Link;
     dirty_ = true;
+}
+
+void DeckApp::stopPhy(uint32_t now_ms)
+{
+    phy_handoff_.clear();
+    client_.stop(now_ms, OCP_LANE_PHY);
+}
+
+void DeckApp::stopPhyForNavigation(uint32_t now_ms)
+{
+    if (screen_ != Screen::Sweep && screen_ != Screen::Contacts && screen_ != Screen::Spectrum &&
+        screen_ != Screen::Mesh && screen_ != Screen::Deauth && screen_ != Screen::Beacons) return;
+    stopPhy(now_ms);
 }
 
 void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
@@ -613,6 +663,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         if (c == '`') { back(now_ms); continue; }
         if (c == 'd') { toggleDebugMode(); continue; }
         if ((c == ',' || c == '/') && isHomeCard(screen_)) {
+            stopPhyForNavigation(now_ms);
             screen_ = cycleCard(screen_, c == '/' ? 1 : -1);
             dirty_ = true;
             continue;
@@ -645,7 +696,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                                                                           : ui::ContactsTab::Clients;
                 contacts_cursor_ = 0;
             } else if (c == 's') {
-                if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY);
+                if (contacts_.sniffing()) stopPhy(now_ms);
                 else startSniffer(now_ms);
             }
             break;
@@ -656,7 +707,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && spectrum_cursor_ > 0) spectrum_cursor_--;
             else if (c == '.' && spectrum_cursor_ + 1 < spectrum_.readings().size()) spectrum_cursor_++;
             else if (c == 's') {
-                if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY);
+                if (spectrum_.active()) stopPhy(now_ms);
                 else startChannelView(now_ms);
             }
             break;
@@ -678,7 +729,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && deauth_cursor_ > 0) deauth_cursor_--;
             else if (c == '.' && deauth_cursor_ + 1 < deauth_.events().size()) deauth_cursor_++;
             else if (c == 's') {
-                if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY);
+                if (deauth_.active()) stopPhy(now_ms);
                 else startDeauthDetector(now_ms);
             }
             break;
@@ -737,10 +788,13 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "ping") client_.send(OCP_V_PING, now_ms);
     else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);
     else if (cmd == "reboot") client_.send(OCP_V_REBOOT, now_ms);
-    else if (cmd == "stop") client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
-    else if (cmd == "sniff") { if (contacts_.sniffing()) client_.stop(now_ms, OCP_LANE_PHY); else startSniffer(now_ms); }
-    else if (cmd == "spectrum") { if (spectrum_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startChannelView(now_ms); }
-    else if (cmd == "deauth") { if (deauth_.active()) client_.stop(now_ms, OCP_LANE_PHY); else startDeauthDetector(now_ms); }
+    else if (cmd == "stop") {
+        if (arg.empty() || arg == OCP_LANE_PHY) phy_handoff_.clear();
+        client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
+    }
+    else if (cmd == "sniff") { if (contacts_.sniffing()) stopPhy(now_ms); else startSniffer(now_ms); }
+    else if (cmd == "spectrum") { if (spectrum_.active()) stopPhy(now_ms); else startChannelView(now_ms); }
+    else if (cmd == "deauth") { if (deauth_.active()) stopPhy(now_ms); else startDeauthDetector(now_ms); }
     else if (cmd == "wifiscan") toggleWifiContinuous(now_ms);
     else if (cmd == "beacons") startBtScan(now_ms);
     else if (cmd == "blescan") toggleBtContinuous(now_ms);
@@ -774,6 +828,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "card") {
         Screen s;
         if (!screenFromName(arg, &s)) { log("debug: unknown card=" + arg); return; }
+        if (s != screen_) stopPhyForNavigation(now_ms);
         screen_ = s;
         dirty_ = true;
     }

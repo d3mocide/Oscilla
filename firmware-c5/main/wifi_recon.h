@@ -20,6 +20,10 @@
 esp_err_t wifi_recon_init(void);
 bool wifi_recon_ready(void);
 
+/* Rebuild the already-configured, unassociated STA driver after a
+ * promiscuous-only engine releases it. */
+esp_err_t wifi_recon_restore_after_promiscuous(void);
+
 /* Copy stored result `idx` (1-based). False if absent or a scan is running. */
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel);
 

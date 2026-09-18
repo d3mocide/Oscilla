@@ -344,6 +344,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 |---|---|---|
 | `src/main.cpp` | wiring | M5 + Grove UART (16 KB, drained before drawing) + keyboard + app |
 | `src/app/deck_app` | app | Home-card flow including Sweep, Sweep → Trace drill-down, command orchestration, auto-paging, reconnect/keepalive |
+| `src/app/phy_handoff` | app | Acknowledgement-gated `stop phy` handoff before a successor claims the shared PHY lane |
 | `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap, inspect result |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
 | `src/ui/sweep_view` · `src/ui/trace_view` | view | AP list; one AP in depth |

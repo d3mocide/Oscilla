@@ -1,3 +1,56 @@
+## 2026-09-18 — Restored Wi-Fi after Packet Monitor and gated PHY handoffs
+
+**Phase:** P8 reliability · **By:** Codex
+
+Fixed the two control-plane paths exposed by the production-firmware test.
+Deck card cycling now sends `stop phy` when it leaves a PHY-tool card, and a
+new PHY tool is queued until the probe acknowledges that scoped stop. The
+handoff retains only the latest requested destination, cancels it on link
+loss/back/manual stop, and never stops the independent LoRa lane. AP Detail
+cancel is also scoped to PHY rather than using a bare stop.
+
+Packet Monitor and Channel View now leave Wi-Fi in a known scan-ready state:
+their teardown disables promiscuous capture, unregisters its callback, and
+restores the passive STA baseline before releasing the arbiter. The source
+regression check rejects a missing callback or driver recovery; deliberate
+callback-removal and driver-restart-removal mutations were rejected.
+`ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh` passed (the runner cannot run LeakSanitizer under
+ptrace), as did `./tools/build_firmware.sh` and the final Cardputer rebuild.
+
+**Hardware regression, failed.** Flashed both changed production images to the
+attached C5 and ADV; each flasher verified every image hash before reset. The
+deck USB console started Packet Monitor on channel 1, sent and acknowledged
+`stop phy`, and the probe logged `wifi:ic_disable_sniffer`. Two subsequent
+deck-mediated snapshot scans each completed normally in about 10.5 seconds
+with `aps=0 total=0 malformed=0`. Starting Packet Monitor again and requesting
+live Wi-Fi discovery through the deck's guarded handoff also sent the scoped
+teardown and acknowledged the new configuration, but its aggregate deck row
+count remained zero. Probe logs had no protocol error marker. This reproduces
+the original valid-empty-result fault on the changed firmware: callback and
+band restoration alone do not recover Wi-Fi after Packet Monitor. No captured
+network identifiers or field observations were retained.
+
+**Follow-up, passed.** A cold control after probe reboot found 131 APs, and a
+cold continuous run found 149 rows, so the PSRAM-backed discovery table itself
+was healthy. The failure was Packet Monitor's Wi-Fi driver state, not the
+PSRAM allocation. Its teardown now stops and restarts the existing
+unassociated STA driver, then reapplies automatic dual-band and no-power-save
+operation before it releases the PHY arbiter. The recovery is bounded and
+does not add a connection, probe request, or transmit path.
+
+Flashed the C5 recovery image with verified hashes. The complete deck-mediated
+hardware regression then passed: the cold control had 131 APs; after Packet
+Monitor -> `stop phy`, the two passive scans reported 119 and 122 APs; and a
+Packet Monitor -> guarded live-discovery handoff reported 141 aggregate rows.
+Both teardowns logged `wifi:ic_disable_sniffer`; there was no recovery warning,
+protocol error, or retained field identifier. The updated C5 build and
+`ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` also passed. The
+teardown source check now requires the stop/start recovery sequence, and its
+deliberately mutated copy was rejected.
+
+---
+
 ## 2026-09-17 — P7 live gate retry stopped at wedged probe USB endpoint
 
 **Phase:** P7 hardware follow-up · **By:** Codex
