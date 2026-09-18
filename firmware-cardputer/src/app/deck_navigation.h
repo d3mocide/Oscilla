@@ -23,8 +23,10 @@ enum class Screen : uint8_t {
     Mesh,
     SubGhz,
     Deauth,
+    AntiSurveillance,
     Drive,
     Beacons,
+    Settings,
 };
 
 enum class Section : uint8_t { System, Observe, Analyze, Drive, Logs };

@@ -29,7 +29,7 @@ void drawHelpView(const ChromeState &chrome)
     d.setCursor(4, kBodyTop + 44);
     d.print("ENTER SELECT / ACT");
     d.setCursor(4, kBodyTop + 57);
-    d.print("`     BACK / STOP");
+    d.print("`     BACK/STOP, SETTINGS ON LINK");
     d.setCursor(4, kBodyTop + 70);
     d.print("s/c   START / STREAM");
     d.setCursor(4, kBodyTop + 83);

@@ -28,8 +28,12 @@ int main()
 
     check(app::isHomeCard(Screen::Link) && app::isHomeCard(Screen::Drive),
           "system and drive routes are home cards");
-    check(!app::isHomeCard(Screen::Trace) && !app::isHomeCard(Screen::Deauth),
-          "detail and diagnostic-only routes are not home cards");
+    check(!app::isHomeCard(Screen::Trace) && app::isHomeCard(Screen::Deauth) &&
+          app::isHomeCard(Screen::AntiSurveillance),
+          "AP Detail stays a drill-down while defensive analysis routes are home cards");
+    check(!app::isHomeCard(Screen::Settings) &&
+          std::string(app::navItem(Screen::Settings).title) == "SETTINGS",
+          "Settings stays a drill-down (reached only from Link) with its own nav title");
     check(std::string(app::navItem(Screen::Link).title) == "LINK" &&
           std::string(app::navItem(Screen::Info).title) == "SYSTEM" &&
           std::string(app::navItem(Screen::Sweep).title) == "WIFI SCAN" &&
@@ -38,13 +42,17 @@ int main()
           std::string(app::navItem(Screen::SubGhz).title) == "LORA RX" &&
           std::string(app::navItem(Screen::Spectrum).title) == "PACKET MONITOR" &&
           std::string(app::navItem(Screen::Contacts).title) == "SNIFFER" &&
-          std::string(app::navItem(Screen::Deauth).title) == "DEAUTH DETECT",
+          std::string(app::navItem(Screen::Deauth).title) == "DEAUTH DETECT" &&
+          std::string(app::navItem(Screen::AntiSurveillance).title) == "ANTI-SURV",
           "route labels use standard tool names");
     check(app::cycleScreen(Screen::Link, -1) == Screen::Drive &&
           app::cycleScreen(Screen::Drive, 1) == Screen::Link,
           "home route order wraps in both directions");
     check(app::cycleScreen(Screen::Sweep, 1) == Screen::Beacons &&
-          app::cycleScreen(Screen::Spectrum, 1) == Screen::Contacts,
+          app::cycleScreen(Screen::Spectrum, 1) == Screen::Contacts &&
+          app::cycleScreen(Screen::Contacts, 1) == Screen::Deauth &&
+          app::cycleScreen(Screen::Deauth, 1) == Screen::AntiSurveillance &&
+          app::cycleScreen(Screen::AntiSurveillance, 1) == Screen::Drive,
           "sibling views remain grouped by section");
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "navigation test FAILED" : "navigation test OK",

@@ -323,7 +323,7 @@ The UI, plus GNSS, storage and logging. Small screen, physical keyboard, must fe
 
 ```
 ┌─────────────────────────────────────────────┐
-│ Views (Scope-themed screens)                 │  Wi-Fi Scan · AP Detail · Packet Monitor · BLE Scan · 802.15.4 · LoRa RX · Drive · Log
+│ Views (Scope-themed screens)                 │  Wi-Fi Scan · AP Detail · Packet Monitor · Sniffer · Deauth Detect · Anti-Surveillance · BLE Scan · 802.15.4 · LoRa RX · Drive · Log
 ├─────────────────────────────────────────────┤
 │ UI core: view stack, focus, key routing      │
 ├─────────────────────────────────────────────┤
@@ -344,7 +344,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 |---|---|---|
 | `src/main.cpp` | wiring | M5 + Grove UART (16 KB, drained before drawing) + keyboard + app |
 | `src/app/deck_app` | app | Home-card flow including Wi-Fi Scan, Wi-Fi Scan → AP Detail drill-down, command orchestration, auto-paging, reconnect/keepalive |
-| `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels |
+| `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels; AP Detail alone is a drill-down |
 | `src/app/phy_handoff` | app | Acknowledgement-gated `stop phy` handoff before a successor claims the shared PHY lane |
 | `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap, inspect result |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
@@ -367,7 +367,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
 | `src/model/bt_model` | model | `scan_bt`/`start_ble_scan`'s shared device table + `scan_airtag`'s tracker log (OCP-SPEC §11). Named "Bt" not "Ble" — `tools/check_rx_only.py` bans any `ble_`/`NimBLE` identifier from deck source outright (DESIGN §3), so the deck side spells it differently on purpose even though this only ever parses text |
 | `src/model/anti_surveillance_model` | model | Deck-local, bounded correlation of repeated tracker sightings with fresh GNSS movement; position never crosses OCP or enters storage |
-| `src/ui/bt_view` | view | The BLE Scan card: device list, tracker count, last tracker sighting, and anti-surveillance movement candidates |
+| `src/ui/bt_view` | view | The BLE Scan card: device list, tracker count, and last tracker sighting |
+| `src/ui/anti_surveillance_view` | view | The Anti-Surveillance card: bounded tracker rows, GNSS-ready state, movement-leg progress, and conservative candidate state |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
 | `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
@@ -380,15 +381,18 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **AP Detail** | `inspect_network <i>` | One AP deep-dive: security (WPA2/3), **MFP** state, AP uptime, RSSI meter. |
 | **Sniffer** | `start_sniffer` / `show_clients` | Live AP↔client map + probe-request SSIDs (streamed via `[EVT]`). |
 | **Packet Monitor** | `channel_view` / `packet_monitor` | Per-channel packet-density bars — the channel activity screen. |
-| **BLE Scan** | `scan_bt` / `start_ble_scan` / `scan_airtag` / `start_antisurveillance` | BLE device list — a bounded scan (`s`), continuous live discovery (`c`), tracker-only stream (`a`), or deck-local movement correlation (`f`); all share the passive BLE PHY owner. The anti-surveillance result is a conservative candidate, not proof of following. |
+| **Deauth Detect** | `deauth_detector` | Passive deauthentication/disassociation detection. It observes management frames only; it cannot send a deauth. |
+| **Anti-Surveillance** | `start_antisurveillance` | Passive tracker stream correlated only with fresh deck-local GNSS in bounded RAM. Two movement legs of at least 25 m are required before a conservative `FOLLOW?` candidate; the candidate is not proof of following. |
+| **BLE Scan** | `scan_bt` / `start_ble_scan` / `scan_airtag` | BLE device list — a bounded scan (`s`), continuous live discovery (`c`), or tracker-only stream (`a`); all share the passive BLE PHY owner. |
 | **802.15.4** | `start_zig_recon` + `zig_*` | PAN → node inventory, protocol guess, signal quality. Receive-only. |
 | **LoRa RX** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
 | **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — logging each AP row against the local fix and re-triggering on completion; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
 | **Log** | local SD browse | Browse/preview sessions recorded on the deck. |
 
 ### 7.3 Interaction & state
-- **Non-blocking:** a view issues a command, shows a spinner, and renders when the frame completes or updates live from `[EVT]`. The keyboard is always responsive; `` ` ``/ESC maps to a global **`stop` + back**.
+- **Non-blocking:** a view issues a command, shows a spinner, and renders when the frame completes or updates live from `[EVT]`. The keyboard is always responsive; `` ` `` maps to a global **`stop` + back**, except from the Link card, where it opens **Settings** instead (there's nothing to stop or back out of on the home route). The ADV's compact keyboard has no physical ESC key — `Keyboard.h`'s `KeysState` doesn't expose one — so `` ` `` alone carries this, not an ESC alias.
 - **Grouped navigation:** home cards are presented as SYSTEM, OBSERVE, ANALYZE, DRIVE, and LOGS routes. `,`/`/` cycles home cards and stops the departing PHY tool; `;`/`.` moves within a view; Enter follows the selected action or drills from Wi-Fi Scan into AP Detail; `h` opens help and `` ` `` closes it. A new PHY tool waits for its predecessor's `[STOP] lane=phy` acknowledgement before it starts, preserving a concurrent LoRa RX session. The route metadata lives in `src/app/deck_navigation`, so labels and ordering do not drift between screens.
+- **Settings:** a Link-only drill-down (same shape as AP Detail off Wi-Fi Scan) for on-device flags persisted to the SD card via `storage::settings` — display brightness today, more later, same one-flag-file-per-setting pattern as debug mode (§7.6). `;`/`.` adjust the selected value; `` ` `` returns to Link.
 - **Shared deck chrome:** the 240×135 views reserve a fixed header, expanded body, and compact transport footer. The header carries a compact activity-dot cluster, a fixed-width battery percentage aligned to its icon, and debug state; the footer carries live/cached state and the OCP link. Persistent controls are intentionally not rendered; transient notices temporarily replace the transport footer and clear after roughly two seconds, while `h` opens the shared help card. The first slice was SYSTEM/LINK → OBSERVE/WIFI SCAN → AP DETAIL; all current view renderers now use the same shell, with physical display inspection still pending.
 - **Connection state machine:** `Disconnected → HelloSent → Ready(caps) → Busy(mode)`. An unsolicited `[HELLO]` drops straight back to `Ready` with state invalidated.
 - **Offline review:** cached scan/session data is browsable with the probe idle or unplugged. GNSS and logging keep working with no backpack attached.

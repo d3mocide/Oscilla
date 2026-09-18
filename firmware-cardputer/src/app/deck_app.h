@@ -3,11 +3,10 @@
  *
  *   Grouped route order follows docs/brand/README.md:
  *   SYSTEM -> OBSERVE -> ANALYZE -> DRIVE. AP Detail is a Wi-Fi Scan drill-down.
- *   ` = stop + back (DESIGN §7.3)
+ *   ` = stop + back, except on Link where it opens Settings (DESIGN §7.3)
  *
- * Deauth has no DESIGN §7.2 view of its own yet — added ahead of the UI
- * rework DESIGN will eventually need for a growing card set (deliberate,
- * not an oversight: see WORKLOG).
+ * AP Detail is the only drill-down; defensive analysis cards are first-class
+ * home routes in DESIGN §7.2.
  *
  * PHY tool changes wait for `stop phy` (D-16, OCP-SPEC §5.4), preserving
  * a concurrent LoRa receiver.
@@ -72,6 +71,15 @@ public:
     void toggleDebugMode();
     void runDebugCommand(const std::string &line, uint32_t now_ms);
 
+    /* Display brightness (DESIGN §7.6), M5GFX 0-255 scale. main.cpp reads
+     * storage::loadBrightness() and applies it to the hardware before
+     * begin() runs (display setup is main.cpp's wiring job, same split as
+     * setDebugMode()); this just seeds the in-RAM value the Settings
+     * screen renders and adjusts from there on, persisting via
+     * storage::saveBrightness() the same way toggleDebugMode() does. */
+    uint8_t brightness() const { return brightness_; }
+    void setBrightness(uint8_t value) { brightness_ = value; }
+
     /* True when the screen should be redrawn. */
     bool dirty(uint32_t now_ms) const;
     void draw(uint32_t now_ms);
@@ -111,6 +119,10 @@ private:
     void logScanRows();
     void back(uint32_t now_ms);
     void notice(const std::string &text);
+    /* ';'/'.' on the Settings screen: clamps to [kBrightnessMin,
+     * kBrightnessMax] (never 0 — a black screen has no way back), applies
+     * live via M5Cardputer.Display.setBrightness(), and persists. */
+    void adjustBrightness(int direction);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -154,6 +166,7 @@ private:
      * and storage::loraLogBegin(), not the optimistic send. */
     bool lora_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
+    size_t anti_cursor_ = 0;
     size_t bt_cursor_ = 0;
     uint32_t bt_scan_started_ms_ = 0;
     size_t mesh_cursor_ = 0;
@@ -189,6 +202,9 @@ private:
     std::string notice_;
     uint32_t notice_started_ms_ = 0;
     bool help_visible_ = false;
+    /* Placeholder only — main.cpp overwrites this via setBrightness() at
+     * boot from storage::loadBrightness(), same as debug_mode_ above. */
+    uint8_t brightness_ = 160;
     uint16_t next_page_ = 0;
     uint32_t scan_started_ms_ = 0;
     bool scan_pending_ = false;

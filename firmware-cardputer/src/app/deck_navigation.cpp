@@ -19,6 +19,8 @@ constexpr NavItem kCards[] = {
     {Screen::SubGhz,   Section::Observe, "LORA RX"},
     {Screen::Spectrum, Section::Analyze, "PACKET MONITOR"},
     {Screen::Contacts, Section::Analyze, "SNIFFER"},
+    {Screen::Deauth,   Section::Analyze, "DEAUTH DETECT"},
+    {Screen::AntiSurveillance, Section::Analyze, "ANTI-SURV"},
     {Screen::Drive,    Section::Drive,   "WARDRIVE"},
 };
 
@@ -32,9 +34,13 @@ const NavItem &navItem(Screen screen)
         if (item.screen == screen) return item;
     }
 
+    if (screen == Screen::Settings) {
+        static constexpr NavItem kSettings = {Screen::Settings, Section::System, "SETTINGS"};
+        return kSettings;
+    }
+
     static constexpr NavItem kTrace = {Screen::Trace, Section::Observe, "AP DETAIL"};
-    static constexpr NavItem kDeauth = {Screen::Deauth, Section::Analyze, "DEAUTH DETECT"};
-    return screen == Screen::Trace ? kTrace : kDeauth;
+    return kTrace;
 }
 
 bool isHomeCard(Screen screen)

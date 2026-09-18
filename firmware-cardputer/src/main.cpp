@@ -59,6 +59,19 @@ void setup()
      * logging is unavailable this boot; never block startup on it. */
     if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
 
+    /* Brightness (DESIGN §7.6): read only now that SD is up (must follow
+     * storage::begin() above), same "SD remembers it, not the firmware
+     * image" shape as debug mode below. No-ops to
+     * storage::settings.cpp's kBrightnessDefault if there's no card yet or
+     * no saved value. The boot screen above therefore draws at the
+     * hardware's own power-on brightness, not the saved one — unavoidable,
+     * since the card can't be read before it's mounted. */
+    {
+        uint8_t brightness = storage::loadBrightness();
+        M5Cardputer.Display.setBrightness(brightness);
+        g_app.setBrightness(brightness);
+    }
+
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not
      * a boot gesture — an earlier boot-hold design didn't survive contact
      * with the ADV's keyboard hardware (WORKLOG 2026-09-16: the TCA8418

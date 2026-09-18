@@ -12,6 +12,7 @@
 
 #include "app/deck_navigation.h"
 #include "ocp.h"
+#include "ui/anti_surveillance_view.h"
 #include "ui/bt_view.h"
 #include "ui/canvas.h"
 #include "ui/contacts_view.h"
@@ -26,6 +27,7 @@
 #include "ui/info_view.h"
 #include "ui/link_view.h"
 #include "ui/mesh_view.h"
+#include "ui/settings_view.h"
 #include "ui/spectrum_view.h"
 #include "ui/subghz_view.h"
 #include "ui/sweep_view.h"
@@ -63,6 +65,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "mesh" || name == "802154" || name == "zigbee") *out = Screen::Mesh;
     else if (name == "subghz" || name == "lora" || name == "lora_rx") *out = Screen::SubGhz;
     else if (name == "deauth" || name == "deauth_detect") *out = Screen::Deauth;
+    else if (name == "anti" || name == "antisurv" || name == "anti_surveillance") *out = Screen::AntiSurveillance;
     else if (name == "drive" || name == "wardrive") *out = Screen::Drive;
     else if (name == "beacons" || name == "ble" || name == "ble_scan") *out = Screen::Beacons;
     else return false;
@@ -608,6 +611,7 @@ void DeckApp::toggleAntisurveillance(uint32_t now_ms)
         return;
     }
     anti_start_pending_ = true;
+    anti_cursor_ = 0;
     bt_.resetTrackerLog();
     notice("starting anti-surveillance...");
 }
@@ -692,7 +696,7 @@ void DeckApp::back(uint32_t now_ms)
      * layer, just reachable again if this call didn't scope it too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
-    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth || screen_ == Screen::Beacons) {
+    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth || screen_ == Screen::AntiSurveillance || screen_ == Screen::Beacons) {
         stopPhy(now_ms);
     } else if (screen_ == Screen::Trace && client_.pending()) {
         stopPhy(now_ms);
@@ -710,7 +714,7 @@ void DeckApp::stopPhy(uint32_t now_ms)
 void DeckApp::stopPhyForNavigation(uint32_t now_ms)
 {
     if (screen_ != Screen::Sweep && screen_ != Screen::Contacts && screen_ != Screen::Spectrum &&
-        screen_ != Screen::Mesh && screen_ != Screen::Deauth && screen_ != Screen::Beacons) return;
+        screen_ != Screen::Mesh && screen_ != Screen::Deauth && screen_ != Screen::AntiSurveillance && screen_ != Screen::Beacons) return;
     stopPhy(now_ms);
 }
 
@@ -722,6 +726,12 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         if (c == '`') {
             if (help_visible_) {
                 help_visible_ = false;
+                dirty_ = true;
+            } else if (screen_ == Screen::Settings) {
+                screen_ = Screen::Link;
+                dirty_ = true;
+            } else if (screen_ == Screen::Link) {
+                screen_ = Screen::Settings;
                 dirty_ = true;
             } else {
                 back(now_ms);
@@ -750,6 +760,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 'p') client_.send(OCP_V_PING, now_ms);
             else if (c == 's') client_.send(OCP_V_STATUS, now_ms);
             else if (c == 'r') client_.send(OCP_V_REBOOT, now_ms);
+            break;
+        case Screen::Settings:
+            if (c == ';') adjustBrightness(1);
+            else if (c == '.') adjustBrightness(-1);
             break;
         case Screen::Sweep:
             if (c == ';' && cursor_ > 0) cursor_--;
@@ -807,6 +821,11 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 else startDeauthDetector(now_ms);
             }
             break;
+        case Screen::AntiSurveillance:
+            if (c == ';' && anti_cursor_ > 0) anti_cursor_--;
+            else if (c == '.' && anti_cursor_ + 1 < anti_.trackers().size()) anti_cursor_++;
+            else if (c == 's') toggleAntisurveillance(now_ms);
+            break;
         case Screen::Drive:
             if (c == 'l') toggleWardriveLog(now_ms);
             break;
@@ -816,7 +835,6 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 's') startBtScan(now_ms);
             else if (c == 'c') toggleBtContinuous(now_ms);
             else if (c == 'a') toggleAirtagScan(now_ms);
-            else if (c == 'f') toggleAntisurveillance(now_ms);
             break;
         }
         dirty_ = true;
@@ -860,6 +878,22 @@ void DeckApp::toggleDebugMode()
     storage::saveDebugMode(debug_mode_);
     notice(debug_mode_ ? "debug mode on" : "debug mode off");
     log(std::string("debug mode ") + (debug_mode_ ? "on" : "off"));
+    dirty_ = true;
+}
+
+void DeckApp::adjustBrightness(int direction)
+{
+    constexpr int kStep = 24;
+    /* Never below this: a screen dim enough to be unreadable strands the
+     * user with no way back into Settings to raise it again. */
+    constexpr int kBrightnessMin = 24;
+    constexpr int kBrightnessMax = 255;
+    int value = static_cast<int>(brightness_) + direction * kStep;
+    if (value < kBrightnessMin) value = kBrightnessMin;
+    if (value > kBrightnessMax) value = kBrightnessMax;
+    brightness_ = static_cast<uint8_t>(value);
+    M5Cardputer.Display.setBrightness(brightness_);
+    storage::saveBrightness(brightness_);
     dirty_ = true;
 }
 
@@ -1129,6 +1163,9 @@ void DeckApp::draw(uint32_t now_ms)
     case Screen::Link:
         ui::drawLinkView(client_, link_cursor_, makeChrome("LINK"));
         break;
+    case Screen::Settings:
+        ui::drawSettingsView(brightness_, makeChrome("SETTINGS"));
+        break;
     case Screen::Sweep:
         ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_,
                           makeChrome("WIFI SCAN"));
@@ -1169,12 +1206,16 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawDeauthView(deauth_, deauth_cursor_,
                          makeChrome("DEAUTH DETECT"));
         break;
+    case Screen::AntiSurveillance:
+        ui::drawAntiSurveillanceView(anti_, anti_cursor_, anti_start_pending_,
+                                     makeChrome("ANTI-SURV"));
+        break;
     case Screen::Drive:
         ui::drawGnssView(gnss_, now_ms,
                          makeChrome("WARDRIVE"));
         break;
     case Screen::Beacons:
-        ui::drawBtView(bt_, anti_, bt_cursor_,
+        ui::drawBtView(bt_, bt_cursor_,
                        now_ms - bt_scan_started_ms_,
                        makeChrome("BLE SCAN"));
         break;
