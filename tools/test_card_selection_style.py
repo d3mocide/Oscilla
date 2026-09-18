@@ -9,6 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ROW_VIEWS = (
+    "anti_surveillance_view.cpp",
     "bt_view.cpp",
     "contacts_view.cpp",
     "deauth_view.cpp",

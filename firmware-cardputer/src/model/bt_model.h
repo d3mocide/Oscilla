@@ -55,9 +55,8 @@ public:
     /* scan_airtag was (re)issued: forget the old sighting log. */
     void beginAirtag();
 
-    /* start_antisurveillance has its own movement model, but the Beacons
-     * card still shows the current tracker ticker; reset that ticker without
-     * claiming the ordinary scan_airtag mode is active. */
+    /* start_antisurveillance has its own model. Reset this independent
+     * sighting log without claiming the ordinary scan_airtag mode is active. */
     void resetTrackerLog();
 
     /* [STOP] landed: scanning/continuous/airtag all go inactive; stored

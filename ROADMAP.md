@@ -203,15 +203,15 @@ complete until its remaining real-frame and view checks are demonstrated.
   captured by Oscilla. Normal images restored. Remaining: physical 802.15.4-view
   inspection and long-duration/loss characterization.
 - [x] `start_sniffer`/`show_clients`/`show_probes` + **Sniffer** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
-- [x] `deauth_detector` + a Deauth Detect card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG). **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
+- [x] `deauth_detector` + **Deauth Detect** Analyze card. **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
 - [x] `channel_view`, `packet_monitor` + **Packet Monitor** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.
 - [x] **Wi-Fi continuous AP discovery (2026-09-16/17).** `start_wifi_scan` passively hops the shared channel list, parses beacon/probe-response frames, deduplicates BSSIDs in a bounded table, and streams first-sighting `[EVT] kind=network` rows into the Wi-Fi Scan model (`c` key / `wifiscan` debug command). Host/protocol and both firmware builds pass. Live RF discovery, stop/restart, and a no-reset 10-minute soak are hardware-confirmed; the best uncontrolled baseline retained 216 rows with stable current heap and no run exceeded the 256-row cap. A controlled authorized fixture with more than 256 passive APs and final view inspection remain open.
 - [x] Wardrive: stream observations, deck-side geotag against local fix + age, write WigleWifi CSV + KML; **Drive** view. `storage::wardriveCsv*`/`storage::kml*` format writers, `storage::wardrive_logger` for SD I/O, wired to `ScanModel`+`GnssModel`. **Fully hardware-confirmed 2026-09-16**: a 21-minute outdoor session produced `aps=5254 nofix=0 trk=252`, every count matching the device's own — see WORKLOG for the full antenna-unplug/GNSS-diagnostics story this closed out alongside P4.
-- [x] **Anti-surveillance software slice (2026-09-17).** `start_antisurveillance`
+- [x] **Anti-surveillance software slice (2026-09-17/18).** `start_antisurveillance`
   now runs the same passive Find My/AirTag classifier on the probe and streams
-  `kind=airtag` sightings; the deck's BLE Scan card (`f` / `antisurv`) correlates
-  repeated sightings with fresh GNSS fixes in bounded RAM. It requires two
-  separated movement legs of at least 25 m with a fix no older than 10 s before
+  `kind=airtag` sightings; the deck's dedicated **Anti-Surveillance** Analyze card
+  correlates repeated sightings with fresh GNSS fixes in bounded RAM. It requires
+  two separated movement legs of at least 25 m with a fix no older than 10 s before
   showing a conservative `FOLLOW?` candidate. Host/protocol tests and both
   firmware builds pass. Live tracker-classified traffic and the start/stop
   lifecycle were smoke-tested on the deck without the prior stuck-start state.

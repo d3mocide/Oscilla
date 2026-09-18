@@ -1,3 +1,35 @@
+## 2026-09-18 — First-class defensive analysis cards
+
+**Phase:** P8 navigation and UI · **By:** Codex
+
+**Deauth Detect** is now a normal Analyze-card route instead of a debug-only
+destination. **Anti-Surveillance** is a separate Analyze card rather than a
+BLE Scan footer mode. It renders its bounded RAM-only tracker rows with the
+shared continuous selection rail, a fresh-GNSS state, movement-leg progress,
+and the existing conservative `FOLLOW?` candidate. `s` starts/stops each
+card's passive PHY owner; `;`/`.` browse retained rows. BLE Scan remains its
+own snapshot/continuous/tracker-watch card, and no new OCP verb or transmit
+path was added.
+
+`navigation_test.cpp` now requires AP Detail to stay a drill-down and asserts
+the Analyze order Packet Monitor → Sniffer → Deauth Detect → Anti-Surv. It
+failed before the route existed; after the implementation it passes. Removing
+the Deauth route from a temporary navigation copy made three of those checks
+fail, proving the contract catches a regression. The shared selection-style
+test now covers the Anti-Surveillance renderer too.
+
+`ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` and
+`./tools/build_firmware.sh` passed. The Cardputer ADV image was flashed to the
+attached deck with every segment hash verified. Through its count/state-only
+debug console and the attached C5, Deauth Detect reached its passive detector
+configuration and stopped with zero detections; Anti-Surveillance reached its
+configuration, accepted three passive tracker sightings, produced zero alerts
+without qualifying fresh-GNSS movement, and stopped cleanly. No identifiers or
+frame contents were retained. Final physical layout review of the two newly
+promoted cards remains open.
+
+---
+
 ## 2026-09-18 — Continuous list-selection rail
 
 **Phase:** P8 UI reliability · **By:** Codex

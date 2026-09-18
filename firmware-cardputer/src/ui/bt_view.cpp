@@ -58,8 +58,8 @@ void drawDeviceRows(const model::BtModel &bt, size_t cursor)
 
 }  // namespace
 
-void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &anti,
-                size_t cursor, uint32_t scanning_ms, const ChromeState &chrome)
+void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
+                const ChromeState &chrome)
 {
     auto &d = ui::canvas();
     beginChrome(chrome);
@@ -81,15 +81,6 @@ void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &an
     const bool bounded_dwell = bt.scanning() && bt.devices().empty();
     if (bounded_dwell) {
         drawDwellAnimation(d, scanning_ms);
-    } else if (const auto *alert = anti.latestAlert()) {
-        d.setCursor(4, kBodyTop + 83);
-        d.setTextColor(kSignalPink, kVoidInk);
-        d.printf("FOLLOW? %s %u LEGS", printable(alert->mac, 17).c_str(),
-                 (unsigned)alert->movement_legs);
-    } else if (anti.active()) {
-        d.setCursor(4, kBodyTop + 83);
-        d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.print("ANTI-SURV: NEED 2 x 25m MOVEMENT LEGS");
     } else if (!bt.trackerHits().empty()) {
         d.setCursor(4, kBodyTop + 83);
         const auto &last = bt.trackerHits()[0];

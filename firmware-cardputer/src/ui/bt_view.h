@@ -13,12 +13,11 @@
 #include <string>
 
 #include "model/bt_model.h"
-#include "model/anti_surveillance_model.h"
 #include "ui/chrome.h"
 
 namespace ui {
 
-void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &anti,
-                size_t cursor, uint32_t scanning_ms, const ChromeState &chrome);
+void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
+                const ChromeState &chrome);
 
 }  // namespace ui
