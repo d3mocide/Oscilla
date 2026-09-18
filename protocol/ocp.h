@@ -222,6 +222,7 @@ typedef enum {
 #define OCP_K_RUNNING           "running"
 #define OCP_K_LANE              "lane"     /* [STOP]: which lane(s) it addressed */
 #define OCP_K_UPTIME_MS         "uptime_ms"
+#define OCP_K_HEAP_TOTAL        "heap_total" /* [STATUS]: total default heap bytes */
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
 #define OCP_K_HEAP              "heap"     /* [STATUS]: free heap, bytes  */
 #define OCP_K_HEAP_MIN          "heap_min" /* [STATUS]: minimum free heap since boot */

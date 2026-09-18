@@ -193,7 +193,7 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, and bounded memory telemetry: `heap` (current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
 
 **The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
 

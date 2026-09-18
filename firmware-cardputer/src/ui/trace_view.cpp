@@ -6,74 +6,97 @@
 
 #include "ui/trace_view.h"
 
+#include <cstdio>
+
 #include <M5Cardputer.h>
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/theme.h"
 
 namespace ui {
 
 namespace {
 
-constexpr int kLineH = 10;
-
-void label(const char *text)
+uint16_t rssiColour(int rssi)
 {
-    auto &d = ui::canvas();
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.printf("%-8s", text);
-    d.setTextColor(TFT_WHITE, TFT_BLACK);
+    if (rssi >= -55) return kFieldGreen;
+    if (rssi >= -70) return kCalibrationYellow;
+    return kFaultRed;
+}
+
+void metric(M5Canvas &d, int x, const char *name, const char *value, const char *sub,
+            uint16_t value_color)
+{
+    d.drawRect(x, kBodyTop + 42, 75, 25, kLineBorder);
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.setCursor(x + 4, kBodyTop + 45);
+    d.print(name);
+    d.setTextColor(value_color, kVoidInk);
+    d.setCursor(x + 4, kBodyTop + 54);
+    d.print(value);
+    d.setTextColor(kDimGreen, kVoidInk);
+    d.setCursor(x + 4, kBodyTop + 63);
+    d.print(sub);
 }
 
 }  // namespace
 
 void drawTraceView(const model::ApRow *row, const model::Inspect &in, bool listening,
-                   const std::string &notice)
+                   const ChromeState &chrome)
 {
     auto &d = ui::canvas();
-    d.fillScreen(TFT_BLACK);
+    beginChrome(chrome);
     d.setTextSize(1);
-    d.setCursor(0, 0);
-
-    d.setTextColor(TFT_CYAN, TFT_BLACK);
-    d.println("TRACE");
 
     if (!row) {
-        d.setTextColor(TFT_YELLOW, TFT_BLACK);
-        d.println("list cleared - rescan");
+        d.setCursor(4, kBodyTop + 4);
+        d.setTextColor(kCalibrationYellow, kVoidInk);
+        d.print("NO TARGET · RETURN TO WIFI SCAN");
     } else {
-        label("ssid");   d.println(row->ssid.empty() ? "<hidden>" : printable(row->ssid, 30).c_str());
-        label("bssid");  d.println(printable(row->bssid, 17).c_str());
-        label("chan");   d.printf("%u  (%s GHz)\n", row->ch, row->band5 ? "5" : "2.4");
-        label("auth");   d.println(printable(row->auth, 20).c_str());
+        std::string name = row->ssid.empty() ? "<hidden>" : printable(row->ssid, 18);
+        d.setTextSize(2);
+        d.setCursor(3, kBodyTop + 1);
+        d.setTextColor(kCalibrationYellow, kVoidInk);
+        d.printf("> %s", name.c_str());
+        d.setTextSize(1);
+
+        d.setCursor(4, kBodyTop + 27);
+        d.setTextColor(kMutedSlate, kVoidInk);
+        d.printf("CH %u · %s GHz", row->ch, row->band5 ? "5" : "2.4");
+        d.setCursor(132, kBodyTop + 27);
+        d.setTextColor(rssiColour(row->rssi), kVoidInk);
+        d.printf("RSSI %d dBm", row->rssi);
 
         if (listening) {
-            d.setTextColor(TFT_YELLOW, TFT_BLACK);
-            d.println("\nlistening for beacons...");
+            d.setCursor(4, kBodyTop + 83);
+            d.setTextColor(kCalibrationYellow, kVoidInk);
+            d.printf("CAPTURE ACTIVE · CH %u", row->ch);
         } else if (!in.valid) {
-            d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            d.println("\npress i to inspect");
+            metric(d, 3, "SECURITY", printable(row->auth, 10).c_str(), "NOT INSPECTED", kPaperPhosphor);
+            metric(d, 82, "MFP", "--", "PRESS ENTER", kMutedSlate);
+            metric(d, 161, "BEACONS", "--", "PRESS ENTER", kMutedSlate);
         } else if (in.beacons == 0) {
-            d.setTextColor(TFT_ORANGE, TFT_BLACK);
-            d.println(in.aborted ? "\ninspect stopped" : "\nno beacons heard");
+            metric(d, 3, "SECURITY", printable(row->auth, 10).c_str(), "NO BEACONS", kPaperPhosphor);
+            metric(d, 82, "MFP", "--", "NO DATA", kCalibrationYellow);
+            metric(d, 161, "BEACONS", "0", in.aborted ? "STOPPED" : "NONE HEARD", kCalibrationYellow);
         } else {
-            label("rssi");   d.printf("%d dBm  (%u beacons)\n", in.rssi, in.beacons);
-            label("mfp");
-            d.setTextColor(in.mfp_required ? TFT_GREEN : in.mfp_capable ? TFT_YELLOW : TFT_ORANGE, TFT_BLACK);
-            d.println(!in.rsn ? "no RSN" : in.mfp_required ? "required" : in.mfp_capable ? "capable" : "off");
-            label("uptime");
-            uint64_t s = in.uptime_s;
-            d.printf("%llud %lluh %llum  (TSF)\n", s / 86400, (s % 86400) / 3600, (s % 3600) / 60);
-            label("beacon"); d.printf("%u ms\n", in.interval_ms);
+            const char *mfp = !in.rsn ? "NO RSN" : in.mfp_required ? "REQ" : in.mfp_capable ? "CAP" : "OFF";
+            uint16_t mfp_color = in.mfp_required ? kFieldGreen : in.mfp_capable ? kCalibrationYellow : kSignalPink;
+            char beacons[16];
+            std::snprintf(beacons, sizeof beacons, "%u", in.beacons);
+            char interval[16];
+            std::snprintf(interval, sizeof interval, "%ums", in.interval_ms);
+            metric(d, 3, "SECURITY", printable(row->auth, 10).c_str(), "AUTH MODE", kPaperPhosphor);
+            metric(d, 82, "MFP", mfp, interval, mfp_color);
+            metric(d, 161, "BEACONS", beacons, "CAPTURED", kFieldGreen);
+            d.setCursor(4, kBodyTop + 83);
+            d.setTextColor(mfp_color, kVoidInk);
+            d.print(in.mfp_required ? "◇ MFP REQUIRED" : in.mfp_capable ? "◇ MFP CAPABLE" : "◇ MFP NOT OBSERVED");
         }
     }
 
-    d.setTextColor(TFT_YELLOW, TFT_BLACK);
-    d.setCursor(0, d.height() - 2 * kLineH);
-    d.print(printable(notice, 38).c_str());
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.setCursor(0, d.height() - kLineH);
-    d.print("i inspect again  ` back");
+    endChrome(chrome);
 }
 
 }  // namespace ui

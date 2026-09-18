@@ -15,9 +15,10 @@
 #include <string>
 
 #include "model/gnss_model.h"
+#include "ui/chrome.h"
 
 namespace ui {
 
-void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const std::string &notice);
+void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const ChromeState &chrome);
 
 }  // namespace ui

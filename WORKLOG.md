@@ -51,6 +51,412 @@ deliberately mutated copy was rejected.
 
 ---
 
+## 2026-09-18 — Refined BLE scan hierarchy and restored dwell timer
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Refined the BLE Scan card so device and tracker totals occupy separate header
+fields, tracker rows use an explicit `TRK` marker, RSSI values align in a
+fixed column, and the selected row reports its observation count. Restored the
+elapsed-seconds counter beside the shared animated `LISTENING...` state while
+keeping the dot phase stable and aligned. Host/build and display validation are
+pending; the deck has not been reflashed.
+
+---
+
+## 2026-09-18 — Removed redundant Link-page pong row
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Removed the redundant `LAST pong` detail row from the Link card. The shared
+transport strip still carries the current backpack exchange state, so Link
+retains its liveness context without duplicating it inside the system-health
+panel.
+
+---
+
+## 2026-09-18 — Tightened terminology alignment
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Replaced compact Wi-Fi `2G` labels with `2.4G`, shifted the preferred AP
+drill-down wording to `AP Detail`/`Inspect` while retaining `trace` as a
+debug-console compatibility alias, and updated the brand-guide concepts from
+the old `Spectrum`, `Guard`, and `Mesh` tool names to `Packet Monitor`,
+`Sniffer`, and `802.15.4`. `SNIFFER`, `WARDRIVE`, and `ANTI-SURV` remain as
+chosen. Host/build and display validation are pending; the deck has not been
+reflashed.
+
+---
+
+## 2026-09-17 — Standardized tooling names
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Renamed the visible tool labels to industry-readable names: `WIFI SCAN`,
+`BLE SCAN`, `SNIFFER`, `802.15.4`, `PACKET MONITOR`, `LORA RX`, and
+`DEAUTH DETECT`. The existing protocol verbs and internal screen identifiers
+remain unchanged; debug-console aliases now accept the new names while
+retaining the old names for compatibility. Host/build and display validation
+are pending, and the deck has not been reflashed.
+
+---
+
+## 2026-09-17 — Reworked Link into a system-health dashboard
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Reframed the Link card around a selectable Probe Link status panel followed by
+compact GNSS, SD, and bus-health rows. The panel adds a small connection-health
+rail, while capabilities are reduced to readable radio tokens instead of the
+raw capability string; the existing Enter actions and four-row navigation are
+unchanged. The former Info card is now presented as `SYSTEM`, with `info`
+retained as a debug-console alias. Host/build and physical display validation
+are still pending; the deck has not been reflashed.
+
+---
+
+## 2026-09-17 — Renamed the GNSS card to Wardrive
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Renamed the visible Drive-card navigation title, chrome header, and logging
+summary label from `SESSION` to `WARDRIVE`. Confirmed the existing no-GPS
+behavior while reviewing the path: ordinary Wi-Fi and BLE results remain in
+their models; Wardrive counts positionless Wi-Fi observations as `nofix` but
+does not write them as geolocated rows, and BLE is not currently wired into
+the Wardrive logger. Cardputer build and diff checks pass; the deck has not
+been reflashed.
+
+---
+
+## 2026-09-17 — Simplified dwell-state animation
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+The shared bounded-listen treatment now shows only the centered animated
+`LISTENING...` state. The elapsed seconds and `DWELL TIME` label were removed
+from both Sweep and Beacons. Cardputer build and diff checks pass; the deck
+has not been reflashed.
+
+---
+
+## 2026-09-17 — Fixed Beacons dwell repaint cadence
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+The Beacons bounded-scan dwell counter was initialized correctly but the deck
+redraw scheduler did not treat `bt_.scanning()` as a busy animated state. The
+screen therefore stayed at its first-frame `00s` until the final BLE result
+arrived. Beacons scans now receive the same periodic repaint cadence as Sweep.
+Cardputer build and diff checks pass; the deck has not been reflashed.
+
+---
+
+## 2026-09-17 — Reflashed production UART probe firmware
+
+**Phase:** P8 hardware validation · **By:** Will + Codex
+
+Rebuilt the current `firmware-c5` UART production image and flashed it to
+probe `38:44:BE:1F:4F:A0`. Bootloader, partition table, and app writes all
+hash-verified, followed by a hard reset. The deck briefly retried the OCP
+handshake during probe startup; live BLE results then arrived at the deck,
+confirming the probe was running and the Grove link had recovered. The deck
+was not reflashed.
+
+---
+
+## 2026-09-17 — Made zero-traffic Spectrum channels visible
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Hardware diagnostics showed the probe stream was healthy: a fresh Spectrum
+start was acknowledged, and the deck debug snapshot contained 22 channel
+readings. The apparent blank chart was the all-zero state rendered in
+`kTrackDark` against the true-black canvas, leaving only the selected outline
+visible. Quiet channels now use a visible two-pixel dim-green baseline. The
+Cardputer build and diff check pass; this deck-only change has not been
+flashed yet.
+
+---
+
+## 2026-09-17 — Simplified Info dashboard chrome
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Removed the redundant `MEMORY` body label and `AGE` readout from Info. The
+heap panels and supporting metrics now move up to use the recovered space;
+freshness remains available in the shared transport footer.
+
+Cardputer build and diff checks passed. This deck-only refinement has not been
+flashed yet.
+
+## 2026-09-17 — Flashed memory dashboard to probe and deck
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Flashed `firmware-c5/build-uart` to probe `38:44:BE:1F:4F:A0` using the
+normal USB-reset path after the explicit loader path timed out; all images
+were written and hash-verified, followed by a hard reset. Flashed the
+Cardputer image to deck `50:78:7D:CE:6D:64`; the ESP32-S3 image was written,
+hash-verified, and hard-reset successfully.
+
+## 2026-09-17 — Reworked Info into a memory health dashboard
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Removed the duplicated body battery row from Info and replaced the text dump
+with side-by-side Deck Heap and Probe Heap panels. Each panel shows free KB,
+an honest segmented free-memory gauge, and a percentage when the total is
+known; uptime, link, and SD state remain as compact supporting facts. Added
+the backward-compatible `[STATUS] heap_total=` field so the probe gauge has a
+real denominator rather than an invented capacity.
+
+Cardputer and probe builds, protocol conformance, host tests, and diff checks
+passed. No hardware flash was performed.
+
+## 2026-09-17 — Made Spectrum quiet channels visible and start failures recoverable
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Spectrum now draws a one-pixel baseline for zero-traffic channels, so the
+centered chart shows every received channel instead of only the selected
+outline. Channel-view startup is acknowledged by the probe before the model
+enters live state; rejected and timed-out starts now clear cleanly instead of
+leaving a false active screen. The Cardputer release build and diff check pass;
+hardware restart behavior remains unverified until the deck is reattached.
+
+## 2026-09-17 — Unified bounded-sweep dwell animation
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Removed the redundant `APs 0 · DWELL` body line from Sweep; the centered dwell
+animation is now the only progress treatment for a bounded Wi-Fi sweep. Added
+the same shared animation to bounded Beacons scans, with the same elapsed
+counter and animated listening phase. Continuous Beacons and tracker-watch
+remain data-driven because they have no fixed dwell window.
+
+## 2026-09-17 — Replaced generic body status labels with card data
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Moved the debug indicator from the footer into the shared header, to the left
+of the activity dots, and restored the full-width transport footer. Anchored
+Sub-GHz configuration at the right side of its summary row so `UNCONFIGURED`
+no longer touches `IDLE`.
+
+Reworked the body-bottom line across the deck cards to show card-specific
+facts: probe capabilities, selected AP/device/node details, packet/config
+counters, last events, session counts, and explicit empty states. Removed
+generic labels such as `PASSIVE SUB-GHZ RX`, `PASSIVE PROBE TELEMETRY OK`, and
+`PASSIVE MANAGEMENT-FRAME MONITOR` from that space.
+
+## 2026-09-17 — Reverted the Beacons selection accent
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Reverted the Beacons row highlight and passive-listening status to the shared
+yellow selection treatment. Pink remains reserved for tracker and alert
+semantics on that card rather than acting as its general selection color.
+
+## 2026-09-17 — Made Beacons PHY conflicts explicit and restored its pink accent
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Confirmed the observed Spectrum/Beacons interaction: Wi-Fi Spectrum and BLE
+Beacons both need the C5's single shared PHY lane. The probe rejects a second
+owner with `busy`; it does not stop the existing passive receiver. The deck
+now keeps BLE start-pending state separately from the running model, waits for
+the probe's `[CFG]` acknowledgement before marking continuous BLE or tracker
+watch live, and clears rejected or timed-out starts. A busy Beacons start now
+shows `PHY busy - stop current tool first` rather than leaving a false live
+state.
+
+The Beacons card now uses the selected row's pink rail/label and pink live
+status, while the shared green RF dot remains a health/activity indicator.
+
+Host protocol/model checks, firmware builds, and `git diff --check` passed.
+
+## 2026-09-17 — Clarified Spectrum activity and card titles
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Added a persistent live-state line to Spectrum so an empty first channel
+window reads as an active passive receiver rather than a blank chart. The
+locked view now says `PACKET MONITOR LIVE` explicitly. Simplified the shared
+top-bar titles to tool names only (`SWEEP`, `SPECTRUM`, `GUARD`, `SESSION`,
+etc.); route categories remain in navigation metadata but no longer consume
+display width.
+
+## 2026-09-17 — Clarified snapshot-only Wi-Fi inspection
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Fixed a misleading Sweep/Trace path after continuous passive discovery. The
+live event feed builds a deck-local list, while `inspect_network <idx>` is
+defined against the probe's stored snapshot-scan results; those index spaces
+are not interchangeable. Continuous-feed rows now show `RUN SWEEP FOR
+INSPECT`, and Enter produces a short toast instead of sending an invalid
+index. Completed snapshot scans remain inspectable.
+
+## 2026-09-17 — Corrected RSSI quality colors
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Corrected the RSSI color mapping used by Sweep and the other signal-list
+cards. Stronger signals (less-negative dBm, such as -50) are now green,
+midrange signals remain yellow, and weaker signals (more-negative dBm, such as
+-80) are red. The five-bar fill scale was already oriented correctly; only its
+color semantics were inverted.
+
+## 2026-09-17 — Tightened the shared header indicator spacing
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Moved the four shared status dots toward the battery percentage so the final
+dot sits approximately one dot-width away from the percentage field. This
+opens more breathing room between the card title and the status cluster while
+keeping the battery percentage and icon alignment unchanged.
+
+## 2026-09-17 — Simplified and shortened the branded boot screen
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Simplified the Cardputer ADV startup identity to the centered Lens Core mark
+and `OSCILLA` wordmark only. Removed the `CARDPUTER ADV / RX-ONLY` subheader,
+centered the two remaining elements as one vertical group, and reduced the
+startup hold from five seconds to three.
+
+This remains a deck-only presentation change; the probe, protocol, and normal
+card navigation paths are unchanged.
+
+## 2026-09-17 — Flashed branded deck UI and boot screen
+
+**Phase:** P8 hardware UI bring-up · **By:** Codex
+
+Flashed only the `cardputer-adv` image to the attached Cardputer ADV using its
+stable USB-JTAG path. Esptool identified the target as the ESP32-S3, verified
+the bootloader, partition table, and 667,888-byte application image, then
+hard-reset the deck. The C5 probe was not touched.
+
+Post-reset diagnostics showed the deck GNSS parser alive with `chkfail=0` and
+`overlong=0`. The branded boot screen and the full shared-card UI still need
+the user's physical visual and keyboard inspection; this is not a hardware UI
+sign-off yet.
+
+## 2026-09-17 — Added branded Cardputer boot screen
+
+**Phase:** P8 UI direction · **By:** Codex
+
+Added a short startup identity before deck services initialize: the approved
+Lens Core geometry on true black, the `OSCILLA` wordmark, and a small
+`CARDPUTER ADV / RX-ONLY` line. The renderer uses fixed primitives derived from
+the brand SVG rather than adding an SVG parser or a large bitmap payload. The
+screen is presented once with a bounded 250 ms hold, then normal SYSTEM/LINK
+rendering takes over.
+
+This is a deck-only presentation change; no protocol, keyboard, or radio path
+changed. It still needs a physical flash and visual inspection on the ADV.
+
+## 2026-09-17 — Cardputer UI firmware flashed and post-boot serial clean
+
+**Phase:** P8 hardware UI bring-up · **By:** Codex
+
+With the user confirming the probe is in full UART mode, identified the
+attached Cardputer by its stable ESP32-S3 USB-JTAG serial path and flashed only
+the `cardputer-adv` image. Esptool confirmed ESP32-S3 hardware and verified
+the bootloader, partition table, and 669,424-byte application image before a
+hard reset. The C5 probe was not flashed or otherwise modified.
+
+Read the deck's USB diagnostics for eight seconds after reboot: `fail=0`,
+`overlong=0`, and three GNSS samples showed a valid parser stream with
+`chkfail=0`. No raw NMEA, coordinates, SSIDs, BSSIDs, or other field
+identifiers were retained. The deck is now ready for physical visual and
+keyboard inspection of the new SYSTEM/LINK → OBSERVE/SWEEP → TRACE/AP DETAIL
+slice; no hardware UI gate is claimed until that inspection is complete.
+
+## 2026-09-17 — Removed persistent control footer from deck shell
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Applied the deferred footer decision before the next navigation test. The
+shared shell no longer renders persistent keyboard/tutorial controls; the body
+now expands from the old 83-pixel budget to the full 97 pixels below the
+header and transport strip. `ChromeState` no longer carries a footer hint.
+Transient notices still use a temporary bottom notice band so command errors
+and important state changes remain visible without reserving that space on
+every card. Card status lines were moved into the expanded body where needed.
+
+This is a layout/control-surface change only. The keyboard contract and command
+paths are unchanged; the full control reference remains deferred to contextual
+help and the Info card.
+
+## 2026-09-17 — Deferred persistent footer controls
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+The persistent command footer is useful during hardware bring-up, but it
+consumes valuable vertical space on the 240×135 deck and makes the cards feel
+like tutorials. Deferred its removal until the keyboard contract and card
+navigation are proven in use. The intended end state is to expand the body
+into that space, move the full control reference into contextual help (for
+example a `?` overlay and the Info card), and keep only transient notices
+inline or overlaid so errors are not hidden.
+
+## 2026-09-17 — All deck cards moved onto the shared shell
+
+**Phase:** P8 hardware UI follow-up · **By:** Codex
+
+Continued the UI pass while the Cardputer USB device was unavailable. Migrated
+Info, Beacons, Contacts/Guard, Spectrum, Mesh, Sub-GHz, Deauth/Guard, and
+Drive/Session onto the same fixed header/transport/body/footer layout as the
+first Link/Sweep/Trace slice. Preserved the existing model and command paths,
+reduced each list to the four-row display budget, and kept receive-only state
+visible in the view body or shared transport strip.
+
+Applied the physical-deck feedback from the attached photos: the shared
+background is now true `TFT_BLACK`/RGB565 `0x0000` to match the established
+Cardputer appearance, the B/G/S/R status cluster is dot-only, and SYSTEM/LINK
+now has a four-row cursor controlled by `;`/`.` with a visible selection bar.
+The footer exposes that vertical movement. No probe or radio behavior changed.
+
+Validation: the final `./tools/build_firmware.sh` passed cleanly across the C5
+UART, Cardputer ADV, Grove bridge, and ADV-check environments with no warnings
+from the changed view code. The full host/protocol suite remains green,
+including receive-only checks and navigation tests. This broader UI pass has
+not been flashed or visually signed off on hardware yet.
+
+## 2026-09-17 — Deck UI foundation: brand chrome and first navigation slice
+
+**Phase:** P8 polish, UI foundation · **By:** Codex
+
+Started the deck UI rebuild from the merged P7 baseline, using the branding
+guide mockups as the authority. Added a shared semantic theme and 240×135
+layout budget, plus common header/transport/footer chrome with B/G/S/R status,
+battery, link state, live/cached state, RX-only transport context, notices,
+and keyboard hints. Added grouped route metadata for SYSTEM, OBSERVE, ANALYZE,
+DRIVE, and LOGS-facing navigation without changing the OCP contract or any
+radio/model behavior.
+
+Rebuilt the first vertical slice: SYSTEM/LINK, OBSERVE/SWEEP, and
+TRACE/AP DETAIL. The Link view now presents probe, GNSS, SD, and bus health;
+Sweep presents a compact four-row AP list with RSSI meters and selection;
+Trace presents the selected AP's identity, RSSI, channel, security, MFP, and
+beacon metrics. Normalized the visible controls around `,`/`/` for home-card
+cycling, `;`/`.` for row movement, Enter for the current action, `` ` `` for
+stop/back, and `s` for live/inspect actions while retaining the `c` live alias.
+Added host coverage for route grouping, labels, wraparound, and detail-card
+exclusion.
+
+Validation: `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed
+the full host/protocol suite, including 27 OCP checks and 5 navigation checks;
+`./tools/build_firmware.sh` passed the C5 UART build, Cardputer ADV deck,
+Grove bridge, and ADV check environments. The first deck build exposed a
+missing direct include for the existing SD readiness API; corrected before the
+green rebuild. No hardware was connected, flashed, or visually signed off in
+this pass. The remaining views still need migration, and the first three need
+inspection on the physical deck before this UI work can claim a hardware gate.
+
 ## 2026-09-17 — P7 live gate retry stopped at wedged probe USB endpoint
 
 **Phase:** P7 hardware follow-up · **By:** Codex
@@ -2820,3 +3226,84 @@ The deck's GNSS diagnostic showed `chkfail=63` and `overlong=0` during the
 final cleanup window. This was not part of the Wi-Fi heap test and needs a
 fresh GNSS wiring/stream investigation next session; it does not block radio
 shutdown.
+## 2026-09-17 — Adjusted deck feedback timing and help access
+
+**Phase:** P8 hardware UI follow-up · **By:** Codex
+
+Applied the latest physical-deck feedback: transient notices now expire after
+roughly two seconds instead of remaining stuck in the notice band; the branded
+boot screen now holds for five seconds; and `h` opens a shared HELP / CONTROLS
+card, with backtick or `h` closing it. The former Link-screen `h` connect
+shortcut moved to Enter when disconnected so the help key is global and
+consistent.
+
+Build validation passed across the C5 UART, Cardputer ADV, Grove bridge, and
+ADV-check environments, plus the full host/protocol suite. The Cardputer still
+needs this follow-up image flashed for physical confirmation.
+## 2026-09-17 — Made SYSTEM/LINK rows actionable and tightened top chrome
+
+**Phase:** P8 hardware UI follow-up · **By:** Codex
+
+Made the SYSTEM/LINK cursor a real control hub: Enter now reconnects or pings
+the probe, opens Drive for GNSS, opens system health for SD readiness, or
+issues a transport ping for bus integrity. The system health card now exposes
+SD readiness explicitly; a dedicated Logs card remains deferred until its
+browser exists.
+
+Tightened the shared top bar by moving the four status dots into a compact
+cluster and rendering battery percentage as a fixed-width value immediately
+left of the battery icon, so 1-, 2-, and 3-digit readings align consistently.
+
+Build validation passed across the C5 UART, Cardputer ADV, Grove bridge, and
+ADV-check environments, plus the full host/protocol suite. The Cardputer still
+needs this revision flashed for physical confirmation.
+## 2026-09-17 — Moved transport telemetry into the deck footer
+
+**Phase:** P8 hardware UI follow-up · **By:** Codex
+
+Moved the mostly stable `LIVE / BPK ready / pong / RX-ONLY` transport telemetry
+out of the subheader and into a shared 14-pixel footer. The body now begins
+directly below the title/status header, while each card's changing context line
+remains in the body where it is more relevant. Toasts temporarily replace the
+transport footer and continue to expire normally.
+
+This needs a rebuild and flash before physical confirmation.
+## 2026-09-17 — Tightened the shared header indicator spacing
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Moved the four shared status dots toward the battery percentage so the final
+dot sits approximately one dot-width away from the percentage field. This
+opens more breathing room between the card title and the status cluster while
+keeping the battery percentage and icon alignment unchanged.
+
+## 2026-09-17 — Simplified and shortened the branded boot screen
+## 2026-09-17 — Restored Sweep inspection feedback and added dwell animation
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Kept the safety boundary between inspectable rows from a bounded snapshot
+Sweep and live-discovery rows, but made the Enter behavior explicit instead of
+silently doing nothing. Snapshot rows still open AP DETAIL; a live scan now
+explains that a bounded `r` sweep is required, and an in-progress sweep shows
+that it is still collecting.
+
+When a bounded sweep has cleared its old results and is waiting on the probe,
+the center of the card now shows a live dwell-time counter with an animated
+listening phase. The animation only appears with an empty result set, so it
+never covers AP rows as they arrive.
+
+Also cleared the optimistic snapshot state if the probe rejects or loses a
+single-sweep request, so a failed sweep cannot leave the card looking busy and
+block the next valid Enter-to-inspect action.
+
+## 2026-09-17 — Tightened Spectrum chart presentation
+
+**Phase:** P8 UI direction · **By:** Will + Codex
+
+Removed the redundant `SPECTRUM LIVE · PASSIVE RX` body tagline; the shared
+header and live transport state already communicate that state. Recentered
+the channel bars by splitting unused chart width across both sides, and used
+the recovered vertical space to give the chart a taller top region.
+
+## 2026-09-17 — Made Beacons PHY conflicts explicit and restored its pink accent

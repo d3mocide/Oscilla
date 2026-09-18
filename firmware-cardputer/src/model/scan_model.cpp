@@ -87,6 +87,7 @@ void ScanModel::begin()
     inspect_ = Inspect();
     scanning_ = true;
     continuous_active_ = false;
+    inspectable_ = true;
     aborted_ = false;
     total_ = 0;
     malformed_ = 0;
@@ -100,6 +101,7 @@ void ScanModel::beginContinuous()
     inspect_ = Inspect();
     scanning_ = false;
     continuous_active_ = true;
+    inspectable_ = false;
     aborted_ = false;
     total_ = 0;
     malformed_ = 0;
@@ -110,6 +112,7 @@ void ScanModel::clear()
 {
     begin();
     scanning_ = false;
+    inspectable_ = false;
 }
 
 uint16_t ScanModel::absorbPage(const ocp::Item &frame)
@@ -123,6 +126,7 @@ uint16_t ScanModel::absorbPage(const ocp::Item &frame)
     if (frame.get(OCP_K_ABORTED)) {
         aborted_ = true;
         scanning_ = false;
+        inspectable_ = false;
         return 0;
     }
 

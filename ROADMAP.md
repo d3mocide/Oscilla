@@ -24,7 +24,7 @@
 | **P5** | External TFT | 🔴 Blocked — panel/regulator pending | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
 | **P7** | Passive suite completion | 🟡 In progress (out of sequence) | — |
-| **P8** | Polish | ⚪ Not started | — |
+| **P8** | Polish | 🟡 In progress — deck UI foundation | — |
 
 Legend: ⚪ not started · 🟡 in progress · 🟢 exit gate met · 🔴 blocked
 
@@ -97,9 +97,9 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 - [x] `wifi_recon.c` / `wifi_inspect.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ✅.
 - [x] Frame emission: `[SCAN]` CSV rows, `[INSPECT]`.
 - [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 41 live checks + 1 skip (no WPA3-only AP in range).
-- [x] Deck: **Sweep** + **Trace** views over real frames — `app/deck_app`, `model/scan_model`, `ui/sweep_view`, `ui/trace_view`; auto-paging; 16 KB drained RX buffer.
+- [x] Deck: **Wi-Fi Scan** + **AP Detail** views over real frames — `app/deck_app`, `model/scan_model`, `ui/sweep_view`, `ui/trace_view`; auto-paging; 16 KB drained RX buffer.
 
-**Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Sweep/Trace on the deck. `stop` always returns to idle.
+**Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Wi-Fi Scan/AP Detail on the deck. `stop` always returns to idle.
 
 **✅ Met 2026-09-12.** `ocp_repl.py --gate-wifi`: 41 passed, 1 skipped (no WPA3-only AP in range). On the deck over Grove, Will ran the walkthrough: scans of 134 and 125 APs arrived **with 0 malformed rows**, 4 inspects rendered MFP/uptime/interval (one AP with RSN and MFP off, one MFP-capable), and `stop` mid-scan aborted within ~0.2 s twice, with the next scan working normally.
 
@@ -114,10 +114,10 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 **Work:**
 - [x] `lora_radio.c` (RX path) — reset sequence, bounded BUSY waits (fault, never hang), DIO1 ISR → radio task, RF_SW/DIO2 set coherently for **receive**, TCXO via DIO3 with documented delay, DC-DC mode, SPI ~1 MHz then raise. **Bench-validated 2026-09-13**: full reset/TCXO/calibrate/RX-entry sequence ran fault-free against the real chip.
 - [x] `lora_recon.c` RX — `lora_config`, `lora_listen`, `lora_status`; stream `[EVT] kind=lora`. Live-tested over the bench USB transport: config accepted, RX started and stopped cleanly. **Framing classification (meshtastic/lorawan/unknown) not yet written** — no real packet has been received yet to classify.
-- [x] Deck: **Sub-GHz** view (RX). Written, built clean, flashed to hardware 2026-09-13, and **confirmed live**: real MeshCore packets observed scrolling through the actual Cardputer UI over Grove.
+- [x] Deck: **LoRa RX** view. Written, built clean, flashed to hardware 2026-09-13, and **confirmed live**: real MeshCore packets observed scrolling through the actual Cardputer UI over Grove.
 - [x] Build advertises `lora_rx` (confirmed live: `hello` → `caps=wifi24,wifi5,lora_rx`) and `check_rx_only.py` confirms no transmit-capable API anywhere in the source tree.
 
-**Exit gate: MET on 2026-09-13.** Real sub-GHz packets (a nearby MeshCore repeater, USA/Canada preset: 910.525MHz/SF7/BW62.5/CR4:5, confirmed from MeshCore's own docs) observed with RSSI/SNR live in the Cardputer's Sub-GHz view over Grove; `stop` releases the LoRa lane cleanly, including mid-traffic; `check_rx_only.py` confirms zero TX verbs anywhere in the source tree.
+**Exit gate: MET on 2026-09-13.** Real sub-GHz packets (a nearby MeshCore repeater, USA/Canada preset: 910.525MHz/SF7/BW62.5/CR4:5, confirmed from MeshCore's own docs) observed with RSSI/SNR live in the Cardputer's LoRa RX view over Grove; `stop` releases the LoRa lane cleanly, including mid-traffic; `check_rx_only.py` confirms zero TX verbs anywhere in the source tree.
 
 Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls for are still not installed (measured absent, wired anyway as a deliberate bench call — see WORKLOG). `GetDeviceErrors`/`XOSC_START_ERR` was closed 2026-09-14 (see WORKLOG) — this line was stale and is corrected here.
 
@@ -189,27 +189,27 @@ receive-only RF evidence from the final phase exit gate; P7 is not declared
 complete until its remaining real-frame and view checks are demonstrated.
 
 **Work:**
-- [x] **BLE (2026-09-16).** `ble_recon.c` — NimBLE passive scan (`scan_bt`/`scan_airtag`, OCP-SPEC §11), device table, Find My/AirTag tracker classification (Apple company ID `004c` + type byte `0x12`, confirmed against public Find My protocol write-ups). Split probe-side into `ble_adv_parse.c` (AD-structure parsing) and `ble_device_table.c` (upsert logic), both pure C and host-tested (13 + 14 checks, plus 200k fuzz iterations under ASan/UBSan) — same shape as `beacon_parse.c`/`sniff_track.c`. Deck-side `src/model/bt_model` + **Beacons** view (`src/ui/bt_view`), 16 host tests. Enabling NimBLE overflowed the default 1 MB app partition by ~126 KB; fixed with Espressif's own "large single-app" table (1500 KB) rather than trimming anything — 8 MB of physical flash made that the easy call. Both firmwares build clean on the real toolchain (probe now at 76% of its larger partition). **Hardware-confirmed same day.** `scan_bt`/`scan_airtag` both verified against real BLE traffic (70–75 real devices per scan, 0 malformed rows) after fixing two real bugs a client-timeout mismatch (`scan_bt`'s reply arrived after the deck's generic 2s timeout had already given up — added `kBleScanTimeoutMs`) and a NimBLE semantics bug (`ble_gap_disc_cancel()` doesn't emit a completion event the way `esp_wifi_scan_stop()` does, so cancelling `scan_airtag`'s unbounded scan left the radio arbiter stuck forever — fixed with an idempotent `finish_scan()` called from both the natural-completion and forced-cancel paths). Full detail in WORKLOG. **Still open:** the Beacons card hasn't been looked at on the deck's actual display yet (same gap Spectrum has); no real AirTag on hand to confirm the tracker classification against genuine hardware. The in-house 802.15.4 recon slice is now planned under D-17.
+- [x] **BLE (2026-09-16).** `ble_recon.c` — NimBLE passive scan (`scan_bt`/`scan_airtag`, OCP-SPEC §11), device table, Find My/AirTag tracker classification (Apple company ID `004c` + type byte `0x12`, confirmed against public Find My protocol write-ups). Split probe-side into `ble_adv_parse.c` (AD-structure parsing) and `ble_device_table.c` (upsert logic), both pure C and host-tested (13 + 14 checks, plus 200k fuzz iterations under ASan/UBSan) — same shape as `beacon_parse.c`/`sniff_track.c`. Deck-side `src/model/bt_model` + **BLE Scan** view (`src/ui/bt_view`), 16 host tests. Enabling NimBLE overflowed the default 1 MB app partition by ~126 KB; fixed with Espressif's own "large single-app" table (1500 KB) rather than trimming anything — 8 MB of physical flash made that the easy call. Both firmwares build clean on the real toolchain (probe now at 76% of its larger partition). **Hardware-confirmed same day.** `scan_bt`/`scan_airtag` both verified against real BLE traffic (70–75 real devices per scan, 0 malformed rows) after fixing two real bugs a client-timeout mismatch (`scan_bt`'s reply arrived after the deck's generic 2s timeout had already given up — added `kBleScanTimeoutMs`) and a NimBLE semantics bug (`ble_gap_disc_cancel()` doesn't emit a completion event the way `esp_wifi_scan_stop()` does, so cancelling `scan_airtag`'s unbounded scan left the radio arbiter stuck forever — fixed with an idempotent `finish_scan()` called from both the natural-completion and forced-cancel paths). Full detail in WORKLOG. **Still open:** the BLE Scan card hasn't been looked at on the deck's actual display yet (same gap Packet Monitor has); no real AirTag on hand to confirm the tracker classification against genuine hardware. The in-house 802.15.4 recon slice is now planned under D-17.
 - [x] **802.15.4 passive recon (in-house, 2026-09-16).** Oscilla-native,
   receive-only `zig_radio.c` (bounded lifecycle/channel dwell), `zig_frame.c`
   (hostile-frame-safe MAC parsing and MAC-only `802154` label), `zig_table.c`
   (capped PAN/node tracking), and `zig_recon.c` (arbiter/stop and `[ZIG]`),
-  plus the **Mesh** view. No association, commissioning, network-layer decode,
+  plus the **802.15.4** view. No association, commissioning, network-layer decode,
   keys, or transmit path. **Hardware-confirmed:** a separate C5 at -80 dBm
   yielded live PAN `1a2b` / node `1234` with zero drops through Grove/OCP;
   a known-address external positive control returned a 5-byte ACK, while the
   identical ACK-requested unicast to the temporary fixed-identity, promiscuous
   Oscilla image returned ESP-IDF `NO_ACK` and was independently observed and
-  captured by Oscilla. Normal images restored. Remaining: physical Mesh-view
+  captured by Oscilla. Normal images restored. Remaining: physical 802.15.4-view
   inspection and long-duration/loss characterization.
-- [x] `start_sniffer`/`show_clients`/`show_probes` + **Contacts** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
-- [x] `deauth_detector` + a Deauth card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG). **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
-- [x] `channel_view`, `packet_monitor` + **Spectrum** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.
-- [x] **Wi-Fi continuous AP discovery (2026-09-16/17).** `start_wifi_scan` passively hops the shared channel list, parses beacon/probe-response frames, deduplicates BSSIDs in a bounded table, and streams first-sighting `[EVT] kind=network` rows into the Sweep model (`c` key / `wifiscan` debug command). Host/protocol and both firmware builds pass. Live RF discovery, stop/restart, and a no-reset 10-minute soak are hardware-confirmed; the best uncontrolled baseline retained 216 rows with stable current heap and no run exceeded the 256-row cap. A controlled authorized fixture with more than 256 passive APs and final view inspection remain open.
+- [x] `start_sniffer`/`show_clients`/`show_probes` + **Sniffer** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
+- [x] `deauth_detector` + a Deauth Detect card on the deck (no DESIGN §7.2 view maps to it — added ahead of a needed nav rework, see WORKLOG). **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
+- [x] `channel_view`, `packet_monitor` + **Packet Monitor** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.
+- [x] **Wi-Fi continuous AP discovery (2026-09-16/17).** `start_wifi_scan` passively hops the shared channel list, parses beacon/probe-response frames, deduplicates BSSIDs in a bounded table, and streams first-sighting `[EVT] kind=network` rows into the Wi-Fi Scan model (`c` key / `wifiscan` debug command). Host/protocol and both firmware builds pass. Live RF discovery, stop/restart, and a no-reset 10-minute soak are hardware-confirmed; the best uncontrolled baseline retained 216 rows with stable current heap and no run exceeded the 256-row cap. A controlled authorized fixture with more than 256 passive APs and final view inspection remain open.
 - [x] Wardrive: stream observations, deck-side geotag against local fix + age, write WigleWifi CSV + KML; **Drive** view. `storage::wardriveCsv*`/`storage::kml*` format writers, `storage::wardrive_logger` for SD I/O, wired to `ScanModel`+`GnssModel`. **Fully hardware-confirmed 2026-09-16**: a 21-minute outdoor session produced `aps=5254 nofix=0 trk=252`, every count matching the device's own — see WORKLOG for the full antenna-unplug/GNSS-diagnostics story this closed out alongside P4.
 - [x] **Anti-surveillance software slice (2026-09-17).** `start_antisurveillance`
   now runs the same passive Find My/AirTag classifier on the probe and streams
-  `kind=airtag` sightings; the deck's Beacons card (`f` / `antisurv`) correlates
+  `kind=airtag` sightings; the deck's BLE Scan card (`f` / `antisurv`) correlates
   repeated sightings with fresh GNSS fixes in bounded RAM. It requires two
   separated movement legs of at least 25 m with a fix no older than 10 s before
   showing a conservative `FOLLOW?` candidate. Host/protocol tests and both
@@ -226,6 +226,10 @@ complete until its remaining real-frame and view checks are demonstrated.
 ## P8 — Polish
 
 **Work:** config persistence (NVS + deck), higher-baud negotiation if needed, D-UCB channel picker ([D-6](docs/DECISIONS.md)), battery/UX pass, Log-view session browsing, error-surface review.
+
+- [x] *(started 2026-09-17)* Deck UI foundation: brand semantic theme, shared deck chrome, grouped route metadata, and the SYSTEM/LINK → OBSERVE/WIFI SCAN → AP DETAIL first slice. See [`docs/brand/README.md`](docs/brand/README.md) and [`WORKLOG.md`](WORKLOG.md).
+- [x] Migrate the remaining view renderers onto the shared shell with grouped titles and common controls.
+- [ ] Validate the rendered result and keyboard behavior on the Cardputer hardware.
 
 **Exit gate:** a field session start-to-finish on battery without a bench.
 

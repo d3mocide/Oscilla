@@ -66,6 +66,7 @@ public:
 
     bool scanning() const { return scanning_; }
     bool continuousActive() const { return continuous_active_; }
+    bool inspectable() const { return inspectable_; }
     bool aborted() const { return aborted_; }
     uint16_t total() const { return total_; }        /* as reported by the probe */
     bool truncated() const { return total_ > rows_.size() && !scanning_ && !aborted_; }
@@ -79,6 +80,7 @@ private:
     Inspect inspect_;
     bool scanning_ = false;
     bool continuous_active_ = false;
+    bool inspectable_ = false;
     bool aborted_ = false;
     uint16_t total_ = 0;
     uint16_t malformed_ = 0;

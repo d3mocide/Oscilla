@@ -1,5 +1,5 @@
 /*
- * sweep_view.h — the AP list (DESIGN §7.2 "Sweep").
+ * sweep_view.h — the Wi-Fi Scan AP list (DESIGN §7.2).
  *
  * SPDX-License-Identifier: MIT
  */
@@ -10,10 +10,11 @@
 #include <string>
 
 #include "model/scan_model.h"
+#include "ui/chrome.h"
 
 namespace ui {
 
 void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scanning_ms,
-                   const std::string &notice);
+                   const ChromeState &chrome);
 
 }  // namespace ui

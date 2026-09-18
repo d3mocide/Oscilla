@@ -61,7 +61,8 @@ int main()
         model::ScanModel m;
         m.begin();
         uint16_t next = m.absorbPage(frameOf(page(3, 1, 3)));
-        check(next == 0 && !m.scanning() && m.rows().size() == 3, "single page completes");
+        check(next == 0 && !m.scanning() && m.inspectable() && m.rows().size() == 3,
+              "single page completes and is inspectable");
         check(m.rows()[0].ssid == std::string("net\n1"), "SSID bytes decoded, not display-escaped");
         check(m.rows()[1].ch == 6 && !m.rows()[1].band5 && m.rows()[1].rssi == -50, "fields parsed");
         check(m.elapsedMs() == 10500 && m.total() == 3 && !m.truncated(), "totals");
@@ -129,7 +130,8 @@ int main()
     {
         model::ScanModel m;
         m.beginContinuous();
-        check(m.continuousActive() && m.rows().empty(), "continuous Wi-Fi mode starts clean");
+        check(m.continuousActive() && !m.inspectable() && m.rows().empty(),
+              "continuous Wi-Fi mode starts clean and is not inspectable");
         m.absorbEvent(eventOf(
             "[EVT] kind=network bssid=aa:bb:cc:dd:ee:01 ssid=\"Home\\x0aNet\" ch=6 band=2.4 "
             "rssi=-52 privacy=1 rsn=1 mfp_capable=1 mfp_required=0 interval_ms=102\n"));
@@ -145,7 +147,8 @@ int main()
         m.absorbEvent(eventOf("[EVT] kind=network bssid=bad ssid=\"x\" ch=6 band=2.4 rssi=-50 privacy=0 rsn=0 mfp_capable=0 mfp_required=0 interval_ms=100\n"));
         check(m.malformedRows() == 1, "malformed network event is counted and dropped");
         m.stop();
-        check(!m.continuousActive() && m.rows().size() == 1, "stop clears live state but keeps rows");
+        check(!m.continuousActive() && !m.inspectable() && m.rows().size() == 1,
+              "stop clears live state, keeps rows, and blocks snapshot inspect");
     }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "model test FAILED" : "model test OK", g_pass, g_fail);

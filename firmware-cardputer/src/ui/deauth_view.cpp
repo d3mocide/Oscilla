@@ -10,70 +10,74 @@
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/theme.h"
 
 namespace ui {
 
 namespace {
 
-constexpr int kLineH = 10;
-
 uint16_t rssiColour(int rssi)
 {
-    if (rssi >= -55) return TFT_GREEN;
-    if (rssi >= -70) return TFT_YELLOW;
-    return TFT_ORANGE;
+    if (rssi >= -55) return kFieldGreen;
+    if (rssi >= -70) return kCalibrationYellow;
+    return kFaultRed;
 }
 
 }  // namespace
 
-void drawDeauthView(const model::DeauthModel &deauth, size_t cursor, const std::string &notice)
+void drawDeauthView(const model::DeauthModel &deauth, size_t cursor, const ChromeState &chrome)
 {
     auto &d = ui::canvas();
-    d.fillScreen(TFT_BLACK);
+    beginChrome(chrome);
     d.setTextSize(1);
-    d.setCursor(0, 0);
 
-    d.setTextColor(TFT_CYAN, TFT_BLACK);
-    d.print("DEAUTH ");
-    d.setTextColor(deauth.active() ? TFT_GREEN : TFT_DARKGREY, TFT_BLACK);
-    d.print(deauth.active() ? "watching " : "stopped ");
-    d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    d.printf("n=%u\n", (unsigned)deauth.totalCount());
+    d.setCursor(4, kBodyTop + 2);
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.printf("DETECTIONS %u  %s", (unsigned)deauth.totalCount(), deauth.active() ? "WATCHING" : "IDLE");
 
     const auto &events = deauth.events();
-    int list_top = kLineH + 2;
-    int visible = (d.height() - list_top - 2 * kLineH) / kLineH;
+    constexpr int list_top = kBodyTop + 16;
+    constexpr int row_height = 13;
+    constexpr int visible = 4;
     size_t first = cursor >= static_cast<size_t>(visible) ? cursor - visible + 1 : 0;
 
     for (int i = 0; i < visible && first + static_cast<size_t>(i) < events.size(); i++) {
         const auto &e = events[first + i];
         bool sel = first + static_cast<size_t>(i) == cursor;
-        int y = list_top + i * kLineH;
-        if (sel) d.fillRect(0, y - 1, d.width(), kLineH, TFT_NAVY);
-        uint16_t bg = sel ? TFT_NAVY : TFT_BLACK;
+        int y = list_top + i * row_height;
+        uint16_t bg = sel ? kSelectionGlow : kVoidInk;
+        if (sel) {
+            d.fillRect(0, y - 2, d.width(), row_height, bg);
+            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
+        }
 
         /* Colour carries deauth-vs-disassoc so the text stays this compact. */
         d.setCursor(0, y);
-        d.setTextColor(e.disassoc ? TFT_YELLOW : TFT_ORANGE, bg);
-        d.printf("%-17s", printable(e.mac, 17).c_str());
-        d.setTextColor(TFT_LIGHTGREY, bg);
+        d.setTextColor(e.disassoc ? kCalibrationYellow : kSignalPink, bg);
+        d.printf("%c%-15s", sel ? '>' : ' ', printable(e.mac, 15).c_str());
+        d.setTextColor(kMutedSlate, bg);
         d.printf(" r%-3ld", e.reason);
         d.setTextColor(rssiColour(e.rssi), bg);
         d.printf(" %4d", e.rssi);
     }
 
     if (events.empty()) {
-        d.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        d.setTextColor(kDimGreen, kVoidInk);
         d.setCursor(0, list_top);
-        d.print(deauth.active() ? "listening..." : "no detections yet");
+        d.print(deauth.active() ? "LISTENING FOR MANAGEMENT FRAMES..." : "NO DETECTIONS YET");
     }
 
-    d.setTextColor(TFT_YELLOW, TFT_BLACK);
-    d.setCursor(0, d.height() - 2 * kLineH);
-    d.print(printable(notice, 38).c_str());
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.setCursor(0, d.height() - kLineH);
-    d.print(";. move  s start/stop  ` back");
+    d.setCursor(4, kBodyTop + 83);
+    if (!events.empty() && cursor < events.size()) {
+        const auto &e = events[cursor];
+        d.setTextColor(kMutedSlate, kVoidInk);
+        d.printf("%s R%ld %d dBm", printable(e.mac, 17).c_str(), e.reason, e.rssi);
+    } else {
+        d.setTextColor(deauth.active() ? kFieldGreen : kMutedSlate, kVoidInk);
+        d.printf("EVENTS %u · %s", (unsigned)events.size(), deauth.active() ? "WATCHING" : "IDLE");
+    }
+
+    endChrome(chrome);
 }
 
 }  // namespace ui

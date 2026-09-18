@@ -180,9 +180,9 @@ The layout model is governed by structural enclosures and segmented telemetry st
   - Header Deck Bar: `20px` height (View name + system indicators `B/G/S/R` + battery glyph).
   - Transport Strip: `18px` height (Live state telemetry `● LIVE` / `◇ CACHED` + channel hop status).
   - Data Viewport: `83px` height (Cap of 4 list rows or 2-column key-value matrix).
-  - Command Foot: `14px` height (Keyhints: `ESC:STOP`, `TAB:MODE`, `ENT:TRACE`).
+  - Command Foot: `14px` height (Keyhints: `ESC:STOP`, `TAB:MODE`, `ENT:AP DETAIL`).
 - **External Viewport (ILI9341 - 320×240 Landscape):** 2-pane telemetry viewport with a 64% / 36% horizontal split:
-  - Primary Spectrum Grid (64% width): Waterfall, signal reticle, and live packet stream.
+  - Primary Packet Monitor Grid (64% width): Waterfall, signal reticle, and live packet stream.
   - Secondary Inspector (36% width): Selected node parameters, BSSID, RSSI/SNR histogram, and auth flags.
 - **Desktop / Web Monitor View:** Standard 12-column responsive layout conforming to a `1240px` maximum bound, dropping to 2-column or single-column decks on compact screens.
 

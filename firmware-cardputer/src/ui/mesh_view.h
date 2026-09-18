@@ -3,4 +3,5 @@
 #include <cstddef>
 #include <string>
 #include "model/mesh_model.h"
-namespace ui { void drawMeshView(const model::MeshModel &mesh, size_t cursor, const std::string &notice); }
+#include "ui/chrome.h"
+namespace ui { void drawMeshView(const model::MeshModel &mesh, size_t cursor, const ChromeState &chrome); }

@@ -9,83 +9,108 @@
 #include <M5Cardputer.h>
 
 #include "ui/canvas.h"
+#include "ui/dwell_animation.h"
 #include "ui/link_view.h"
+#include "ui/theme.h"
 
 namespace ui {
 
 namespace {
 
-constexpr int kLineH = 10;
-
 uint16_t rssiColour(int rssi)
 {
-    if (rssi >= -55) return TFT_GREEN;
-    if (rssi >= -70) return TFT_YELLOW;
-    return TFT_ORANGE;
+    if (rssi >= -55) return kFieldGreen;
+    if (rssi >= -70) return kCalibrationYellow;
+    return kFaultRed;
 }
 
-/* Short security label so the row fits 40 columns. */
-const char *shortAuth(const std::string &a)
+void drawMeter(M5Canvas &d, int x, int y, int rssi)
 {
-    if (a == "WPA2/WPA3") return "W2/3";
-    if (a == "WPA/WPA2") return "W1/2";
-    if (a == "WPA2-EAP" || a == "WPA-EAP" || a == "WPA3-EAP" || a == "WPA2/WPA3-EAP" || a == "WPA3-EAP192") return "EAP";
-    if (a == "OPEN") return "open";
-    return a.c_str();
+    int filled = (rssi + 100) * 5 / 70;
+    if (filled < 0) filled = 0;
+    if (filled > 5) filled = 5;
+    for (int i = 0; i < 5; ++i) {
+        d.fillRect(x + i * 4, y, 3, 5, i < filled ? rssiColour(rssi) : kTrackDark);
+    }
 }
 
 }  // namespace
 
 void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scanning_ms,
-                   const std::string &notice)
+                   const ChromeState &chrome)
 {
     auto &d = ui::canvas();
-    d.fillScreen(TFT_BLACK);
+    beginChrome(chrome);
     d.setTextSize(1);
-    d.setCursor(0, 0);
 
-    d.setTextColor(TFT_CYAN, TFT_BLACK);
-    d.print("SWEEP  ");
-    d.setTextColor(TFT_WHITE, TFT_BLACK);
+    d.setCursor(4, kBodyTop + 2);
+    d.setTextColor(kMutedSlate, kVoidInk);
     if (scan.continuousActive()) {
-        d.printf("live %u APs  %.1fs", (unsigned)scan.rows().size(), scanning_ms / 1000.0);
+        d.printf("TOTAL %u APs  LIVE %us", (unsigned)scan.rows().size(), (unsigned)(scanning_ms / 1000));
     } else if (scan.scanning()) {
-        d.printf("listening... %us", (unsigned)(scanning_ms / 1000));
+        d.printf("SCAN IN PROGRESS  %us", (unsigned)(scanning_ms / 1000));
     } else if (scan.aborted()) {
-        d.print("stopped");
+        d.print("SCAN STOPPED");
     } else {
-        d.printf("%u APs  %.1fs", (unsigned)scan.rows().size(), scan.elapsedMs() / 1000.0);
-        if (scan.malformedRows()) d.printf("  %u bad", scan.malformedRows());
+        d.printf("TOTAL %u APs  %us", (unsigned)scan.rows().size(), (unsigned)(scan.elapsedMs() / 1000));
     }
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.setCursor(178, kBodyTop + 2);
+    d.printf("%s", scan.rows().empty() ? "--" : "RX");
 
     const auto &rows = scan.rows();
-    int list_top = kLineH + 2;
-    int visible = (d.height() - list_top - 2 * kLineH) / kLineH;
+    const int list_top = kBodyTop + 16;
+    const int row_height = 13;
+    const int visible = 4;
     size_t first = cursor >= (size_t)visible ? cursor - visible + 1 : 0;
 
     for (int i = 0; i < visible && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
-        int y = list_top + i * kLineH;
-        if (sel) d.fillRect(0, y - 1, d.width(), kLineH, TFT_NAVY);
-        uint16_t bg = sel ? TFT_NAVY : TFT_BLACK;
+        int y = list_top + i * row_height;
+        uint16_t bg = sel ? kSelectionGlow : kVoidInk;
+        if (sel) {
+            d.fillRect(0, y - 2, d.width(), row_height, bg);
+            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
+        }
 
         std::string name = r.ssid.empty() ? "<hidden>" : printable(r.ssid, 15);
         d.setCursor(0, y);
-        d.setTextColor(r.ssid.empty() ? TFT_DARKGREY : TFT_WHITE, bg);
-        d.printf("%-15s", name.c_str());
-        d.setTextColor(TFT_LIGHTGREY, bg);
-        d.printf(" %3u %-2s %-4s ", r.ch, r.band5 ? "5G" : "2G", shortAuth(r.auth));
+        d.setTextColor(r.ssid.empty() ? kDimGreen : kPaperPhosphor, bg);
+        d.printf("%c%-15s", sel ? '>' : ' ', name.c_str());
+        d.setTextColor(kMutedSlate, bg);
+        d.printf(" %3u %-4s", r.ch, r.band5 ? "5G" : "2.4G");
         d.setTextColor(rssiColour(r.rssi), bg);
-        d.printf("%4d", r.rssi);
+        d.printf(" %4d", r.rssi);
+        drawMeter(d, 216, y + 1, r.rssi);
     }
 
-    d.setTextColor(TFT_YELLOW, TFT_BLACK);
-    d.setCursor(0, d.height() - 2 * kLineH);
-    d.print(printable(notice, 38).c_str());
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.setCursor(0, d.height() - kLineH);
-    d.print(";. move  enter trace  c live  r rescan  ` back");
+    if (rows.empty()) {
+        d.setCursor(4, list_top);
+        d.setTextColor(kDimGreen, kVoidInk);
+        if (scan.scanning()) drawDwellAnimation(d, scanning_ms);
+        else d.print("NO OBSERVATIONS YET");
+    }
+
+    d.setCursor(4, kBodyTop + 83);
+    const bool live = scan.scanning() || scan.continuousActive();
+    if (cursor < rows.size()) {
+        const auto &r = rows[cursor];
+        d.setTextColor(live ? kFieldGreen : kMutedSlate, kVoidInk);
+        d.printf("CH %u %s · %d dBm · %s", r.ch, r.band5 ? "5G" : "2.4G", r.rssi,
+                 printable(r.auth, 8).c_str());
+    } else if (scan.scanning()) {
+        /* The centered dwell animation is the only bounded-sweep progress
+         * indicator; do not duplicate it in the lower body row. */
+    } else if (scan.aborted()) {
+        d.setTextColor(kCalibrationYellow, kVoidInk);
+        d.print("SCAN ABORTED · NO SNAPSHOT");
+    } else {
+        d.setTextColor(kMutedSlate, kVoidInk);
+        d.print(rows.empty() ? "NO AP OBSERVATIONS" : "SELECT AN AP ROW");
+    }
+
+    endChrome(chrome);
 }
 
 }  // namespace ui

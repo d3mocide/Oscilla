@@ -12,8 +12,8 @@ review. This Markdown file is the implementation handoff for coding agents.
 
 - **Hero line:** OBSERVE THE NOISE.
 - **Mark:** Lens Core only. Do not revive discarded logo concepts.
-- **Receive-only:** UI language remains observe, survey, listen, trace and
-  guard. Do not introduce transmit-shaped controls.
+- **Receive-only:** UI language remains observe, survey, listen, inspect and
+  anomaly-monitoring. Do not introduce transmit-shaped controls.
 - **Truth first:** live, aged and cached data must be visibly distinct.
 - **Deck owns control:** the Cardputer controls navigation, actions and system
   state. The external display is never required to operate the instrument.
@@ -106,8 +106,8 @@ order so operators learn the cluster spatially.
 The target top-level deck is shallow:
 
 1. **SYSTEM** — Link, Info
-2. **OBSERVE** — Wi-Fi, BLE, Mesh, Sub-GHz
-3. **ANALYZE** — Spectrum, Contacts, Guard, captures
+2. **OBSERVE** — Wi-Fi, BLE, 802.15.4, Sub-GHz
+3. **ANALYZE** — Packet Monitor, Sniffer, captures
 4. **DRIVE** — GNSS, markers, logging, session state
 5. **LOGS** — offline review
 
@@ -136,10 +136,10 @@ reading dock without imitating deck chrome.
 
 | Deck counterpart | External-only companion |
 |---|---|
-| Spectrum | channel occupancy bars, baseline comparison, focused-channel RF inspector |
-| Contacts / Guard | ranked relationship table, client counts, security/freshness detail, Guard context |
+| Packet Monitor | channel occupancy bars, baseline comparison, focused-channel RF inspector |
+| Sniffer | ranked relationship table, client counts, security/freshness detail, anomaly context |
 | Drive | GNSS breadcrumb and marker-event history, accuracy, movement/session context |
-| Sub-GHz / BLE / Mesh frames | protocol cadence or dense frame context, RSSI/SNR, selected-frame decode |
+| Sub-GHz / BLE / 802.15.4 frames | protocol cadence or dense frame context, RSSI/SNR, selected-frame decode |
 | Logs | session comparison, timeline/density overview, preview counts and explicit cached state |
 
 The external panel may show unique context or a useful visualization, but it

@@ -8,12 +8,17 @@
 
 #include <cstdlib>
 
+#include <M5Cardputer.h>
+
+#include "app/deck_navigation.h"
 #include "ocp.h"
 #include "ui/bt_view.h"
 #include "ui/canvas.h"
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
+#include "ui/help_view.h"
 #include "storage/lora_logger.h"
+#include "storage/sd_storage.h"
 #include "storage/settings.h"
 #include "storage/wardrive_logger.h"
 #include "model/number_parse.h"
@@ -36,6 +41,7 @@ constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
 constexpr uint32_t kMeshPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
+constexpr uint32_t kNoticeDurationMs = 2000; /* transient toast lifetime */
 constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
 /* Drive-track vertex cadence. A 1 Hz fix logged raw is 3600 points an hour
  * for a line that only needs enough shape to draw. */
@@ -44,43 +50,21 @@ constexpr uint32_t kTrackPointMs = 5000;
  * live over USB serial during a bench test, not so tight it floods it. */
 constexpr uint32_t kGnssDiagMs = 5000;
 
-/* The home cards: cycled with `,` (left/prev) and `/` (right/next), the
- * physical arrow-key cluster on the Cardputer's keyboard. Trace remains a
- * drill-down from Sweep (DESIGN §7.3). */
-constexpr Screen kCards[] = { Screen::Link,   Screen::Sweep,   Screen::Contacts, Screen::Info,
-                              Screen::Spectrum, Screen::Mesh, Screen::SubGhz, Screen::Deauth,
-                              Screen::Drive, Screen::Beacons };
-constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);
-
-bool isHomeCard(Screen s)
-{
-    for (Screen c : kCards) if (c == s) return true;
-    return false;
-}
-
-Screen cycleCard(Screen s, int dir)
-{
-    int i = 0;
-    for (; i < kNumCards; i++) if (kCards[i] == s) break;
-    i = (i + dir + kNumCards) % kNumCards;
-    return kCards[i];
-}
-
 /* Debug console only (`card <name>`) — the keyboard never needs this, it
- * reaches Sweep/Trace by drilling down instead (DESIGN §7.3). */
+ * reaches Wi-Fi Scan/AP Detail by drilling down instead (DESIGN §7.3). */
 bool screenFromName(const std::string &name, Screen *out)
 {
     if (name == "link") *out = Screen::Link;
-    else if (name == "sweep") *out = Screen::Sweep;
-    else if (name == "trace") *out = Screen::Trace;
-    else if (name == "contacts") *out = Screen::Contacts;
-    else if (name == "info") *out = Screen::Info;
-    else if (name == "spectrum") *out = Screen::Spectrum;
-    else if (name == "mesh") *out = Screen::Mesh;
-    else if (name == "subghz" || name == "lora") *out = Screen::SubGhz;
-    else if (name == "deauth") *out = Screen::Deauth;
-    else if (name == "drive") *out = Screen::Drive;
-    else if (name == "beacons") *out = Screen::Beacons;
+    else if (name == "sweep" || name == "scan" || name == "wifi" || name == "wifi_scan") *out = Screen::Sweep;
+    else if (name == "trace" || name == "inspect" || name == "ap_detail") *out = Screen::Trace;
+    else if (name == "contacts" || name == "sniffer") *out = Screen::Contacts;
+    else if (name == "info" || name == "system") *out = Screen::Info;
+    else if (name == "spectrum" || name == "packet_monitor" || name == "monitor") *out = Screen::Spectrum;
+    else if (name == "mesh" || name == "802154" || name == "zigbee") *out = Screen::Mesh;
+    else if (name == "subghz" || name == "lora" || name == "lora_rx") *out = Screen::SubGhz;
+    else if (name == "deauth" || name == "deauth_detect") *out = Screen::Deauth;
+    else if (name == "drive" || name == "wardrive") *out = Screen::Drive;
+    else if (name == "beacons" || name == "ble" || name == "ble_scan") *out = Screen::Beacons;
     else return false;
     return true;
 }
@@ -98,10 +82,21 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         if (s != ocp::LinkState::Ready) {
             phy_handoff_.clear();
             lora_listen_pending_ = false;
+            scan_pending_ = false;
             wifi_continuous_pending_ = false;
             mesh_start_pending_ = false;
             anti_start_pending_ = false;
+            bt_scan_pending_ = false;
+            bt_continuous_pending_ = false;
+            bt_airtag_pending_ = false;
+            spectrum_start_pending_ = false;
             anti_.stop();
+            bt_.stop();
+            spectrum_.stop();
+            probe_status_valid_ = false;
+            probe_heap_ = 0;
+            probe_heap_total_ = 0;
+            probe_uptime_ms_ = 0;
             /* Same reasoning: a queued retry is moot once the link isn't
              * Ready, and must never fire later against something unrelated
              * after a reconnect. */
@@ -118,9 +113,14 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         scan_.clear();
         contacts_.clear();
         spectrum_.clear();
+        probe_status_valid_ = false;
+        probe_heap_ = 0;
+        probe_heap_total_ = 0;
+        probe_uptime_ms_ = 0;
         lora_.clear();
         storage::loraLogEnd();
         deauth_.clear();
+        bt_.clear();
         anti_.clear();
         mesh_.clear();
         next_page_ = 0;
@@ -139,6 +139,7 @@ void DeckApp::begin(uint32_t now_ms)
 void DeckApp::notice(const std::string &text)
 {
     notice_ = text;
+    notice_started_ms_ = text.empty() ? 0 : now_;
     dirty_ = true;
 }
 
@@ -169,25 +170,51 @@ void DeckApp::onReply(const ocp::Item &it)
             anti_start_pending_ = false;
             anti_.stop();
         }
+        const bool spectrum_rejected = spectrum_start_pending_;
+        spectrum_start_pending_ = false;
+        if (spectrum_rejected) spectrum_.clear();
+        const bool scan_rejected = scan_pending_;
+        scan_pending_ = false;
+        if (scan_rejected) {
+            next_page_ = 0;
+            scan_.clear();
+        }
+        const bool bt_scan_rejected = bt_scan_pending_;
+        const bool bt_continuous_rejected = bt_continuous_pending_;
+        const bool bt_airtag_rejected = bt_airtag_pending_;
+        bt_scan_pending_ = false;
+        bt_continuous_pending_ = false;
+        bt_airtag_pending_ = false;
+        if (bt_scan_rejected) bt_.stop();
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
-        /* A same-PHY-lane conflict (radio_arbiter's "radio in use by ...")
-         * lands here too, same as any other error: no automatic
-         * stop-and-switch. An auto-handoff tried this on 2026-09-14 and it
-         * silently killed a concurrently running LoRa session, because the
-         * only tool to free the arbiter was a `stop` that took down every
-         * lane. That's fixed now (D-16, `stop phy` scopes it, hardware-
-         * verified 2026-09-15) and every stop() call site in this file
-         * already uses it - re-adding the auto-handoff on top is unblocked,
-         * just not done. */
-        notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
+        if (code && *code == OCP_ERR_BUSY &&
+            (bt_scan_rejected || bt_continuous_rejected || bt_airtag_rejected || spectrum_rejected)) {
+            notice("PHY busy - stop current tool first");
+        } else {
+            notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
+        }
         log(std::string("err code=") + (code ? *code : "?"));
         return;
     }
 
     last_reply_ = it.tag;
+    if (it.tag == OCP_MARK_BLE && bt_scan_pending_) {
+        bt_scan_pending_ = false;
+    }
     if (it.tag == OCP_MARK_CFG && wifi_continuous_pending_) {
         wifi_continuous_pending_ = false;
+    }
+    if (it.tag == OCP_MARK_CFG && bt_continuous_pending_) {
+        bt_continuous_pending_ = false;
+        bt_.beginContinuous();
+        bt_cursor_ = 0;
+        notice("");
+    }
+    if (it.tag == OCP_MARK_CFG && bt_airtag_pending_) {
+        bt_airtag_pending_ = false;
+        bt_.beginAirtag();
+        notice("");
     }
     if (it.tag == OCP_MARK_CFG && anti_start_pending_) {
         anti_start_pending_ = false;
@@ -213,6 +240,7 @@ void DeckApp::onReply(const ocp::Item &it)
                         *out = static_cast<uint32_t>(parsed);
                     }
                 };
+                readOptional(OCP_K_HEAP_TOTAL, &probe_heap_total_);
                 readOptional(OCP_K_HEAP_MIN, &probe_heap_min_);
                 readOptional(OCP_K_HEAP_LARGEST, &probe_heap_largest_);
                 readOptional(OCP_K_PSRAM_TOTAL, &probe_psram_total_);
@@ -229,6 +257,10 @@ void DeckApp::onReply(const ocp::Item &it)
         bool all = !lane || *lane == OCP_LANE_ALL;
         if (all || *lane == OCP_LANE_PHY) {
             anti_start_pending_ = false;
+            bt_scan_pending_ = false;
+            bt_continuous_pending_ = false;
+            bt_airtag_pending_ = false;
+            spectrum_start_pending_ = false;
             scan_.stop();
             contacts_.stopSniffing();
             spectrum_.stop();
@@ -252,6 +284,12 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_PROBES) {
         contacts_.absorbProbes(it);
     } else if (it.tag == OCP_MARK_CHAN) {
+        if (spectrum_start_pending_) {
+            spectrum_start_pending_ = false;
+            spectrum_.begin();
+            spectrum_cursor_ = 0;
+            notice("");
+        }
         log("channel_view started");
     } else if (it.tag == OCP_MARK_LORA) {
         /* Shared by lora_listen and lora_status; params are already known
@@ -280,9 +318,11 @@ void DeckApp::onReply(const ocp::Item &it)
         log("scan-page first=" + (first ? *first : std::string("?")) + " rows=" + std::to_string(it.rows.size()) +
             (next_page_ ? " next=" + std::to_string(next_page_) : std::string()));
         if (scan_.aborted()) {
+            scan_pending_ = false;
             notice("scan stopped");
             log("scan aborted");
         } else if (!scan_.scanning()) {
+            scan_pending_ = false;
             log("scan done aps=" + std::to_string(scan_.rows().size()) + " total=" + std::to_string(scan_.total()) +
                 " malformed=" + std::to_string(scan_.malformedRows()) + " elapsed_ms=" + std::to_string(scan_.elapsedMs()));
             /* Wardrive mode (Drive card, `l`): a survey is only useful
@@ -338,16 +378,18 @@ void DeckApp::requestScan(uint32_t now_ms)
         return;
     }
     scan_.begin();
+    scan_pending_ = true;
     next_page_ = 0;
     scan_started_ms_ = now_ms;
 }
 
 bool DeckApp::phyToolActive() const
 {
-    return scan_.scanning() || scan_.continuousActive() || wifi_continuous_pending_ ||
-           contacts_.sniffing() || spectrum_.active() || deauth_.active() ||
-           bt_.scanning() || bt_.continuousActive() || bt_.airtagActive() || anti_.active() ||
-           anti_start_pending_ || mesh_.active() || mesh_start_pending_;
+    return scan_.scanning() || scan_.continuousActive() || scan_pending_ || wifi_continuous_pending_ ||
+           contacts_.sniffing() || spectrum_.active() || spectrum_start_pending_ || deauth_.active() ||
+           bt_.scanning() || bt_.continuousActive() || bt_.airtagActive() || bt_scan_pending_ ||
+           bt_continuous_pending_ || bt_airtag_pending_ || anti_.active() || anti_start_pending_ ||
+           mesh_.active() || mesh_start_pending_;
 }
 
 bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
@@ -367,10 +409,10 @@ void DeckApp::startScan(uint32_t now_ms)
 {
     if (scan_.continuousActive()) { notice("stop live scan first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!preparePhyStart([this](uint32_t now) { startScan(now); }, now_ms)) return;
-    requestScan(now_ms);
     cursor_ = 0;
     screen_ = Screen::Sweep;
+    if (!preparePhyStart([this](uint32_t now) { startScan(now); }, now_ms)) return;
+    requestScan(now_ms);
     notice("");
 }
 
@@ -379,6 +421,8 @@ void DeckApp::toggleWifiContinuous(uint32_t now_ms)
     if (scan_.continuousActive()) { stopPhy(now_ms); return; }
     if (wifi_continuous_pending_) { notice("starting live scan..."); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    cursor_ = 0;
+    screen_ = Screen::Sweep;
     if (!preparePhyStart([this](uint32_t now) { toggleWifiContinuous(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_WIFI_SCAN, now_ms)) {
         retrySoon([this](uint32_t t) { toggleWifiContinuous(t); }, now_ms);
@@ -386,9 +430,7 @@ void DeckApp::toggleWifiContinuous(uint32_t now_ms)
     }
     wifi_continuous_pending_ = true;
     scan_.beginContinuous();
-    cursor_ = 0;
     scan_started_ms_ = now_ms;
-    screen_ = Screen::Sweep;
     notice("");
 }
 
@@ -396,6 +438,7 @@ void DeckApp::startInspect(uint32_t now_ms)
 {
     if (scan_.rows().empty()) return;
     if (scan_.continuousActive()) { notice("stop live scan first"); return; }
+    if (!scan_.inspectable()) { notice("run snapshot sweep first"); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!preparePhyStart([this](uint32_t now) { startInspect(now); }, now_ms)) return;
     trace_idx_ = scan_.rows()[cursor_].idx;
@@ -410,6 +453,7 @@ void DeckApp::startInspect(uint32_t now_ms)
 void DeckApp::startSniffer(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    screen_ = Screen::Contacts;
     if (!preparePhyStart([this](uint32_t now) { startSniffer(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_SNIFFER, now_ms)) {
         retrySoon([this](uint32_t t) { startSniffer(t); }, now_ms);
@@ -420,21 +464,22 @@ void DeckApp::startSniffer(uint32_t now_ms)
     contacts_tab_ = ui::ContactsTab::Clients;
     contacts_poll_clients_ = true;
     last_contacts_poll_ms_ = now_ms;
-    screen_ = Screen::Contacts;
     notice("");
 }
 
 void DeckApp::startChannelView(uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (spectrum_start_pending_) { notice("starting spectrum..."); return; }
     if (!preparePhyStart([this](uint32_t now) { startChannelView(now); }, now_ms)) return;
     if (!client_.send(OCP_V_CHANNEL_VIEW, now_ms)) {
         retrySoon([this](uint32_t t) { startChannelView(t); }, now_ms);
         return;
     }
-    spectrum_.begin();
+    spectrum_start_pending_ = true;
+    spectrum_started_ms_ = now_ms;
     spectrum_cursor_ = 0;
-    notice("");
+    notice("starting spectrum...");
 }
 
 void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
@@ -500,6 +545,10 @@ void DeckApp::startDeauthDetector(uint32_t now_ms)
 
 void DeckApp::startBtScan(uint32_t now_ms)
 {
+    if (bt_.continuousActive() || bt_.airtagActive() || bt_continuous_pending_ || bt_airtag_pending_) {
+        notice("stop current beacon mode first");
+        return;
+    }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!preparePhyStart([this](uint32_t now) { startBtScan(now); }, now_ms)) return;
     if (!client_.send(OCP_V_SCAN_BT, now_ms)) {
@@ -507,6 +556,8 @@ void DeckApp::startBtScan(uint32_t now_ms)
         return;
     }
     bt_.beginScan();
+    bt_scan_pending_ = true;
+    bt_scan_started_ms_ = now_ms;
     bt_cursor_ = 0;
     notice("");
 }
@@ -514,28 +565,36 @@ void DeckApp::startBtScan(uint32_t now_ms)
 void DeckApp::toggleBtContinuous(uint32_t now_ms)
 {
     if (bt_.continuousActive()) { stopPhy(now_ms); return; }
+    if (bt_.scanning() || bt_.airtagActive() || bt_scan_pending_ || bt_airtag_pending_) {
+        notice("stop current beacon mode first");
+        return;
+    }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!preparePhyStart([this](uint32_t now) { toggleBtContinuous(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_BLE_SCAN, now_ms)) {
         retrySoon([this](uint32_t t) { toggleBtContinuous(t); }, now_ms);
         return;
     }
-    bt_.beginContinuous();
+    bt_continuous_pending_ = true;
     bt_cursor_ = 0;
-    notice("");
+    notice("starting beacons...");
 }
 
 void DeckApp::toggleAirtagScan(uint32_t now_ms)
 {
     if (bt_.airtagActive()) { stopPhy(now_ms); return; }
+    if (bt_.scanning() || bt_.continuousActive() || bt_scan_pending_ || bt_continuous_pending_) {
+        notice("stop current beacon mode first");
+        return;
+    }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     if (!preparePhyStart([this](uint32_t now) { toggleAirtagScan(now); }, now_ms)) return;
     if (!client_.send(OCP_V_SCAN_AIRTAG, now_ms)) {
         retrySoon([this](uint32_t t) { toggleAirtagScan(t); }, now_ms);
         return;
     }
-    bt_.beginAirtag();
-    notice("");
+    bt_airtag_pending_ = true;
+    notice("starting tracker watch...");
 }
 
 void DeckApp::toggleAntisurveillance(uint32_t now_ms)
@@ -660,19 +719,34 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     now_ = now_ms;
     if (!keys.chars.empty() || keys.enter) log("keys=" + keys.chars + (keys.enter ? "<enter>" : ""));
     for (char c : keys.chars) {
-        if (c == '`') { back(now_ms); continue; }
+        if (c == '`') {
+            if (help_visible_) {
+                help_visible_ = false;
+                dirty_ = true;
+            } else {
+                back(now_ms);
+            }
+            continue;
+        }
+        if (c == 'h') {
+            help_visible_ = !help_visible_;
+            dirty_ = true;
+            continue;
+        }
+        if (help_visible_) continue;
         if (c == 'd') { toggleDebugMode(); continue; }
         if ((c == ',' || c == '/') && isHomeCard(screen_)) {
             stopPhyForNavigation(now_ms);
-            screen_ = cycleCard(screen_, c == '/' ? 1 : -1);
+            screen_ = cycleScreen(screen_, c == '/' ? 1 : -1);
             dirty_ = true;
             continue;
         }
 
         switch (screen_) {
         case Screen::Link:
-            if (c == 'w') startScan(now_ms);
-            else if (c == 'h') client_.connect(now_ms);
+            if (c == ';' && link_cursor_ > 0) link_cursor_--;
+            else if (c == '.' && link_cursor_ + 1 < ui::kLinkRowCount) link_cursor_++;
+            else if (c == 'w') startScan(now_ms);
             else if (c == 'p') client_.send(OCP_V_PING, now_ms);
             else if (c == 's') client_.send(OCP_V_STATUS, now_ms);
             else if (c == 'r') client_.send(OCP_V_REBOOT, now_ms);
@@ -681,7 +755,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && cursor_ > 0) cursor_--;
             else if (c == '.' && cursor_ + 1 < scan_.rows().size()) cursor_++;
             else if (c == 'r') startScan(now_ms);
-            else if (c == 'c') toggleWifiContinuous(now_ms);
+            else if (c == 's' || c == 'c') toggleWifiContinuous(now_ms);
             break;
         case Screen::Trace:
             if (c == 'i') startInspect(now_ms);
@@ -747,7 +821,33 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         }
         dirty_ = true;
     }
-    if (keys.enter && screen_ == Screen::Sweep && !scan_.scanning() && !scan_.continuousActive()) startInspect(now_ms);
+    if (keys.enter && !help_visible_ && screen_ == Screen::Link) {
+        switch (link_cursor_) {
+        case 0: /* Probe Link: reconnect when needed, otherwise verify the link. */
+            if (client_.state() == ocp::LinkState::Disconnected) client_.connect(now_ms);
+            else client_.send(OCP_V_PING, now_ms);
+            break;
+        case 1: /* GNSS: the Drive card owns the position/session workflow. */
+            screen_ = Screen::Drive;
+            dirty_ = true;
+            break;
+        case 2: /* SD Card: system health currently owns storage readiness. */
+            screen_ = Screen::Info;
+            dirty_ = true;
+            break;
+        case 3: /* Bus Integrity: a fresh ping updates the transport result. */
+            client_.send(OCP_V_PING, now_ms);
+            break;
+        }
+    }
+    if (keys.enter && screen_ == Screen::Sweep) {
+        if (scan_.scanning()) notice("sweep in progress");
+        else if (scan_.continuousActive()) notice("stop live scan; run r first");
+        else if (scan_.rows().empty()) notice("no AP row selected");
+        else if (!scan_.inspectable()) notice("run snapshot sweep first");
+        else startInspect(now_ms);
+    }
+    if (keys.enter && screen_ == Screen::Trace && !client_.pending()) startInspect(now_ms);
     if (keys.enter && screen_ == Screen::Spectrum && !spectrum_.locked() &&
         spectrum_cursor_ < spectrum_.readings().size()) {
         startPacketMonitor(now_ms, spectrum_.readings()[spectrum_cursor_].ch);
@@ -848,6 +948,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " anti_alerts=" + std::to_string(anti_.alertCount()) +
             " anti_starting=" + std::string(anti_start_pending_ ? "1" : "0") +
             " probe_heap=" + std::to_string(probe_heap_) +
+            " probe_heap_total=" + std::to_string(probe_heap_total_) +
             " probe_heap_min=" + std::to_string(probe_heap_min_) +
             " probe_heap_largest=" + std::to_string(probe_heap_largest_) +
             " probe_psram_total=" + std::to_string(probe_psram_total_) +
@@ -865,6 +966,13 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 void DeckApp::tick(uint32_t now_ms)
 {
     now_ = now_ms;
+
+    if (!notice_.empty() && now_ms - notice_started_ms_ >= kNoticeDurationMs) {
+        notice_.clear();
+        notice_started_ms_ = 0;
+        dirty_ = true;
+    }
+
     client_.tick(now_ms);
 
     /* Client timeouts intentionally have no callback. Clean up the optimistic
@@ -875,6 +983,34 @@ void DeckApp::tick(uint32_t now_ms)
         anti_.stop();
         notice("anti-surveillance start timed out");
         log("anti start timeout");
+    }
+
+    if (spectrum_start_pending_ && !client_.pending() &&
+        now_ms - spectrum_started_ms_ >= ocp::Client::kReplyTimeoutMs) {
+        spectrum_start_pending_ = false;
+        spectrum_.clear();
+        notice("spectrum start timed out");
+        log("spectrum start timeout");
+    }
+
+    if (scan_pending_ && scan_.scanning() && !client_.pending() &&
+        now_ms - scan_started_ms_ >= ocp::Client::kScanTimeoutMs) {
+        scan_pending_ = false;
+        scan_.clear();
+        next_page_ = 0;
+        notice("sweep timed out");
+        log("sweep timeout");
+    }
+
+    if (!client_.pending()) {
+        if (bt_scan_pending_ || bt_continuous_pending_ || bt_airtag_pending_) {
+            bt_scan_pending_ = false;
+            bt_continuous_pending_ = false;
+            bt_airtag_pending_ = false;
+            bt_.stop();
+            notice("beacon start timed out");
+            log("beacon start timeout");
+        }
     }
 
     if (pending_retry_) {
@@ -947,18 +1083,54 @@ void DeckApp::tick(uint32_t now_ms)
 bool DeckApp::dirty(uint32_t now_ms) const
 {
     if (now_ms - last_draw_ms_ < kRedrawMs) return false;
-    bool busy = scan_.scanning() || scan_.continuousActive() || (screen_ == Screen::Trace && client_.pending());
+    bool busy = scan_.scanning() || scan_.continuousActive() || bt_.scanning() ||
+                (screen_ == Screen::Trace && client_.pending());
     return dirty_ || (busy && now_ms - last_draw_ms_ >= kBusyRedrawMs);
 }
 
 void DeckApp::draw(uint32_t now_ms)
 {
-    switch (screen_) {
+    auto makeChrome = [&](const char *title) {
+        ui::ChromeState chrome;
+        chrome.title = title;
+        chrome.link = client_.state();
+        switch (gnss_.state(now_ms)) {
+        case model::GnssState::Fixed:
+            chrome.gnss = ui::IndicatorState::Ready;
+            break;
+        case model::GnssState::NoUartData:
+            chrome.gnss = ui::IndicatorState::Fault;
+            break;
+        case model::GnssState::Searching:
+        case model::GnssState::FixLost:
+            chrome.gnss = ui::IndicatorState::Pending;
+            break;
+        }
+        chrome.storage = storage::ready() ? ui::IndicatorState::Ready : ui::IndicatorState::Fault;
+        const bool phy_active = scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
+                                spectrum_.active() || deauth_.active() || bt_.scanning() ||
+                                bt_.continuousActive() || bt_.airtagActive() || anti_.active() || mesh_.active();
+        chrome.rf = (phy_active || lora_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
+        chrome.battery_pct = M5.Power.getBatteryLevel();
+        chrome.charging = M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
+        chrome.live = phy_active || lora_.active();
+        chrome.debug = debug_mode_;
+        chrome.transport = "BPK " + std::string(ocp::linkStateName(client_.state()));
+        if (last_reply_ != "-") chrome.transport += " <-> " + last_reply_;
+        if (chrome.live) chrome.transport += " · RX-ONLY";
+        chrome.notice = notice_;
+        return chrome;
+    };
+
+    if (help_visible_) {
+        ui::drawHelpView(makeChrome("HELP"));
+    } else switch (screen_) {
     case Screen::Link:
-        ui::drawLinkView(client_, last_reply_, notice_, debug_mode_);
+        ui::drawLinkView(client_, link_cursor_, makeChrome("LINK"));
         break;
     case Screen::Sweep:
-        ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_, notice_);
+        ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_,
+                          makeChrome("WIFI SCAN"));
         break;
     case Screen::Trace: {
         const model::ApRow *row = nullptr;
@@ -968,33 +1140,42 @@ void DeckApp::draw(uint32_t now_ms)
         static const model::Inspect none;
         const auto &in = scan_.inspect().idx == trace_idx_ ? scan_.inspect() : none;
         bool listening = client_.pending() && client_.pendingVerb() == OCP_V_INSPECT_NETWORK;
-        ui::drawTraceView(row, in, listening, notice_);
+        ui::drawTraceView(row, in, listening,
+                          makeChrome("AP DETAIL"));
         break;
     }
     case Screen::Contacts:
-        ui::drawContactsView(contacts_, contacts_tab_, contacts_cursor_, notice_);
+        ui::drawContactsView(contacts_, contacts_tab_, contacts_cursor_,
+                             makeChrome("SNIFFER"));
         break;
     case Screen::Info:
-        ui::drawInfoView(client_, probe_status_valid_, probe_heap_, probe_uptime_ms_,
-                         now_ms - last_status_reply_ms_, notice_);
+        ui::drawInfoView(client_, probe_status_valid_, probe_heap_, probe_heap_total_, probe_uptime_ms_,
+                         makeChrome("SYSTEM"));
         break;
     case Screen::Spectrum:
-        ui::drawSpectrumView(spectrum_, spectrum_cursor_, notice_);
+        ui::drawSpectrumView(spectrum_, spectrum_cursor_,
+                             makeChrome("PACKET MONITOR"));
         break;
     case Screen::Mesh:
-        ui::drawMeshView(mesh_, mesh_cursor_, notice_);
+        ui::drawMeshView(mesh_, mesh_cursor_,
+                         makeChrome("802.15.4"));
         break;
     case Screen::SubGhz:
-        ui::drawSubGhzView(lora_, lora_cursor_, notice_);
+        ui::drawSubGhzView(lora_, lora_cursor_,
+                           makeChrome("LORA RX"));
         break;
     case Screen::Deauth:
-        ui::drawDeauthView(deauth_, deauth_cursor_, notice_);
+        ui::drawDeauthView(deauth_, deauth_cursor_,
+                         makeChrome("DEAUTH DETECT"));
         break;
     case Screen::Drive:
-        ui::drawGnssView(gnss_, now_ms, notice_);
+        ui::drawGnssView(gnss_, now_ms,
+                         makeChrome("WARDRIVE"));
         break;
     case Screen::Beacons:
-        ui::drawBtView(bt_, anti_, bt_cursor_, notice_);
+        ui::drawBtView(bt_, anti_, bt_cursor_,
+                       now_ms - bt_scan_started_ms_,
+                       makeChrome("BLE SCAN"));
         break;
     }
     ui::present();

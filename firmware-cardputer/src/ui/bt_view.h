@@ -1,5 +1,5 @@
 /*
- * bt_view.h — the Beacons screen (DESIGN §7.2): live BLE device list from
+ * bt_view.h — the BLE Scan screen (DESIGN §7.2): live BLE device list from
  * scan_bt, plus a running Find My / AirTag tracker count and sighting log
  * from scan_airtag.
  *
@@ -9,14 +9,16 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "model/bt_model.h"
 #include "model/anti_surveillance_model.h"
+#include "ui/chrome.h"
 
 namespace ui {
 
 void drawBtView(const model::BtModel &bt, const model::AntiSurveillanceModel &anti,
-                size_t cursor, const std::string &notice);
+                size_t cursor, uint32_t scanning_ms, const ChromeState &chrome);
 
 }  // namespace ui

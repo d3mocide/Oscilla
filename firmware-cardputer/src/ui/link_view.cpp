@@ -6,10 +6,13 @@
 
 #include "ui/link_view.h"
 
+#include <cstdio>
+
 #include <M5Cardputer.h>
 
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
+#include "ui/theme.h"
 
 namespace ui {
 
@@ -28,64 +31,147 @@ namespace {
 uint16_t stateColour(ocp::LinkState s)
 {
     switch (s) {
-        case ocp::LinkState::Ready:        return TFT_GREEN;
-        case ocp::LinkState::HelloSent:    return TFT_YELLOW;
-        case ocp::LinkState::Incompatible: return TFT_MAGENTA;
-        case ocp::LinkState::Disconnected: return TFT_RED;
+        case ocp::LinkState::Ready:        return kFieldGreen;
+        case ocp::LinkState::HelloSent:    return kCalibrationYellow;
+        case ocp::LinkState::Incompatible: return kSignalPink;
+        case ocp::LinkState::Disconnected: return kFaultRed;
     }
-    return TFT_WHITE;
+    return kMutedSlate;
+}
+
+uint16_t indicatorColour(IndicatorState state)
+{
+    switch (state) {
+    case IndicatorState::Ready:
+    case IndicatorState::Active:
+        return kFieldGreen;
+    case IndicatorState::Pending:
+        return kCalibrationYellow;
+    case IndicatorState::Fault:
+        return kFaultRed;
+    case IndicatorState::Off:
+        return kDimGreen;
+    }
+    return kMutedSlate;
+}
+
+const char *linkStatus(ocp::LinkState state)
+{
+    switch (state) {
+    case ocp::LinkState::Ready:        return "ACTIVE";
+    case ocp::LinkState::HelloSent:    return "SYNCING";
+    case ocp::LinkState::Incompatible: return "MISMATCH";
+    case ocp::LinkState::Disconnected: return "OFFLINE";
+    }
+    return "UNKNOWN";
+}
+
+std::string capabilitySummary(const std::string &caps)
+{
+    std::string out;
+    const auto add = [&out](const char *label) {
+        if (!out.empty()) out += ' ';
+        out += label;
+    };
+    if (caps.find("wifi24") != std::string::npos) add("2.4");
+    if (caps.find("wifi5") != std::string::npos) add("5G");
+    if (caps.find("ble") != std::string::npos) add("BLE");
+    if (caps.find("ieee802154") != std::string::npos) add("154");
+    if (caps.find("lora_rx") != std::string::npos) add("LORA");
+    return out.empty() ? "--" : out;
+}
+
+void drawStatusPanel(M5Canvas &d, int y, const char *label, const char *value,
+                     uint16_t color, bool selected)
+{
+    if (selected) {
+        d.fillRect(0, y, d.width(), 20, kSelectionGlow);
+        d.fillRect(0, y, 3, 20, kCalibrationYellow);
+    }
+    d.fillRect(5, y + 7, 5, 5, color);
+    d.setCursor(16, y + 4);
+    d.setTextColor(selected ? kPaperPhosphor : kMutedSlate, selected ? kSelectionGlow : kVoidInk);
+    d.print(label);
+
+    /* A compact health rail makes a live link read as a state, not a log row. */
+    const int lit = color == kFieldGreen ? 4 : color == kCalibrationYellow ? 2 : 1;
+    for (int i = 0; i < 4; ++i) {
+        d.fillRect(113 + i * 7, y + 8, 4, 4, i < lit ? color : kTrackDark);
+    }
+
+    d.setCursor(148, y + 4);
+    d.setTextColor(color, selected ? kSelectionGlow : kVoidInk);
+    d.print(value);
+}
+
+void drawCheckRow(M5Canvas &d, int y, const char *label, const char *value,
+                  uint16_t color, bool selected)
+{
+    if (selected) {
+        d.fillRect(0, y - 2, d.width(), 13, kSelectionGlow);
+        d.fillRect(0, y - 2, 2, 13, kCalibrationYellow);
+    }
+    d.fillRect(6, y + 3, 4, 4, color);
+    d.setCursor(16, y);
+    d.setTextColor(selected ? kPaperPhosphor : kMutedSlate, selected ? kSelectionGlow : kVoidInk);
+    d.print(label);
+    d.setCursor(112, y);
+    d.setTextColor(color, selected ? kSelectionGlow : kVoidInk);
+    d.print(value);
 }
 
 }  // namespace
 
-void drawLinkView(const ocp::Client &client, const std::string &last_reply,
-                  const std::string &notice, bool debug_mode)
+void drawLinkView(const ocp::Client &client, size_t cursor, const ChromeState &chrome)
 {
     auto &d = ui::canvas();
     const auto &p = client.probe();
     const auto &st = client.stats();
 
-    d.fillScreen(TFT_BLACK);
+    beginChrome(chrome);
     d.setTextSize(1);
-    d.setCursor(0, 0);
 
-    d.setTextColor(TFT_CYAN, TFT_BLACK);
-    d.print("OSCILLA deck  ");
-    d.setTextColor(stateColour(client.state()), TFT_BLACK);
-    d.print(ocp::linkStateName(client.state()));
-    if (debug_mode) {
-        d.setTextColor(TFT_ORANGE, TFT_BLACK);
-        d.print("  DEBUG");
-    }
-    d.println();
-
-    d.setTextColor(TFT_WHITE, TFT_BLACK);
+    d.setCursor(4, kBodyTop + 2);
+    d.setTextColor(kMutedSlate, kVoidInk);
     if (client.state() == ocp::LinkState::Disconnected) {
-        d.println("probe: none");
+        d.print("PROBE C5 / NOT PRESENT");
     } else {
-        d.printf("probe: %s %s  proto %d\n", printable(p.fw, 16).c_str(),
-                 printable(p.ver, 12).c_str(), p.proto);
+        d.printf("PROBE C5 / %s", printable(p.ver, 10).c_str());
+        d.setCursor(190, kBodyTop + 2);
+        d.printf("P%d", p.proto);
     }
-    d.printf("caps:  %s\n", p.caps.empty() ? "(none)" : printable(p.caps, 30).c_str());
-    d.print("sd:    ");
-    d.setTextColor(storage::ready() ? TFT_GREEN : TFT_RED, TFT_BLACK);
-    d.println(storage::ready() ? "ready" : "absent");
-    d.setTextColor(TFT_WHITE, TFT_BLACK);
-    d.println();
 
-    d.printf("resets %-4u timeouts %u\n", st.resets, st.timeouts);
-    d.printf("noise  %-4u stray %-4u err %u\n", st.noise, st.stray, st.errors);
-    d.printf("events %u\n", st.events);
-    d.println();
+    drawStatusPanel(d, kBodyTop + 16, "PROBE LINK", linkStatus(client.state()),
+                    stateColour(client.state()), cursor == 0);
+    drawCheckRow(d, kBodyTop + 42, "GNSS", chrome.gnss == IndicatorState::Ready ? "FIXED" :
+                                            chrome.gnss == IndicatorState::Fault ? "NO DATA" : "SEARCHING",
+                 indicatorColour(chrome.gnss), cursor == 1);
+    drawCheckRow(d, kBodyTop + 55, "SD CARD", storage::ready() ? "READY" : "ABSENT",
+                 storage::ready() ? kFieldGreen : kFaultRed, cursor == 2);
 
-    d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    d.printf("last: %s\n", printable(last_reply, 32).c_str());
-    d.setTextColor(TFT_YELLOW, TFT_BLACK);
-    d.println(printable(notice, 38).c_str());
+    char bus[32];
+    const bool bus_fault = st.errors || st.timeouts;
+    const char *bus_state = bus_fault ? "FAULT" : client.state() == ocp::LinkState::Ready ? "OK" : "WAIT";
+    std::snprintf(bus, sizeof bus, "%s R%u T%u E%u", bus_state,
+                  st.resets, st.timeouts, st.errors);
+    drawCheckRow(d, kBodyTop + 68, "BUS", bus,
+                 bus_fault ? kSignalPink : client.state() == ocp::LinkState::Ready ? kFieldGreen : kCalibrationYellow,
+                 cursor == 3);
 
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.setCursor(0, d.height() - 10);
-    d.print(", / cards  w sweep  h/p/s system");
+    d.drawFastHLine(4, kBodyTop + 80, d.width() - 8, kLineBorder);
+    d.setCursor(4, kBodyTop + 85);
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.print("CAPS");
+    d.setCursor(38, kBodyTop + 85);
+    if (client.state() == ocp::LinkState::Ready) {
+        d.setTextColor(kFieldGreen, kVoidInk);
+        d.print(capabilitySummary(p.caps).c_str());
+    } else {
+        d.setTextColor(kCalibrationYellow, kVoidInk);
+        d.print("HANDSHAKE PENDING");
+    }
+
+    endChrome(chrome);
 }
 
 }  // namespace ui

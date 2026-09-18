@@ -126,6 +126,7 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          OCP_K_HEAP, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                         OCP_K_HEAP_TOTAL, (unsigned)heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                          OCP_K_HEAP_MIN, (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                          OCP_K_HEAP_LARGEST, (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                          OCP_K_PSRAM_TOTAL, (unsigned)heap_caps_get_total_size(MALLOC_CAP_SPIRAM),

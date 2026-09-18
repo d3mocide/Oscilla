@@ -1,36 +1,16 @@
 /*
  * deck_app.h — screen flow and command orchestration for the deck.
  *
- *   Link <-,/-> Sweep <-,/-> Contacts <-,/-> Info <-,/-> Spectrum <-,/-> SubGhz <-,/-> Deauth <-,/-> Drive <-,/-> (wraps)
- *   Sweep --enter--> Trace                                           drill-down
- *   Spectrum --enter--> (locks to one channel, same screen)
+ *   Grouped route order follows docs/brand/README.md:
+ *   SYSTEM -> OBSERVE -> ANALYZE -> DRIVE. AP Detail is a Wi-Fi Scan drill-down.
  *   ` = stop + back (DESIGN §7.3)
  *
  * Deauth has no DESIGN §7.2 view of its own yet — added ahead of the UI
  * rework DESIGN will eventually need for a growing card set (deliberate,
  * not an oversight: see WORKLOG).
  *
- * Cycling cards (`,`/`/`) deliberately does *not* stop the screen being
- * left — Wi-Fi and LoRa are separate radios (radio_arbiter only ever
- * tracks Wi-Fi/BLE/802.15.4) and running both at once (e.g. wardriving
- * Wi-Fi while LoRa listens) is a real, supported use, not an oversight.
- * One consequence of keeping engines running in the background: a command
- * can arrive while an unrelated engine is still streaming events over the
- * same Grove UART, so its own reply may simply be delayed rather than
- * lost. Every start*() queues itself via retrySoon() if client_.send()
- * couldn't go out yet (something else was pending) rather than just
- * failing — see WORKLOG 2026-09-14.
- *
- * Two Wi-Fi-family engines genuinely cannot run at once (one radio), so a
- * start*() that arrives while another already owns the arbiter gets
- * OCP_ERR_BUSY ("radio in use by ...") and today just shows that as a
- * plain error — no auto-handoff. One was tried and reverted (2026-09-14)
- * because the only tool to release the arbiter was a `stop` that tore down
- * every lane, killing concurrent LoRa as a side effect. That's fixed now:
- * `stop` takes a lane (D-16, OCP-SPEC §5.4), `stop phy` frees the arbiter
- * without touching LoRa, and 2026-09-15's bench pass confirmed both
- * isolation directions hold on real hardware. Re-enabling the auto-handoff
- * on top of it is unblocked, just not done.
+ * PHY tool changes wait for `stop phy` (D-16, OCP-SPEC §5.4), preserving
+ * a concurrent LoRa receiver.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -41,6 +21,7 @@
 #include <functional>
 #include <string>
 
+#include "app/deck_navigation.h"
 #include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
@@ -56,8 +37,6 @@
 #include "ui/contacts_view.h"
 
 namespace app {
-
-enum class Screen : uint8_t { Link, Sweep, Trace, Contacts, Info, Spectrum, Mesh, SubGhz, Deauth, Drive, Beacons };
 
 struct Keys {
     std::string chars;   /* printable keys pressed this frame */
@@ -108,13 +87,13 @@ private:
     /* The wire-level half of startScan(): send scan_networks, reset scan_.
      * No screen/cursor change - this is what the wardrive auto-loop calls
      * so it can re-trigger a scan every ~10s without yanking the view back
-     * to Sweep each time. */
+     * to Wi-Fi Scan each time. */
     void requestScan(uint32_t now_ms);
+    void startScan(uint32_t now_ms);
     bool phyToolActive() const;
     bool preparePhyStart(PhyHandoff::Start start, uint32_t now_ms);
     void stopPhy(uint32_t now_ms);
     void stopPhyForNavigation(uint32_t now_ms);
-    void startScan(uint32_t now_ms);
     void toggleWifiContinuous(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
     void startSniffer(uint32_t now_ms);
@@ -140,7 +119,6 @@ private:
     void retrySoon(std::function<void(uint32_t)> action, uint32_t now_ms);
 
     ocp::Client client_;
-    PhyHandoff phy_handoff_;
     model::ScanModel scan_;
     model::ContactsModel contacts_;
     model::SpectrumModel spectrum_;
@@ -160,6 +138,7 @@ private:
      * [SCAN] arrives paged, and rows() accumulates across pages. */
     size_t wardrive_logged_upto_ = 0;
     Screen screen_ = Screen::Link;
+    size_t link_cursor_ = 0;
     size_t cursor_ = 0;
     uint16_t trace_idx_ = 0;
     size_t contacts_cursor_ = 0;
@@ -167,6 +146,7 @@ private:
     bool contacts_poll_clients_ = true;
     uint32_t last_contacts_poll_ms_ = 0;
     size_t spectrum_cursor_ = 0;
+    uint32_t spectrum_started_ms_ = 0;
     size_t lora_cursor_ = 0;
     /* A rejected lora_listen (e.g. sent before lora_config) must not create
      * a session file — the ack only exists after the probe actually
@@ -175,10 +155,18 @@ private:
     bool lora_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
     size_t bt_cursor_ = 0;
+    uint32_t bt_scan_started_ms_ = 0;
     size_t mesh_cursor_ = 0;
     uint32_t last_mesh_poll_ms_ = 0;
     bool mesh_start_pending_ = false;
     bool anti_start_pending_ = false;
+    /* BLE starts are acknowledged asynchronously. Keep these separate from
+     * the model's running flags so a rejected PHY start cannot look live. */
+    bool bt_scan_pending_ = false;
+    bool bt_continuous_pending_ = false;
+    bool bt_airtag_pending_ = false;
+    bool spectrum_start_pending_ = false;
+    PhyHandoff phy_handoff_;
 
     /* Queued because the client couldn't send yet (something else was
      * still pending) - retried once that clears, see retrySoon(). */
@@ -187,6 +175,7 @@ private:
 
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;
+    uint32_t probe_heap_total_ = 0;
     uint32_t probe_heap_min_ = 0;
     uint32_t probe_heap_largest_ = 0;
     uint32_t probe_psram_total_ = 0;
@@ -198,8 +187,11 @@ private:
 
     std::string last_reply_ = "-";
     std::string notice_;
+    uint32_t notice_started_ms_ = 0;
+    bool help_visible_ = false;
     uint16_t next_page_ = 0;
     uint32_t scan_started_ms_ = 0;
+    bool scan_pending_ = false;
     bool wifi_continuous_pending_ = false;
     uint32_t last_draw_ms_ = 0;
     uint32_t last_attempt_ms_ = 0;

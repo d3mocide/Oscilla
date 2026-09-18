@@ -595,7 +595,7 @@
       user-select: none;
     }
 
-    /* CARD 1: Spectrum Waterfall & Envelope (2x scale) - Redesigned for Zero-Overlap Tactical Clarity */
+    /* CARD 1: Packet Monitor Waterfall & Envelope (2x scale) - Redesigned for Zero-Overlap Tactical Clarity */
     .ili-waterfall-card {
       display: flex;
       flex-direction: column;
@@ -1269,9 +1269,9 @@
   <h2>One shallow deck, focused instrument views.</h2>
   <p class="intro">The menu rework preserves keyboard-first operation while enforcing the four-key physical deck contract. A user is never more than one top-level deck and one focused instrument view from an action.</p>
   <div class="route">
-    <div><span>01 / SYSTEM</span><b>Link &amp; Info</b><small>Backpack transport, battery, GNSS, storage, capability truth</small></div>
-    <div><span>02 / OBSERVE</span><b>Survey modes</b><small>Wi-Fi · BLE · Mesh · Sub-GHz</small></div>
-    <div><span>03 / ANALYZE</span><b>Live analysis</b><small>Spectrum · Contacts · Guard · captures</small></div>
+    <div><span>01 / SYSTEM</span><b>Link &amp; System</b><small>Backpack transport, battery, GNSS, storage, capability truth</small></div>
+    <div><span>02 / OBSERVE</span><b>Survey modes</b><small>Wi-Fi · BLE · 802.15.4 · LoRa</small></div>
+    <div><span>03 / ANALYZE</span><b>Live analysis</b><small>Packet Monitor · Sniffer · captures</small></div>
     <div><span>04 / DRIVE</span><b>Session work</b><small>GNSS, markers, logging, session state</small></div>
     <div><span>05 / LOGS</span><b>Offline review</b><small>Sessions, compare, preview, export</small></div>
   </div>
@@ -1292,9 +1292,9 @@
       <table>
         <thead><tr><th>Status</th><th>Views</th></tr></thead>
         <tbody>
-          <tr><td style="color:var(--green)">Now / early</td><td>Link, Sweep, Trace; Contacts, Spectrum and Guard are built early but need complete live validation.</td></tr>
+            <tr><td style="color:var(--green)">Now / early</td><td>Link, Wi-Fi Scan, AP Detail; Sniffer and Packet Monitor are built early but need complete live validation.</td></tr>
           <tr><td style="color:var(--yellow)">P3–P5</td><td>Sub-GHz receive, GNSS states, external TFT integration.</td></tr>
-          <tr><td style="color:var(--pink)">P7–P8</td><td>BLE Beacons, Mesh, full Drive/Log workflow, persistence, configuration and field polish.</td></tr>
+            <tr><td style="color:var(--pink)">P7–P8</td><td>BLE Scan, 802.15.4, full Drive/Log workflow, persistence, configuration and field polish.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1394,11 +1394,11 @@
       </div>
     </article>
 
-    <!-- Card 2: Observe / Wi-Fi Sweep -->
+    <!-- Card 2: Observe / Wi-Fi Scan -->
     <article class="mcard">
       <header>
         <div>
-          <h3>Observe / Wi-Fi Sweep</h3>
+          <h3>Observe / Wi-Fi Scan</h3>
         </div>
         <div>
           <span class="tag">NOW</span>
@@ -1413,7 +1413,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">OBSERVE / SWEEP</span>
+              <span class="view-name">OBSERVE / WIFI SCAN</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1465,7 +1465,7 @@
                 </div>
               </div>
               <div class="screen-alert" style="color:var(--muted)">
-                <span>◇ ACTIVE SWEEP 2.4 + 5 GHz</span>
+                <span>◇ ACTIVE SCAN 2.4 + 5 GHz</span>
                 <span class="sub-mode">PASSIVE RX</span>
               </div>
             </div>
@@ -1490,20 +1490,20 @@
         <div class="chassis-keys">
           <div class="hw-btn"><span>; PREV</span><span class="k-sym">;</span></div>
           <div class="hw-btn"><span>. NEXT</span><span class="k-sym">.</span></div>
-          <div class="hw-btn"><span>TRACE AP</span><span class="k-sym">↵</span></div>
+          <div class="hw-btn"><span>AP DETAIL</span><span class="k-sym">↵</span></div>
           <div class="hw-btn"><span>STOP</span><span class="k-sym">`</span></div>
         </div>
         <div class="chassis-foot-engraving">OSCILLA · RECON SPEC V1.3 · DUAL-BAND PASSIVE CAPTURE</div>
       </div>
     </article>
 
-    <!-- Card 3: Trace / AP Detail -->
+    <!-- Card 3: AP Detail -->
     <article class="mcard">
       <header>
-        <h3>Trace / AP Detail</h3>
+        <h3>AP Detail</h3>
         <span class="tag">NOW</span>
       </header>
-      <p>Single-target RF lock, beacon timing, client density, and Guard burst alert.</p>
+              <p>Single-target RF lock, beacon timing, client density, and Sniffer burst alert.</p>
       <div class="chassis-deck">
         <div class="chassis-label-bar">
           <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
@@ -1512,7 +1512,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">TRACE / AP DETAIL</span>
+              <span class="view-name">AP DETAIL</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1565,9 +1565,9 @@
                   <div class="tile-sub" style="color:var(--cream)">3 bcn/s</div>
                 </div>
               </div>
-              <!-- Guard burst banner -->
+              <!-- Sniffer burst banner -->
               <div class="screen-alert">
-                <span>◇ GUARD · BURST ON CH 149 (+93%)</span>
+                <span>◇ SNIFFER · BURST ON CH 149 (+93%)</span>
                 <span class="sub-mode" style="color:var(--pink)">ANOMALY</span>
               </div>
             </div>
@@ -1599,13 +1599,13 @@
       </div>
     </article>
 
-    <!-- Card 4: Analyze / Spectrum -->
+    <!-- Card 4: Analyze / Packet Monitor -->
     <article class="mcard">
       <header>
-        <h3>Analyze / Spectrum</h3>
+        <h3>Analyze / Packet Monitor</h3>
         <span class="tag">EARLY</span>
       </header>
-      <p>Deck channel density summary; secondary LCD renders the full spectrum field.</p>
+      <p>Deck channel density summary; secondary LCD renders the full packet-monitor field.</p>
       <div class="chassis-deck">
         <div class="chassis-label-bar">
           <div class="left-id"><span class="sq-dot"></span>OSCILLA // CARDPUTER ADV</div>
@@ -1614,7 +1614,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">ANALYZE / SPECTRUM</span>
+              <span class="view-name">ANALYZE / PACKET MONITOR</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1694,11 +1694,11 @@
       </div>
     </article>
 
-    <!-- Card 5: Analyze / Guard -->
+    <!-- Card 5: Analyze / Sniffer -->
     <article class="mcard">
       <header>
         <div>
-          <h3>Analyze / Guard</h3>
+          <h3>Analyze / Sniffer</h3>
         </div>
         <div>
           <span class="tag">EARLY</span>
@@ -1713,7 +1713,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">ANALYZE / GUARD</span>
+              <span class="view-name">ANALYZE / SNIFFER</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1728,7 +1728,7 @@
             <div class="screen-body">
               <div class="screen-subhead">
                 <span>CLIENTS <b style="color:var(--cream)">18</b> · PROBES <b style="color:var(--cream)">7</b></span>
-                <span style="color:var(--green)">GUARD ACTIVE</span>
+                <span style="color:var(--green)">SNIFFER ACTIVE</span>
               </div>
               <div class="budget-rows">
                 <div class="budget-row anomaly">
@@ -1781,10 +1781,10 @@
       </div>
     </article>
 
-    <!-- Card 6: Observe / Sub-GHz -->
+    <!-- Card 6: Observe / LoRa RX -->
     <article class="mcard">
       <header>
-        <h3>Observe / Sub-GHz</h3>
+        <h3>Observe / LoRa RX</h3>
         <span class="tag future">P3</span>
       </header>
       <p>SX1262 LoRa 915 MHz receive-only protocol cadence and frame detection.</p>
@@ -1796,7 +1796,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">OBSERVE / SUB-GHz</span>
+              <span class="view-name">OBSERVE / LORA RX</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1823,7 +1823,7 @@
                   <span class="row-meta"><span>−110 dBm</span><span>2.8 SNR</span></span>
                 </div>
                 <div class="budget-row" style="color:var(--muted)">
-                  <span>  MESH NODE 84F1</span>
+                  <span>  802.15.4 NODE 84F1</span>
                   <span class="row-meta"><span>−88 dBm</span><span>8.1 SNR</span></span>
                 </div>
                 <div class="budget-row">
@@ -1879,7 +1879,7 @@
         <div class="chassis-well">
           <div class="screen">
             <div class="deck-top">
-              <span class="view-name">DRIVE / SESSION</span>
+              <span class="view-name">DRIVE / WARDRIVE</span>
               <div class="status-cluster">
                 <div class="bgsr">
                   <span class="lbl">B</span><span class="dot"></span>
@@ -1985,7 +1985,7 @@
                   <span class="row-meta"><span>84 MB</span><span class="pill logged">[VALID]</span></span>
                 </div>
                 <div class="budget-row">
-                  <span>  20:16 SPECTRUM SCOPE</span>
+                  <span>  20:16 PACKET MONITOR</span>
                   <span class="row-meta"><span>6 MB</span><span>2.4G</span></span>
                 </div>
                 <div class="budget-row">
@@ -2070,11 +2070,11 @@
 
   <div class="gallery">
 
-    <!-- Screen 1: Analyze / Spectrum Field (2x Scale) -->
+    <!-- Screen 1: Analyze / Packet Monitor Field (2x Scale) -->
     <article class="mcard">
       <header>
         <div>
-          <h3>Analyze / Spectrum Field</h3>
+          <h3>Analyze / Packet Monitor Field</h3>
         </div>
         <div>
           <span class="tag">P5</span>
@@ -2242,12 +2242,12 @@
                 <!-- CH 165 -->
                 <rect x="297" y="72" width="14" height="5" rx="1" fill="#4B6349"/>
 
-                <!-- 5. MID-SECTION DIVIDER & SPECTRUM HEADER (Y: 106 to 118) -->
+                <!-- 5. MID-SECTION DIVIDER & PACKET MONITOR HEADER (Y: 106 to 118) -->
                 <line x1="30" y1="107" x2="316" y2="107" stroke="#1D2A1F" stroke-width="1"/>
                 <text x="36" y="115.5" fill="#4B6349" font-size="5" font-weight="700" font-family="monospace">REAL-TIME CHANNEL OCCUPANCY (FFT ENVELOPE)</text>
                 <text x="312" y="115.5" fill="#6C8A67" font-size="5" font-family="monospace" text-anchor="end">BW: 20 MHz / CH</text>
 
-                <!-- 6. REAL-TIME FFT SPECTRUM & OCCUPANCY ENVELOPE (Y: 118 to 175) -->
+                <!-- 6. REAL-TIME PACKET MONITOR & OCCUPANCY ENVELOPE (Y: 118 to 175) -->
                 <!-- Amplitude Y-Axis (Left Gutter) -->
                 <line x1="26" y1="125" x2="30" y2="125" stroke="#253D28" stroke-width="0.8"/>
                 <text x="24" y="127" fill="#3D543B" font-size="4.8" font-family="monospace" text-anchor="end">100%</text>
@@ -2350,7 +2350,7 @@
         </div>
         <div class="ili-viewport">
           <div class="ili-radar-card">
-            <!-- Three calm, primary metrics: target, proximity, and guard state -->
+            <!-- Three calm, primary metrics: target, proximity, and sniffer state -->
             <div class="contacts-top-ribbon">
               <div class="d-ribbon-tile">
                 <span class="r-lbl">TARGET</span>
@@ -2361,7 +2361,7 @@
                 <div class="r-val" style="color:var(--cream)">−58 dBm <span class="unit">18 ACTIVE</span></div>
               </div>
               <div class="d-ribbon-tile">
-                <span class="r-lbl">GUARD</span>
+                <span class="r-lbl">SNIFFER</span>
                 <div class="r-val" style="color:var(--pink)">1 ROGUE <span class="unit">C4:22</span></div>
               </div>
             </div>
@@ -2449,7 +2449,7 @@
                   <span class="dock-sub">CH 149 · −58 dBm</span>
                 </div>
                 <div class="dock-cell dock-guard">
-                  <span class="dock-label">◇ Guard anomaly</span>
+                  <span class="dock-label">◇ Sniffer anomaly</span>
                   <span class="dock-detail"><b>C4:22</b> PROBE BURST</span>
                   <span class="dock-sub">102ms · ±1.2ms JITTER</span>
                 </div>
@@ -2851,11 +2851,11 @@
       </div>
     </article>
 
-    <!-- Screen 5: Observe / BLE Beacons (2x Scale) -->
+    <!-- Screen 5: Observe / BLE Scan (2x Scale) -->
     <article class="mcard">
       <header>
         <div>
-          <h3>Observe / BLE Beacons</h3>
+          <h3>Observe / BLE Scan</h3>
         </div>
         <div>
           <span class="tag future">P7/P8</span>
@@ -2983,17 +2983,17 @@
       </div>
     </article>
 
-    <!-- Screen 6: Observe / Mesh (2x Scale) -->
+    <!-- Screen 6: Observe / 802.15.4 (2x Scale) -->
     <article class="mcard">
       <header>
         <div>
-          <h3>Observe / Mesh (future concept)</h3>
+          <h3>Observe / 802.15.4 (future concept)</h3>
         </div>
         <div>
           <span class="tag future">P8</span>
         </div>
       </header>
-      <p>P8 visual concept only. The current P7 Mesh view is a passive 802.15.4 MAC PAN/node inventory; it has no topology, route, or delivery-health data.</p>
+      <p>P8 visual concept only. The current P7 802.15.4 view is a passive MAC PAN/node inventory; it has no topology, route, or delivery-health data.</p>
       <div class="ili-bezel">
         <div class="ili-header-engraving">
           <div>VIEWPORT B // ILI9341 320×240 (4:3)</div>
@@ -3004,7 +3004,7 @@
             <!-- Three calm, primary metrics: topology nodes, delivery health, and weak link state -->
             <div class="contacts-top-ribbon">
               <div class="d-ribbon-tile">
-                <span class="r-lbl">MESH TOPOLOGY</span>
+                <span class="r-lbl">802.15.4 TOPOLOGY</span>
                 <div class="r-val hero" style="color:var(--yellow)">8 NODES <span class="unit">LORA</span></div>
               </div>
               <div class="d-ribbon-tile">
@@ -3017,7 +3017,7 @@
               </div>
             </div>
 
-            <!-- Mesh topology graph with node rail and route dossier dock -->
+            <!-- 802.15.4 topology graph with node rail and route dossier dock -->
             <div class="contacts-main-stack">
               <div class="contacts-focus-row">
                 <div class="contacts-radar-box">
@@ -3052,7 +3052,7 @@
                     <text x="66" y="29" fill="#3D563E" font-size="3.2" font-family="monospace">2H</text>
                     <text x="66" y="14" fill="#3D563E" font-size="3.2" font-family="monospace">3H</text>
 
-                    <!-- Background Muted Mesh Link Topology -->
+                    <!-- Background Muted 802.15.4 Link Topology -->
                     <g stroke="#1D2A1F" stroke-width="0.9">
                       <line x1="30" y1="86" x2="52" y2="101"/>
                       <line x1="102" y1="26" x2="114" y2="52"/>
@@ -3100,7 +3100,7 @@
                     <text x="23" y="34" fill="#F05D78" font-size="3.8" font-weight="700" font-family="monospace" text-anchor="middle">!f820c4</text>
                     <text x="23" y="45" fill="#F05D78" font-size="3" font-family="monospace" text-anchor="middle">−3.1dB · 42%</text>
 
-                    <!-- Other Mesh Nodes -->
+                    <!-- Other 802.15.4 Nodes -->
                     <circle cx="114" cy="52" r="2" fill="#5F8062"/>
                     <text x="114" y="59" fill="#5F8062" font-size="3.2" font-family="monospace" text-anchor="middle">RPT_B</text>
 
@@ -3118,9 +3118,9 @@
                   </svg>
                 </div>
 
-                <aside class="contacts-client-rail" aria-label="Observed Mesh Nodes">
+                <aside class="contacts-client-rail" aria-label="Observed 802.15.4 Nodes">
                   <div class="client-rail-head">
-                    <span>MESH NODES</span>
+                    <span>802.15.4 NODES</span>
                     <b>8 SEEN</b>
                   </div>
                   <div class="client-rail-list">
@@ -3175,7 +3175,7 @@
     </thead>
     <tbody>
       <tr>
-        <td>Spectrum</td>
+        <td>Packet Monitor</td>
         <td>Continuous RF waterfall cascade, real-time channel occupancy FFT envelope, 60% burst threshold line, focused-channel RF metrics. No controls or duplicated status.</td>
         <td>P5 shell / early model exists</td>
       </tr>
@@ -3195,12 +3195,12 @@
         <td>P3 proposed</td>
       </tr>
       <tr>
-        <td>BLE Beacons</td>
+        <td>BLE Scan</td>
         <td>Polar advertiser proximity reticle, manufacturer/UUID identification, RPA rotation burst tracking, selected beacon dossier.</td>
         <td>P7/P8 proposed</td>
       </tr>
       <tr>
-        <td>Mesh Topology</td>
+        <td>802.15.4 Topology</td>
         <td>P8 visual concept. Current P7 behavior is a passive 802.15.4 MAC PAN/node inventory, without route or delivery metrics.</td>
         <td>P8 proposed</td>
       </tr>

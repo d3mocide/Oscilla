@@ -493,9 +493,8 @@ def mode_gate_stop(port: str, baud: int, color: bool = True) -> int:
     """Scoped-`stop` checks against a live probe (D-16, OCP-SPEC §5.4).
 
     The load-bearing one is the cross-lane isolation: `stop phy` must release
-    the PHY lane and leave a running LoRa RX session alone. That is the exact
-    regression that got the deck's auto-handoff reverted on 2026-09-14, and it
-    can only be confirmed with both radios live."""
+    the PHY lane and leave a running LoRa RX session alone. It can only be
+    confirmed with both radios live."""
     checks: list[tuple[str, bool, str]] = []
 
     def check(name, ok, detail=""):

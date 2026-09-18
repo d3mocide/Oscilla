@@ -12,6 +12,7 @@
 #include "ocp.h"
 #include "storage/sd_storage.h"
 #include "storage/settings.h"
+#include "ui/boot_screen.h"
 #include "ui/canvas.h"
 
 namespace {
@@ -27,6 +28,7 @@ constexpr int kGroveRxPin = 1;
 constexpr int kGnssTxPin = 13;
 constexpr int kGnssRxPin = 15;
 constexpr uint32_t kGnssBaudDefault = 9600;
+constexpr uint32_t kBootScreenHoldMs = 3000;
 
 app::DeckApp g_app([](const char *data, size_t len) {
     Serial1.write(reinterpret_cast<const uint8_t *>(data), len);
@@ -48,6 +50,8 @@ void setup()
     M5Cardputer.begin(M5.config(), true);
     M5Cardputer.Display.setRotation(1);
     ui::initCanvas();
+    ui::drawBootScreen();
+    delay(kBootScreenHoldMs);
 
     /* Brought up before any TFT traffic exists to contend with it, per
      * DESIGN §7.4 — the external TFT isn't wired yet, but when it is, SD

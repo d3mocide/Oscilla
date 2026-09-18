@@ -11,12 +11,13 @@
 #include <string>
 
 #include "model/contacts_model.h"
+#include "ui/chrome.h"
 
 namespace ui {
 
 enum class ContactsTab : uint8_t { Clients, Probes };
 
 void drawContactsView(const model::ContactsModel &contacts, ContactsTab tab, size_t cursor,
-                      const std::string &notice);
+                      const ChromeState &chrome);
 
 }  // namespace ui
