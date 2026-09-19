@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dual-Radio Backpack Build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #0B090D;
+    --panel: #151018;
+    --panel2: #1b1620;
+    --cream: #F4ECD9;
+    --muted: #9DAF96;
+    --muted-dim: #6C5D69;
+    --green: #A8DF65;
+    --dim: #51763D;
+    --dim-dark: #263528;
+    --pink: #F05D9D;
+    --yellow: #F5D658;
+    --red: #EF514C;
+    --line: #4b3c49;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+    --display: "Chakra Petch", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 85% 0, #241722 0, transparent 34rem), var(--void);
+    color: var(--cream);
+    font: 15px/1.6 var(--mono);
+    padding-bottom: 60px;
+  }
+  main { max-width: 1120px; margin: auto; padding: 0 20px; }
+  a { color: var(--green); }
+  h1, h2, h3, h4 { font-family: var(--display); margin: 0 0 10px; letter-spacing: -.02em; }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); letter-spacing: -.04em; margin: 18px 0 6px; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.9rem); border-top: 1px solid var(--line); padding-top: 42px; margin-top: 44px; }
+  h3 { font-size: 1.08rem; margin-top: 28px; }
+  h4 { font-size: .95rem; color: var(--cream); }
+  p { margin: 0 0 14px; }
+  .lead { max-width: 800px; color: #d2c6c0; }
+  header.top { padding: 38px 0 18px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font: 700 11px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--green); }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
+  .badge {
+    font: 700 10px var(--mono); letter-spacing: .07em; text-transform: uppercase;
+    padding: 5px 9px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted);
+  }
+  .badge.ok { color: var(--green); border-color: var(--green); }
+  .badge.warn { color: var(--yellow); border-color: var(--yellow); }
+  .badge.todo { color: var(--pink); border-color: var(--pink); }
+  .note {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
+    padding: 14px 16px; font-size: 13.5px; color: var(--muted); margin: 18px 0;
+  }
+  .note b, .note strong { color: var(--cream); }
+  .note.warn { border-color: #6a5525; background: #191308; color: #e0cf94; }
+  .note.warn b { color: var(--yellow); }
+  .note.stop { border-color: #6d2b2b; background: #190d0d; color: #e8b4b1; }
+  .note.stop b { color: var(--red); }
+  .note code { color: var(--green); }
+  code { font-family: var(--mono); color: var(--green); }
+  table {
+    border-collapse: collapse; width: 100%; font-size: 13px; margin: 12px 0 20px;
+    display: block; max-width: 100%; overflow-x: auto;
+  }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--green); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  tr[data-net] { cursor: pointer; }
+  tr[data-net]:hover, tr[data-net].active { background: #1c1712; }
+  .src { color: var(--muted-dim); font-size: 11px; white-space: nowrap; }
+
+  figure { margin: 18px 0 24px; }
+  figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #080609; }
+  figcaption { font-size: 12px; color: var(--muted-dim); margin-top: 8px; }
+
+  .idioms { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin: 20px 0; }
+  .idiom { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #100d13; }
+  .idiom svg { width: 100%; height: auto; display: block; margin-bottom: 10px; }
+  .idiom h4 { margin: 0 0 4px; }
+  .idiom .kind { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow); margin-bottom: 8px; }
+  .idiom p { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+  /* checklist */
+  .stage { border: 1px solid var(--line); border-radius: 8px; margin: 16px 0; background: #100d13; overflow: hidden; }
+  .stage > h4 {
+    margin: 0; padding: 11px 14px; background: var(--panel); border-bottom: 1px solid var(--line);
+    font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--green);
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+  .stage > h4 span.count { color: var(--muted-dim); font-family: var(--mono); font-weight: 400; }
+  .step { display: flex; gap: 11px; padding: 11px 14px; border-bottom: 1px dashed #2a2430; font-size: 13.5px; align-items: flex-start; }
+  .step:last-child { border-bottom: none; }
+  .step input { margin: 3px 0 0; accent-color: #A8DF65; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .step label { cursor: pointer; }
+  .step.done label { color: var(--muted-dim); text-decoration: line-through; text-decoration-color: var(--dim); }
+  .step .why { display: block; color: var(--muted-dim); font-size: 12px; margin-top: 3px; text-decoration: none; }
+  .step.done .why { opacity: .55; }
+  .step .flag { color: var(--yellow); }
+  .ck-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 14px 0 0; }
+  .ck-bar button {
+    font: 700 11px var(--mono); background: #18161d; border: 1px solid #2e2a36; color: var(--cream);
+    border-radius: 5px; padding: 8px 12px; cursor: pointer; letter-spacing: .04em;
+  }
+  .ck-bar button:hover { border-color: var(--green); color: var(--green); }
+  .ck-bar .progress { font-size: 12px; color: var(--muted-dim); }
+  .ck-bar .progress b { color: var(--green); }
+
+  .bom-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin: 6px 0 14px; }
+  .pill { font: 700 10px var(--mono); padding: 2px 7px; border-radius: 3px; letter-spacing: .05em; }
+  .pill.need { background: #2b1020; color: var(--pink); border: 1px solid #55203c; }
+  .pill.check { background: #221b08; color: var(--yellow); border: 1px solid #5a4a1c; }
+  .pill.done { background: #16210f; color: var(--green); border: 1px solid #2f4a1c; }
+
+  footer.page { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 20px; color: var(--muted-dim); font-size: 12px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .toc a { border: 1px solid var(--line); padding: 6px 9px; color: var(--cream); font: 11px var(--mono); text-decoration: none; border-radius: 3px; }
+  .toc a:hover { border-color: var(--green); color: var(--green); }
+
+  /* svg net highlight */
+  .net { transition: opacity .12s; }
+  svg.dimmed .net:not(.hl) { opacity: .18; }
+  .net.hl .wire { stroke-width: 4; }
+</style>
+</head>
+<body>
+<main>
+
+<header class="top">
+  <div class="eyebrow">Derived build procedure · reviewed 2026-09-19 · not an authority document</div>
+  <h1>Dual-Radio Backpack Build</h1>
+  <p class="lead">
+    How to physically wire the XIAO ESP32-C5 to both sub-GHz radios — what every
+    resistor and capacitor is for, where its legs actually go, and how two radios
+    share one SPI bus without fighting. Every pin number and component value here is
+    copied from
+    <a href="../../Research/c5-backpack-design.md">Rev D</a> §4 and
+    <a href="c5-dual-radio-wiring.md">Rev E</a> §2–§4. Where I explain general
+    soldering technique rather than quoting those documents, it says so.
+  </p>
+  <div class="badges">
+    <span class="badge ok">Wio harness · built &amp; RX-proven</span>
+    <span class="badge warn">Wio pull resistors · not fitted yet</span>
+    <span class="badge todo">CC1101 · not built, no driver yet</span>
+    <span class="badge">3.3 V logic only</span>
+    <span class="badge">Receive-only · no TX path</span>
+  </div>
+  <p class="lead" style="margin-top:14px;">
+    Building it on a solderless breadboard instead? The physical layout, the
+    footprint trap, and which gates a breadboard can actually prove are in
+    <a href="dual-radio-breadboard.html">the breadboard layout companion</a>.
+  </p>
+  <div class="toc">
+    <a href="#rules">Ground rules</a>
+    <a href="#shape">What you're building</a>
+    <a href="#passives">Passives, explained</a>
+    <a href="#spi">The shared SPI bus</a>
+    <a href="#pins">Pin map</a>
+    <a href="#bom">Parts list</a>
+    <a href="#build">Build checklist</a>
+    <a href="#verify">Verification gates</a>
+    <a href="#open">Constraints &amp; cautions</a>
+    <a href="dual-radio-breadboard.html">→ Breadboard layout</a>
+  </div>
+</header>
+
+<div class="note">
+  <b>Where this build actually stands.</b> The Wio-SX1262 harness is wired and
+  proven — full reset → TCXO → calibrate → RX ran fault-free first try, and it has
+  decoded real MeshCore traffic through a 66.8-minute soak
+  (<a href="lora-harness.md">lora-harness.md</a>). But it was wired
+  <b>without</b> the three pull resistors Rev D §4.2 calls for: all three measured
+  open on the delivered Wio board, and the build went ahead anyway as a deliberate
+  bench-only call. Rev D's own standard says fit them before this leaves the bench.
+  The CC1101 side is entirely ahead of you — it is a <code>🔵 leaning</code>
+  decision (<a href="../DECISIONS.md">D-15</a>), not a built thing, and no CC1101
+  driver exists in <code>firmware-c5/</code> yet.
+</div>
+
+<section id="rules">
+  <h2>Ground rules before the iron is hot</h2>
+
+  <div class="note stop">
+    <b>3.3 V only, on every signal and both radio supplies.</b> The CC1101 module
+    (E07-M1101D-SMA) is a 1.8–3.6 V part and takes its power from the XIAO's 3V3
+    output — Rev E §4 says explicitly: do not use a 5 V module supply. A connector
+    that carries 5 V somewhere else does not make its signal pins 5 V tolerant
+    (Rev D §2).
+  </div>
+
+  <ul>
+    <li><b>Both boards on their own USB.</b> Grove red 5 V conductor disconnected
+      and insulated, XIAO 5V/BAT pads unused. This is Rev D §9's prototype
+      arrangement and Rev E §6 keeps it unchanged for CC1101 bring-up — a shared
+      power arrangement is not approved on calculation alone, only on P6
+      measurements that <a href="power-budget.md">have not been taken yet</a>.</li>
+    <li><b>Power both endpoints before connecting active signal lines</b> (Rev D §9).
+      Pull signal wires before powering only one side. Series resistors are not
+      isolation.</li>
+    <li><b>Keep the harness short</b> — under about 10 cm, with a ground wire
+      running alongside the SPI wires, not a ground that takes some other route
+      (Rev E §4.3).</li>
+    <li><b>Inspect each module before adding parts.</b> Both Rev D §4.2 and Rev E
+      §3/§4 say the same thing: some of these parts may already be fitted on the
+      breakout. Measure first, then fit what is actually missing — do not blindly
+      duplicate, and do not place a conflicting value in parallel with one that is
+      already there.</li>
+    <li><b>Nothing here transmits.</b> The "never key up without an antenna" rule
+      you may have heard is a transmit concern; this build has no reachable TX path
+      on either radio (<a href="../DECISIONS.md">D-8</a>). Fit the antennas because
+      you want to hear anything, not because the radio will damage itself.</li>
+  </ul>
+</section>
+
+<section id="shape">
+  <h2>What you're building</h2>
+  <p>
+    One SPI controller (the C5) and two SPI peripherals that never talk at the same
+    time. Three wires are common to both radios. Everything else is per-radio, and
+    the chip-select line is what decides which radio is listening to the bus at any
+    moment.
+  </p>
+  <p>
+    The Wio needs four extra control wires beyond SPI — reset, an interrupt line, a
+    BUSY handshake, and an RF-switch control. The CC1101 needs none of those in this
+    build: its reset is an SPI strobe, and its GDO pins stay unconnected while the
+    firmware polls it (Rev E §2, §4).
+  </p>
+
+  <figure>
+    <svg id="harness" viewBox="0 0 1040 880" role="img" aria-label="Wiring topology: XIAO ESP32-C5 in the centre, Wio-SX1262 left, CC1101 right. A 3V3 rail across the top feeds both modules, with a 100 nF and a 10 microfarad capacitor bridging to common ground at each module. An explicit common ground rail connects the XIAO and both radios. Per-radio control lines run between each module and the C5, with 10 kilohm pull-up resistors tapping the two chip selects and the Wio reset, and a 10 kilohm pull-down on the Wio RF switch. Three shared SPI wires run along the bottom to both radios.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#9DAF96"/>
+        </marker>
+      </defs>
+      <style>
+        .box { fill: #141019; stroke: #4b3c49; stroke-width: 1.5; }
+        .boxhdr { fill: #1d1724; }
+        .mod { font: 700 15px 'Chakra Petch', sans-serif; fill: #F4ECD9; }
+        .role { font: 10px 'IBM Plex Mono', monospace; fill: #6C5D69; }
+        .wire { stroke: #9DAF96; stroke-width: 2; fill: none; }
+        .wire.shared { stroke: #A8DF65; }
+        .wire.cs { stroke: #F5D658; }
+        .wire.pwr { stroke: #F05D9D; }
+        .lbl { font: 10.5px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+        .lbl.sh { fill: #A8DF65; }
+        .lbl.cs { fill: #F5D658; }
+        .lbl.pw { fill: #F05D9D; }
+        .pin { font: 10.5px 'IBM Plex Mono', monospace; fill: #F4ECD9; }
+        .cap { font: 9.5px 'IBM Plex Mono', monospace; fill: #6C5D69; }
+        .rsym { fill: #1d1724; stroke: #F5D658; stroke-width: 1.7; }
+        .csym { stroke: #F05D9D; stroke-width: 2.6; }
+        .railtxt { font: 700 9px 'IBM Plex Mono', monospace; fill: #F05D9D; }
+        .gndtxt { font: 700 9px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+        .dot { fill: #A8DF65; }
+        .dotc { fill: #F5D658; }
+        .dotp { fill: #F05D9D; }
+      </style>
+
+      <!-- ============ POWER: 3V3 rail + decoupling ============ -->
+      <g class="net" id="net-pwr">
+        <path class="wire pwr" d="M80 58 H960"/>
+        <text class="lbl pw" x="80" y="45">3V3 rail · from XIAO 3V3 out</text>
+
+        <!-- drops to each module -->
+        <path class="wire pwr" d="M165 58 V175"/>
+        <circle class="dotp" cx="165" cy="58" r="3.5"/>
+        <path class="wire pwr" d="M885 58 V175"/>
+        <circle class="dotp" cx="885" cy="58" r="3.5"/>
+        <path class="wire pwr" d="M520 58 V145"/>
+        <circle class="dotp" cx="520" cy="58" r="3.5"/>
+
+        <!-- Wio decoupling pair -->
+        <path class="wire pwr" d="M112 58 V86"/>
+        <circle class="dotp" cx="112" cy="58" r="3.5"/>
+        <path class="csym" d="M97 86 H127"/>
+        <path class="csym" d="M97 95 H127"/>
+        <path class="wire" d="M112 95 V115"/>
+        <path class="wire" d="M101 115 H123"/>
+        <path class="wire" d="M105 120 H119"/>
+        <path class="wire" d="M109 125 H115"/>
+        <text class="cap" x="91" y="93" text-anchor="end">100 nF</text>
+
+        <path class="wire pwr" d="M222 58 V86"/>
+        <circle class="dotp" cx="222" cy="58" r="3.5"/>
+        <path class="csym" d="M207 86 H237"/>
+        <path class="csym" d="M207 95 H237"/>
+        <path class="wire" d="M222 95 V115"/>
+        <path class="wire" d="M211 115 H233"/>
+        <path class="wire" d="M215 120 H229"/>
+        <path class="wire" d="M219 125 H225"/>
+        <text class="cap" x="243" y="93">10 µF</text>
+
+        <!-- CC1101 decoupling pair -->
+        <path class="wire pwr" d="M832 58 V86"/>
+        <circle class="dotp" cx="832" cy="58" r="3.5"/>
+        <path class="csym" d="M817 86 H847"/>
+        <path class="csym" d="M817 95 H847"/>
+        <path class="wire" d="M832 95 V115"/>
+        <path class="wire" d="M821 115 H843"/>
+        <path class="wire" d="M825 120 H839"/>
+        <path class="wire" d="M829 125 H835"/>
+        <text class="cap" x="811" y="93" text-anchor="end">100 nF</text>
+
+        <path class="wire pwr" d="M942 58 V86"/>
+        <circle class="dotp" cx="942" cy="58" r="3.5"/>
+        <path class="csym" d="M927 86 H957"/>
+        <path class="csym" d="M927 95 H957"/>
+        <path class="wire" d="M942 95 V115"/>
+        <path class="wire" d="M931 115 H953"/>
+        <path class="wire" d="M935 120 H949"/>
+        <path class="wire" d="M939 125 H945"/>
+        <text class="cap" x="963" y="93">10 µF</text>
+      </g>
+
+      <!-- ============ module boxes ============ -->
+      <rect class="box" x="48" y="175" width="220" height="385" rx="8"/>
+      <rect class="boxhdr" x="48" y="175" width="220" height="48" rx="8"/>
+      <rect class="boxhdr" x="48" y="207" width="220" height="16"/>
+      <text class="mod" x="158" y="199" text-anchor="middle">Wio-SX1262</text>
+      <text class="role" x="158" y="216" text-anchor="middle">LoRa RX · 862–930 MHz</text>
+      <text class="cap" x="158" y="530" text-anchor="middle" fill="#A8DF65">ANT · 862–930 MHz</text>
+
+      <rect class="box" x="420" y="145" width="200" height="455" rx="8"/>
+      <rect class="boxhdr" x="420" y="145" width="200" height="48" rx="8"/>
+      <rect class="boxhdr" x="420" y="177" width="200" height="16"/>
+      <text class="mod" x="520" y="169" text-anchor="middle">XIAO ESP32-C5</text>
+      <text class="role" x="520" y="186" text-anchor="middle">SPI controller · arbiter</text>
+
+      <rect class="box" x="772" y="175" width="220" height="385" rx="8"/>
+      <rect class="boxhdr" x="772" y="175" width="220" height="48" rx="8"/>
+      <rect class="boxhdr" x="772" y="207" width="220" height="16"/>
+      <text class="mod" x="882" y="199" text-anchor="middle">CC1101</text>
+      <text class="role" x="882" y="216" text-anchor="middle">OOK/FSK/GFSK RX · 433 MHz</text>
+      <text class="cap" x="882" y="530" text-anchor="middle" fill="#A8DF65">ANT · 433 MHz</text>
+
+      <!-- ============ Wio control lines ============ -->
+      <g class="net" id="net-nss">
+        <path class="wire cs" d="M268 215 H420"/>
+        <text class="pin" x="274" y="208">NSS</text>
+        <text class="lbl cs" x="414" y="208" text-anchor="end">D4 · GPIO23</text>
+        <circle class="dotc" cx="330" cy="215" r="3.5"/>
+        <path class="wire cs" d="M330 215 V197"/>
+        <rect class="rsym" x="323" y="170" width="14" height="27" rx="2"/>
+        <path class="wire cs" d="M330 170 V162"/>
+        <path class="wire pwr" d="M320 162 H340"/>
+        <text class="railtxt" x="345" y="165">3V3</text>
+        <text class="cap" x="316" y="190" text-anchor="end">10 kΩ</text>
+      </g>
+      <g class="net" id="net-rst">
+        <path class="wire" d="M268 285 H420"/>
+        <text class="pin" x="274" y="278">RST</text>
+        <text class="lbl" x="414" y="278" text-anchor="end">D0 · GPIO1</text>
+        <circle class="dotc" cx="330" cy="285" r="3.5"/>
+        <path class="wire cs" d="M330 285 V267"/>
+        <rect class="rsym" x="323" y="240" width="14" height="27" rx="2"/>
+        <path class="wire cs" d="M330 240 V232"/>
+        <path class="wire pwr" d="M320 232 H340"/>
+        <text class="railtxt" x="345" y="235">3V3</text>
+        <text class="cap" x="316" y="260" text-anchor="end">10 kΩ</text>
+      </g>
+      <g class="net" id="net-dio1">
+        <path class="wire" d="M268 355 H414" marker-end="url(#arrow)"/>
+        <text class="pin" x="274" y="348">DIO1</text>
+        <text class="lbl" x="414" y="348" text-anchor="end">D1 · GPIO0</text>
+      </g>
+      <g class="net" id="net-busy">
+        <path class="wire" d="M268 425 H414" marker-end="url(#arrow)"/>
+        <text class="pin" x="274" y="418">BUSY</text>
+        <text class="lbl" x="414" y="418" text-anchor="end">D5 · GPIO24</text>
+      </g>
+      <g class="net" id="net-rfsw">
+        <path class="wire" d="M268 495 H420"/>
+        <text class="pin" x="274" y="488">RF_SW</text>
+        <text class="lbl" x="414" y="488" text-anchor="end">D2 · GPIO25</text>
+        <circle class="dotc" cx="330" cy="495" r="3.5"/>
+        <path class="wire cs" d="M330 495 V520"/>
+        <rect class="rsym" x="323" y="520" width="14" height="27" rx="2"/>
+        <path class="wire cs" d="M330 547 V557"/>
+        <path class="wire" d="M319 557 H341"/>
+        <path class="wire" d="M323 562 H337"/>
+        <path class="wire" d="M327 567 H333"/>
+        <text class="gndtxt" x="346" y="560">GND</text>
+        <text class="cap" x="316" y="540" text-anchor="end">10 kΩ</text>
+        <text class="cap" x="346" y="573" fill="#F5D658">pull-DOWN</text>
+      </g>
+
+      <!-- ============ CC1101 lines ============ -->
+      <g class="net" id="net-csn">
+        <path class="wire cs" d="M620 215 H772"/>
+        <text class="pin" x="766" y="208" text-anchor="end">CSn</text>
+        <text class="lbl cs" x="626" y="208">D3 · GPIO7</text>
+        <circle class="dotc" cx="700" cy="215" r="3.5"/>
+        <path class="wire cs" d="M700 215 V197"/>
+        <rect class="rsym" x="693" y="170" width="14" height="27" rx="2"/>
+        <path class="wire cs" d="M700 170 V162"/>
+        <path class="wire pwr" d="M690 162 H710"/>
+        <text class="railtxt" x="715" y="165">3V3</text>
+        <text class="cap" x="686" y="190" text-anchor="end">10 kΩ</text>
+      </g>
+      <g class="net" id="net-gdo">
+        <path class="wire" d="M772 285 H735" stroke-dasharray="5 4"/>
+        <circle cx="729" cy="285" r="5" fill="none" stroke="#6C5D69" stroke-width="1.7"/>
+        <text class="pin" x="766" y="278" text-anchor="end">GDO0 / GDO2</text>
+        <text class="cap" x="723" y="289" text-anchor="end">no connection</text>
+      </g>
+
+      <!-- ============ COMMON GROUND ============ -->
+      <g class="net" id="net-gnd">
+        <path class="wire" d="M80 620 H960"/>
+        <path class="wire" d="M215 560 V620"/>
+        <path class="wire" d="M520 600 V620"/>
+        <path class="wire" d="M825 560 V620"/>
+        <circle class="dot" cx="215" cy="620" r="3.5"/>
+        <circle class="dot" cx="520" cy="620" r="3.5"/>
+        <circle class="dot" cx="825" cy="620" r="3.5"/>
+        <text class="lbl" x="80" y="612" font-weight="700">COMMON GND · XIAO + BOTH RADIOS · ROUTE WITH SPI</text>
+      </g>
+
+      <!-- ============ shared SPI bus ============ -->
+      <g class="net" id="net-sck">
+        <path class="wire shared" d="M175 680 H940"/>
+        <path class="wire shared" d="M175 560 V680"/>
+        <circle class="dot" cx="175" cy="680" r="3.5"/>
+        <path class="wire shared" d="M470 600 V680"/>
+        <circle class="dot" cx="470" cy="680" r="3.5"/>
+        <path class="wire shared" d="M940 560 V680"/>
+        <circle class="dot" cx="940" cy="680" r="3.5"/>
+        <text class="lbl sh" x="600" y="673">SCK · GPIO8</text>
+      </g>
+      <g class="net" id="net-mosi">
+        <path class="wire shared" d="M135 740 H900"/>
+        <path class="wire shared" d="M135 560 V740"/>
+        <circle class="dot" cx="135" cy="740" r="3.5"/>
+        <path class="wire shared" d="M545 600 V740"/>
+        <circle class="dot" cx="545" cy="740" r="3.5"/>
+        <path class="wire shared" d="M900 560 V740"/>
+        <circle class="dot" cx="900" cy="740" r="3.5"/>
+        <text class="lbl sh" x="600" y="733">MOSI · GPIO10</text>
+      </g>
+      <g class="net" id="net-miso">
+        <path class="wire shared" d="M95 800 H860"/>
+        <path class="wire shared" d="M95 560 V800"/>
+        <circle class="dot" cx="95" cy="800" r="3.5"/>
+        <path class="wire shared" d="M570 600 V800"/>
+        <circle class="dot" cx="570" cy="800" r="3.5"/>
+        <path class="wire shared" d="M860 560 V800"/>
+        <circle class="dot" cx="860" cy="800" r="3.5"/>
+        <text class="lbl sh" x="600" y="793">MISO · GPIO9</text>
+      </g>
+      <text class="lbl sh" x="95" y="842" font-weight="700">three wires · both radios · the shared bus</text>
+      <text class="cap" x="640" y="842">● junction = connected · a crossing with no dot is not a connection</text>
+    </svg>
+    <figcaption>
+      Click any row in the <a href="#pins">pin map</a> to highlight its wire here.
+      Resistor and capacitor symbols end at a local rail marker rather than a drawn
+      rail — that is normal schematic shorthand, and it means "this leg goes to your
+      3V3 (or ground) point." For the dense net-by-net reference diagram, see
+      <a href="c5-dual-radio-wiring.svg">c5-dual-radio-wiring.svg</a>.
+    </figcaption>
+  </figure>
+</section>
+
+<section id="passives">
+  <h2>Passives, explained</h2>
+  <p>
+    This is the part the wiring docs state as a one-line spec and never explain, so
+    here is the whole idea. There are only two shapes of component placement in this
+    build, and telling them apart is most of the battle.
+  </p>
+
+  <div class="idioms">
+    <div class="idiom">
+      <svg viewBox="0 0 260 150" role="img" aria-label="A pull-up resistor: the signal wire runs straight from MCU to module, and a resistor taps that wire and goes up to 3V3.">
+        <style>
+          .w { stroke: #9DAF96; stroke-width: 2.4; fill: none; }
+          .w2 { stroke: #F5D658; stroke-width: 2.4; fill: none; }
+          .t { font: 10px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+          .tp { font: 700 9px 'IBM Plex Mono', monospace; fill: #F05D9D; }
+          .rb { fill: #1d1724; stroke: #F5D658; stroke-width: 1.8; }
+        </style>
+        <text class="t" x="6" y="108">MCU pin</text>
+        <text class="t" x="196" y="108">module</text>
+        <path class="w" d="M16 118 H244"/>
+        <circle cx="130" cy="118" r="3.5" fill="#F5D658"/>
+        <path class="w2" d="M130 118 V86"/>
+        <rect class="rb" x="122" y="54" width="16" height="32" rx="2"/>
+        <path class="w2" d="M130 54 V36"/>
+        <path d="M118 36 H142" stroke="#F05D9D" stroke-width="2.4" fill="none"/>
+        <text class="tp" x="148" y="39">3V3</text>
+        <text class="t" x="146" y="82">10 kΩ</text>
+      </svg>
+      <div class="kind">Parallel — taps the wire</div>
+      <h4>Pull-up</h4>
+      <p>The signal still runs MCU → module exactly as normal. The resistor is an
+        <em>extra branch</em> off that same wire going up to 3V3. Nothing is cut.</p>
+    </div>
+
+    <div class="idiom">
+      <svg viewBox="0 0 260 150" role="img" aria-label="A pull-down resistor: same as a pull-up but the resistor goes down to ground instead.">
+        <style>
+          .w { stroke: #9DAF96; stroke-width: 2.4; fill: none; }
+          .w2 { stroke: #F5D658; stroke-width: 2.4; fill: none; }
+          .t { font: 10px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+          .rb { fill: #1d1724; stroke: #F5D658; stroke-width: 1.8; }
+        </style>
+        <text class="t" x="6" y="42">MCU pin</text>
+        <text class="t" x="196" y="42">module</text>
+        <path class="w" d="M16 52 H244"/>
+        <circle cx="130" cy="52" r="3.5" fill="#F5D658"/>
+        <path class="w2" d="M130 52 V74"/>
+        <rect class="rb" x="122" y="74" width="16" height="32" rx="2"/>
+        <path class="w2" d="M130 106 V120"/>
+        <path class="w" d="M116 120 H144"/>
+        <path class="w" d="M121 127 H139"/>
+        <path class="w" d="M126 134 H134"/>
+        <text class="t" x="150" y="124">GND</text>
+        <text class="t" x="146" y="97">10 kΩ</text>
+      </svg>
+      <div class="kind">Parallel — taps the wire</div>
+      <h4>Pull-down</h4>
+      <p>Identical placement, other destination. In this whole build <b>exactly one
+        resistor goes to ground</b>: the Wio's RF_SW. Getting that one backwards is
+        the easy mistake.</p>
+    </div>
+
+    <div class="idiom">
+      <svg viewBox="0 0 260 150" role="img" aria-label="A decoupling capacitor bridging the module's VCC pin to its GND pin, placed physically at the module.">
+        <style>
+          .w { stroke: #F05D9D; stroke-width: 2.4; fill: none; }
+          .wg { stroke: #9DAF96; stroke-width: 2.4; fill: none; }
+          .t { font: 10px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+          .c { stroke: #F05D9D; stroke-width: 3; }
+        </style>
+        <text class="t" x="6" y="36">3V3 in</text>
+        <path class="w" d="M16 46 H212"/>
+        <text class="t" x="216" y="50">VCC</text>
+        <text class="t" x="6" y="122">GND</text>
+        <path class="wg" d="M16 132 H212"/>
+        <text class="t" x="216" y="136">GND</text>
+        <circle cx="150" cy="46" r="3.5" fill="#F05D9D"/>
+        <circle cx="150" cy="132" r="3.5" fill="#9DAF96"/>
+        <path class="w" d="M150 46 V80"/>
+        <path class="c" d="M132 80 H168"/>
+        <path class="c" d="M132 92 H168"/>
+        <path class="wg" d="M150 92 V132"/>
+        <text class="t" x="66" y="92">100 nF</text>
+      </svg>
+      <div class="kind">Bridge — across the supply</div>
+      <h4>Decoupling cap</h4>
+      <p>Straight across the module's own VCC and GND pins, as physically close to
+        them as you can get. Not in any signal path. Distance is the whole point, so
+        short legs matter.</p>
+    </div>
+
+    <div class="idiom">
+      <svg viewBox="0 0 260 150" role="img" aria-label="A series resistor: the signal wire is cut and the resistor is inserted inline, in the path itself.">
+        <style>
+          .w { stroke: #9DAF96; stroke-width: 2.4; fill: none; }
+          .t { font: 10px 'IBM Plex Mono', monospace; fill: #9DAF96; }
+          .rb { fill: #1d1724; stroke: #6C5D69; stroke-width: 1.8; }
+        </style>
+        <text class="t" x="6" y="76">TX pin</text>
+        <text class="t" x="204" y="76">RX pin</text>
+        <path class="w" d="M16 86 H112"/>
+        <rect class="rb" x="112" y="70" width="36" height="32" rx="2"/>
+        <path class="w" d="M148 86 H244"/>
+        <text class="t" x="108" y="126">470 Ω, inline</text>
+      </svg>
+      <div class="kind">Series — sits in the path</div>
+      <h4>Series resistor (contrast)</h4>
+      <p>This one <em>does</em> cut the wire. Nothing in the radio harness is wired
+        this way — it is Rev D §3's optional UART protection on a different cable,
+        shown here only so the two shapes never blur together.</p>
+    </div>
+  </div>
+
+  <h3>Why each part is there</h3>
+  <table>
+    <thead><tr><th>Part</th><th>Without it</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>10 kΩ pull-up on a chip select</b><br><span class="src">Wio NSS, CC1101 CSn</span></td>
+        <td>While the C5 is in reset or unpowered, its GPIO is not driving anything — the CS line floats to whatever charge is nearby. A floating active-low CS can read as <em>selected</em>, so a radio can sit there interpreting bus noise as commands. The resistor parks the line high (deselected) whenever nothing is actively driving it low.</td>
+        <td class="src">Rev D §4.2<br>Rev E §2, §4</td>
+      </tr>
+      <tr>
+        <td><b>10 kΩ pull-up on Wio RST</b></td>
+        <td>Same floating problem, worse consequence: reset is also active-low, so a drifting line can hold the radio in reset or reset it mid-transaction. The pull-up defines "reset released" until firmware deliberately pulses it low.</td>
+        <td class="src">Rev D §4.2</td>
+      </tr>
+      <tr>
+        <td><b>10 kΩ pull-<em>down</em> on Wio RF_SW</b></td>
+        <td>Defines the external RF-switch state during startup. GPIO25 is also an ESP32-C5 strapping pin (SDIO clock-edge selection, which this design doesn't use), so its level at reset is sampled whether you define it or not — this resistor makes that level yours rather than accidental.</td>
+        <td class="src">Rev D §4.2, §4.3</td>
+      </tr>
+      <tr>
+        <td><b>100 nF ceramic across each module's supply</b></td>
+        <td>A radio's current draw changes in nanoseconds; the wire back to the regulator is too long and too inductive to answer that fast, so the local rail sags and the chip browns out or behaves erratically. The small cap is the local reservoir that covers the fast edges.</td>
+        <td class="src">Rev D §4.2<br>Rev E §3, §4</td>
+      </tr>
+      <tr>
+        <td><b>10 µF across each module's supply</b></td>
+        <td>Same job, slower and bigger — it covers the longer transients (mode changes, RX start) that the 100 nF is too small to hold up. They work as a pair, which is why both are specified.</td>
+        <td class="src">Rev D §4.2<br>Rev E §3, §4</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>Practical notes — general technique, not from the wiring docs.</b>
+    Resistors and ceramic capacitors have no polarity, so orientation doesn't matter.
+    A 10 µF <em>electrolytic</em> does: the stripe marks the negative leg, which goes
+    to ground — backwards, it will eventually fail, sometimes loudly. A 10 µF ceramic
+    sidesteps that entirely and Rev E lists either as acceptable. Keep the decoupling
+    caps' legs short and put them at the <em>module</em> end of the supply wire, never
+    at the XIAO end: a bypass cap 8 cm away from the pin it's bypassing is decoration.
+    The pull resistors are not distance-sensitive in the same way — anywhere along the
+    line is electrically fine, so put them wherever they're mechanically sturdy.
+  </div>
+
+  <div class="note warn">
+    <b>Measure before you fit.</b> On the delivered Wio board, all three of its pull
+    resistors read <em>open</em>, not ~10 kΩ — that's recorded in
+    <a href="lora-harness.md">lora-harness.md</a>, and it's why they're listed as
+    still needed below. Do the same check on your CC1101 breakout before adding its
+    pull-up and caps: probe CSn to VCC and VCC to GND with the module unpowered and
+    disconnected. Roughly 10 kΩ means it's already fitted — adding a second one in
+    parallel gives you 5 kΩ, which is a different circuit than the one specified.
+  </div>
+</section>
+
+<section id="spi">
+  <h2>The shared SPI bus</h2>
+  <p>
+    SPI is a controller-plus-peripherals bus. Three wires are genuinely common to
+    every peripheral on it, and one more wire per peripheral picks which one is
+    listening. That's the entire trick:
+  </p>
+  <ul>
+    <li><b>SCK</b> (GPIO8) — the clock. The C5 generates it; both radios watch it.</li>
+    <li><b>MOSI</b> (GPIO10) — controller out. The C5 talks; both radios hear it.</li>
+    <li><b>MISO</b> (GPIO9) — controller in. Both radios <em>can</em> talk on this
+      one, which is the wire that needs a rule.</li>
+    <li><b>CS, one per radio</b> — Wio NSS on GPIO23, CC1101 CSn on GPIO7. Active
+      low: pull one low and that radio joins the conversation.</li>
+  </ul>
+
+  <h3>The one rule that makes it work</h3>
+  <p>
+    SCK and MOSI are safe to share because only the C5 ever drives them. MISO is
+    different: it's an <em>output</em> from each radio into one shared wire. If both
+    radios drove it at once, one would be pushing high while the other pulls low —
+    two outputs fighting over the same copper.
+  </p>
+  <p>
+    What prevents that is the deselected peripheral releasing MISO into
+    high-impedance. The CC1101 needs an explicit configuration invariant for this:
+    its SO pin is also GDO1, and <code>IOCFG1.GDO1_CFG</code> must remain at
+    <code>0x2E</code> (three-state). Any other GDO1 function may drive the shared line
+    while CSn is high. Rev E §5.2 therefore makes both that register setting and a
+    bench isolation check part of the shared-bus contract.
+  </p>
+  <div class="note warn">
+    <b>Why the CC1101 gets singled out.</b> On the E07-M1101D-SMA, pin 7 is
+    MISO/GDO1. <a href="https://www.ti.com/lit/ds/symlink/cc1101.pdf">TI specifies</a>
+    three-state as the reset default precisely so the SPI bus
+    can be shared. Constant <code>0x00</code> or <code>0xFF</code> reads are a useful
+    symptom, but not proof: wiring, selection, timing, or the Wio can produce the
+    same result. Confirm CS levels, preserve <code>0x2E</code>, and inspect MISO with a
+    logic analyzer or scope before assigning blame.
+  </div>
+
+  <h3>Arbitration — electrical vs. policy</h3>
+  <p>
+    Two separate things share the name "one at a time" here, and it's worth keeping
+    them apart:
+  </p>
+  <ul>
+    <li><b>Bus lock (electrical).</b> One SPI transaction at a time, so two tasks
+      can't interleave bytes into the same shift register. Rev E §5: no interrupt
+      handler performs SPI work.</li>
+    <li><b>Radio arbiter (policy).</b> Only one sub-GHz <em>receive engine</em> runs
+      at a time — not because the bus can't handle two peripherals, but because the
+      two radios sit centimetres apart and would desensitise each other. Switching to
+      one radio explicitly stops and deselects the other (Rev E §1, §5).</li>
+  </ul>
+
+  <h3>What the firmware already does</h3>
+  <p>
+    <code>firmware-c5/main/lora_radio.c</code> already owns this bus. It calls
+    <code>spi_bus_initialize()</code> once on <code>SPI2_HOST</code> with
+    <code>sclk=8, mosi=10, miso=9</code>, mode 0, 1 MHz, and notably sets
+    <code>spics_io_num = -1</code> — CS is driven by hand in software, because BUSY
+    has to be checked before each select.
+  </p>
+  <p>
+    So adding the CC1101 on the firmware side is <b>a second
+    <code>spi_bus_add_device()</code> on the same host</b>, not a second
+    <code>spi_bus_initialize()</code>. ESP-IDF is happy with multiple devices on one
+    host; initialising the same pins twice is the thing that fails. That driver
+    doesn't exist yet — after you finish soldering, the Wio half is immediately
+    testable with current firmware and the CC1101 half has nothing to run against it
+    beyond a bring-up probe you'd have to write.
+  </p>
+
+  <div class="note">
+    <b>Start slow.</b> 1 MHz, leads under 10 cm, ground alongside (Rev D §4.3,
+    Rev E §4.3). Raise the clock only after clean transfers are measured, and expect
+    a two-radio harness to be fussier about lead length than the single-radio one you
+    already have working.
+  </div>
+</section>
+
+<section id="pins">
+  <h2>Pin map</h2>
+  <p>Click a row to highlight it in the diagram above.
+    <button id="clearHl" style="font:700 10px var(--mono);background:#18161d;border:1px solid #2e2a36;color:var(--cream);border-radius:4px;padding:4px 9px;cursor:pointer;margin-left:6px;">clear</button>
+  </p>
+  <table>
+    <thead><tr><th>Net</th><th>XIAO</th><th>C5 GPIO</th><th>Wio</th><th>CC1101</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr data-net="sck"><td>Shared SPI clock</td><td>D8</td><td><code>8</code></td><td>SCK</td><td>SCK</td><td>Shared. Start at 1 MHz.</td></tr>
+      <tr data-net="mosi"><td>Shared data out</td><td>D10</td><td><code>10</code></td><td>MOSI</td><td>SI / MOSI</td><td>Shared. C5 output; confirm CC1101 silkscreen.</td></tr>
+      <tr data-net="miso"><td>Shared data in</td><td>D9</td><td><code>9</code></td><td>MISO</td><td>SO / MISO</td><td>Shared. Must go high-Z when that radio's CS is high.</td></tr>
+      <tr data-net="nss"><td>Wio chip select</td><td>D4</td><td><code>23</code></td><td>NSS</td><td>—</td><td>Active low. 10 kΩ pull-up to 3V3.</td></tr>
+      <tr data-net="csn"><td>CC1101 chip select</td><td>D3</td><td><code>7</code></td><td>—</td><td>CSn</td><td><span class="flag">New in Rev E</span> — Rev D said leave GPIO7 unconnected. 10 kΩ pull-up; JTAG-source strap behavior is resolved below.</td></tr>
+      <tr data-net="rst"><td>Wio reset</td><td>D0</td><td><code>1</code></td><td>RST</td><td>—</td><td>Do not share. 10 kΩ pull-up.</td></tr>
+      <tr data-net="dio1"><td>Wio interrupt</td><td>D1</td><td><code>0</code></td><td>DIO1</td><td>—</td><td>Never tie to a CC1101 GDO pin.</td></tr>
+      <tr data-net="busy"><td>Wio BUSY</td><td>D5</td><td><code>24</code></td><td>BUSY</td><td>—</td><td>Required, not optional. Bounded waits.</td></tr>
+      <tr data-net="rfsw"><td>Wio RF switch</td><td>D2</td><td><code>25</code></td><td>RF_SW</td><td>—</td><td>Strap-sensitive. 10 kΩ pull-<b>down</b> to GND.</td></tr>
+      <tr data-net="gdo"><td>CC1101 GDO0 / GDO2</td><td>—</td><td>—</td><td>—</td><td>GDO0, GDO2</td><td>Leave unconnected. Firmware polls status/FIFO.</td></tr>
+      <tr data-net="pwr gnd"><td>Supply + ground</td><td>3V3, GND</td><td>—</td><td>3V3, GND</td><td>VCC, GND</td><td>3.3 V only. Ground runs alongside the SPI wires.</td></tr>
+    </tbody>
+  </table>
+  <p class="src">Sources: Rev D §4.1 (Wio nets), Rev E §2 and §4.1 (CC1101 nets and the GPIO7 allocation); XIAO D-labels cross-checked against Seeed's official pin map.</p>
+</section>
+
+<section id="bom">
+  <h2>Parts list</h2>
+  <div class="bom-legend">
+    <span><span class="pill need">NEEDED</span> measured absent, fit it</span>
+    <span><span class="pill check">CHECK</span> measure the module first</span>
+    <span><span class="pill done">WIRED</span> already built</span>
+  </div>
+  <table>
+    <thead><tr><th>Qty</th><th>Part</th><th>Goes between</th><th>Status</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>10 kΩ resistor</td><td>Wio <b>NSS</b> → 3V3</td><td><span class="pill need">NEEDED</span></td><td class="src">Rev D §4.2</td></tr>
+      <tr><td>1</td><td>10 kΩ resistor</td><td>Wio <b>RST</b> → 3V3</td><td><span class="pill need">NEEDED</span></td><td class="src">Rev D §4.2</td></tr>
+      <tr><td>1</td><td>10 kΩ resistor</td><td>Wio <b>RF_SW</b> → <b>GND</b></td><td><span class="pill need">NEEDED</span></td><td class="src">Rev D §4.2</td></tr>
+      <tr><td>1</td><td>10 kΩ resistor</td><td>CC1101 <b>CSn</b> → 3V3</td><td><span class="pill check">CHECK</span></td><td class="src">Rev E §4.2</td></tr>
+      <tr><td>1</td><td>100 nF ceramic</td><td>Wio 3V3 → GND, at the header</td><td><span class="pill check">CHECK</span></td><td class="src">Rev D §4.2</td></tr>
+      <tr><td>1</td><td>10 µF ceramic or electrolytic</td><td>Wio 3V3 → GND, at the header</td><td><span class="pill check">CHECK</span></td><td class="src">Rev D §4.2</td></tr>
+      <tr><td>1</td><td>100 nF ceramic</td><td>CC1101 VCC → GND, at the header</td><td><span class="pill check">CHECK</span></td><td class="src">Rev E §4.2</td></tr>
+      <tr><td>1</td><td>10 µF ceramic or electrolytic</td><td>CC1101 VCC → GND, at the header</td><td><span class="pill check">CHECK</span></td><td class="src">Rev E §4.2</td></tr>
+      <tr><td>1</td><td>862–930 MHz antenna</td><td>Wio ANT</td><td><span class="pill done">WIRED</span></td><td class="src">Rev D §4.3</td></tr>
+      <tr><td>1</td><td>433 MHz antenna</td><td>CC1101 SMA</td><td><span class="pill need">NEEDED</span></td><td class="src">Rev E §4.1</td></tr>
+      <tr><td>6</td><td>Hookup wire, &lt;10 cm runs</td><td>To the CC1101: SCK, MOSI, MISO branches + CSn + 3V3 + GND</td><td><span class="pill need">NEEDED</span></td><td class="src">Rev E §4.3</td></tr>
+    </tbody>
+  </table>
+  <div class="note stop">
+    <b>Do not add anything that isn't on this list.</b> Rev E §4.2 is explicit: no
+    series resistors in the SPI lines, no shared-antenna splitter, no GPIO expander
+    in the first build unless a bench measurement shows a specific need. Two separate
+    antennas, never a passive T.
+  </div>
+</section>
+
+<section id="build">
+  <h2>Build checklist</h2>
+  <p>Ticks are saved in this browser, so you can close the page mid-build and come
+    back. Order matters: power and ground first, passives before signals, chip
+    selects last.</p>
+  <div class="ck-bar">
+    <span class="progress"><b id="ckDone">0</b> / <span id="ckTotal">0</span> done</span>
+    <button id="ckReset">reset all</button>
+  </div>
+  <div id="checklist"></div>
+</section>
+
+<section id="verify">
+  <h2>Verification gates</h2>
+  <p>
+    Rev E §6 names seven things to record before this counts as working, and asks for
+    each to be marked <b>measured</b>, <b>failed</b>, or <b>untested</b> — not
+    assumed. Here's what each one looks like at the bench.
+  </p>
+  <table>
+    <thead><tr><th>#</th><th>Gate</th><th>How you check it</th><th>Pass looks like</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Continuity</td><td>Multimeter, everything unpowered: 3V3 to GND on each module; CSn (GPIO7) to NSS (GPIO23).</td><td>3V3–GND does not remain near zero or continuously sound the continuity buzzer; record the settled resistance against the unmodified-module baseline. The two CS pins remain electrically separate.</td></tr>
+      <tr><td>2</td><td>Boot state</td><td>Meter or scope on both CS lines through a C5 reset and a native-USB recovery.</td><td>Both stay high the whole way through — that's the pull-ups doing their job.</td></tr>
+      <tr><td>3</td><td>SPI response</td><td>Run SX1262 <code>GetStatus</code>; read CC1101 <code>PARTNUM</code>/<code>VERSION</code> and perform a register write/read-back, always with the other radio's CS high.</td><td>Each returns its deterministic expected response. The Wio path is already proven; the CC1101 needs a bring-up probe written first.</td></tr>
+      <tr><td>4</td><td>MISO isolation</td><td>Keep CC1101 <code>IOCFG1=0x2E</code>, run Wio reads with CC1101 CSn high, and inspect the shared line with a logic analyzer or scope.</td><td>Wio reads remain correct and the trace shows no contention. Constant <code>0x00</code>/<code>0xFF</code> is a symptom to diagnose, not proof of which device is driving.</td></tr>
+      <tr><td>5</td><td>Receive</td><td>Wio against known LoRa traffic; CC1101 against a known compatible OOK/FSK/GFSK source.</td><td>Record frequency, modulation, deviation, data rate, bandwidth, sync/packet settings, source, distance, and antenna. Wio: cross-check real decoded packets against an independent observer.</td></tr>
+      <tr><td>6</td><td>Coexistence</td><td>Repeatedly switch between radio modes; watch false events, loss rate, supply current.</td><td>Switching is clean and neither radio's numbers degrade when the other has been active.</td></tr>
+      <tr><td>7</td><td>Power</td><td>Measure 3.3 V rail voltage and current <em>at the module pins</em> under worst combined load.</td><td>Rail holds up. This is the gate that would let Grove power be reconsidered — see <a href="power-budget.md">power-budget.md</a>, which has a method and no measurements yet.</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>A number without its conditions can't set a threshold.</b> That's
+    <a href="README.md">docs/hardware/README.md</a>'s own rule — when you record
+    these, record the instrument and the load, not just the value. Results belong in
+    a bench note in this directory, not in this file: this one is derived from the
+    design docs, and bench records are allowed to contradict the plan.
+  </div>
+</section>
+
+<section id="open">
+  <h2>Resolved constraint and remaining cautions</h2>
+
+  <div class="note">
+    <b>GPIO7 strap behavior is resolved from the
+    <a href="https://documentation.espressif.com/esp32-c5_datasheet_en.pdf">ESP32-C5 datasheet</a>.</b>
+    GPIO7 controls the early-boot JTAG signal source; it is not a boot-mode strap and
+    has no internal pull. With the default JTAG eFuses its sampled level is a
+    don't-care and USB Serial/JTAG remains selected. If JTAG source selection is
+    enabled and neither JTAG interface is disabled, high selects USB Serial/JTAG and
+    low selects the pad-JTAG pins. The CC1101's 10 kΩ CSn pull-up therefore defines
+    the required deselected state without changing the default boot mode. Record the
+    delivered board's eFuse state and still run cold-boot, native-USB, and JTAG
+    recovery tests with the pull-up fitted.
+  </div>
+
+  <div class="note warn">
+    <b>1. Rev D and Rev E disagree about GPIO7, and Rev E wins.</b> Rev D §4.1 says
+    "Leave XIAO D3 / GPIO7 unconnected" and its YAML carries
+    <code>unused_main_header_gpio: 7</code>. Rev E §2 reallocates it as CC1101 CSn
+    and declares itself the winner for the dual-radio changes it enumerates. If you
+    read Rev D alone you would leave this pin bare. The YAML block in Rev D §8 has
+    not been updated to match.
+  </div>
+
+  <div class="note warn">
+    <b>2. The CC1101 extension is a leaning, not a decision.</b>
+    <a href="../DECISIONS.md">D-15</a> is <code>🔵 Leaning</code>, gated on P3 bench
+    work. Rev E's own status line says "Proposed wiring; electrical and RF bench
+    validation pending." Nothing here has been built or measured — treat the CC1101
+    half of this guide as a plan you're testing, not a recipe that's known to work.
+  </div>
+
+  <div class="note warn">
+    <b>3. The power budget is still unmeasured.</b> Rev D §9's current table is
+    explicitly provisional (C5 + Wio ≈ 910 mA with margin against a nominally 1 A
+    rail), and the CC1101 adds to it.
+    <a href="../DECISIONS.md">D-4</a> stays open until P6 produces real numbers.
+    Keep both boards on separate USB and Grove red insulated until then.
+  </div>
+</section>
+
+<footer class="page">
+  Derived from <a href="../../Research/c5-backpack-design.md">Research/c5-backpack-design.md</a> Rev D §4 / §8 / §9,
+  <a href="c5-dual-radio-wiring.md">docs/hardware/c5-dual-radio-wiring.md</a> Rev E,
+  <a href="../DECISIONS.md">docs/DECISIONS.md</a> D-4/D-8/D-15, and
+  <a href="lora-harness.md">docs/hardware/lora-harness.md</a>.
+  Those documents are the authority; this one is a reading of them for the bench. If
+  they ever disagree with this page, they win and this page is the bug. GPIO7 was
+  cross-checked against the <a href="https://documentation.espressif.com/esp32-c5_datasheet_en.pdf">ESP32-C5 datasheet v1.5</a>;
+  CC1101 reset/MISO behavior against <a href="https://www.ti.com/lit/ds/symlink/cc1101.pdf">TI CC1101 Rev I</a>;
+  and the module pinout against <a href="https://www.cdebyte.com/products/E07-M1101D-SMA/2">CDEBYTE's product page</a>.
+  Last reviewed 2026-09-19.
+</footer>
+
+</main>
+
+<script>
+(function () {
+'use strict';
+
+/* ---- pin table ↔ diagram highlight ---- */
+const svg = document.getElementById('harness');
+const rows = document.querySelectorAll('tr[data-net]');
+function clearHl() {
+  svg.classList.remove('dimmed');
+  svg.querySelectorAll('.net.hl').forEach(n => n.classList.remove('hl'));
+  rows.forEach(r => r.classList.remove('active'));
+}
+rows.forEach(row => {
+  row.addEventListener('click', () => {
+    const wasActive = row.classList.contains('active');
+    clearHl();
+    if (wasActive) return;
+  const nets = row.dataset.net.split(/\s+/)
+    .map(name => document.getElementById('net-' + name))
+    .filter(Boolean);
+  if (!nets.length) return;
+  svg.classList.add('dimmed');
+  nets.forEach(net => net.classList.add('hl'));
+    row.classList.add('active');
+  });
+});
+document.getElementById('clearHl').addEventListener('click', clearHl);
+
+/* ---- build checklist ---- */
+const STAGES = [
+  {
+    name: 'A · Before anything is connected',
+    steps: [
+      ['Measure the Wio’s three pull resistors: NSS→3V3, RST→3V3, RF_SW→GND.',
+       'Open means fit it. ~10 kΩ means it’s already there — leave it alone. All three measured open on the delivered board last time.'],
+      ['Measure the CC1101 breakout the same way: CSn→VCC, and VCC→GND.',
+       'Rev E §4.2 warns the breakout may already carry similar parts. A second 10 kΩ in parallel is 5 kΩ, which is not the specified circuit.'],
+      ['Confirm the CC1101 module is the 3.3 V part and will never see 5 V.',
+       'E07-M1101D-SMA, 1.8–3.6 V, 387–464 MHz. Rev E §4.1.'],
+      ['Check 3V3→GND is not shorted on either module.',
+       'Unpowered and disconnected: it must not remain near zero or continuously sound the continuity buzzer. Record the settled resistance against the unmodified-module baseline.'],
+    ],
+  },
+  {
+    name: 'B · Power and ground first',
+    steps: [
+      ['Run GND from the XIAO to both modules, alongside where the SPI wires will go.',
+       'Rev E §4.3 — the return path should follow the signals, not wander off on its own route.'],
+      ['Run 3V3 from the XIAO 3V3 output to Wio 3V3 and CC1101 VCC.',
+       'XIAO 3V3 output only. No separately switched radio supply (Rev D §4.2).'],
+      ['Fit 100 nF across VCC→GND at the Wio header, legs as short as you can make them.'],
+      ['Fit 10 µF across VCC→GND at the Wio header.',
+       'If it’s electrolytic, the striped leg goes to ground.'],
+      ['Fit 100 nF across VCC→GND at the CC1101 header.'],
+      ['Fit 10 µF across VCC→GND at the CC1101 header.'],
+      ['Re-check 3V3→GND for a short on both modules.',
+       'The reading may rise while capacitors charge, but a populated module need not settle fully open. A steady near-zero reading or continuous buzzer is the failure.'],
+    ],
+  },
+  {
+    name: 'C · The four pull resistors',
+    steps: [
+      ['Wio NSS → 3V3, 10 kΩ.', 'Taps the NSS wire; does not interrupt it.'],
+      ['Wio RST → 3V3, 10 kΩ.'],
+      ['Wio RF_SW → GND, 10 kΩ.',
+       'The only one that goes to ground. Double-check this leg before you solder it.'],
+      ['Fit CC1101 CSn → 3V3, 10 kΩ.',
+       'GPIO7 is the JTAG-source strap with no internal pull. Its level is a don’t-care under default JTAG eFuses; record eFuse state and retain cold-boot/native-USB/JTAG recovery tests.'],
+    ],
+  },
+  {
+    name: 'D · Signal wires',
+    steps: [
+      ['Shared bus to both radios: SCK ← GPIO8, MOSI ← GPIO10, MISO → GPIO9.',
+       'One wire per net, branching to both modules. Keep every run under ~10 cm.'],
+      ['Wio control lines: NSS GPIO23, RST GPIO1, DIO1 GPIO0, BUSY GPIO24, RF_SW GPIO25.',
+       'Already wired if you’re extending the existing harness — verify rather than redo.'],
+      ['CC1101 CSn → GPIO7.'],
+      ['Leave CC1101 GDO0 and GDO2 unconnected.',
+       'Rev E §2: first harness polls status/FIFO. Never tie a GDO pin to Wio DIO1.'],
+      ['Verify no chip-select cross-connection: GPIO7 to GPIO23 must read open.',
+       'Rev E §6 gate 1.'],
+    ],
+  },
+  {
+    name: 'E · Antennas',
+    steps: [
+      ['Fit the 862–930 MHz antenna to the Wio.'],
+      ['Fit an antenna matched to the CC1101’s configured channel near 433 MHz.',
+       'A 915 MHz antenna may still hear a strong nearby signal, but it invalidates sensitivity, RSSI and range comparisons (Rev E §4.2).'],
+      ['Confirm two separate antennas, no splitter or T between them.',
+       'Rev E §4.3, explicitly.'],
+      ['Keep antenna feeds away from the C5, display and USB wiring where you can.'],
+    ],
+  },
+  {
+    name: 'F · First power-on',
+    steps: [
+      ['Both boards on their own USB. Grove red disconnected and insulated.',
+       'Rev D §9 / Rev E §6 — unchanged until P6 measurements exist.'],
+      ['Power the XIAO and measure 3.3 V at each module’s own supply pin.',
+       'At the module pin, not at the XIAO end — the point is to catch drop across your wiring.'],
+      ['Confirm both CS lines sit high through a full C5 reset.',
+       'Rev E §6 gate 2.'],
+      ['Cold-boot and native-USB-recovery test with all pull resistors fitted.',
+       'Both GPIO25 and GPIO7 now carry external pulls, and both are strapping pins.'],
+    ],
+  },
+  {
+    name: 'G · Bring-up',
+    steps: [
+      ['Run the existing Wio reset → TCXO → calibrate → RX sequence.',
+       'Known-good path: it ran fault-free first try before the CC1101 existed. A failure now points at something you just changed.'],
+      ['Confirm Wio RX still decodes real traffic with CC1101 CSn high and IOCFG1.GDO1_CFG=0x2E.',
+       'Inspect MISO with a logic analyzer or scope too; successful reads alone do not prove absence of contention.'],
+      ['Write and run the bounded CC1101 manual power-on reset sequence.',
+       'SCK high/SI low; strobe CSn low→high; wait ≥40 µs; CSn low; wait SO low; issue SRES; wait SO low again. Then read PARTNUM/VERSION and perform register write/read-back.'],
+      ['Add the CC1101 as a second device on the existing SPI2_HOST bus.',
+       'No CC1101 driver exists yet. Use a second spi_bus_add_device(), never a second spi_bus_initialize(), and preserve IOCFG1.GDO1_CFG=0x2E.'],
+      ['Record every Rev E §6 gate as measured, failed, or untested in a bench note.',
+       'Results go in docs/hardware/, not in this file.'],
+    ],
+  },
+];
+
+const KEY = 'oscilla-dual-radio-build-v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* private window, file:// restrictions — ticks still work for this session */ }
+}
+
+const wrap = document.getElementById('checklist');
+let total = 0;
+STAGES.forEach((stage, si) => {
+  const box = document.createElement('div');
+  box.className = 'stage';
+  const h = document.createElement('h4');
+  h.innerHTML = '<span>' + stage.name + '</span><span class="count" data-stage="' + si + '"></span>';
+  box.appendChild(h);
+  stage.steps.forEach((step, ti) => {
+    const id = 's' + si + '_' + ti;
+    total++;
+    const row = document.createElement('div');
+    row.className = 'step';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    cb.checked = !!state[id];
+    if (cb.checked) row.classList.add('done');
+    const lab = document.createElement('label');
+    lab.setAttribute('for', id);
+    let html = step[0];
+    if (step[1]) {
+      const why = step[1].replace(/^FLAG: /, '<span class="flag">⚠ </span>');
+      html += '<span class="why">' + why + '</span>';
+    }
+    lab.innerHTML = html;
+    cb.addEventListener('change', () => {
+      state[id] = cb.checked;
+      row.classList.toggle('done', cb.checked);
+      save();
+      render();
+    });
+    row.appendChild(cb);
+    row.appendChild(lab);
+    box.appendChild(row);
+  });
+  wrap.appendChild(box);
+});
+
+document.getElementById('ckTotal').textContent = total;
+function render() {
+  let done = 0;
+  STAGES.forEach((stage, si) => {
+    let sDone = 0;
+    stage.steps.forEach((_, ti) => { if (state['s' + si + '_' + ti]) { sDone++; done++; } });
+    const el = document.querySelector('.count[data-stage="' + si + '"]');
+    if (el) el.textContent = sDone + '/' + stage.steps.length;
+  });
+  document.getElementById('ckDone').textContent = done;
+}
+document.getElementById('ckReset').addEventListener('click', () => {
+  state = {};
+  save();
+  document.querySelectorAll('.step input').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.step').classList.remove('done');
+  });
+  render();
+});
+render();
+
+})();
+</script>
+</body>
+</html>

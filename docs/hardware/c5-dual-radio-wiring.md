@@ -3,7 +3,7 @@
 [![Oscilla C5 dual-radio wiring diagram](c5-dual-radio-wiring.png)](c5-dual-radio-wiring.svg)
 
 **Revision:** E-CC1101 addendum  
-**Date:** 2026-09-13  
+**Date:** 2026-09-19
 **Status:** Proposed wiring; electrical and RF bench validation pending  
 **Scope:** Adds a TI CC1101 as a second, receive-only sub-GHz peripheral to the existing Cardputer ADV + XIAO ESP32-C5 + Wio-SX1262 backpack.
 
@@ -30,7 +30,7 @@ The first three SPI wires are a shared bus. Each radio has an independent active
 |---|---|---:|---|---|---|
 | Shared SPI clock | D8 | 8 | SCK | SCK | Keep both modules close; begin at 1 MHz. |
 | Shared controller-out data | D10 | 10 | MOSI | SI / MOSI | C5 output. |
-| Shared controller-in data | D9 | 9 | MISO | SO / MISO | Each peripheral must release MISO while its CSn is high; bench-check the actual CC1101 module. |
+| Shared controller-in data | D9 | 9 | MISO | SO / MISO/GDO1 | Keep CC1101 `IOCFG1.GDO1_CFG=0x2E` (three-state) so it releases MISO while CSn is high; bench-check the actual module. |
 | Wio chip select | D4 | 23 | NSS | — | Active low; existing 10 kΩ pull-up remains required. |
 | **CC1101 chip select** | **D3** | **7** | — | **CSn** | **New allocation.** Add a 10 kΩ pull-up to 3V3. |
 | Wio reset | D0 | 1 | RST | — | Do not share this signal. |
@@ -40,7 +40,21 @@ The first three SPI wires are a shared bus. Each radio has an independent active
 | CC1101 GDO0 | — | — | — | GDO0 | Leave unconnected in the first harness; firmware polls CC1101 status/FIFO. |
 | CC1101 GDO2 | — | — | — | GDO2 | Leave unconnected in the first harness. |
 
-CC1101 has no dedicated reset wire in this design. Its reset is issued with the chip's SPI reset strobe after `CSn` is selected. Do not reuse Wio reset, DIO1, BUSY, or RF_SW for CC1101 signals.
+CC1101 has no dedicated reset wire in this design. Use TI's bounded manual
+power-on reset sequence: set SCK high and SI low, strobe CSn low then high,
+wait at least 40 µs, pull CSn low, wait for SO to go low, issue `SRES`, then
+wait for SO to go low again. Do not reuse Wio reset, DIO1, BUSY, or RF_SW for
+CC1101 signals.
+
+GPIO7 is the ESP32-C5 JTAG signal-source strap, not a boot-mode strap. It has
+no internal pull. With the default JTAG eFuses, its sampled level is a
+don't-care and USB Serial/JTAG remains selected; if
+`EFUSE_JTAG_SEL_ENABLE=1` while both JTAG interfaces remain enabled, high
+selects USB Serial/JTAG and low selects the pad-JTAG pins. The required 10 kΩ
+CSn pull-up therefore defines a safe,
+deselected peripheral state and does not change the default boot mode. Record
+the delivered board's eFuse state and retain cold-boot, native-USB, and JTAG
+recovery tests with the pull-up fitted.
 
 ## 3. Wio-SX1262 harness passives
 
@@ -58,7 +72,7 @@ Inspect the delivered Wio board before adding external parts. Retain the require
 
 ## 4. CC1101 harness and required passives
 
-### 3.1 Point-to-point connections
+### 4.1 Point-to-point connections
 
 | CC1101 module label | Connect to | Direction / requirement |
 |---|---|---|
@@ -66,13 +80,13 @@ Inspect the delivered Wio board before adding external parts. Retain the require
 | GND | XIAO GND | Common reference; run a ground alongside the SPI wires. |
 | SCK | XIAO D8 / GPIO8 | Shared SPI clock. |
 | SI / MOSI | XIAO D10 / GPIO10 | C5 → CC1101 data. Confirm module silkscreen; some boards call this `MOSI`. |
-| SO / MISO | XIAO D9 / GPIO9 | CC1101 → C5 data. Confirm this line goes high-impedance when `CSn` is high. |
+| SO / MISO/GDO1 | XIAO D9 / GPIO9 | CC1101 → C5 data. Leave `IOCFG1.GDO1_CFG=0x2E`; any other GDO1 function may drive this shared line while `CSn` is high. |
 | CSN / CS | XIAO D3 / GPIO7 | New, dedicated active-low chip select. |
 | GDO0 | No connection initially | Optional future packet/event interrupt after a real spare-GPIO plan exists. |
 | GDO2 | No connection initially | Optional; leave open. |
 | ANT | Dedicated antenna matched to the module's configured band | Use a 433 MHz antenna for 387–464 MHz work (E07-M1101D-SMA band). |
 
-### 3.2 Add these components
+### 4.2 Add these components
 
 | Part | Connection | Purpose |
 |---|---|---|
@@ -83,7 +97,7 @@ Inspect the delivered Wio board before adding external parts. Retain the require
 
 The pull-up and decoupling parts are required even if a breakout board appears to include similar parts; inspect the delivered board and avoid accidentally placing conflicting values. Do **not** add series resistors, a shared-antenna splitter, or a GPIO expander in the first build unless bench measurements show a specific need.
 
-### 3.3 RF layout rules
+### 4.3 RF layout rules
 
 - Use **separate antennas** for the Wio and CC1101. Do not combine their antenna ports with a passive T/splitter.
 - Keep antenna feed lines and radio modules away from the C5, display, and USB wiring where practical.
@@ -92,15 +106,15 @@ The pull-up and decoupling parts are required even if a breakout board appears t
 
 ## 5. Safe electrical and firmware operation
 
-### 4.1 Boot state
+### 5.1 Boot state
 
 1. Keep **Wio NSS** and **CC1101 CSn** high with their external pull-ups before the C5 configures GPIO.
 2. Configure C5 GPIO8/9/10 as the shared SPI bus, then drive both chip selects high.
 3. Initialize the Wio only through its Rev D reset, BUSY, TCXO, DIO2/RF-switch sequence.
-4. Initialize the CC1101 only while its own `CSn` is low; issue its SPI reset strobe and verify a bounded status response.
+4. Initialize the CC1101 with the bounded manual power-on reset sequence above, then read `PARTNUM`/`VERSION` and perform a register write/read-back while Wio NSS stays high.
 5. On any timeout, deselect the affected radio, surface a local hardware fault, and keep the deck UI running.
 
-### 4.2 Bus and radio arbitration
+### 5.2 Bus and radio arbitration
 
 The C5 firmware needs two separate responsibilities:
 
@@ -115,6 +129,7 @@ shared SPI bus lock
 - A transition to `lora_rx` first stops and deselects the CC1101; a transition to `legacy_rx` first stops and deselects the Wio.
 - The two drivers have independent register maps and timing. Never send an SX1262 command to CC1101 or assume a shared register configuration.
 - `legacy_rx` begins with polling, not a GDO interrupt. A future interrupt-driven revision needs a new C5 pin allocation; never wire GDO0 and Wio DIO1 together.
+- Keep `IOCFG1.GDO1_CFG=0x2E` in every CC1101 profile. Changing it makes the shared SO/MISO pin a generic output whenever CSn is high and can create bus contention.
 - The only exposed behaviors remain receive, stop, status, and fault reporting. There is no transmit mode.
 
 ## 6. Power and validation gates
@@ -131,9 +146,9 @@ Before calling this extension ready, record:
 
 1. Continuity: no short from 3V3 to GND; no CSn cross-connection.
 2. Boot: both CS lines remain high through C5 reset and native-USB recovery.
-3. SPI: each radio returns an expected status/ID response while the other CS stays high.
-4. MISO isolation: the deselected CC1101 does not hold the shared MISO line.
-5. Receive: Wio receives a known compatible LoRa transmission; CC1101 detects/receives only a known compatible OOK/FSK/GFSK test source.
+3. SPI: SX1262 `GetStatus` and CC1101 `PARTNUM`/`VERSION` plus register write/read-back succeed while the other CS stays high.
+4. MISO isolation: with CC1101 CSn high and `IOCFG1.GDO1_CFG=0x2E`, Wio reads remain correct and a logic-analyzer/scope trace shows no contention. Constant `0x00`/`0xFF` is only a symptom to investigate, not proof of which device is at fault.
+5. Receive: Wio receives a known compatible LoRa transmission; CC1101 detects/receives only a known compatible OOK/FSK/GFSK test source. Record frequency, modulation, deviation, data rate, bandwidth, sync/packet settings, source, distance, and antenna.
 6. Coexistence: measure false events, loss rate, and supply current during repeated transitions between radio modes.
 7. Power: measure 3.3 V rail voltage and current at the module pins under the intended worst combined system load.
 
@@ -142,6 +157,8 @@ Mark every result as measured, failed, or untested. Do not represent this wiring
 ## 7. Sources
 
 - Existing backpack baseline: [`Research/c5-backpack-design.md`](../../Research/c5-backpack-design.md) Rev D.
+- [Espressif ESP32-C5 datasheet](https://documentation.espressif.com/esp32-c5_datasheet_en.pdf): GPIO7 JTAG strap behavior and default eFuse state.
+- [Seeed XIAO ESP32-C5 pin map](https://wiki.seeedstudio.com/xiao_esp32c5_getting_started/): XIAO D-label to native-GPIO mapping.
 - [TI CC1101 datasheet](https://www.ti.com/lit/ds/symlink/cc1101.pdf): SPI interface, reset strobe, supported modulation families, and RF-band constraints.
 - [CDEBYTE E07-M1101D-SMA product page](https://www.cdebyte.com/products/E07-M1101D-SMA/2): the specific CC1101 module this addendum targets. 387–464 MHz band, 1.8–3.6 V supply, SMA antenna connector. Confirms the SPI pinout (GND, VCC, GDO0, CSN, SCK, MOSI, MISO/GDO1 shared, GDO2) assumed above.
 - [Seeed Wio-SX1262 module datasheet](https://files.seeedstudio.com/products/SenseCAP/Wio_SX1262/Wio-SX1262_Module_Datasheet.pdf): Wio supply, RF-switch, TCXO, and module constraints.

@@ -1,3 +1,36 @@
+## 2026-09-19 — Dual-radio build-guide electrical corrections
+
+**Phase:** P3 proposed CC1101 extension documentation · **By:** Codex
+
+Audited and corrected the two derived HTML assembly guides against Rev D, the
+CC1101 addendum, the ESP32-C5 v1.5 datasheet, TI CC1101 Rev I, Seeed's XIAO
+pin map, and CDEBYTE's module pin table. The GPIO7 question is now resolved:
+it is the no-internal-pull JTAG-source strap, is a don't-care with the default
+JTAG eFuses, and the proposed 10 kΩ CSn pull-up does not alter default boot
+mode. D-15 and the authoritative addendum now carry that condition and retain
+cold-boot/native-USB/JTAG recovery as hardware gates.
+
+The addendum now numbers its §4/§5 subsections correctly, requires the full
+bounded CC1101 manual power-on reset sequence, and makes
+`IOCFG1.GDO1_CFG=0x2E` a shared-MISO invariant. Validation now names
+deterministic SPI responses, treats constant `0x00`/`0xFF` as a symptom rather
+than proof, records RF test conditions, and no longer requires populated power
+rails to measure fully open.
+
+The rendered harness diagram now shows common ground explicitly. The
+breadboard plan now shows XIAO rail feeds and required upper/lower rail
+bridges, warns separately about centre rail splits, and no longer depicts a
+pull-up on the SCK strip. Both HTML scripts parse, local links/fragments pass,
+and Chromium renders of the corrected harness, breadboard plan, and strip
+detail were visually checked. `python3 tools/ocp_repl.py --selftest` passed
+27/27 and `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed. The
+first unmodified host-check invocation reached its sanitizer phase but hit the
+known LeakSanitizer-under-ptrace incompatibility, so the documented local
+override was used. This is documentation validation only: D-15 remains
+leaning and the CC1101 electrical/RF hardware gates remain untested.
+
+---
+
 ## 2026-09-18 — First-class defensive analysis cards
 
 **Phase:** P8 navigation and UI · **By:** Codex

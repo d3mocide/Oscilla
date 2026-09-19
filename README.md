@@ -20,7 +20,7 @@
 **Wireless discovery, packet dissection, and field telemetry instrument for the M5Stack Cardputer ADV.**  
 *An open-source RF instrumentation initiative by **d3FRAG Networks**.*
 
-[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Dual-Radio Wiring (Rev E)](docs/hardware/c5-dual-radio-wiring.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
+[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Dual-Radio Wiring (Rev E)](docs/hardware/c5-dual-radio-wiring.md) · [Backpack Build Guide](docs/hardware/dual-radio-build.html) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
 
 </div>
 
@@ -122,6 +122,8 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | [`tools/`](tools/)                                                               | **Host Client & Verification**: CLI parser, REPL, and compliance test suites.       | Require hardware for protocol verification.     |
 | [`docs/brand/`](docs/brand/)                                                     | **Visual System**: Master Brand & UI Guide for primary and external displays.       | Deviate from brand color and font tokens.       |
 | [`docs/deck-ui-state.html`](docs/deck-ui-state.html)                             | **As-Built UI Reference**: what the deck actually renders today, read from `ui/*.cpp`. | Treat as design authority — that's `docs/brand/`. |
+| [`docs/hardware/dual-radio-build.html`](docs/hardware/dual-radio-build.html)      | **Bench Build Guide**: passives, shared SPI, and the assembly/verification order for the dual-radio backpack. | Substitute it for Rev D / Rev E when they disagree. |
+| [`docs/hardware/dual-radio-breadboard.html`](docs/hardware/dual-radio-breadboard.html) | **Breadboard Layout**: solderless layout, the Wio/XIAO footprint trap, and which gates a breadboard can prove. | Record gate 6/7 results from a breadboard. |
 
 ---
 

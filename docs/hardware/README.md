@@ -5,6 +5,16 @@ Measurements, photographs and bring-up records from real hardware. The
 (Rev D) — this directory is what the bench actually showed, which is a
 different thing and is allowed to contradict the plan.
 
+One exception to that framing lives here too:
+[`dual-radio-build.html`](dual-radio-build.html) is a *derived* build procedure —
+a reading of Rev D §4 and the Rev E addendum for someone at the bench with a
+soldering iron, covering what each pull resistor and decoupling cap is for and
+how the two radios share one SPI bus. It records nothing and decides nothing; if
+it ever disagrees with the design documents, they win.
+[`dual-radio-breadboard.html`](dual-radio-breadboard.html) is its solderless
+companion: physical layout, and which of Rev E §6's gates a breadboard can
+honestly prove.
+
 Expected contents as phases land:
 
 | File | Phase | Contents |
