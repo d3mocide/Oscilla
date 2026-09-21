@@ -81,7 +81,7 @@ static void spectrum_wifi_teardown(void)
     if (err != ESP_OK) ESP_LOGW(TAG, "disable promiscuous: %s", esp_err_to_name(err));
     err = esp_wifi_set_promiscuous_rx_cb(NULL);
     if (err != ESP_OK) ESP_LOGW(TAG, "clear promiscuous callback: %s", esp_err_to_name(err));
-    err = wifi_recon_restore_after_promiscuous();
+    err = wifi_recon_restore_shared_phy();
     if (err != ESP_OK) ESP_LOGW(TAG, "restart Wi-Fi after promiscuous mode: %s", esp_err_to_name(err));
     arbiter_release(PHY_OWNER_WIFI);
 }

@@ -224,7 +224,7 @@ esp_err_t wifi_recon_init(void)
 
 bool wifi_recon_ready(void) { return s_ready; }
 
-esp_err_t wifi_recon_restore_after_promiscuous(void)
+esp_err_t wifi_recon_restore_shared_phy(void)
 {
     if (!s_ready) return ESP_ERR_INVALID_STATE;
 

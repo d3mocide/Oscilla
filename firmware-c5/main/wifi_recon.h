@@ -20,9 +20,14 @@
 esp_err_t wifi_recon_init(void);
 bool wifi_recon_ready(void);
 
-/* Rebuild the already-configured, unassociated STA driver after a
- * promiscuous-only engine releases it. */
-esp_err_t wifi_recon_restore_after_promiscuous(void);
+/* Rebuild the already-configured, unassociated STA driver after any other
+ * engine that shares the C5's one PHY (promiscuous Wi-Fi, or 802.15.4 —
+ * esp_ieee802154_enable/disable share the same esp_phy modem state) has
+ * released it. A stop+start bounce of the STA driver is what actually
+ * clears the PHY into a state plain Wi-Fi scan/config calls can use again;
+ * skipping it after 802.15.4 use left Wi-Fi silently returning zero
+ * results (2026-09-21, see WORKLOG). */
+esp_err_t wifi_recon_restore_shared_phy(void);
 
 /* Copy stored result `idx` (1-based). False if absent or a scan is running. */
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel);

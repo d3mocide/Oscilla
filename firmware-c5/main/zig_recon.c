@@ -14,6 +14,7 @@
 #include "ocp.h"
 #include "ocp_frame.h"
 #include "ocp_parse.h"
+#include "probe_restart.h"
 #include "radio_arbiter.h"
 #include "zig_frame.h"
 #include "zig_radio.h"
@@ -25,6 +26,13 @@ static zig_table_t *s_table;
 static SemaphoreHandle_t s_lock;
 static bool s_ready;
 static volatile bool s_running;
+/* Set by zig_task itself: true only while it is NOT between iterations,
+ * i.e. potentially inside an esp_ieee802154_receive()/set_channel() call.
+ * zig_teardown() waits for this before disabling the radio (below) — a
+ * concurrent disable() would race a live call on hardware shared with
+ * Wi-Fi/BLE (esp_ieee802154_enable/disable share esp_btbb_enable/disable
+ * and the esp_phy modem-flag state with them). */
+static volatile bool s_task_idle = true;
 static uint8_t s_ch = ZIG_DEFAULT_CH;
 static uint32_t s_dwell = ZIG_DEFAULT_DWELL_MS;
 static uint32_t s_last_hop;
@@ -69,7 +77,8 @@ static void zig_task(void *arg)
 {
     (void)arg; zig_rx_t rx;
     for (;;) {
-        if (!s_running) { vTaskDelay(pdMS_TO_TICKS(25)); continue; }
+        if (!s_running) { s_task_idle = true; vTaskDelay(pdMS_TO_TICKS(25)); continue; }
+        s_task_idle = false;
         if (zig_radio_next(&rx, 50)) {
             zig_frame_t f;
             if (zig_frame_parse(rx.data, rx.len, &f)) {
@@ -97,11 +106,24 @@ static void zig_task(void *arg)
     }
 }
 
+/* Bounded wait for zig_task to leave its radio-touching region: same
+ * "wait, then proceed anyway" idiom as ocp_frame.c's FRAME_LOCK_WAIT_MS. */
+#define ZIG_TEARDOWN_WAIT_MS 200
+
 static void zig_teardown(void)
 {
     if (!s_running) return;
-    s_running = false; zig_radio_stop(); arbiter_release(PHY_OWNER_IEEE802154);
+    s_running = false;
+    for (uint32_t waited = 0; !s_task_idle && waited < ZIG_TEARDOWN_WAIT_MS; waited += 5) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+    zig_radio_stop();
+    arbiter_release(PHY_OWNER_IEEE802154);
     ocp_emit_compact(OCP_MARK_ZIG, "%s=idle %s=1", OCP_K_STATE, OCP_K_ABORTED);
+    /* No app-level fix exists for the underlying coexistence defect (see
+     * probe_restart.h) — request the recovery reboot; held off if LoRa RX
+     * is running until that stops too. */
+    probe_restart_request();
 }
 
 esp_err_t zig_recon_init(void)

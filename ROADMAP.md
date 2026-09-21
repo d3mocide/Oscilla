@@ -201,7 +201,11 @@ complete until its remaining real-frame and view checks are demonstrated.
   identical ACK-requested unicast to the temporary fixed-identity, promiscuous
   Oscilla image returned ESP-IDF `NO_ACK` and was independently observed and
   captured by Oscilla. Normal images restored. Remaining: physical 802.15.4-view
-  inspection and long-duration/loss characterization.
+  inspection and long-duration/loss characterization. **2026-09-21:** found and
+  worked around an ESP32-C5 coexistence defect where stopping this engine left
+  Wi-Fi/BLE silently returning zero results until a full reboot — no app-level
+  fix exists (upstream, [D-18](docs/DECISIONS.md)); the probe now auto-recovers
+  with a guarded reboot, hardware-confirmed.
 - [x] `start_sniffer`/`show_clients`/`show_probes` + **Sniffer** view — started early, out of sequence (see WORKLOG 2026-09-12). **Hardware-confirmed 2026-09-16**: `sniff` via the debug console picked up real clients/probes over live RF. 5 GHz hop set excludes DFS channels ([D-14](docs/DECISIONS.md): leaning — regulatory question closed 2026-09-14, one bench test left before flipping it).
 - [x] `deauth_detector` + **Deauth Detect** Analyze card. **Hardware-confirmed 2026-09-16**: ran clean over real RF (0 events — no attacks present, which is the correct/expected result, not an untested path).
 - [x] `channel_view`, `packet_monitor` + **Packet Monitor** view — same early/out-of-sequence batch. **Hardware-confirmed 2026-09-16**: `spectrum` and `channel <n>` both ack'd by the real probe over the debug console (9 real readings, `cfg ack ch=6`). Still not visually confirmed rendering correctly on the deck's own TFT — that check is cheap and worth doing next time the deck's in hand.

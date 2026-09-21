@@ -134,6 +134,10 @@ python3 tools/check_deck_parser.py --count 150
 # Packet-monitor teardown must leave Wi-Fi ready for the next passive engine.
 python3 tools/test_wifi_spectrum_teardown.py | tail -1 | sed 's/^/  /'
 
+# 802.15.4 teardown must queue a recovery reboot, held off while LoRa RX
+# runs, with the [STOP] ack always reaching the deck first.
+python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
+
 # The deck's scan model: paging, validation, caps.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/model_test" \
     firmware-cardputer/test/host/model_test.cpp firmware-cardputer/src/model/scan_model.cpp \

@@ -10,6 +10,7 @@
 #include "ble_recon.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
+#include "probe_restart.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
 #include "wifi_deauth.h"
@@ -158,6 +159,11 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
         ocp_emit_compact(OCP_MARK_STOP, "%s=%s %s=%d",
                          OCP_K_LANE, lane, OCP_K_RUNNING, running ? 1 : 0);
+        /* After the ack goes out, not before: LoRa stopping may be what a
+         * pending probe_restart_request() (zig_recon.c) was waiting on, and
+         * a fired restart never returns — the [STOP] reply must already be
+         * on the wire first. */
+        if (lora) probe_restart_if_safe();
         break;
     }
 

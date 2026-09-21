@@ -954,6 +954,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "blescan") toggleBtContinuous(now_ms);
     else if (cmd == "airtag") toggleAirtagScan(now_ms);
     else if (cmd == "antisurv") toggleAntisurveillance(now_ms);
+    else if (cmd == "mesh") toggleMesh(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
@@ -995,6 +996,9 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " clients=" + std::to_string(contacts_.clients().size()) +
             " probes=" + std::to_string(contacts_.probes().size()) +
             " spectrum=" + std::to_string(spectrum_.readings().size()) +
+            " mesh_pans=" + std::to_string(mesh_.pans().size()) +
+            " mesh_nodes=" + std::to_string(mesh_.nodes().size()) +
+            " mesh_active=" + std::string(mesh_.active() ? "1" : "0") +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +

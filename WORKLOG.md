@@ -1,3 +1,82 @@
+## 2026-09-21 — D-18: 802.15.4 leaves Wi-Fi/BLE dead — root-caused to an upstream ESP32-C5 coexistence defect, worked around with a guarded probe reboot
+
+**Phase:** P7 802.15.4 reliability · **By:** Claude + Will
+
+Chased a report of the packet monitor and BLE scan going dead after using the
+Mesh (802.15.4) card, recoverable only by a full power cycle. Added a `mesh`
+debug-console command (and `mesh_pans`/`mesh_nodes`/`mesh_active` to `dump`)
+so the engine could be driven and observed without physical keypresses —
+that alone is useful going forward for anything else in this class.
+
+**First fix, verified insufficient.** Comparing `zig_recon.c` against every
+other continuous-scan engine found a real gap: `wifi_spectrum.c` and
+`wifi_networks.c` do their radio-touching work from an `esp_timer` callback
+and call `esp_timer_stop()` before disabling the driver; `zig_recon.c`'s
+`zig_task` is a free-running FreeRTOS task with no equivalent handshake, so
+`zig_teardown()` could call `esp_ieee802154_disable()` while `zig_task` was
+mid-call on the same hardware. Fixed with a bounded wait for a task-idle
+flag (`s_task_idle`, same "wait, then proceed" idiom as `ocp_frame.c`'s
+`FRAME_LOCK_WAIT_MS`). Flashed and reproduced with a rapid mesh start/cancel
+— still broken. A clean, carefully-sequenced single start→confirmed-active→
+stop→confirmed-inactive cycle (via the new debug command, waiting for `dump`
+to confirm each state rather than guessing timing) reproduced it with zero
+raciness involved, ruling the task race out as sufficient on its own (it's
+still a real bug worth having fixed).
+
+**Second fix, also verified insufficient.** `wifi_spectrum.c`'s teardown
+already has a proven fix for a related-looking bug (2026-09-18 WORKLOG):
+Packet Monitor left Wi-Fi's own driver state broken until it called
+`esp_wifi_stop()`+`esp_wifi_start()`+reapply band/power-save
+(`wifi_recon_restore_after_promiscuous()`, renamed here to
+`wifi_recon_restore_shared_phy()` since it's now used by more than one
+caller). Added the same call to `zig_teardown()`. Rebuilt, reflashed,
+re-ran the same clean single-cycle repro — still zero Wi-Fi results.
+Removed the call again afterward rather than leave in a fix proven not to
+work.
+
+**Root cause, traced into vendored ESP-IDF, confirmed externally.**
+`components/esp_phy/src/phy_init.c`'s `esp_phy_disable()` fully closes the
+shared RF (`phy_close_rf()`) unless another modem's flag is held at that
+exact moment, and `esp_phy_enable()`'s full recalibration path
+(`esp_phy_load_cal_and_init()`) only ever runs once per boot
+(`s_is_phy_calibrated`) — nothing in the public API resets that flag.
+`esp_ieee802154_enable/disable` also call `esp_btbb_enable/disable`, the
+same Bluetooth-baseband init/deinit the BLE controller itself calls,
+explaining why BLE broke alongside Wi-Fi. Searched for prior art: projectZero
+has no 802.15.4/Zigbee/Thread code at all (Wi-Fi-only) — it never triggers
+this because it never touches the radio. Found
+[espressif/esp-matter#1851](https://github.com/espressif/esp-matter/issues/1851),
+which documents the identical defect shape on the same chip from the BT/coex
+side: BT's controller registers into ESP-IDF's coexistence arbiter on init
+but has no matching unregister on deinit, and the arbiter itself is a
+closed-source `libcoexist.a` blob with no public API to clear it. The
+issue's own requested fixes are all upstream (Espressif patches the deinit
+path, exposes a public API, or fixes the blob) — confirms there is no
+app-level fix available, not just that Oscilla hasn't found one yet.
+Empirically confirmed twice that a full `esp_restart()` clears it and a bare
+Wi-Fi driver bounce does not — matches the calibration-flag theory exactly.
+
+**Workaround shipped:** `firmware-c5/main/probe_restart.c` (new). Stopping
+802.15.4 now requests a recovery reboot (`probe_restart_request()`) instead
+of trying anything further at the driver level; the reboot is held off
+while LoRa RX is running (a separate SX1262 chip/lane meant to survive
+PHY-tool switches, DESIGN §6.2) and retried once `stop lora`/`stop all`
+actually stops it (`probe_restart_if_safe()`, checked in `ocp_server.c`'s
+STOP handler — deliberately *after* the `[STOP]` ack is emitted, not
+before, since a fired restart never returns and the deck must see the ack
+first). New `tools/test_probe_restart.py` checks all three properties by
+source inspection (the request call, the LoRa guard, and the ack-before-
+restart ordering) — proved it actually catches a reintroduced ordering bug
+before trusting it. D-18 records the decision and the evidence chain.
+
+**Hardware-confirmed, full end-to-end, 2026-09-21:** clean mesh
+start→confirmed-active→stop → probe automatically cycles
+(`disconnected→hello-sent→disconnected→ready`, ~3-4s, no manual action) →
+deck reconnects on its own → `scan` finds 120 real APs. The existing manual
+recovery (Link card, `r` key → `OCP_V_REBOOT`) is unchanged and was
+confirmed working before this landed, as the immediate stopgap while the
+fix was being built.
+
 ## 2026-09-21 — P8 deck UI cleanup pass (no hardware needed)
 
 **Phase:** P8 polish, refinement between hardware sessions · **By:** Claude

@@ -19,6 +19,7 @@ idf_component_register(
          "lora_radio.c"
          "lora_hex.c"
          "lora_recon.c"
+         "probe_restart.c"
          "beacon_parse.c"
          "probe_parse.c"
          "deauth_parse.c"

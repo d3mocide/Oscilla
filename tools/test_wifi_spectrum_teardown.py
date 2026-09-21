@@ -44,7 +44,7 @@ def main() -> int:
     required = (
         "esp_wifi_set_promiscuous(false)",
         "esp_wifi_set_promiscuous_rx_cb(NULL)",
-        "wifi_recon_restore_after_promiscuous()",
+        "wifi_recon_restore_shared_phy()",
     )
     missing = [call for call in required if call not in cleanup]
     release_at = cleanup.find("arbiter_release(PHY_OWNER_WIFI)")
@@ -52,7 +52,7 @@ def main() -> int:
         print("FAIL: spectrum teardown does not reset Wi-Fi before release", file=sys.stderr)
         return 1
 
-    recovery = function_body(recon_source, "wifi_recon_restore_after_promiscuous")
+    recovery = function_body(recon_source, "wifi_recon_restore_shared_phy")
     recovery_required = (
         "esp_wifi_stop()",
         "esp_wifi_start()",
