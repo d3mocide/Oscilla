@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 #include "model/gnss_model.h"
 #include "ui/chrome.h"

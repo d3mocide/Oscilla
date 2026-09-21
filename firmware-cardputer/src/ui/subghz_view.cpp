@@ -12,6 +12,7 @@
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -68,20 +69,14 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
     }
 
     const auto &packets = lora.packets();
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    size_t first = cursor >= static_cast<size_t>(visible) ? cursor - visible + 1 : 0;
+    size_t first = listFirstVisible(cursor);
 
-    for (int i = 0; i < visible && first + static_cast<size_t>(i) < packets.size(); i++) {
+    for (int i = 0; i < kListVisibleRows && first + static_cast<size_t>(i) < packets.size(); i++) {
         const auto &p = packets[first + i];
         bool sel = first + static_cast<size_t>(i) == cursor;
-        int y = list_top + i * row_height;
+        int y = kListTop + i * kListRowHeight;
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
@@ -98,11 +93,11 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
 
     if (packets.empty()) {
         d.setTextColor(kDimGreen, kVoidInk);
-        d.setCursor(0, list_top);
+        d.setCursor(0, kListTop);
         d.print(lora.active() ? "LISTENING FOR LORA RX..." : lora.hasConfig() ? "PRESS s TO START" : "PRESS c TO CONFIGURE");
     }
 
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     if (lora.hasConfig()) {
         char freq[16];
         std::snprintf(freq, sizeof freq, "%lu.%03lu",

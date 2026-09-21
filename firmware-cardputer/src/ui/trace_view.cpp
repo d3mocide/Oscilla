@@ -12,18 +12,12 @@
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
 
 namespace {
-
-uint16_t rssiColour(int rssi)
-{
-    if (rssi >= -55) return kFieldGreen;
-    if (rssi >= -70) return kCalibrationYellow;
-    return kFaultRed;
-}
 
 void metric(M5Canvas &d, int x, const char *name, const char *value, const char *sub,
             uint16_t value_color)
@@ -69,7 +63,7 @@ void drawTraceView(const model::ApRow *row, const model::Inspect &in, bool liste
         d.printf("RSSI %d dBm", row->rssi);
 
         if (listening) {
-            d.setCursor(4, kBodyTop + 83);
+            d.setCursor(4, kDetailRowY);
             d.setTextColor(kCalibrationYellow, kVoidInk);
             d.printf("CAPTURE ACTIVE · CH %u", row->ch);
         } else if (!in.valid) {
@@ -90,7 +84,7 @@ void drawTraceView(const model::ApRow *row, const model::Inspect &in, bool liste
             metric(d, 3, "SECURITY", printable(row->auth, 10).c_str(), "AUTH MODE", kPaperPhosphor);
             metric(d, 82, "MFP", mfp, interval, mfp_color);
             metric(d, 161, "BEACONS", beacons, "CAPTURED", kFieldGreen);
-            d.setCursor(4, kBodyTop + 83);
+            d.setCursor(4, kDetailRowY);
             d.setTextColor(mfp_color, kVoidInk);
             d.print(in.mfp_required ? "◇ MFP REQUIRED" : in.mfp_capable ? "◇ MFP CAPABLE" : "◇ MFP NOT OBSERVED");
         }

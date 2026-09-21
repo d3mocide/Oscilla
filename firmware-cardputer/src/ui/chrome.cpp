@@ -18,22 +18,6 @@ namespace ui {
 
 namespace {
 
-uint16_t indicatorColor(IndicatorState state)
-{
-    switch (state) {
-    case IndicatorState::Ready:
-    case IndicatorState::Active:
-        return kFieldGreen;
-    case IndicatorState::Pending:
-        return kCalibrationYellow;
-    case IndicatorState::Fault:
-        return kFaultRed;
-    case IndicatorState::Off:
-        return kDimGreen;
-    }
-    return kMutedSlate;
-}
-
 std::string clipped(const std::string &value, size_t max_len)
 {
     if (value.size() <= max_len) return value;
@@ -43,7 +27,7 @@ std::string clipped(const std::string &value, size_t max_len)
 
 void drawIndicator(M5Canvas &d, int x, IndicatorState state)
 {
-    d.fillCircle(x, 9, 3, indicatorColor(state));
+    d.fillCircle(x, 9, 3, indicatorColour(state));
 }
 
 void drawBattery(M5Canvas &d, int pct, bool charging)
@@ -66,6 +50,22 @@ void drawBattery(M5Canvas &d, int pct, bool charging)
 }
 
 }  // namespace
+
+uint16_t indicatorColour(IndicatorState state)
+{
+    switch (state) {
+    case IndicatorState::Ready:
+    case IndicatorState::Active:
+        return kFieldGreen;
+    case IndicatorState::Pending:
+        return kCalibrationYellow;
+    case IndicatorState::Fault:
+        return kFaultRed;
+    case IndicatorState::Off:
+        return kDimGreen;
+    }
+    return kMutedSlate;
+}
 
 void beginChrome(const ChromeState &state)
 {

@@ -12,6 +12,7 @@
 
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
+#include "ui/segmented_bar.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -35,22 +36,6 @@ uint16_t stateColour(ocp::LinkState s)
         case ocp::LinkState::HelloSent:    return kCalibrationYellow;
         case ocp::LinkState::Incompatible: return kSignalPink;
         case ocp::LinkState::Disconnected: return kFaultRed;
-    }
-    return kMutedSlate;
-}
-
-uint16_t indicatorColour(IndicatorState state)
-{
-    switch (state) {
-    case IndicatorState::Ready:
-    case IndicatorState::Active:
-        return kFieldGreen;
-    case IndicatorState::Pending:
-        return kCalibrationYellow;
-    case IndicatorState::Fault:
-        return kFaultRed;
-    case IndicatorState::Off:
-        return kDimGreen;
     }
     return kMutedSlate;
 }
@@ -95,9 +80,7 @@ void drawStatusPanel(M5Canvas &d, int y, const char *label, const char *value,
 
     /* A compact health rail makes a live link read as a state, not a log row. */
     const int lit = color == kFieldGreen ? 4 : color == kCalibrationYellow ? 2 : 1;
-    for (int i = 0; i < 4; ++i) {
-        d.fillRect(113 + i * 7, y + 8, 4, 4, i < lit ? color : kTrackDark);
-    }
+    drawSegmentedBar(d, 113, y + 8, 4, 4, 4, 3, lit, color);
 
     d.setCursor(148, y + 4);
     d.setTextColor(color, selected ? kSelectionGlow : kVoidInk);

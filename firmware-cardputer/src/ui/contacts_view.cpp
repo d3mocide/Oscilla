@@ -10,6 +10,7 @@
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -24,31 +25,18 @@ constexpr int kSniffClientChannelX = 104;
 constexpr int kSniffClientBandX = 128;
 constexpr int kSniffRssiX = 204;
 
-uint16_t rssiColour(int rssi)
-{
-    if (rssi >= -55) return kFieldGreen;
-    if (rssi >= -70) return kCalibrationYellow;
-    return kFaultRed;
-}
-
 void drawClientRows(const model::ContactsModel &contacts, size_t cursor)
 {
     auto &d = ui::canvas();
     const auto &rows = contacts.clients();
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    size_t first = cursor >= (size_t)visible ? cursor - visible + 1 : 0;
+    size_t first = listFirstVisible(cursor);
 
-    for (int i = 0; i < visible && first + i < rows.size(); i++) {
+    for (int i = 0; i < kListVisibleRows && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
-        int y = list_top + i * row_height;
+        int y = kListTop + i * kListRowHeight;
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
@@ -68,20 +56,14 @@ void drawProbeRows(const model::ContactsModel &contacts, size_t cursor)
 {
     auto &d = ui::canvas();
     const auto &rows = contacts.probes();
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    size_t first = cursor >= (size_t)visible ? cursor - visible + 1 : 0;
+    size_t first = listFirstVisible(cursor);
 
-    for (int i = 0; i < visible && first + i < rows.size(); i++) {
+    for (int i = 0; i < kListVisibleRows && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
-        int y = list_top + i * row_height;
+        int y = kListTop + i * kListRowHeight;
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         std::string ssid = r.ssid.empty() ? "<wildcard>" : printable(r.ssid, 22);
         d.setCursor(6, y);
@@ -122,7 +104,7 @@ void drawContactsView(const model::ContactsModel &contacts, ContactsTab tab, siz
     if (clients) drawClientRows(contacts, cursor);
     else drawProbeRows(contacts, cursor);
 
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     if (!contacts.lastSighting().empty()) {
         d.setTextColor(kCalibrationYellow, kVoidInk);
         d.print("LAST ");

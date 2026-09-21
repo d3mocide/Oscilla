@@ -3,6 +3,7 @@
 #include <M5Cardputer.h>
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 namespace ui {
 void drawMeshView(const model::MeshModel &m, size_t cursor, const ChromeState &chrome)
@@ -15,19 +16,13 @@ void drawMeshView(const model::MeshModel &m, size_t cursor, const ChromeState &c
     d.printf("PANS %u  NODES %u  %s", (unsigned)m.pans().size(), (unsigned)m.nodes().size(),
              m.active() ? "LISTENING" : "IDLE");
 
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    size_t first = cursor >= static_cast<size_t>(visible) ? cursor - visible + 1 : 0;
-    for (int row = 0; row < visible && first + static_cast<size_t>(row) < m.nodes().size(); ++row) {
+    size_t first = listFirstVisible(cursor);
+    for (int row = 0; row < kListVisibleRows && first + static_cast<size_t>(row) < m.nodes().size(); ++row) {
         const auto &n = m.nodes()[first + static_cast<size_t>(row)];
         const bool sel = first + static_cast<size_t>(row) == cursor;
-        const int y = list_top + row * row_height;
+        const int y = kListTop + row * kListRowHeight;
         const uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
         d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
         d.printf("%-8s", printable(n.pan, 8).c_str());
@@ -40,11 +35,11 @@ void drawMeshView(const model::MeshModel &m, size_t cursor, const ChromeState &c
         d.printf(" L%u", n.lqi);
     }
     if (m.nodes().empty()) {
-        d.setCursor(4, list_top);
+        d.setCursor(4, kListTop);
         d.setTextColor(kDimGreen, kVoidInk);
         d.print(m.active() ? "LISTENING FOR PAN/NODE FRAMES..." : "NO 802.15.4 OBSERVATIONS YET");
     }
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     if (!m.nodes().empty() && cursor < m.nodes().size()) {
         const auto &n = m.nodes()[cursor];
         d.setTextColor(m.active() ? kFieldGreen : kMutedSlate, kVoidInk);

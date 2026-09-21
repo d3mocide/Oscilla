@@ -7,6 +7,7 @@
 #include "ui/help_view.h"
 
 #include "ui/canvas.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -32,7 +33,7 @@ void drawHelpView(const ChromeState &chrome)
     d.print("`     BACK/STOP, SETTINGS ON LINK");
     d.setCursor(4, kBodyTop + 70);
     d.print("s/c   START / STREAM");
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     d.print("h     CLOSE HELP");
 
     endChrome(chrome);

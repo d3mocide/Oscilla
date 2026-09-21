@@ -25,11 +25,15 @@ def fail(message: str) -> int:
 
 
 def main() -> int:
+    list_row = (ROOT / "firmware-cardputer/src/ui/list_row.h").read_text(encoding="utf-8")
+    if "d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);" not in list_row:
+        return fail("list_row.h's drawRowHighlight is missing the Link-style selection rail")
+
     for name in ROW_VIEWS:
         source = (ROOT / "firmware-cardputer/src/ui" / name).read_text(encoding="utf-8")
         if "sel ? '>'" in source:
             return fail(f"{name} still draws a text-caret selection marker")
-        if "d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);" not in source:
+        if "drawRowHighlight(d, y, sel)" not in source:
             return fail(f"{name} is missing the Link-style selection rail")
         if "d.setCursor(0, y);" in source or "d.setCursor(6, y);" not in source:
             return fail(f"{name} lets row text overwrite the selection rail")

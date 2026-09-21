@@ -6,6 +6,7 @@
 
 #include "app/deck_app.h"
 
+#include <cstdio>
 #include <cstdlib>
 
 #include <M5Cardputer.h>
@@ -43,6 +44,7 @@ constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
 constexpr uint32_t kMeshPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
+constexpr uint32_t kBatteryPollMs = 4000;    /* M5.Power is an I2C read; battery barely moves */
 constexpr uint32_t kNoticeDurationMs = 2000; /* transient toast lifetime */
 constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
 /* Drive-track vertex cadence. A 1 Hz fix logged raw is 3600 points an hour
@@ -386,13 +388,18 @@ void DeckApp::requestScan(uint32_t now_ms)
     scan_started_ms_ = now_ms;
 }
 
+bool DeckApp::phyEngineActive() const
+{
+    return scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
+           spectrum_.active() || deauth_.active() || bt_.scanning() || bt_.continuousActive() ||
+           bt_.airtagActive() || anti_.active() || mesh_.active();
+}
+
 bool DeckApp::phyToolActive() const
 {
-    return scan_.scanning() || scan_.continuousActive() || scan_pending_ || wifi_continuous_pending_ ||
-           contacts_.sniffing() || spectrum_.active() || spectrum_start_pending_ || deauth_.active() ||
-           bt_.scanning() || bt_.continuousActive() || bt_.airtagActive() || bt_scan_pending_ ||
-           bt_continuous_pending_ || bt_airtag_pending_ || anti_.active() || anti_start_pending_ ||
-           mesh_.active() || mesh_start_pending_;
+    return phyEngineActive() || scan_pending_ || wifi_continuous_pending_ ||
+           spectrum_start_pending_ || bt_scan_pending_ || bt_continuous_pending_ ||
+           bt_airtag_pending_ || anti_start_pending_ || mesh_start_pending_;
 }
 
 bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
@@ -546,9 +553,22 @@ void DeckApp::startDeauthDetector(uint32_t now_ms)
     notice("");
 }
 
+bool DeckApp::bleBusyElsewhere(BleMode mine) const
+{
+    const bool scan_busy = bt_.scanning() || bt_scan_pending_;
+    const bool continuous_busy = bt_.continuousActive() || bt_continuous_pending_;
+    const bool airtag_busy = bt_.airtagActive() || bt_airtag_pending_;
+    switch (mine) {
+    case BleMode::Scan:       return continuous_busy || airtag_busy;
+    case BleMode::Continuous: return scan_busy || airtag_busy;
+    case BleMode::Airtag:     return scan_busy || continuous_busy;
+    }
+    return false;
+}
+
 void DeckApp::startBtScan(uint32_t now_ms)
 {
-    if (bt_.continuousActive() || bt_.airtagActive() || bt_continuous_pending_ || bt_airtag_pending_) {
+    if (bleBusyElsewhere(BleMode::Scan)) {
         notice("stop current beacon mode first");
         return;
     }
@@ -568,7 +588,7 @@ void DeckApp::startBtScan(uint32_t now_ms)
 void DeckApp::toggleBtContinuous(uint32_t now_ms)
 {
     if (bt_.continuousActive()) { stopPhy(now_ms); return; }
-    if (bt_.scanning() || bt_.airtagActive() || bt_scan_pending_ || bt_airtag_pending_) {
+    if (bleBusyElsewhere(BleMode::Continuous)) {
         notice("stop current beacon mode first");
         return;
     }
@@ -586,7 +606,7 @@ void DeckApp::toggleBtContinuous(uint32_t now_ms)
 void DeckApp::toggleAirtagScan(uint32_t now_ms)
 {
     if (bt_.airtagActive()) { stopPhy(now_ms); return; }
-    if (bt_.scanning() || bt_.continuousActive() || bt_scan_pending_ || bt_continuous_pending_) {
+    if (bleBusyElsewhere(BleMode::Airtag)) {
         notice("stop current beacon mode first");
         return;
     }
@@ -1142,17 +1162,27 @@ void DeckApp::draw(uint32_t now_ms)
             break;
         }
         chrome.storage = storage::ready() ? ui::IndicatorState::Ready : ui::IndicatorState::Fault;
-        const bool phy_active = scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
-                                spectrum_.active() || deauth_.active() || bt_.scanning() ||
-                                bt_.continuousActive() || bt_.airtagActive() || anti_.active() || mesh_.active();
+        const bool phy_active = phyEngineActive();
         chrome.rf = (phy_active || lora_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
-        chrome.battery_pct = M5.Power.getBatteryLevel();
-        chrome.charging = M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
+        if (!battery_polled_ || now_ms - last_battery_poll_ms_ >= kBatteryPollMs) {
+            battery_polled_ = true;
+            last_battery_poll_ms_ = now_ms;
+            cached_battery_pct_ = M5.Power.getBatteryLevel();
+            cached_charging_ = M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
+        }
+        chrome.battery_pct = cached_battery_pct_;
+        chrome.charging = cached_charging_;
         chrome.live = phy_active || lora_.active();
         chrome.debug = debug_mode_;
-        chrome.transport = "BPK " + std::string(ocp::linkStateName(client_.state()));
-        if (last_reply_ != "-") chrome.transport += " <-> " + last_reply_;
-        if (chrome.live) chrome.transport += " · RX-ONLY";
+        char transport[64];
+        int len = std::snprintf(transport, sizeof transport, "BPK %s", ocp::linkStateName(client_.state()));
+        if (last_reply_ != "-" && len > 0 && static_cast<size_t>(len) < sizeof transport) {
+            len += std::snprintf(transport + len, sizeof(transport) - len, " <-> %s", last_reply_.c_str());
+        }
+        if (chrome.live && len > 0 && static_cast<size_t>(len) < sizeof transport) {
+            std::snprintf(transport + len, sizeof(transport) - len, " · RX-ONLY");
+        }
+        chrome.transport = transport;
         chrome.notice = notice_;
         return chrome;
     };

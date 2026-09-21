@@ -9,7 +9,6 @@
 #pragma once
 
 #include <cstddef>
-#include <string>
 
 #include "model/spectrum_model.h"
 #include "ui/chrome.h"

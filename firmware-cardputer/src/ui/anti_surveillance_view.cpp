@@ -10,20 +10,10 @@
 
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
-
-namespace {
-
-uint16_t rssiColour(int rssi)
-{
-    if (rssi >= -55) return kFieldGreen;
-    if (rssi >= -70) return kCalibrationYellow;
-    return kFaultRed;
-}
-
-}  // namespace
 
 void drawAntiSurveillanceView(const model::AntiSurveillanceModel &anti, size_t cursor,
                               bool starting, const ChromeState &chrome)
@@ -41,20 +31,14 @@ void drawAntiSurveillanceView(const model::AntiSurveillanceModel &anti, size_t c
     d.print(starting ? "STARTING" : anti.active() ? "WATCH" : "IDLE");
 
     const auto &trackers = anti.trackers();
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    const size_t first = cursor >= static_cast<size_t>(visible) ? cursor - visible + 1 : 0;
+    const size_t first = listFirstVisible(cursor);
 
-    for (int row = 0; row < visible && first + static_cast<size_t>(row) < trackers.size(); ++row) {
+    for (int row = 0; row < kListVisibleRows && first + static_cast<size_t>(row) < trackers.size(); ++row) {
         const auto &tracker = trackers[first + static_cast<size_t>(row)];
         const bool sel = first + static_cast<size_t>(row) == cursor;
-        const int y = list_top + row * row_height;
+        const int y = kListTop + row * kListRowHeight;
         const uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         d.setCursor(6, y);
         d.setTextColor(tracker.alert ? kSignalPink : kPaperPhosphor, bg);
@@ -69,7 +53,7 @@ void drawAntiSurveillanceView(const model::AntiSurveillanceModel &anti, size_t c
         d.printf("%4d", tracker.rssi);
     }
 
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     if (const auto *alert = anti.latestAlert()) {
         d.setTextColor(kSignalPink, kVoidInk);
         d.printf("FOLLOW? %s · %u LEGS", printable(alert->mac, 17).c_str(),

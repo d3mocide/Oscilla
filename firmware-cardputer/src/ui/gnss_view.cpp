@@ -13,6 +13,7 @@
 #include "storage/wardrive_logger.h"
 #include "ui/canvas.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -96,7 +97,7 @@ void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const ChromeSta
     }
     drawRow(d, kBodyTop + 55, "WARDRIVE", session, lg.open ? kFieldGreen : kMutedSlate);
 
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     d.setTextColor(lg.open ? kFieldGreen : kMutedSlate, kVoidInk);
     if (lg.open) {
         d.printf("LOG %lu AP · %lu TRK", (unsigned long)lg.aps,

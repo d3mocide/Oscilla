@@ -11,37 +11,25 @@
 #include "ui/canvas.h"
 #include "ui/dwell_animation.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
 
 namespace {
 
-uint16_t rssiColour(int rssi)
-{
-    if (rssi >= -55) return kFieldGreen;
-    if (rssi >= -70) return kCalibrationYellow;
-    return kFaultRed;
-}
-
 void drawDeviceRows(const model::BtModel &bt, size_t cursor)
 {
     auto &d = ui::canvas();
     const auto &rows = bt.devices();
-    constexpr int list_top = kBodyTop + 16;
-    constexpr int row_height = 13;
-    constexpr int visible = 4;
-    size_t first = cursor >= (size_t)visible ? cursor - visible + 1 : 0;
+    size_t first = listFirstVisible(cursor);
 
-    for (int i = 0; i < visible && first + i < rows.size(); i++) {
+    for (int i = 0; i < kListVisibleRows && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
-        int y = list_top + i * row_height;
+        int y = kListTop + i * kListRowHeight;
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         std::string label = r.name.empty() ? printable(r.mac, 18) : printable(r.name, 18);
         d.setCursor(6, y);
@@ -82,12 +70,12 @@ void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
     if (bounded_dwell) {
         drawDwellAnimation(d, scanning_ms);
     } else if (!bt.trackerHits().empty()) {
-        d.setCursor(4, kBodyTop + 83);
+        d.setCursor(4, kDetailRowY);
         const auto &last = bt.trackerHits()[0];
         d.setTextColor(kMutedSlate, kVoidInk);
         d.printf("LAST TRACKER %s %d", printable(last.mac, 17).c_str(), last.rssi);
     } else if (cursor < bt.devices().size()) {
-        d.setCursor(4, kBodyTop + 83);
+        d.setCursor(4, kDetailRowY);
         const auto &row = bt.devices()[cursor];
         const std::string label = row.name.empty() ? row.mac : row.name;
         d.setTextColor(kMutedSlate, kVoidInk);
@@ -97,12 +85,12 @@ void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
         d.setTextColor(kMutedSlate, kVoidInk);
         d.printf(" · %u seen", (unsigned)row.n);
     } else if (listening) {
-        d.setCursor(4, kBodyTop + 83);
+        d.setCursor(4, kDetailRowY);
         d.setTextColor(kFieldGreen, kVoidInk);
         d.printf("DEVICES %u · TRACKERS %u", (unsigned)bt.devices().size(),
                  tracker_count);
     } else {
-        d.setCursor(4, kBodyTop + 83);
+        d.setCursor(4, kDetailRowY);
         d.setTextColor(kMutedSlate, kVoidInk);
         d.print("NO BLE DEVICES");
     }

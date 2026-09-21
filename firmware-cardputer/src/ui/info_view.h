@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 #include "ocp/ocp_client.h"
 #include "ui/chrome.h"

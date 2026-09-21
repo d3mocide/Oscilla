@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 #include "model/contacts_model.h"
 #include "ui/chrome.h"

@@ -98,6 +98,11 @@ private:
      * to Wi-Fi Scan each time. */
     void requestScan(uint32_t now_ms);
     void startScan(uint32_t now_ms);
+    /* Engines actually receiving right now, no pending-start flags — the
+     * chrome RF/LIVE indicator wants this so it doesn't light up before a
+     * radio is truly live. phyToolActive() (below) is the superset used to
+     * decide whether a new PHY request must stop the current one first. */
+    bool phyEngineActive() const;
     bool phyToolActive() const;
     bool preparePhyStart(PhyHandoff::Start start, uint32_t now_ms);
     void stopPhy(uint32_t now_ms);
@@ -110,6 +115,10 @@ private:
     void startLoraConfig(uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
+    /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
+     * one radio mode, so starting one requires the other two to be idle. */
+    enum class BleMode : uint8_t { Scan, Continuous, Airtag };
+    bool bleBusyElsewhere(BleMode mine) const;
     void startBtScan(uint32_t now_ms);
     void toggleBtContinuous(uint32_t now_ms);
     void toggleAirtagScan(uint32_t now_ms);
@@ -210,6 +219,13 @@ private:
     bool scan_pending_ = false;
     bool wifi_continuous_pending_ = false;
     uint32_t last_draw_ms_ = 0;
+    /* M5.Power is an I2C read; cache it instead of hitting the bus on every
+     * chrome redraw (draw() can run every kBusyRedrawMs while a tool is
+     * active). */
+    int cached_battery_pct_ = -1;
+    bool cached_charging_ = false;
+    uint32_t last_battery_poll_ms_ = 0;
+    bool battery_polled_ = false;
     uint32_t last_attempt_ms_ = 0;
     uint32_t last_keepalive_ms_ = 0;
     uint32_t now_ = 0;

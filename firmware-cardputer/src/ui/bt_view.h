@@ -10,7 +10,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
 
 #include "model/bt_model.h"
 #include "ui/chrome.h"

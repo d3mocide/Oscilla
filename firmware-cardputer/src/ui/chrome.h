@@ -33,4 +33,8 @@ struct ChromeState {
 void beginChrome(const ChromeState &state);
 void endChrome(const ChromeState &state);
 
+/* Shared indicator dot color, also used by views drawing their own status
+ * rows (e.g. link_view's GNSS check) outside the header itself. */
+uint16_t indicatorColour(IndicatorState state);
+
 }  // namespace ui

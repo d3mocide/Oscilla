@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstddef>
-#include <string>
 
 #include "model/deauth_model.h"
 #include "ui/chrome.h"

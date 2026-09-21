@@ -12,6 +12,8 @@
 
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
+#include "ui/list_row.h"
+#include "ui/segmented_bar.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -77,10 +79,8 @@ void drawHeapPanel(M5Canvas &d, int x, int y, int width, const char *label,
         uint32_t pct = free_bytes >= total_bytes ? 100 : (free_bytes * 100U) / total_bytes;
         filled = static_cast<int>((pct * kHeapSegmentCount + 99U) / 100U);
     }
-    for (int i = 0; i < kHeapSegmentCount; ++i) {
-        d.fillRect(bar_x + i * (kHeapSegmentWidth + kHeapSegmentGap), bar_y,
-                   kHeapSegmentWidth, 6, i < filled ? fill : kTrackDark);
-    }
+    drawSegmentedBar(d, bar_x, bar_y, kHeapSegmentCount, kHeapSegmentWidth, 6, kHeapSegmentGap,
+                     filled, fill);
 }
 
 void formatDuration(char *out, size_t size, uint64_t ms)
@@ -127,9 +127,9 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
     drawMetric(d, 124, kBodyTop + 67, "PROBE UP", probe_available ? probe_uptime : "--",
                probe_available ? kMutedSlate : kCalibrationYellow);
 
-    drawMetric(d, 4, kBodyTop + 83, "LINK", ocp::linkStateName(client.state()),
+    drawMetric(d, 4, kDetailRowY, "LINK", ocp::linkStateName(client.state()),
                ready ? kFieldGreen : kFaultRed);
-    drawMetric(d, 124, kBodyTop + 83, "SD", storage::ready() ? "READY" : "ABSENT",
+    drawMetric(d, 124, kDetailRowY, "SD", storage::ready() ? "READY" : "ABSENT",
                storage::ready() ? kFieldGreen : kFaultRed);
 
     endChrome(chrome);

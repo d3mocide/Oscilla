@@ -1,3 +1,56 @@
+## 2026-09-21 — P8 deck UI cleanup pass (no hardware needed)
+
+**Phase:** P8 polish, refinement between hardware sessions · **By:** Claude
+
+With the external TFT still pending and the CC1101 dual-radio extension
+(D-15) not yet breadboarded, ran a 4-angle review (reuse, simplification,
+efficiency, altitude) of the P8 "deck UI foundation" diff
+(`a42f5ff..HEAD`, 45 files) and applied the fixes that survived — no new
+hardware bring-up involved, so this is pure refinement of code already
+confirmed on hardware, not a new claim of hardware behavior.
+
+- New `ui/list_row.h`: the windowed 4-row scroll/selection-highlight
+  boilerplate (`listFirstVisible`, `drawRowHighlight`, `kListTop`/
+  `kListRowHeight`/`kListVisibleRows`) and the shared `rssiColour()`, both
+  previously copy-pasted across 7-8 view files, collapsed into one header.
+  `kDetailRowY` (`kBodyTop + 83`) named once and used everywhere that exact
+  offset already appeared; the two views with a genuinely different offset
+  (spectrum_view +78, link_view +85) were left alone rather than guessed
+  into alignment without a way to see the result.
+- New `ui/segmented_bar.h`: the four independently hand-rolled segment-meter
+  loops (settings_view's brightness bar, info_view's heap gauge,
+  sweep_view's RSSI meter, link_view's status-rail) now call one
+  `drawSegmentedBar()`.
+- `chrome.cpp`'s `indicatorColor` was file-local, so `link_view.cpp` had
+  grown a byte-identical private copy (spelled `indicatorColour`, the
+  project's dominant convention); exported the one from chrome.h/.cpp under
+  that spelling and deleted link_view's copy.
+- `deck_app.cpp`: `phyToolActive()` and `draw()`'s inline `phy_active` were
+  two hand-maintained 9/10-engine lists that had to be kept in sync by hand
+  (one deliberately excludes the `*_pending_` flags for the RF indicator,
+  the other doesn't for stop-and-restart decisions) — factored the shared
+  part into `phyEngineActive()`. The three BLE start/toggle functions'
+  identical "are the other two BLE modes busy" guards became one
+  `bleBusyElsewhere(BleMode)`. `M5.Power.getBatteryLevel()`/`isCharging()`
+  were reading the PMIC over I2C on every chrome redraw of every screen
+  (previously only Info read it) — now cached and refreshed on a 4s timer.
+  `chrome.transport` was rebuilt via `std::string` concatenation every
+  redraw; switched to one `snprintf` into a stack buffer.
+- Dropped a dead `#include <string>` left over from the chrome migration in
+  ~10 view headers (all now get it transitively via `ui/chrome.h`).
+- `tools/test_card_selection_style.py` string-matched the exact
+  per-file `fillRect` line for the selection rail; updated it to check
+  `list_row.h`'s shared implementation plus each view's call site instead,
+  since the literal it was matching no longer exists after the above.
+
+Verified with `./tools/check_protocol.sh` (all host/protocol checks,
+including the updated style test) and `./tools/build_firmware.sh` (probe +
+all three deck build variants) — both clean. Not claimed: anything about
+how this *looks* on the Cardputer's own screen: this was a source-level
+refactor with no intended pixel change (confirmed by the checks above, not
+by eyes on the panel), so it still needs the same physical-deck look-over
+P8's UI work already had queued.
+
 ## 2026-09-19 — Dual-radio build-guide electrical corrections
 
 **Phase:** P3 proposed CC1101 extension documentation · **By:** Codex

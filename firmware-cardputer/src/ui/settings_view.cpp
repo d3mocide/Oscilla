@@ -7,6 +7,7 @@
 #include "ui/settings_view.h"
 
 #include "ui/canvas.h"
+#include "ui/segmented_bar.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -38,10 +39,8 @@ void drawSettingsView(uint8_t brightness, const ChromeState &chrome)
     const int bar_x = 4;
     const int bar_y = kBodyTop + 42;
     const int filled = static_cast<int>((brightness * kBarSegmentCount + 254) / 255);
-    for (int i = 0; i < kBarSegmentCount; ++i) {
-        d.fillRect(bar_x + i * (kBarSegmentWidth + kBarSegmentGap), bar_y,
-                   kBarSegmentWidth, 10, i < filled ? kFieldGreen : kTrackDark);
-    }
+    drawSegmentedBar(d, bar_x, bar_y, kBarSegmentCount, kBarSegmentWidth, 10, kBarSegmentGap,
+                     filled, kFieldGreen);
 
     d.setCursor(4, kBodyTop + 62);
     d.setTextColor(kMutedSlate, kVoidInk);

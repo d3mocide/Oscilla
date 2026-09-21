@@ -7,7 +7,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 #include "model/scan_model.h"
 #include "ui/chrome.h"

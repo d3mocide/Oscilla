@@ -11,6 +11,8 @@
 #include "ui/canvas.h"
 #include "ui/dwell_animation.h"
 #include "ui/link_view.h"
+#include "ui/list_row.h"
+#include "ui/segmented_bar.h"
 #include "ui/theme.h"
 
 namespace ui {
@@ -22,21 +24,12 @@ constexpr int kSweepBandX = 154;
 constexpr int kSweepRssiX = 186;
 constexpr int kSweepMeterX = 216;
 
-uint16_t rssiColour(int rssi)
-{
-    if (rssi >= -55) return kFieldGreen;
-    if (rssi >= -70) return kCalibrationYellow;
-    return kFaultRed;
-}
-
 void drawMeter(M5Canvas &d, int x, int y, int rssi)
 {
     int filled = (rssi + 100) * 5 / 70;
     if (filled < 0) filled = 0;
     if (filled > 5) filled = 5;
-    for (int i = 0; i < 5; ++i) {
-        d.fillRect(x + i * 4, y, 3, 5, i < filled ? rssiColour(rssi) : kTrackDark);
-    }
+    drawSegmentedBar(d, x, y, 5, 3, 5, 1, filled, rssiColour(rssi));
 }
 
 }  // namespace
@@ -64,20 +57,14 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     d.printf("%s", scan.rows().empty() ? "--" : "RX");
 
     const auto &rows = scan.rows();
-    const int list_top = kBodyTop + 16;
-    const int row_height = 13;
-    const int visible = 4;
-    size_t first = cursor >= (size_t)visible ? cursor - visible + 1 : 0;
+    size_t first = listFirstVisible(cursor);
 
-    for (int i = 0; i < visible && first + i < rows.size(); i++) {
+    for (int i = 0; i < kListVisibleRows && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
-        int y = list_top + i * row_height;
+        int y = kListTop + i * kListRowHeight;
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
-        if (sel) {
-            d.fillRect(0, y - 2, d.width(), row_height, bg);
-            d.fillRect(0, y - 2, 2, row_height, kCalibrationYellow);
-        }
+        drawRowHighlight(d, y, sel);
 
         std::string name = r.ssid.empty() ? "<hidden>" : printable(r.ssid, 15);
         d.setCursor(6, y);
@@ -95,13 +82,13 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     }
 
     if (rows.empty()) {
-        d.setCursor(4, list_top);
+        d.setCursor(4, kListTop);
         d.setTextColor(kDimGreen, kVoidInk);
         if (scan.scanning()) drawDwellAnimation(d, scanning_ms);
         else d.print("NO OBSERVATIONS YET");
     }
 
-    d.setCursor(4, kBodyTop + 83);
+    d.setCursor(4, kDetailRowY);
     const bool live = scan.scanning() || scan.continuousActive();
     if (cursor < rows.size()) {
         const auto &r = rows[cursor];

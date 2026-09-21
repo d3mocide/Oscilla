@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <string>
 
 #include "model/scan_model.h"
 #include "ui/chrome.h"
