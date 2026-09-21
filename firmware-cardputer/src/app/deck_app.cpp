@@ -643,7 +643,7 @@ void DeckApp::toggleZig(uint32_t now_ms)
     if (!preparePhyStart([this](uint32_t now) { toggleZig(now); }, now_ms)) return;
     if (!client_.send(OCP_V_START_ZIG_RECON, now_ms)) { retrySoon([this](uint32_t t) { toggleZig(t); }, now_ms); return; }
     zig_start_pending_ = true;
-    zig_.begin(); zig_cursor_ = 0; screen_ = Screen::Zig; notice("");
+    zig_.begin(); zig_cursor_ = 0; zig_tab_ = ui::ZigTab::Nodes; screen_ = Screen::Zig; notice("");
 }
 
 void DeckApp::feedGnss(const uint8_t *data, size_t len, uint32_t now_ms)
@@ -831,11 +831,16 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 else startChannelView(now_ms);
             }
             break;
-        case Screen::Zig:
+        case Screen::Zig: {
+            size_t n = zig_tab_ == ui::ZigTab::Pans ? zig_.pans().size() : zig_.nodes().size();
             if (c == ';' && zig_cursor_ > 0) zig_cursor_--;
-            else if (c == '.' && zig_cursor_ + 1 < zig_.nodes().size()) zig_cursor_++;
-            else if (c == 's') toggleZig(now_ms);
+            else if (c == '.' && zig_cursor_ + 1 < n) zig_cursor_++;
+            else if (c == 'x') {
+                zig_tab_ = zig_tab_ == ui::ZigTab::Pans ? ui::ZigTab::Nodes : ui::ZigTab::Pans;
+                zig_cursor_ = 0;
+            } else if (c == 's') toggleZig(now_ms);
             break;
+        }
         case Screen::SubGhz:
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
             else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
@@ -1241,7 +1246,7 @@ void DeckApp::draw(uint32_t now_ms)
                              makeChrome("PACKET MONITOR"));
         break;
     case Screen::Zig:
-        ui::drawZigView(zig_, zig_cursor_,
+        ui::drawZigView(zig_, zig_tab_, zig_cursor_,
                          makeChrome("802.15.4"));
         break;
     case Screen::SubGhz:

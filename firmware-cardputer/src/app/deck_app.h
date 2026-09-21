@@ -34,6 +34,7 @@
 #include "model/zig_model.h"
 #include "ocp/ocp_client.h"
 #include "ui/contacts_view.h"
+#include "ui/zig_view.h"
 
 namespace app {
 
@@ -179,6 +180,7 @@ private:
     size_t bt_cursor_ = 0;
     uint32_t bt_scan_started_ms_ = 0;
     size_t zig_cursor_ = 0;
+    ui::ZigTab zig_tab_ = ui::ZigTab::Nodes;
     uint32_t last_zig_poll_ms_ = 0;
     bool zig_start_pending_ = false;
     bool anti_start_pending_ = false;

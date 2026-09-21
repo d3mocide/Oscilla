@@ -1,3 +1,38 @@
+## 2026-09-21 — 802.15.4 view: PAN tab, extended-address display fix, BAD-row indicator
+
+**Phase:** P8 polish, 802.15.4 UI · **By:** Claude + Will
+
+The 802.15.4 screen was behind its sibling views in a few concrete ways,
+found by comparing `zig_model.h`'s fields against what `zig_view.cpp`
+actually rendered:
+
+- **A real display bug**: a node using only an extended (64-bit) address —
+  no short address at all, a normal 802.15.4 addressing mode — rendered as
+  `--------`, identical to "no data." `n.ext` was captured by the model but
+  never shown anywhere. Fixed: the row now falls back to a truncated,
+  visually distinct (pink) form of the extended address, and the detail
+  line shows it in full when selected.
+- **PANs were invisible**: `m.pans()` was never iterated, only a count
+  shown in the header — with multiple PANs at a site (5 seen earlier today
+  against real ambient traffic + the bench emitter) there was no way to
+  actually inspect them individually. Added a `ZigTab::Pans`/`::Nodes`
+  toggle (`x` key, mirroring `ContactsTab`'s exact pattern) with its own
+  row layout (pan · node count · RSSI · LQI) and a detail line computing a
+  human-readable channel list from the PAN's channel-bitmap field, which
+  had also never been surfaced.
+- **No `BAD N` indicator** — every sibling view (Sweep, Contacts, Deauth,
+  BT) shows a malformed-row count; the 802.15.4 view silently dropped it.
+  Added, matching the same header placement/color convention.
+
+Deliberately deck-only (the external TFT is still pending hardware, P5) —
+Will's call to focus on what the deck's own screen can do right now rather
+than pre-building for a display that isn't attached yet.
+
+Verified: full host suite green, both firmwares build clean, hardware-
+confirmed live on the deck against the bench emitter's real traffic —
+tab toggle, the new PAN detail line, and clean rendering all confirmed on
+the physical screen.
+
 ## 2026-09-21 — Renamed the deck's "Mesh" internals to match the UI ("802.15.4") and the probe's own convention
 
 **Phase:** P8 polish, naming consistency · **By:** Claude + Will
