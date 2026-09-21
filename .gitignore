@@ -9,6 +9,13 @@ firmware-c5/sdkconfig.old
 firmware-c5/managed_components/
 firmware-c5/dependencies.lock
 
+# bench-zig-emitter — same ESP-IDF generated-output story as firmware-c5.
+bench-zig-emitter/build/
+bench-zig-emitter/sdkconfig
+bench-zig-emitter/sdkconfig.old
+bench-zig-emitter/managed_components/
+bench-zig-emitter/dependencies.lock
+
 # PlatformIO
 .pio/
 firmware-cardputer/.pio/
