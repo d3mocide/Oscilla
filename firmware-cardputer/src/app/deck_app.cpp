@@ -27,7 +27,7 @@
 #include "ui/gnss_view.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
-#include "ui/mesh_view.h"
+#include "ui/zig_view.h"
 #include "ui/settings_view.h"
 #include "ui/spectrum_view.h"
 #include "ui/subghz_view.h"
@@ -42,7 +42,7 @@ constexpr uint32_t kKeepaliveMs = 3000;   /* ping when idle, to notice a lost pr
 constexpr uint32_t kRedrawMs = 200;
 constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
-constexpr uint32_t kMeshPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
+constexpr uint32_t kZigPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
 constexpr uint32_t kBatteryPollMs = 4000;    /* M5.Power is an I2C read; battery barely moves */
 constexpr uint32_t kNoticeDurationMs = 2000; /* transient toast lifetime */
@@ -64,7 +64,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "contacts" || name == "sniffer") *out = Screen::Contacts;
     else if (name == "info" || name == "system") *out = Screen::Info;
     else if (name == "spectrum" || name == "packet_monitor" || name == "monitor") *out = Screen::Spectrum;
-    else if (name == "mesh" || name == "802154" || name == "zigbee") *out = Screen::Mesh;
+    else if (name == "zig" || name == "802154" || name == "zigbee") *out = Screen::Zig;
     else if (name == "subghz" || name == "lora" || name == "lora_rx") *out = Screen::SubGhz;
     else if (name == "deauth" || name == "deauth_detect") *out = Screen::Deauth;
     else if (name == "anti" || name == "antisurv" || name == "anti_surveillance") *out = Screen::AntiSurveillance;
@@ -89,7 +89,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             lora_listen_pending_ = false;
             scan_pending_ = false;
             wifi_continuous_pending_ = false;
-            mesh_start_pending_ = false;
+            zig_start_pending_ = false;
             anti_start_pending_ = false;
             bt_scan_pending_ = false;
             bt_continuous_pending_ = false;
@@ -127,7 +127,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         deauth_.clear();
         bt_.clear();
         anti_.clear();
-        mesh_.clear();
+        zig_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
         notice("probe rebooted - resynced");
@@ -167,9 +167,9 @@ void DeckApp::onReply(const ocp::Item &it)
             wifi_continuous_pending_ = false;
             scan_.stop();
         }
-        if (mesh_start_pending_) {
-            mesh_start_pending_ = false;
-            mesh_.stop();
+        if (zig_start_pending_) {
+            zig_start_pending_ = false;
+            zig_.stop();
         }
         if (anti_start_pending_) {
             anti_start_pending_ = false;
@@ -272,7 +272,7 @@ void DeckApp::onReply(const ocp::Item &it)
             deauth_.stop();
             bt_.stop();
             anti_.stop();
-            mesh_.stop();
+            zig_.stop();
         }
         if (all || *lane == OCP_LANE_LORA) {
             lora_.stop();
@@ -354,10 +354,10 @@ void DeckApp::onReply(const ocp::Item &it)
         log("ble scan devices=" + std::to_string(bt_.devices().size()) +
             " malformed=" + std::to_string(bt_.malformedRows()));
     } else if (it.tag == OCP_MARK_ZIG) {
-        mesh_start_pending_ = false;
-        mesh_.absorb(it);
-        log("mesh pans=" + std::to_string(mesh_.pans().size()) + " nodes=" + std::to_string(mesh_.nodes().size()) +
-            " malformed=" + std::to_string(mesh_.malformedRows()));
+        zig_start_pending_ = false;
+        zig_.absorb(it);
+        log("zig pans=" + std::to_string(zig_.pans().size()) + " nodes=" + std::to_string(zig_.nodes().size()) +
+            " malformed=" + std::to_string(zig_.malformedRows()));
     }
 }
 
@@ -392,14 +392,14 @@ bool DeckApp::phyEngineActive() const
 {
     return scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
            spectrum_.active() || deauth_.active() || bt_.scanning() || bt_.continuousActive() ||
-           bt_.airtagActive() || anti_.active() || mesh_.active();
+           bt_.airtagActive() || anti_.active() || zig_.active();
 }
 
 bool DeckApp::phyToolActive() const
 {
     return phyEngineActive() || scan_pending_ || wifi_continuous_pending_ ||
            spectrum_start_pending_ || bt_scan_pending_ || bt_continuous_pending_ ||
-           bt_airtag_pending_ || anti_start_pending_ || mesh_start_pending_;
+           bt_airtag_pending_ || anti_start_pending_ || zig_start_pending_;
 }
 
 bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
@@ -636,14 +636,14 @@ void DeckApp::toggleAntisurveillance(uint32_t now_ms)
     notice("starting anti-surveillance...");
 }
 
-void DeckApp::toggleMesh(uint32_t now_ms)
+void DeckApp::toggleZig(uint32_t now_ms)
 {
-    if (mesh_.active()) { stopPhy(now_ms); return; }
+    if (zig_.active()) { stopPhy(now_ms); return; }
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    if (!preparePhyStart([this](uint32_t now) { toggleMesh(now); }, now_ms)) return;
-    if (!client_.send(OCP_V_START_ZIG_RECON, now_ms)) { retrySoon([this](uint32_t t) { toggleMesh(t); }, now_ms); return; }
-    mesh_start_pending_ = true;
-    mesh_.begin(); mesh_cursor_ = 0; screen_ = Screen::Mesh; notice("");
+    if (!preparePhyStart([this](uint32_t now) { toggleZig(now); }, now_ms)) return;
+    if (!client_.send(OCP_V_START_ZIG_RECON, now_ms)) { retrySoon([this](uint32_t t) { toggleZig(t); }, now_ms); return; }
+    zig_start_pending_ = true;
+    zig_.begin(); zig_cursor_ = 0; screen_ = Screen::Zig; notice("");
 }
 
 void DeckApp::feedGnss(const uint8_t *data, size_t len, uint32_t now_ms)
@@ -716,7 +716,7 @@ void DeckApp::back(uint32_t now_ms)
      * layer, just reachable again if this call didn't scope it too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
-    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Mesh || screen_ == Screen::Deauth || screen_ == Screen::AntiSurveillance || screen_ == Screen::Beacons) {
+    } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Zig || screen_ == Screen::Deauth || screen_ == Screen::AntiSurveillance || screen_ == Screen::Beacons) {
         stopPhy(now_ms);
     } else if (screen_ == Screen::Trace && client_.pending()) {
         stopPhy(now_ms);
@@ -727,6 +727,18 @@ void DeckApp::back(uint32_t now_ms)
 
 void DeckApp::stopPhy(uint32_t now_ms)
 {
+    /* D-18: an ESP32-C5 coexistence defect with no app-level fix means
+     * stopping 802.15.4 always costs the probe a recovery reboot —
+     * immediately, unless LoRa RX is holding it off (probe_restart.c), in
+     * which case it fires once LoRa itself stops. Surfacing this here (the
+     * one chokepoint every "stop the PHY tool" path funnels through) so
+     * the brief link drop reads as expected, not a fault, regardless of
+     * whether the 802.15.4 card was left via 's', navigating away, or
+     * `stop phy`. */
+    if (zig_.active()) {
+        notice(lora_.active() ? "802.15.4 stopped - probe will restart once LoRa stops"
+                               : "802.15.4 stopped - probe restarting...");
+    }
     phy_handoff_.clear();
     client_.stop(now_ms, OCP_LANE_PHY);
 }
@@ -734,7 +746,7 @@ void DeckApp::stopPhy(uint32_t now_ms)
 void DeckApp::stopPhyForNavigation(uint32_t now_ms)
 {
     if (screen_ != Screen::Sweep && screen_ != Screen::Contacts && screen_ != Screen::Spectrum &&
-        screen_ != Screen::Mesh && screen_ != Screen::Deauth && screen_ != Screen::AntiSurveillance && screen_ != Screen::Beacons) return;
+        screen_ != Screen::Zig && screen_ != Screen::Deauth && screen_ != Screen::AntiSurveillance && screen_ != Screen::Beacons) return;
     stopPhy(now_ms);
 }
 
@@ -819,10 +831,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 else startChannelView(now_ms);
             }
             break;
-        case Screen::Mesh:
-            if (c == ';' && mesh_cursor_ > 0) mesh_cursor_--;
-            else if (c == '.' && mesh_cursor_ + 1 < mesh_.nodes().size()) mesh_cursor_++;
-            else if (c == 's') toggleMesh(now_ms);
+        case Screen::Zig:
+            if (c == ';' && zig_cursor_ > 0) zig_cursor_--;
+            else if (c == '.' && zig_cursor_ + 1 < zig_.nodes().size()) zig_cursor_++;
+            else if (c == 's') toggleZig(now_ms);
             break;
         case Screen::SubGhz:
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
@@ -954,7 +966,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "blescan") toggleBtContinuous(now_ms);
     else if (cmd == "airtag") toggleAirtagScan(now_ms);
     else if (cmd == "antisurv") toggleAntisurveillance(now_ms);
-    else if (cmd == "mesh") toggleMesh(now_ms);
+    else if (cmd == "zig") toggleZig(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
@@ -996,9 +1008,9 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " clients=" + std::to_string(contacts_.clients().size()) +
             " probes=" + std::to_string(contacts_.probes().size()) +
             " spectrum=" + std::to_string(spectrum_.readings().size()) +
-            " mesh_pans=" + std::to_string(mesh_.pans().size()) +
-            " mesh_nodes=" + std::to_string(mesh_.nodes().size()) +
-            " mesh_active=" + std::string(mesh_.active() ? "1" : "0") +
+            " zig_pans=" + std::to_string(zig_.pans().size()) +
+            " zig_nodes=" + std::to_string(zig_.nodes().size()) +
+            " zig_active=" + std::string(zig_.active() ? "1" : "0") +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
@@ -1110,9 +1122,9 @@ void DeckApp::tick(uint32_t now_ms)
         last_status_poll_ms_ = now_ms;
         client_.send(OCP_V_STATUS, now_ms);
     }
-    if (screen_ == Screen::Mesh && mesh_.active() && st == ocp::LinkState::Ready && !client_.pending() &&
-        now_ms - last_mesh_poll_ms_ >= kMeshPollMs) {
-        last_mesh_poll_ms_ = now_ms;
+    if (screen_ == Screen::Zig && zig_.active() && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_zig_poll_ms_ >= kZigPollMs) {
+        last_zig_poll_ms_ = now_ms;
         client_.send(OCP_V_ZIG_LIST, now_ms);
     }
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
@@ -1228,8 +1240,8 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawSpectrumView(spectrum_, spectrum_cursor_,
                              makeChrome("PACKET MONITOR"));
         break;
-    case Screen::Mesh:
-        ui::drawMeshView(mesh_, mesh_cursor_,
+    case Screen::Zig:
+        ui::drawZigView(zig_, zig_cursor_,
                          makeChrome("802.15.4"));
         break;
     case Screen::SubGhz:

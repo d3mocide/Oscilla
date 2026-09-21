@@ -164,10 +164,10 @@ python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/anti_surveillance_model_test" | tail -1 | sed 's/^/  /'
 
-"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/mesh_model_test" \
-    firmware-cardputer/test/host/mesh_model_test.cpp firmware-cardputer/src/model/mesh_model.cpp \
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/zig_model_test" \
+    firmware-cardputer/test/host/zig_model_test.cpp firmware-cardputer/src/model/zig_model.cpp \
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
-"$out/mesh_model_test" | tail -1 | sed 's/^/  /'
+"$out/zig_model_test" | tail -1 | sed 's/^/  /'
 
 # The deck's spectrum model: channel_view/packet_monitor event absorption.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/spectrum_model_test" \

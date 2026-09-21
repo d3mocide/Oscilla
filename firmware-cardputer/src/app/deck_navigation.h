@@ -20,7 +20,7 @@ enum class Screen : uint8_t {
     Contacts,
     Info,
     Spectrum,
-    Mesh,
+    Zig,
     SubGhz,
     Deauth,
     AntiSurveillance,

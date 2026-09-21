@@ -1,3 +1,52 @@
+## 2026-09-21 — Renamed the deck's "Mesh" internals to match the UI ("802.15.4") and the probe's own convention
+
+**Phase:** P8 polish, naming consistency · **By:** Claude + Will
+
+The deck's 802.15.4 card was renamed in its UI label back on 2026-09-17
+(WORKLOG that day: "the old `Spectrum`, `Guard`, and `Mesh` tool names to
+`Packet Monitor`, ... `802.15.4`, ..."), but the internal code never
+followed — `Screen::Mesh`, `MeshModel`, `mesh_view.{h,cpp}`, `mesh_` member
+variables, and the debug console's `mesh` command all still said the old
+name. Surfaced today while adding the D-18 toast: confusing to read code
+that says one thing while the screen says another, and the `mesh` debug
+command doesn't read as obviously being "the 802.15.4 thing" to anyone
+who wasn't there for the rename.
+
+Confirmed the protocol and probe side never had this problem —
+`protocol/ocp.h`, `protocol/OCP-SPEC.md`, and every `firmware-c5/main/zig_*`
+file already consistently use `zig`/`802154`/`ieee802154`, never `mesh`.
+So this was entirely a deck-side (`firmware-cardputer/`) cleanup, matching
+the *existing* probe-side convention rather than inventing a third scheme:
+
+- `Screen::Mesh` → `Screen::Zig`; `MeshModel`/`MeshPan`/`MeshNode` →
+  `ZigModel`/`ZigPan`/`ZigNode`; `mesh_view.{h,cpp}` → `zig_view.{h,cpp}`
+  (`drawMeshView` → `drawZigView`); `model/mesh_model.{h,cpp}` →
+  `model/zig_model.{h,cpp}`; `test/host/mesh_model_test.cpp` →
+  `zig_model_test.cpp`
+- `DeckApp::toggleMesh()` → `toggleZig()`; `mesh_`/`mesh_cursor_`/
+  `mesh_start_pending_`/`last_mesh_poll_ms_`/`kMeshPollMs` → the `zig_`
+  equivalents; debug console `mesh` command → `zig`
+  (`screenFromName()`'s `"mesh"`/`"802154"`/`"zigbee"` aliases → `"zig"`/
+  `"802154"`/`"zigbee"`)
+- The dump command's `mesh_pans=`/`mesh_nodes=`/`mesh_active=` fields (added
+  earlier today for the D-18 investigation) → `zig_pans=`/`zig_nodes=`/
+  `zig_active=`
+- The D-18 stop-notice text itself changed from "mesh stopped..." to
+  "802.15.4 stopped..." — that one's user-facing (the toast on the actual
+  screen), so it needed to match the UI label word-for-word, not the
+  internal `zig` code name
+- `tools/check_protocol.sh` and `tools/test_card_selection_style.py`
+  updated for the renamed files; `docs/DECISIONS.md`'s D-18 entry
+  (written earlier today, before this rename) touched up to say
+  "802.15.4" instead of "Mesh" in its own prose
+
+Verified: full host suite green (`zig model test OK`, `navigation test OK`,
+`card selection style test OK`), both firmwares build clean, and hardware-
+confirmed on the deck — `zig` (debug console) started/stopped the engine
+correctly, `dump` showed the renamed fields, and D-18's automatic probe
+restart still fired exactly as before. `git mv` used throughout so file
+history follows the rename.
+
 ## 2026-09-21 — bench-zig-emitter: first real-traffic validation of the 802.15.4 engine, D-18 re-confirmed under load
 
 **Phase:** P7 802.15.4 reliability · **By:** Claude + Will

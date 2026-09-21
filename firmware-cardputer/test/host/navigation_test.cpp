@@ -38,7 +38,7 @@ int main()
           std::string(app::navItem(Screen::Info).title) == "SYSTEM" &&
           std::string(app::navItem(Screen::Sweep).title) == "WIFI SCAN" &&
           std::string(app::navItem(Screen::Beacons).title) == "BLE SCAN" &&
-          std::string(app::navItem(Screen::Mesh).title) == "802.15.4" &&
+          std::string(app::navItem(Screen::Zig).title) == "802.15.4" &&
           std::string(app::navItem(Screen::SubGhz).title) == "LORA RX" &&
           std::string(app::navItem(Screen::Spectrum).title) == "PACKET MONITOR" &&
           std::string(app::navItem(Screen::Contacts).title) == "SNIFFER" &&

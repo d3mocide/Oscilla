@@ -1,12 +1,12 @@
-/* mesh_view.cpp — see mesh_view.h. */
-#include "ui/mesh_view.h"
+/* zig_view.cpp — see zig_view.h. */
+#include "ui/zig_view.h"
 #include <M5Cardputer.h>
 #include "ui/canvas.h"
 #include "ui/link_view.h"
 #include "ui/list_row.h"
 #include "ui/theme.h"
 namespace ui {
-void drawMeshView(const model::MeshModel &m, size_t cursor, const ChromeState &chrome)
+void drawZigView(const model::ZigModel &m, size_t cursor, const ChromeState &chrome)
 {
     auto &d = canvas();
     beginChrome(chrome);

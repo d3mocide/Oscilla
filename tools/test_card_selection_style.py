@@ -13,7 +13,7 @@ ROW_VIEWS = (
     "bt_view.cpp",
     "contacts_view.cpp",
     "deauth_view.cpp",
-    "mesh_view.cpp",
+    "zig_view.cpp",
     "subghz_view.cpp",
     "sweep_view.cpp",
 )

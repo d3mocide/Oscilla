@@ -15,7 +15,7 @@ constexpr NavItem kCards[] = {
     {Screen::Info,     Section::System,  "SYSTEM"},
     {Screen::Sweep,    Section::Observe, "WIFI SCAN"},
     {Screen::Beacons,  Section::Observe, "BLE SCAN"},
-    {Screen::Mesh,     Section::Observe, "802.15.4"},
+    {Screen::Zig,      Section::Observe, "802.15.4"},
     {Screen::SubGhz,   Section::Observe, "LORA RX"},
     {Screen::Spectrum, Section::Analyze, "PACKET MONITOR"},
     {Screen::Contacts, Section::Analyze, "SNIFFER"},

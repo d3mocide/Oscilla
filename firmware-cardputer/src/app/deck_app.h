@@ -29,9 +29,9 @@
 #include "model/anti_surveillance_model.h"
 #include "model/gnss_model.h"
 #include "model/lora_model.h"
-#include "model/mesh_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
+#include "model/zig_model.h"
 #include "ocp/ocp_client.h"
 #include "ui/contacts_view.h"
 
@@ -123,7 +123,7 @@ private:
     void toggleBtContinuous(uint32_t now_ms);
     void toggleAirtagScan(uint32_t now_ms);
     void toggleAntisurveillance(uint32_t now_ms);
-    void toggleMesh(uint32_t now_ms);
+    void toggleZig(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();
     void back(uint32_t now_ms);
@@ -147,7 +147,7 @@ private:
     model::DeauthModel deauth_;
     model::BtModel bt_;
     model::AntiSurveillanceModel anti_;
-    model::MeshModel mesh_;
+    model::ZigModel zig_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;
     /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
@@ -178,9 +178,9 @@ private:
     size_t anti_cursor_ = 0;
     size_t bt_cursor_ = 0;
     uint32_t bt_scan_started_ms_ = 0;
-    size_t mesh_cursor_ = 0;
-    uint32_t last_mesh_poll_ms_ = 0;
-    bool mesh_start_pending_ = false;
+    size_t zig_cursor_ = 0;
+    uint32_t last_zig_poll_ms_ = 0;
+    bool zig_start_pending_ = false;
     bool anti_start_pending_ = false;
     /* BLE starts are acknowledged asynchronously. Keep these separate from
      * the model's running flags so a rejected PHY start cannot look live. */
