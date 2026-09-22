@@ -275,6 +275,8 @@ typedef enum {
 #define OCP_K_HEX               "hex"
 #define OCP_K_PARTNUM           "partnum"   /* [LEGACY]: CC1101 PARTNUM register, hardware-alive check */
 #define OCP_K_CHIPVER           "chipver"   /* [LEGACY]: CC1101 VERSION register */
+#define OCP_K_OVERFLOW          "overflow"  /* [LEGACY]: RX FIFO hardware-overflow count, this session */
+#define OCP_K_QDROPS            "qdrops"    /* [LEGACY]: radio-queue-full drop count, this session */
 
 /* 802.15.4 frames (OCP-SPEC §12). */
 #define OCP_K_STATE             "state"

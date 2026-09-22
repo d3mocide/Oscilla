@@ -20,6 +20,7 @@ idf_component_register(
          "lora_hex.c"
          "lora_recon.c"
          "cc1101_radio.c"
+         "cc1101_regs.c"
          "legacy_recon.c"
          "subghz_arbiter.c"
          "probe_restart.c"

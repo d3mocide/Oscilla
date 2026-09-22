@@ -23,7 +23,7 @@ bool legacyLogBegin();
 /* Appends one row and flushes immediately (crash-tolerant, same as
  * lora_logger.h — post-squelch CC1101 traffic is expected to be sparse, so
  * per-row flush cost is a non-issue). No-op if no session is open. */
-void legacyLogPacket(uint32_t freq_hz, const model::LegacyPacket &p);
+void legacyLogChunk(uint32_t freq_hz, const model::LegacyChunk &c);
 
 void legacyLogEnd();
 

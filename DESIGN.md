@@ -300,7 +300,7 @@ The C5's Wi-Fi, BLE and 802.15.4 share **one internal PHY** and are mutually exc
 | Lane | Members | Rule |
 |---|---|---|
 | **PHY lane** | Wi-Fi 2.4/5, BLE, 802.15.4 | Exactly one owner. `acquire()` before touching the PHY, `release()` on stop; `stop` forces the current owner down via its teardown hook. Coexistence (Wi-Fi + duty-cycled BLE) is modelled as a **single combined owner**, never two. |
-| **Sub-GHz lane** | SX1262 (Wio), CC1101 | Independent of the PHY lane — may run concurrently with a PHY owner. Internally exclusive: the two radios share one SPI bus (`c5-dual-radio-wiring.md` §5.2) and `subghz_arbiter.c` enforces exactly one active receive engine between them. A transition to one radio first tears the other down via its teardown hook, same shape as the PHY lane's. |
+| **Sub-GHz lane** | SX1262 (Wio), CC1101 | Independent of the PHY lane — may run concurrently with a PHY owner. Internally exclusive: the two radios share one SPI bus (`c5-dual-radio-wiring.md` §5.2) and `subghz_arbiter.c` enforces exactly one active receive engine between them, same acquire-or-refuse shape as the PHY lane's — an `[ERR] code=busy` while the other is running, not an automatic hand-off. Stop the current one explicitly (`stop lora`/`stop legacy`) before starting the other. |
 
 Because the lanes are independent, **`stop` is scoped per lane** — `stop phy`, `stop lora`, `stop legacy`, or a bare `stop` for all of them ([D-16](docs/DECISIONS.md), OCP-SPEC §5.4). An unscoped stop sent only to hand the PHY from one Wi-Fi-family engine to another would otherwise tear down a concurrent sub-GHz session as a side effect, which is exactly what it did before the scope existed.
 
@@ -364,6 +364,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/sd_storage` | services | Internal microSD mount + the single shared bus lock (§7.4) |
 | `src/storage/lora_log_format` | services | Pure CSV row shape for the LoRa session log (§9.2); no SD I/O, host-tested |
 | `src/storage/lora_logger` | services | Opens/writes/closes the LoRa session file on SD, under `sd_storage`'s lock |
+| `src/storage/legacy_log_format` | services | Same, for the CC1101 session log — exact mirror of `lora_log_format` |
 | `src/storage/legacy_logger` | services | Same, for the CC1101 session file — exact mirror of `lora_logger` |
 | `src/gnss/nmea_parser` | services | Checksum-verified, chunk-invariant NMEA sentence reader; host-tested |
 | `src/model/gnss_model` | model | Current-fix service: position/date/age, and the four `GnssState` values (§9.1) |

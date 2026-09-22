@@ -10,6 +10,7 @@
 
 #include "legacy_recon.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -24,9 +25,18 @@
 
 static const char *TAG = "legacy_recon";
 
+/* Bounded wait for a previous drain_task to actually exit before starting a
+ * new one — same idiom as zig_teardown()'s wait for its own task
+ * (zig_recon.c). Without this, a rapid stop-then-listen can leave the old
+ * task still blocked in cc1101_radio_next_event() when rx_start() flips
+ * s_running back to true, and it never notices it should have exited
+ * (found in code review, cross-confirmed by two independent findings). */
+#define DRAIN_WAIT_MS 250
+
 static bool s_ready;
 static bool s_configured;
 static cc1101_rx_params_t s_params;
+static volatile bool s_drain_idle = true;
 
 esp_err_t legacy_recon_init(void)
 {
@@ -82,6 +92,7 @@ static void drain_task(void *arg)
             case CC1101_EVT_OVERFLOW: break;   /* FIFO already flushed by the poll task */
         }
     }
+    s_drain_idle = true;
     vTaskDelete(NULL);
 }
 
@@ -101,6 +112,9 @@ void legacy_cmd_listen(void)
         ocp_emit_error(OCP_ERR_BUSY, "already listening");
         return;
     }
+    for (uint32_t waited = 0; !s_drain_idle && waited < DRAIN_WAIT_MS; waited += 5) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
     if (subghz_arbiter_acquire(SUBGHZ_OWNER_CC1101, legacy_teardown) != ESP_OK) {
         ocp_emit_error(OCP_ERR_BUSY, "lora is using the shared sub-GHz bus");
         return;
@@ -113,7 +127,9 @@ void legacy_cmd_listen(void)
         return;
     }
 
+    s_drain_idle = false;
     if (xTaskCreate(drain_task, "legacy_drain", 4096, NULL, 5, NULL) != pdPASS) {
+        s_drain_idle = true;
         legacy_teardown();
         ocp_emit_error(OCP_ERR_INTERNAL, "could not start drain task");
         return;
@@ -126,35 +142,34 @@ void legacy_cmd_status(void)
 {
     bool running = cc1101_radio_is_running();
 
-    /* PARTNUM/VERSION is the concrete hardware-alive check (see plan). Only
-     * probed while idle: it resets the chip, which would otherwise silently
-     * kill an in-progress capture without clearing s_running. */
+    /* PARTNUM/VERSION is the concrete hardware-alive check (see WORKLOG).
+     * Only probed while idle *and* the arbiter says LoRa isn't holding the
+     * shared bus — hw_reset() inside cc1101_radio_read_id() asserts CSn and
+     * resets the chip regardless of what else is on the bus, so probing
+     * while LoRa owns it would select both chips at once (found in code
+     * review, cross-confirmed by two independent findings). */
+    bool safe_to_probe = !running && subghz_arbiter_owner() != SUBGHZ_OWNER_LORA;
     uint8_t partnum = 0xFF, version = 0xFF;
-    bool have_id = false;
-    if (!running) {
-        have_id = (cc1101_radio_read_id(&partnum, &version) == ESP_OK);
-    }
+    bool have_id = safe_to_probe && (cc1101_radio_read_id(&partnum, &version) == ESP_OK);
 
-    if (!s_configured) {
-        if (have_id) {
-            ocp_emit_compact(OCP_MARK_LEGACY, "%s=%d configured=0 %s=%u %s=%u",
-                             OCP_K_RUNNING, running ? 1 : 0,
-                             OCP_K_PARTNUM, (unsigned)partnum, OCP_K_CHIPVER, (unsigned)version);
-        } else {
-            ocp_emit_compact(OCP_MARK_LEGACY, "%s=%d configured=0", OCP_K_RUNNING, running ? 1 : 0);
-        }
-        return;
+    uint32_t overflows = 0, qdrops = 0;
+    cc1101_radio_get_counters(&overflows, &qdrops);
+
+    char buf[160];
+    int n = snprintf(buf, sizeof buf, "%s=%d", OCP_K_RUNNING, running ? 1 : 0);
+    if (s_configured) {
+        n += snprintf(buf + n, sizeof(buf) - (size_t)n, " %s=%lu", OCP_K_FREQ, (unsigned long)s_params.freq_hz);
+    } else {
+        n += snprintf(buf + n, sizeof(buf) - (size_t)n, " configured=0");
     }
     if (have_id) {
-        ocp_emit_compact(OCP_MARK_LEGACY, "%s=%d %s=%lu %s=%u %s=%u",
-                         OCP_K_RUNNING, running ? 1 : 0,
-                         OCP_K_FREQ, (unsigned long)s_params.freq_hz,
-                         OCP_K_PARTNUM, (unsigned)partnum, OCP_K_CHIPVER, (unsigned)version);
-    } else {
-        ocp_emit_compact(OCP_MARK_LEGACY, "%s=%d %s=%lu",
-                         OCP_K_RUNNING, running ? 1 : 0,
-                         OCP_K_FREQ, (unsigned long)s_params.freq_hz);
+        n += snprintf(buf + n, sizeof(buf) - (size_t)n, " %s=%u %s=%u",
+                      OCP_K_PARTNUM, (unsigned)partnum, OCP_K_CHIPVER, (unsigned)version);
     }
+    snprintf(buf + n, sizeof(buf) - (size_t)n, " %s=%lu %s=%lu",
+            OCP_K_OVERFLOW, (unsigned long)overflows, OCP_K_QDROPS, (unsigned long)qdrops);
+
+    ocp_emit_compact(OCP_MARK_LEGACY, "%s", buf);
 }
 
 bool legacy_cmd_stop(void)

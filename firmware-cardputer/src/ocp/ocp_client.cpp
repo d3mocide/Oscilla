@@ -186,8 +186,23 @@ void Client::handleHello(const Item &it)
     parser_.abandonOpenFrame();
 
     if (!solicited && state_ == LinkState::Ready) {
+        /* Unsolicited-while-Ready: the probe restarted on its own (e.g. the
+         * D-18 coexistence-defect recovery). on_reset_'s caller is expected
+         * to read stats() for its own diagnostic before anything clears
+         * them — deck_app.cpp's onReset handler does exactly that, then
+         * clears transient stats itself afterward. Left alone here. */
         stats_.resets++;
         if (on_reset_) on_reset_();
+    } else if (solicited) {
+        /* An ordinary disconnect-then-`connect()`-retry reconnect (or the
+         * post-reboot handshake) — no on_reset_ callback fires for this
+         * shape at all, so nothing else would ever clear the
+         * timeouts/noise/stray a stranded command or boot chatter left
+         * behind during the drop. This was the actual gap: the earlier fix
+         * only cleared stats on the rarer unsolicited-reset path above,
+         * leaving this far more common one to accumulate forever (see
+         * WORKLOG). */
+        clearTransientStats();
     }
     setState(info.proto == OCP_PROTO_VERSION ? LinkState::Ready : LinkState::Incompatible);
 }

@@ -22,6 +22,6 @@ std::string legacyLogHeader();
 /* One row for one received chunk. ts_ms is the deck's own millis() at
  * receipt — no wall-clock source yet, same boot-relative-timestamp
  * philosophy as loraLogRow. */
-std::string legacyLogRow(uint32_t ts_ms, uint32_t freq_hz, const model::LegacyPacket &p);
+std::string legacyLogRow(uint32_t ts_ms, uint32_t freq_hz, const model::LegacyChunk &c);
 
 }  // namespace storage

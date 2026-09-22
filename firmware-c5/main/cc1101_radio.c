@@ -3,15 +3,14 @@
  *
  * Register/strobe addresses and formulas are transcribed from the TI CC1101
  * datasheet (SWRS061), not guessed or lifted from a generic library — the
- * same discipline lora_radio.c holds itself to for the SX1262 (its own
- * header warns third-party register-map assumptions tend to be wrong).
+ * same discipline lora_radio.c holds itself to for the SX1262. Register
+ * *values* are computed by cc1101_regs.c, not hand-picked — a hand-picked
+ * profile is what produced a real bug (WORKLOG 2026-09-21/22): the wrong
+ * data rate and a receive filter 4x wider than intended.
  *
- * Front-end and TEST0-2 registers are deliberately left at their
- * power-on-reset defaults rather than copying "recommended settings" from an
- * online example I can't trace back to the datasheet myself. AGCCTRL1 is the
- * one exception (relative carrier-sense threshold — see cc1101_set_rx_profile),
- * added after the first bench capture turned out to be free-running noise,
- * not device traffic (see WORKLOG).
+ * Front-end and TEST0-2 registers stay at power-on-reset defaults (no
+ * unverified "recommended settings" copied from elsewhere); AGCCTRL1 is
+ * the one exception — see cc1101_set_rx_profile() and WORKLOG.
  *
  * Locking: s_lock guards s_running against concurrent rx_start/rx_stop/
  * is_running calls from the dispatch task while the poll task is mid-drain.
@@ -37,6 +36,8 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
+#include "cc1101_regs.h"
+
 static const char *TAG = "cc1101_radio";
 
 /* Wiring-doc §2/§4 pin map. SCK/MISO/MOSI are the same physical pins
@@ -51,8 +52,15 @@ static const char *TAG = "cc1101_radio";
 
 #define MISO_TIMEOUT_MS 200   /* generous margin over the crystal's real startup */
 #define POLL_PERIOD_MS  20    /* FIFO is 64 bytes; must drain well inside a burst */
+#define RXBYTES_RECHECK_US 200   /* gap between the two stable-read RXBYTES samples */
 
-#define FXOSC_HZ  26000000ULL   /* see header comment: bench-assumed, not confirmed */
+#define FXOSC_HZ  26000000UL   /* bench-assumed, not datasheet-confirmed for this module — see WORKLOG */
+
+/* Chosen profile: 2400 baud target, 203125 Hz bandwidth (the chip's own
+ * POR default — a conservative, documented starting point, not asserted
+ * correct for any real sensor; see cc1101_set_rx_profile()). */
+#define TARGET_BAUD_HZ    2400UL
+#define TARGET_CHANBW_HZ  203125UL
 
 /* Config register addresses, datasheet Table 44. Only the ones this driver
  * actually writes get a name; everything else stays at chip POR default. */
@@ -76,9 +84,8 @@ static const char *TAG = "cc1101_radio";
 #define REG_RXBYTES   0x3B
 
 /* RSSI_OFFSET is data-rate/filter-bandwidth dependent (datasheet §17.3,
- * Table 31); 74 dB is the table's own value for a 2.4 kBaud-class narrow
- * filter, matching this driver's fixed ~2.4 kBaud profile below. Revisit if
- * the data rate profile changes. */
+ * Table 31); 74 dB is the table's value for this driver's narrow-filter
+ * profile. Revisit if the profile changes. */
 #define RSSI_OFFSET_DB 74
 
 #define REG_FIFO      0x3F
@@ -106,19 +113,24 @@ static const char *TAG = "cc1101_radio";
 
 /* AGCCTRL1 (datasheet Table 39 register field, §17.3 "Carrier Sense"):
  * bit6 AGC_LNA_PRIORITY (POR default 1, left as-is), bits[5:4]
- * CARRIER_SENSE_REL_THR, bits[3:0] CARRIER_SENSE_ABS_THR (unused in
- * relative mode). 10 = "RSSI must rise 10 dB above the point it stayed at
- * for a while" — self-calibrates to the local noise floor rather than a
- * hardcoded dBm guess, which is why relative mode is used instead of the
- * absolute-threshold field. Chosen as a middle value among the datasheet's
- * three options (6/10/14 dB); not bench-tuned yet, see WORKLOG. */
+ * CARRIER_SENSE_REL_THR=10 ("RSSI must rise 10 dB above the settled
+ * level" — self-calibrating, a middle value among the datasheet's three
+ * options), bits[3:0] CARRIER_SENSE_ABS_THR (unused in relative mode).
+ * Not bench-tuned yet — see WORKLOG. */
 #define AGCCTRL1_CARRIER_SENSE_10DB  0x60
+
+/* RXBYTES' low 7 bits are the FIFO occupancy; bit7 set is the overflow flag
+ * (datasheet §10.4). */
+#define RXBYTES_OVERFLOW (1u << 7)
 
 static spi_device_handle_t s_spi;
 static SemaphoreHandle_t s_lock;
+static SemaphoreHandle_t s_poll_sem;   /* parks poll_task until a session is running */
 static QueueHandle_t s_event_queue;
 static TaskHandle_t s_task;
 static volatile bool s_running;
+static uint32_t s_fifo_overflow_count;
+static uint32_t s_queue_drop_count;
 
 static void cs_select(void)   { gpio_set_level(PIN_CS, 0); }
 static void cs_deselect(void) { gpio_set_level(PIN_CS, 1); }
@@ -140,16 +152,9 @@ static esp_err_t wait_miso_low(void)
     return ESP_OK;
 }
 
-/* No wait_miso_low() precondition below (unlike hw_reset()): SO only means
- * "not ready yet" for the brief window right after a CS-low edge while the
- * crystal starts — datasheet §19.1. Outside that window it's an ordinary
- * SPI MISO line, shared with the Wio, and reads whatever the bus is
- * floating to or the other device last drove while deselected; polling it
- * here doesn't test CC1101 readiness at all, and was the actual cause of a
- * spurious ESP_ERR_TIMEOUT on rx_start (WORKLOG) even though the chip was
- * genuinely ready. hw_reset() already confirms the chip awake once via the
- * correct CS-then-SO-then-SRES-then-SO sequence; ordinary access after that
- * needs no extra wait. */
+/* No wait_miso_low() precondition: SO only signals readiness right after a
+ * CS-low edge (datasheet §19.1), not on an otherwise-idle shared bus —
+ * see WORKLOG for the spurious-timeout bug this distinction fixed. */
 static esp_err_t strobe(uint8_t opcode)
 {
     uint8_t tx[1] = { opcode };
@@ -206,6 +211,9 @@ esp_err_t cc1101_radio_init(void)
     s_lock = xSemaphoreCreateMutex();
     if (!s_lock) return ESP_ERR_NO_MEM;
 
+    s_poll_sem = xSemaphoreCreateBinary();   /* starts empty: poll_task parks until rx_start gives it */
+    if (!s_poll_sem) return ESP_ERR_NO_MEM;
+
     s_event_queue = xQueueCreate(8, sizeof(cc1101_event_t));
     if (!s_event_queue) return ESP_ERR_NO_MEM;
 
@@ -242,14 +250,9 @@ esp_err_t cc1101_radio_init(void)
                ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
-/* Wiring-doc §2's documented manual reset: CSn low->high->low bracketing a
- * bounded SO-low wait, then SRES, then SO-low again. The doc's literal
- * procedure also bit-bangs SCK high / SI low before the first CSn edge;
- * that's skipped here because ESP-IDF's spi_master driver owns those two
- * pins once attached to the shared bus, and detaching them mid-flight to
- * bit-bang risks corrupting the Wio's side of the same bus. This is a
- * documented simplification, not yet bench-differentiated from the literal
- * sequence — revisit if reset proves unreliable (see WORKLOG). */
+/* Wiring-doc §2's manual reset, CS held low across select->SO-wait->SRES->
+ * SO-wait. Skips the doc's literal SCK/SI bit-bang (would fight the Wio's
+ * use of the same shared-bus pins) — see WORKLOG. */
 static esp_err_t hw_reset(void)
 {
     cs_select();
@@ -277,29 +280,35 @@ static esp_err_t hw_reset(void)
 
 static esp_err_t cc1101_set_rf_frequency(uint32_t freq_hz)
 {
-    /* FREQ[23:0] = freq_hz * 2^16 / f_osc (datasheet §13.1). */
-    uint32_t freq_reg = (uint32_t)(((uint64_t)freq_hz << 16) / FXOSC_HZ);
+    uint32_t freq_reg = cc1101_freq_reg(freq_hz, FXOSC_HZ);
     esp_err_t err = write_reg(REG_FREQ2, (uint8_t)(freq_reg >> 16));
     if (err == ESP_OK) err = write_reg(REG_FREQ1, (uint8_t)(freq_reg >> 8));
     if (err == ESP_OK) err = write_reg(REG_FREQ0, (uint8_t)freq_reg);
     return err;
 }
 
-/* Fixed conservative starting point: ~2.4 kBaud, carrier-sense-gated (no
- * literal sync word — per-sensor preambles are unknown, but free-running
- * with SYNC_MODE=0 turned out to report continuous noise as if it were
- * data, not just silence between real bursts; see WORKLOG), infinite packet
- * length (LENGTH_CONFIG=10, datasheet §8) so a real burst's demodulated
- * bytes just keep filling the FIFO for the poll task to drain, no
- * CRC/whitening (an external sensor doesn't speak CC1101's own framing).
- * Not asserted correct for any specific sensor — a starting point to tune
- * once real captures exist (same stance as D-10). */
+/* Carrier-sense-gated (no literal sync word — per-sensor preambles are
+ * unknown, but free-running with SYNC_MODE=0 reported continuous noise as
+ * if it were data, not just silence between real bursts; see WORKLOG),
+ * infinite packet length (LENGTH_CONFIG=10, datasheet §8) so a real
+ * burst's demodulated bytes just keep filling the FIFO for the poll task
+ * to drain, no CRC/whitening (an external sensor doesn't speak CC1101's
+ * own framing). Data rate and bandwidth are computed by cc1101_regs.c from
+ * TARGET_BAUD_HZ/TARGET_CHANBW_HZ, not hand-picked. Not asserted correct
+ * for any specific sensor — a starting point to tune once real captures
+ * exist (same stance as D-10). */
 static esp_err_t cc1101_set_rx_profile(void)
 {
-    /* DRATE = (256+DRATE_M) * 2^DRATE_E * f_osc / 2^28 (datasheet §13.5).
-     * DRATE_E=6, DRATE_M=0 -> ~2.4 kBaud at 26 MHz. */
-    esp_err_t err = write_reg(REG_MDMCFG4, 0x06);   /* CHANBW left default, DRATE_E=6 */
-    if (err == ESP_OK) err = write_reg(REG_MDMCFG3, 0x00);   /* DRATE_M=0 */
+    uint8_t drate_e, drate_m, chanbw_e, chanbw_m;
+    uint32_t achieved_baud = cc1101_drate_reg(TARGET_BAUD_HZ, FXOSC_HZ, &drate_e, &drate_m);
+    uint32_t achieved_bw = cc1101_chanbw_reg(TARGET_CHANBW_HZ, FXOSC_HZ, &chanbw_e, &chanbw_m);
+    ESP_LOGI(TAG, "rx profile: target=%luBd/%luHz achieved=%luBd/%luHz",
+             (unsigned long)TARGET_BAUD_HZ, (unsigned long)TARGET_CHANBW_HZ,
+             (unsigned long)achieved_baud, (unsigned long)achieved_bw);
+
+    uint8_t mdmcfg4 = (uint8_t)((chanbw_e << 6) | (chanbw_m << 4) | drate_e);
+    esp_err_t err = write_reg(REG_MDMCFG4, mdmcfg4);
+    if (err == ESP_OK) err = write_reg(REG_MDMCFG3, drate_m);
     if (err == ESP_OK) {
         err = write_reg(REG_MDMCFG2, MOD_FORMAT_OOK | SYNC_MODE_CARRIER_SENSE);
     }
@@ -329,7 +338,13 @@ esp_err_t cc1101_radio_rx_start(const cc1101_rx_params_t *params)
         strobe(STROBE_SIDLE);
         s_running = false;
     } else {
+        /* A stopped session's queued-but-undrained events must not surface
+         * as if they belonged to this new one (WORKLOG 2026-09-21/22). */
+        xQueueReset(s_event_queue);
+        s_fifo_overflow_count = 0;
+        s_queue_drop_count = 0;
         s_running = true;
+        xSemaphoreGive(s_poll_sem);   /* wake poll_task, parked since the last stop (or boot) */
     }
 
     xSemaphoreGive(s_lock);
@@ -356,6 +371,12 @@ bool cc1101_radio_next_event(cc1101_event_t *out, uint32_t timeout_ms)
     return xQueueReceive(s_event_queue, out, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
 }
 
+void cc1101_radio_get_counters(uint32_t *fifo_overflows, uint32_t *queue_drops)
+{
+    if (fifo_overflows) *fifo_overflows = s_fifo_overflow_count;
+    if (queue_drops) *queue_drops = s_queue_drop_count;
+}
+
 /* ---- probe (PARTNUM/VERSION) ---------------------------------------------- */
 
 esp_err_t cc1101_radio_read_id(uint8_t *partnum, uint8_t *version)
@@ -371,58 +392,56 @@ esp_err_t cc1101_radio_read_id(uint8_t *partnum, uint8_t *version)
 
 /* ---- poll task ------------------------------------------------------------- */
 
-/* No GDO0 wiring in this harness revision, so RX is polled rather than
- * IRQ-fed (wiring-doc §4.1). RXBYTES' low 7 bits are the FIFO occupancy;
- * bit7 set is the overflow flag (datasheet §10.4) — an overflowed FIFO must
- * be flushed via SIDLE+SFRX before RX can resume. */
-#define RXBYTES_OVERFLOW (1u << 7)
-#define RXBYTES_MASK     0x7F
-
-/* Datasheet §17.3: two's-complement register, then a data-rate-dependent
- * offset. Not per-byte (this mode has no packet boundary to attach RSSI
- * to) — a live snapshot taken at drain time. */
-static int16_t rssi_reg_to_dbm(uint8_t raw)
-{
-    int16_t dec = raw;
-    if (dec >= 128) dec -= 256;
-    return (int16_t)(dec / 2 - RSSI_OFFSET_DB);
-}
-
 static void drain_fifo(void)
 {
-    uint8_t rxbytes = 0;
-    if (read_status(REG_RXBYTES, &rxbytes) != ESP_OK) return;
+    uint8_t rxbytes1 = 0;
+    if (read_status(REG_RXBYTES, &rxbytes1) != ESP_OK) return;
 
-    if (rxbytes & RXBYTES_OVERFLOW) {
+    if (rxbytes1 & RXBYTES_OVERFLOW) {
+        s_fifo_overflow_count++;
         strobe(STROBE_SIDLE);
         strobe(STROBE_SFRX);
         strobe(STROBE_SRX);
         cc1101_event_t evt = { .kind = CC1101_EVT_OVERFLOW };
-        xQueueSend(s_event_queue, &evt, 0);
+        if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_queue_drop_count++;
         return;
     }
 
-    uint8_t n = rxbytes & RXBYTES_MASK;
-    if (n == 0) return;
-    if (n > CC1101_MAX_CHUNK) n = CC1101_MAX_CHUNK;
+    /* Stable-read guard against the datasheet's documented race (a read
+     * landing mid-transfer of the last FIFO byte can return a stale
+     * count): two RXBYTES reads a short, bounded gap apart, then
+     * cc1101_drain_count() decides how much is safe to pull now. */
+    esp_rom_delay_us(RXBYTES_RECHECK_US);
+    uint8_t rxbytes2 = 0;
+    if (read_status(REG_RXBYTES, &rxbytes2) != ESP_OK) return;
+    if (rxbytes2 & RXBYTES_OVERFLOW) return;   /* handle it on the next poll, not mid-decision here */
+
+    int n = cc1101_drain_count(rxbytes1, rxbytes2, CC1101_MAX_CHUNK);
+    if (n <= 0) return;
 
     cc1101_event_t evt = { .kind = CC1101_EVT_CHUNK };
-    if (read_fifo(evt.chunk.payload, n) != ESP_OK) return;
-    evt.chunk.len = n;
+    if (read_fifo(evt.chunk.payload, (size_t)n) != ESP_OK) return;
+    evt.chunk.len = (uint8_t)n;
     uint8_t rssi_raw = 0;
     evt.chunk.rssi_dbm = (read_status(REG_RSSI, &rssi_raw) == ESP_OK)
-                              ? rssi_reg_to_dbm(rssi_raw) : 0;
-    xQueueSend(s_event_queue, &evt, 0);
+                              ? cc1101_rssi_to_dbm(rssi_raw, RSSI_OFFSET_DB) : 0;
+    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_queue_drop_count++;
 }
 
+/* Parked on s_poll_sem until a session actually starts, rather than
+ * waking every POLL_PERIOD_MS from boot regardless of use — this is a
+ * permanently-attached driver on a single-core chip, and CC1101 may never
+ * be used in a given session. */
 static void poll_task(void *arg)
 {
     (void)arg;
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(POLL_PERIOD_MS));
-
-        xSemaphoreTake(s_lock, portMAX_DELAY);
-        if (s_running) drain_fifo();
-        xSemaphoreGive(s_lock);
+        xSemaphoreTake(s_poll_sem, portMAX_DELAY);
+        while (s_running) {
+            vTaskDelay(pdMS_TO_TICKS(POLL_PERIOD_MS));
+            xSemaphoreTake(s_lock, portMAX_DELAY);
+            if (s_running) drain_fifo();
+            xSemaphoreGive(s_lock);
+        }
     }
 }

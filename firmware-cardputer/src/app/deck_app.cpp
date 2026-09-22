@@ -117,14 +117,17 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         phy_handoff_.clear();
         /* The probe's stored results died with it; so did our indices. */
         const auto &st = client_.stats();
-        log("probe-reset resets=" + std::to_string(st.resets) + " noise=" + std::to_string(st.noise) +
-            " stray=" + std::to_string(st.stray));
-        /* A reboot (e.g. the zig/coexistence-defect restart, D-18) always
-         * strands a pending command and reads some boot chatter as
-         * noise/stray on the way back up — expected, not an ongoing link
-         * problem, so it shouldn't inflate the counters a later genuine
-         * timeout gets judged against. The line above already logged the
-         * pre-clear values for this specific event. */
+        log("probe-reset resets=" + std::to_string(st.resets) + " timeouts=" + std::to_string(st.timeouts) +
+            " noise=" + std::to_string(st.noise) + " stray=" + std::to_string(st.stray));
+        /* This unsolicited-reset shape (e.g. the zig/coexistence-defect
+         * restart, D-18) always strands a pending command and reads a
+         * burst of boot chatter as noise/stray on the way back up —
+         * expected, not an ongoing link problem, so it shouldn't inflate
+         * the counters a later genuine timeout gets judged against. The
+         * line above already logged the pre-clear values for this event;
+         * Client::handleHello() separately clears the same counters on its
+         * own for the more common plain-reconnect shape, which never runs
+         * this callback at all (see WORKLOG). */
         client_.clearTransientStats();
         scan_.clear();
         contacts_.clear();
@@ -331,8 +334,10 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_LEGACY) {
         /* Same reasoning as OCP_MARK_LORA above. legacy_status also answers
          * on this marker (debug-console "legacy id") — when it carries a
-         * partnum=, log it: that's the CC1101 hardware-alive check, and
-         * there's no dedicated debug screen for it yet (see WORKLOG). */
+         * partnum=, log it: that's the CC1101 hardware-alive check. Every
+         * [LEGACY] reply carries the current overflow=/qdrops= counters
+         * regardless of which sub-case this is, so absorb them unconditionally. */
+        legacy_.absorbStatus(it);
         if (legacy_listen_pending_) {
             legacy_listen_pending_ = false;
             legacy_.begin();
@@ -403,8 +408,8 @@ void DeckApp::onEvent(const ocp::Item &it)
     if (const auto *p = lora_.absorbEvent(it)) {   /* kind=lora is the only source of truth here too */
         storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
     }
-    if (const auto *p = legacy_.absorbEvent(it)) {   /* kind=legacy is the only source of truth here too */
-        storage::legacyLogPacket(legacy_.freqHz(), *p);
+    if (const auto *c = legacy_.absorbEvent(it)) {   /* kind=legacy is the only source of truth here too */
+        storage::legacyLogChunk(legacy_.freqHz(), *c);
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
@@ -923,7 +928,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             break;
         case Screen::Legacy:
             if (c == ';' && legacy_cursor_ > 0) legacy_cursor_--;
-            else if (c == '.' && legacy_cursor_ + 1 < legacy_.packets().size()) legacy_cursor_++;
+            else if (c == '.' && legacy_cursor_ + 1 < legacy_.chunks().size()) legacy_cursor_++;
             else if (c == 'c') startLegacyConfig(now_ms);
             else if (c == 's') {
                 if (legacy_.active()) client_.stop(now_ms, OCP_LANE_LEGACY);
@@ -1103,8 +1108,11 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " zig_nodes=" + std::to_string(zig_.nodes().size()) +
             " zig_active=" + std::string(zig_.active() ? "1" : "0") +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
-            " legacy_pkts=" + std::to_string(legacy_.total()) +
+            " legacy_chunks=" + std::to_string(legacy_.total()) +
             " legacy_rssi=" + std::to_string(legacy_.lastRssi()) +
+            " legacy_overflow=" + std::to_string(legacy_.fifoOverflows()) +
+            " legacy_qdrops=" + std::to_string(legacy_.queueDrops()) +
+            " legacy_bad=" + std::to_string(legacy_.malformedCount()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
             " bt_trackers=" + std::to_string(bt_.deviceTrackerCount()) +

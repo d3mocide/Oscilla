@@ -6,7 +6,7 @@
 | Field | Value |
 |---|---|
 | **Current phase** | P4 complete → **P5 — External TFT** (🔴 blocked on panel/regulator); P7 passive-suite work continues in parallel |
-| **Last updated** | 2026-09-21 |
+| **Last updated** | 2026-09-22 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -235,14 +235,39 @@ complete until its remaining real-frame and view checks are demonstrated.
   both directions, without disturbing the running one (real hardware, both
   directions). A real SPI-timing bug (SO checked before CS was asserted)
   was found and fixed on the bench, not in review. Deck side: **CC1101 RX**
-  card mirroring the LoRa screen (packet list, per-session SD log), added
-  same night. **Not yet hardware-confirmed:** whether captured output is
-  real 433 MHz traffic or noise — the first bench capture (no sync word,
-  AGC at defaults) looked like continuous noise, not device bursts; a
-  carrier-sense-gated squelch profile was written in response but the
-  hardware went offline before it could be flashed. The new deck screen is
-  equally unverified — untested end-to-end on real hardware. Both are the
-  first things to check next bench session. Full detail in WORKLOG.
+  card mirroring the LoRa screen (chunk list — "chunk," not "packet": no
+  sync word, no CRC, so it's an unframed FIFO slice, not a decoded packet
+  — plus a per-session SD log), added same night.
+
+  **2026-09-22, Codex's independent review** (`Research/cc1101-passive-recon-review.md`)
+  plus an 8-agent `/code-review` pass, cross-referenced, found the register
+  math was wrong (DRATE ~1.587k not ~2.4k baud; channel filter 812.5 kHz,
+  4x wider than intended), two real lifecycle bugs (LoRa leaked the
+  sub-GHz arbiter owner on a rare task-creation failure; `legacy_status`
+  could touch the shared bus without owning it), and a doc/code mismatch
+  in the arbiter's documented behavior. All fixed same day — new
+  host-tested `cc1101_regs.c` register-math module (with a mutation-style
+  proof against the actual old wrong values), stable `RXBYTES` sampling,
+  overflow/drop counters, bounded drain-task lifecycle waits. Full detail
+  in WORKLOG.
+
+  **Deferred, not dropped:** Codex's Workstream B (RSSI/carrier-sense
+  activity-survey mode as a further evolution beyond raw FIFO chunks), C
+  (physical qualification against a known source), and D (GDO0 hardware
+  revision, blocked on a pin-allocation decision); the
+  `subghz_arbiter.c`/`radio_arbiter.c` near-duplicate and the three
+  now-near-identical SD loggers (reuse debt, not bugs); `check_rx_only.py`'s
+  missing structural opcode-audit for CC1101 (LoRa has one); expanding
+  `ocp_repl.py --gate-stop` to exercise the LoRa/CC1101 exclusion on real
+  hardware.
+
+  **Not yet hardware-confirmed:** whether captured output is real 433 MHz
+  traffic or noise, or whether tonight's carrier-sense squelch profile
+  changes that — the first bench capture (no sync word, AGC at defaults)
+  looked like continuous noise, not device bursts; hardware went offline
+  before the squelch change, or any of tonight's fixes, could be flashed.
+  The new deck screen is equally unverified end-to-end. These are the
+  first things to check next bench session.
 
 **Exit gate:** every DESIGN §7.2 view backed by real frames; a wardrive session produces a valid WiGLE-importable CSV and a KML track.
 

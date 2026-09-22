@@ -33,9 +33,18 @@
 
 static const char *TAG = "lora_recon";
 
+/* Bounded wait for a previous drain_task to actually exit before starting a
+ * new one — same idiom as zig_teardown()'s wait for its own task
+ * (zig_recon.c), and the same fix applied to legacy_recon.c's mirror of
+ * this file. Without this, a rapid stop-then-listen can leave the old task
+ * still blocked in lora_radio_next_event() when rx_start() flips s_running
+ * back to true, and it never notices it should have exited. */
+#define DRAIN_WAIT_MS 250
+
 static bool s_ready;
 static bool s_configured;
 static lora_rx_params_t s_params;
+static volatile bool s_drain_idle = true;
 
 esp_err_t lora_recon_init(void)
 {
@@ -153,6 +162,7 @@ static void drain_task(void *arg)
             case LORA_EVT_HEADER_ERR: break;
         }
     }
+    s_drain_idle = true;
     vTaskDelete(NULL);
 }
 
@@ -172,6 +182,9 @@ void lora_cmd_listen(void)
         ocp_emit_error(OCP_ERR_BUSY, "already listening");
         return;
     }
+    for (uint32_t waited = 0; !s_drain_idle && waited < DRAIN_WAIT_MS; waited += 5) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
     if (subghz_arbiter_acquire(SUBGHZ_OWNER_LORA, lora_teardown) != ESP_OK) {
         ocp_emit_error(OCP_ERR_BUSY, "cc1101 is using the shared sub-GHz bus");
         return;
@@ -184,8 +197,14 @@ void lora_cmd_listen(void)
         return;
     }
 
+    s_drain_idle = false;
     if (xTaskCreate(drain_task, "lora_drain", 4096, NULL, 5, NULL) != pdPASS) {
-        lora_radio_rx_stop();
+        s_drain_idle = true;
+        /* Was lora_radio_rx_stop() only — leaked the arbiter owner forever
+         * on this failure path (found in code review, cross-confirmed by
+         * two independent findings; legacy_recon.c's mirror already called
+         * the full teardown correctly). */
+        lora_teardown();
         ocp_emit_error(OCP_ERR_INTERNAL, "could not start drain task");
         return;
     }

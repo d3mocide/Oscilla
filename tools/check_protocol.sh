@@ -60,6 +60,15 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/lora_hex_test.c firmware-c5/main/lora_hex.c
 "$out/lora_hex_test" | tail -1 | sed 's/^/  /'
 
+# CC1101 register-value calculations: frequency/data-rate/bandwidth/RSSI math
+# and the RXBYTES stable-read drain-count decision, all pure (no SPI/GPIO).
+# Includes a mutation-style proof against the actual wrong values the driver
+# shipped with (WORKLOG 2026-09-21/22) — this test would have caught it.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/cc1101_regs_test" \
+    firmware-c5/test/host/cc1101_regs_test.c firmware-c5/main/cc1101_regs.c
+"$out/cc1101_regs_test" | tail -1 | sed 's/^/  /'
+
 # Block frames are buffered and committed as one transaction; unavailable or
 # oversized output must never reach the transport partially.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \

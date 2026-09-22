@@ -16,10 +16,8 @@
  *   GDO0/GDO2 unconnected in this harness revision — RX is polling, not
  *   IRQ-driven (wiring doc §4.1).
  *
- * The 26 MHz crystal assumption (FXOSC_HZ below) is a bench-verified
- * starting point, not a datasheet-confirmed constant for the delivered
- * E07-M1101D-SMA module — same epistemic stance as lora_radio.h's D-10 TCXO
- * delay. Confirm against the physical module if frequency accuracy matters.
+ * FXOSC_HZ (cc1101_radio.c) is a bench-verified starting point, not a
+ * datasheet-confirmed constant for the delivered module — see that file.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -80,5 +78,11 @@ bool cc1101_radio_next_event(cc1101_event_t *out, uint32_t timeout_ms);
 /* Resets the chip and reads PARTNUM/VERSION — the concrete "is the chip
  * alive" bench check (datasheet Table 45). Leaves the chip idle either way. */
 esp_err_t cc1101_radio_read_id(uint8_t *partnum, uint8_t *version);
+
+/* Session-lifetime counters: RX FIFO hardware overflows and radio-queue
+ * drops (the queue between the poll task and legacy_recon.c's drain task
+ * filling up — previously silently discarded, now counted). Reset by
+ * rx_start(), so they describe the current/most recent session. */
+void cc1101_radio_get_counters(uint32_t *fifo_overflows, uint32_t *queue_drops);
 
 #endif /* OSCILLA_CC1101_RADIO_H */

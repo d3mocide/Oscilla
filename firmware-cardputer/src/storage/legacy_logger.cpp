@@ -51,12 +51,12 @@ bool legacyLogBegin()
     return g_open;
 }
 
-void legacyLogPacket(uint32_t freq_hz, const model::LegacyPacket &p)
+void legacyLogChunk(uint32_t freq_hz, const model::LegacyChunk &c)
 {
     if (!g_open) return;
     if (!lock()) return;   /* a contended lock just means this row is dropped, not blocked */
 
-    std::string row = legacyLogRow(millis(), freq_hz, p);
+    std::string row = legacyLogRow(millis(), freq_hz, c);
     g_file.print(row.c_str());
     g_file.flush();
 

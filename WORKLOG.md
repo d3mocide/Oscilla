@@ -1,3 +1,129 @@
+## 2026-09-22 — CC1101 fix pass: Workstream A (register math, lifecycle bugs, terminology honesty)
+
+**Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will
+
+Implemented Codex's Workstream A (`Research/cc1101-passive-recon-review.md`,
+previous entry) plus every real bug an 8-agent `/code-review` pass found on
+the same code, cross-referenced against each other. Two were independently
+confirmable, not just review opinion — re-derived both from the datasheet
+formula myself before touching anything:
+
+- **DRATE/CHANBW were wrong.** `MDMCFG4=0x06/MDMCFG3=0x00` computed to
+  ~1,586.9 baud (not the claimed ~2.4k) and a 812.5 kHz channel filter —
+  4x wider than the chip's own 203 kHz POR default, the opposite of
+  conservative, and nobody chose that on purpose.
+- **`legacy_cmd_status()` could select both radios on the shared bus at
+  once.** It called `cc1101_radio_read_id()` (asserts CS, resets the chip)
+  without checking `subghz_arbiter_owner()` first — cross-confirmed by two
+  independent review findings.
+- **`lora_cmd_listen()` leaked the arbiter owner forever** if
+  `xTaskCreate` failed after the arbiter was already acquired — also
+  cross-confirmed twice. The CC1101 mirror (written by copying this exact
+  function) got it right; the LoRa original it was copied from didn't.
+- **DESIGN.md overclaimed the arbiter's behavior** ("first tears the other
+  down") — it actually refuses with `busy`, matching the PHY lane's
+  existing precedent. Doc now matches code instead of the other way
+  around.
+
+New `firmware-c5/main/cc1101_regs.h`/`.c` — pure, host-tested register-math
+module (frequency word, DRATE/CHANBW closest-match search, RSSI
+conversion, and the RXBYTES stable-read drain-count decision), mirroring
+`lora_hex.c`'s no-SPI/no-GPIO split. New host test
+`cc1101_regs_test.c` includes a mutation-style proof (per AGENTS.md's "prove
+a check catches the bug") that the *old* 0x06/0x00 pair does not land near
+2.4 kBaud — this test would have caught the actual bug. Chosen profile:
+2400 baud target / 203125 Hz bandwidth (the chip's own POR default,
+conservative, not asserted correct for any real sensor).
+
+`cc1101_radio.c` also gained: stable two-read `RXBYTES` sampling before
+draining (TI's documented mid-transfer race, no unbounded retry — one
+recheck, then proceed); FIFO-overflow and queue-drop counters (the
+`xQueueSend` return value was previously ignored — a silent-drop bug);
+`xQueueReset()` at session start so a stopped session's stale events can't
+surface in a new one; and `poll_task` parked on a semaphore until
+`rx_start` instead of waking every 20ms forever from boot regardless of
+whether CC1101 is ever used in a given session (efficiency finding, not in
+Codex's list, cheap while the file was already open).
+
+Both `legacy_cmd_listen()`/`lora_cmd_listen()` gained a bounded wait for
+the *previous* drain task to actually exit before spawning a new one —
+mirrors `zig_teardown()`'s existing bounded-wait idiom rather than
+inventing a new mechanism (Codex suggested a protocol-level session ID for
+the same underlying race; the task-lifecycle fix closes the same hole
+without new wire-protocol surface).
+
+**Deck-side terminology honesty**: `LegacyPacket` → `LegacyChunk`,
+"PACKETS" → "CHUNKS" on screen, `legacyLogPacket` → `legacyLogChunk` — no
+sync word, no CRC, so what's captured is an unframed FIFO slice, not a
+decoded packet; calling it "packet" anywhere claimed more than the driver
+delivers (Codex's explicit acceptance-gate language). Added
+`LegacyModel::malformedCount()` (mirrors `ZigModel`'s pattern) and wired
+the new `overflow=`/`qdrops=` counters from `[LEGACY]` status through to
+the screen's detail row.
+
+**Also found and fixed while re-testing the earlier stats-clear fix**: the
+altitude-review finder caught that `clearTransientStats()` only fired on
+the unsolicited-HELLO-while-Ready path (the exact D-18 restart shape), not
+the far more common disconnect-then-`connect()`-retry reconnect (arrives
+*solicited*, so the callback never ran). Fixed by clearing on the
+solicited path too, inside `Client::handleHello()` itself — moving this
+broke an existing host test on the first attempt (`client test`, "every
+boot line is noise" — clearing unconditionally wiped noise/stray before
+`deck_app.cpp`'s own diagnostic log could read them for the unsolicited
+case), caught immediately by `check_protocol.sh` and fixed by scoping the
+new clear to the solicited branch only, leaving the unsolicited path's
+existing behavior untouched.
+
+**Explicitly deferred, not silently dropped** (noted in ROADMAP): Codex's
+Workstream B (RSSI/carrier-sense activity-survey mode), C (physical
+qualification — needs hardware), and D (GDO0 hardware revision — blocked
+on a pin-allocation decision); the `subghz_arbiter.c`/`radio_arbiter.c`
+near-duplicate and the three now-near-identical SD loggers (reuse debt,
+not bugs); `kvLong()`'s pre-existing 6-way duplication across deck models;
+`check_rx_only.py`'s missing structural opcode-audit for CC1101 (LoRa has
+one, CC1101 only has name-based grep); and expanding
+`ocp_repl.py --gate-stop` to exercise the new lane.
+
+`./tools/check_protocol.sh` (new `cc1101_regs_test.c`, updated
+`legacy_model_test.cpp`/`legacy_log_format_test.cpp`, all existing suites
+including `client_test.cpp`) and a full `./tools/build_firmware.sh`
+(both C5 variants + all three deck PlatformIO environments) all pass
+clean. **Still no hardware tonight** — every fix here is
+logic/arithmetic-verified on the host, none of it is bench-confirmed.
+Real-hardware verification (does the squelch actually cut the noise rate,
+does the screen render, does SD logging write a readable file) is the
+first order of business next session.
+
+## 2026-09-21 — Independent CC1101 passive-recon review saved as implementation handoff
+
+**Phase:** P3/P7 CC1101 research and review · **By:** Codex
+
+Saved `Research/cc1101-passive-recon-review.md` as a durable handoff for
+Claude. The review compares Oscilla's current FIFO-polling receiver with
+Flipper Zero, Bruce, rtl_433, and rtl_433_ESP while retaining Oscilla's
+receive-only boundary and MIT/provenance requirements.
+
+The main source finding is that the current register profile does not match
+its comment: `MDMCFG4=0x06`, `MDMCFG3=0x00` calculates to about 1.587 kbaud
+and an 812.5 kHz channel filter at 26 MHz, not roughly 2.4 kbaud/narrowband.
+The handoff also records that 20 ms infinite-mode FIFO drains are unframed
+slices rather than packets, TI's stable-`RXBYTES`/`n-1` streaming guidance,
+silent queue loss and stale-session risks, the untested carrier-sense claim,
+and the LoRa drain-task allocation path that can leak sub-GHz ownership.
+
+Recommended order is register/profile correctness, FIFO/loss/lifecycle
+regressions, truthful OCP/UI terminology, then an RSSI/carrier-sense 433 MHz
+activity survey on the current no-GDO harness. General raw/protocol capture is
+kept behind a future resolved GDO0 pin decision; the handoff explicitly forbids
+borrowing an occupied pin or importing upstream transmit/replay/brute-force
+features. Host/build and physical acceptance gates are listed separately.
+
+Review-time verification before saving the handoff: `legacy_bench.py
+--selftest` passed 6/6, `ASAN_OPTIONS=detect_leaks=0
+./tools/check_protocol.sh` passed, and `./tools/build_firmware.sh` passed for
+the C5 plus all three deck environments. No hardware was exercised and no
+firmware was changed in this review.
+
 ## 2026-09-21 — ROADMAP updated; legacy_bench.py tooling and a self-review pass
 
 **Phase:** housekeeping, P3 CC1101 bring-up · **By:** Claude + Will
