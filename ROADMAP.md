@@ -6,7 +6,7 @@
 | Field | Value |
 |---|---|
 | **Current phase** | P4 complete → **P5 — External TFT** (🔴 blocked on panel/regulator); P7 passive-suite work continues in parallel |
-| **Last updated** | 2026-09-17 |
+| **Last updated** | 2026-09-21 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -222,6 +222,27 @@ complete until its remaining real-frame and view checks are demonstrated.
   **Still open:** a controlled moving-tracker run with two qualifying movement
   legs, final physical view inspection, and the external TFT rendering once P5
   is available.
+
+- [ ] **CC1101 legacy sub-GHz (started 2026-09-21, D-15).** Second, receive-only
+  sub-GHz peripheral alongside the Wio-SX1262, arbitrated by a new
+  `subghz_arbiter.c` (exactly one active engine between the two, independent
+  of the PHY lane) — LoRa's own lane now goes through the same arbiter
+  instead of its prior ad-hoc bypass. New verbs `legacy_config`/
+  `legacy_listen`/`legacy_status`, cap `legacy_rx`, `stop legacy` lane.
+  **Hardware-confirmed:** `PARTNUM=0 VERSION=20` (matches the documented
+  genuine-CC1101 signature) and fault-free RX start, both on real silicon;
+  the arbiter correctly refuses either radio while the other is active, in
+  both directions, without disturbing the running one (real hardware, both
+  directions). A real SPI-timing bug (SO checked before CS was asserted)
+  was found and fixed on the bench, not in review. Deck side: **CC1101 RX**
+  card mirroring the LoRa screen (packet list, per-session SD log), added
+  same night. **Not yet hardware-confirmed:** whether captured output is
+  real 433 MHz traffic or noise — the first bench capture (no sync word,
+  AGC at defaults) looked like continuous noise, not device bursts; a
+  carrier-sense-gated squelch profile was written in response but the
+  hardware went offline before it could be flashed. The new deck screen is
+  equally unverified — untested end-to-end on real hardware. Both are the
+  first things to check next bench session. Full detail in WORKLOG.
 
 **Exit gate:** every DESIGN §7.2 view backed by real frames; a wardrive session produces a valid WiGLE-importable CSV and a KML track.
 
