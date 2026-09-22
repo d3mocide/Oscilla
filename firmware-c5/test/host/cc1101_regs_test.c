@@ -26,13 +26,25 @@ int main(void)
     /* Frequency word: 433.92 MHz at 26 MHz osc (datasheet §13.1). */
     check(cc1101_freq_reg(433920000u, FXOSC_HZ) == 0x10B071u, "freq_reg(433.92MHz) matches hand-derived value");
 
-    /* 2400 baud target: brute-force search finds E=6, M=131, ~2398 baud —
-     * not the driver's old, unverified E=6/M=0 guess. */
+    /* 2400 baud: brute-force search finds E=6, M=131, ~2398 baud — not the
+     * driver's original, unverified E=6/M=0 guess. Historical (this was the
+     * first profile's target before switching to 26000 baud oversampling,
+     * 2026-09-22 — see WORKLOG); kept as a second worked example. */
     {
         uint8_t e = 0xFF, m = 0xFF;
         uint32_t achieved = cc1101_drate_reg(2400, FXOSC_HZ, &e, &m);
         check(e == 6 && m == 131, "drate_reg(2400) finds E=6 M=131");
         check(achieved == 2398, "drate_reg(2400) achieves 2398 baud (closest possible, not exactly 2400)");
+    }
+
+    /* 26000 baud: the active profile, target-oversamples an SDR-confirmed
+     * local device's 232us shortest pulse by ~6x (see cc1101_radio.c's own
+     * comment). E=10, M=6 lands almost exactly on target. */
+    {
+        uint8_t e = 0xFF, m = 0xFF;
+        uint32_t achieved = cc1101_drate_reg(26000, FXOSC_HZ, &e, &m);
+        check(e == 10 && m == 6, "drate_reg(26000) finds E=10 M=6");
+        check(achieved == 25985, "drate_reg(26000) achieves 25985 baud");
     }
 
     /* Mutation-style proof (AGENTS.md: prove a check catches the bug):

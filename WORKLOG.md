@@ -1,3 +1,99 @@
+## 2026-09-22 — CC1101 SDR cross-reference: address bug fixed, real device still not seen
+
+**Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will
+
+Follow-up bench session to the fix pass below, this time with an RTL-SDR +
+400 MHz antenna on the same bench as independent ground truth, and a real
+known target: a LaCrosse-TX141THBv2 weather sensor, confirmed repeatedly via
+`rtl_433 -f 433920000`.
+
+**Root cause of the whole night's erratic carrier-sense behavior, found and
+fixed:** `REG_AGCCTRL1` was defined as `0x1B` — recalled from training data
+without sourcing it, never checked against a real datasheet. Fetched TI's
+actual CC1101 datasheet and verified the real register table directly:
+AGCCTRL1 is `0x1C`; `0x1B` is AGCCTRL2. Every earlier "carrier-sense tuning"
+attempt this project has made (10 dB, 14 dB) had been scrambling
+AGCCTRL2's front-end gain fields (MAX_LNA_GAIN/MAX_DVGA_GAIN/MAGN_TARGET),
+never touching carrier-sense at all — fully explains the inconsistent,
+noise-flooded behavior from the address-bug era. Fixed the address and
+reconstructed the correct AGCCTRL1 byte from the verified bit-field table
+(bit6 AGC_LNA_PRIORITY left at POR default, bits[5:4] relative threshold,
+bits[3:0] absolute threshold disabled at -8 so only the relative condition
+gates).
+
+Also redesigned the data-rate/bandwidth target around the real device
+instead of an arbitrary 2.4 kBaud guess: CC1101's synchronous fixed-rate
+NRZ demodulator can't decode PWM-encoded data natively unless it
+oversamples the real pulse widths. The LaCrosse's known 232 µs/460 µs
+pulses need roughly 6/12-bit run lengths to survive; a Python brute-force
+search over `cc1101_regs.c`'s DRATE formula found 26000 baud (achieves
+25985) hits that exactly. `cc1101_regs_test.c` updated with the new
+assertions (E=10, M=6), old 2400-baud case kept as a second worked example.
+`POLL_PERIOD_MS` tightened 20→10 for margin at the higher rate (a full
+64-byte FIFO fills in ~19.7 ms at 26 kbaud).
+
+**Threshold sweep, both misses:** with the corrected register, tried 14 dB
+relative carrier-sense first — zero chunks captured across a 120 s window
+against 3 SDR-confirmed real transmissions. Tried 6 dB (the least strict of
+the three built-in options) next — zero chunks across another 150 s window
+against 2 more confirmed transmissions. The address fix did kill the
+constant-noise-flood behavior from before (real progress), but neither
+relative setting caught anything at all, real or spurious.
+
+**Antenna ruled out:** swapped the bench CC1101's micro-stub antenna for a
+proper 433 MHz quarter-wave whip, matching the SDR's own antenna style.
+Reran the same SDR-cross-referenced capture (150 s window, 2 confirmed real
+transmissions squarely inside it) — still zero chunks. Antenna mismatch is
+not the explanation.
+
+**RSSI ground-truth diagnostic — the real finding.** RSSI is normally only
+read/reported alongside an already-captured chunk, so when carrier-sense
+never opens the FIFO there was zero visibility into what the CC1101's own
+RSSI actually reads during a confirmed real transmission — every prior
+threshold choice had been a guess among 3 discrete presets with no
+underlying data. Added a temporary unconditional diagnostic
+(`rssi_diag_tick()` in `cc1101_radio.c`, reads `REG_RSSI` every poll tick
+independent of carrier-sense/FIFO gating — the register itself updates
+continuously whenever the receiver is active per datasheet §17.3, separate
+from the digital gating that controls FIFO writes) and reports last/peak
+dBm once a second via `ESP_LOGI` on the probe's own USB console. Flashed,
+then ran three concurrent captures for ~150-170s each: the SDR watcher, a
+CC1101 RX session via the deck, and a timestamped raw capture of the
+probe's own console.
+
+Checked the RSSI log against all five SDR-confirmed transmission
+timestamps collected across tonight's tests (08:36:49, 08:37:39, 08:59:19,
+09:00:09, 09:00:59): **none produced any measurable RSSI bump.** The
+reading right at each timestamp sits inside the same range as its
+immediate surroundings — no distinguishable signature at all, at any of
+the five. Separately, and independent of the real-device question, the
+RSSI baseline itself isn't flat: it drifted from roughly -86 to -91 dBm in
+the first 40 seconds of a session down to -97 to -101 dBm by the
+three-minute mark, with nothing eventful known to be happening in between.
+A drift of that size would defeat a delta-based carrier-sense trigger on
+its own, independent of whether the real signal is visible.
+
+**Conclusion:** this is no longer a threshold-tuning problem. Tonight ruled
+out the register-address bug, the data-rate/bandwidth mismatch, and antenna
+mismatch, in that order, each with real evidence. What's left is more
+fundamental and unconfirmed: either genuine receiver-sensitivity margin at
+the current gain/profile settings, or AGC settling instability at
+26 kBaud/203 kHz bandwidth (the noise-floor drift), or breadboard RF
+parasitics affecting the antenna matching network (breadboards are a known
+problem for RF above ~50 MHz) — not yet narrowed between these. The
+`rssi_diag` instrumentation is being kept in the driver rather than
+reverted; it proved genuinely useful as a standing diagnostic, not a
+throwaway.
+
+**Next step, proposed by Will:** baseline comparison against a
+purpose-built CC1101 module (a Flipper Zero 400 MHz sub-GHz add-on — same
+chip, SPI interface, ships with a proper antenna and a professionally
+matched PCB front-end) to isolate whether tonight's breadboard construction
+is the root cause, independent of firmware/register configuration. If the
+Flipper module sees the same LaCrosse device cleanly, that points squarely
+at the breadboard; if it doesn't either, that points back at the
+driver/profile configuration. Not yet run — hardware not on hand tonight.
+
 ## 2026-09-22 — CC1101 fix pass: Workstream A (register math, lifecycle bugs, terminology honesty)
 
 **Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will

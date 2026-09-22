@@ -410,6 +410,16 @@ void DeckApp::onEvent(const ocp::Item &it)
     }
     if (const auto *c = legacy_.absorbEvent(it)) {   /* kind=legacy is the only source of truth here too */
         storage::legacyLogChunk(legacy_.freqHz(), *c);
+        /* Bench-only exception to log()'s "counts and states only" rule
+         * (deck_app.h) — live SDR cross-referencing needs the raw bytes in
+         * hand, not just a count, and this is debug-gated exactly like
+         * every other debug-console aid (e.g. "legacy id"). Not for field
+         * use: raw RF captures are field data under SECURITY.md, this is
+         * local bench debugging only. */
+        if (debugEnabled()) {
+            log("legacy chunk rssi=" + std::to_string(c->rssi) + " len=" + std::to_string(c->len) +
+                " hex=" + c->hex);
+        }
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */

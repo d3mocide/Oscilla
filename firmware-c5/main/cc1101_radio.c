@@ -51,15 +51,24 @@ static const char *TAG = "cc1101_radio";
 #define SPI_INITIAL_HZ  1000000   /* wiring-doc §4.3: start ~1 MHz, shared bus */
 
 #define MISO_TIMEOUT_MS 200   /* generous margin over the crystal's real startup */
-#define POLL_PERIOD_MS  20    /* FIFO is 64 bytes; must drain well inside a burst */
+/* At 26 kbaud a full 64-byte FIFO can fill in ~19.7ms continuously — 10ms
+ * leaves comfortable margin so a real (or still-noisy) burst can't
+ * silently overflow between polls. */
+#define POLL_PERIOD_MS  10
 #define RXBYTES_RECHECK_US 200   /* gap between the two stable-read RXBYTES samples */
 
 #define FXOSC_HZ  26000000UL   /* bench-assumed, not datasheet-confirmed for this module — see WORKLOG */
 
-/* Chosen profile: 2400 baud target, 203125 Hz bandwidth (the chip's own
- * POR default — a conservative, documented starting point, not asserted
- * correct for any real sensor; see cc1101_set_rx_profile()). */
-#define TARGET_BAUD_HZ    2400UL
+/* Chosen profile, 2026-09-22: 26000 baud target (achieves ~25985), 203125 Hz
+ * bandwidth (the chip's own POR default, comfortably >4x the data rate).
+ * The baud target isn't the modulation rate of any known device — it's a
+ * deliberate ~6x oversample of a real, SDR-confirmed local sensor's
+ * shortest PWM pulse (232us, LaCrosse-TX141THBv2 — see WORKLOG), so pulse
+ * widths can be reconstructed from run-lengths in the raw captured bits
+ * (tools/legacy_pulse.py) rather than decoded as fixed-period NRZ bits,
+ * which CC1101's synchronous demodulator can't do for PWM-encoded sources
+ * on its own. Not a general-purpose data rate — see cc1101_set_rx_profile(). */
+#define TARGET_BAUD_HZ    26000UL
 #define TARGET_CHANBW_HZ  203125UL
 
 /* Config register addresses, datasheet Table 44. Only the ones this driver
@@ -73,7 +82,7 @@ static const char *TAG = "cc1101_radio";
 #define REG_MDMCFG3   0x11
 #define REG_MDMCFG2   0x12
 #define REG_MCSM1     0x17
-#define REG_AGCCTRL1  0x1B
+#define REG_AGCCTRL1  0x1C
 
 /* Status registers, datasheet Table 45 — status registers require the burst
  * bit set even for a single byte (§10.4's documented quirk: without it, the
@@ -83,9 +92,9 @@ static const char *TAG = "cc1101_radio";
 #define REG_RSSI      0x34
 #define REG_RXBYTES   0x3B
 
-/* RSSI_OFFSET is data-rate/filter-bandwidth dependent (datasheet §17.3,
- * Table 31); 74 dB is the table's value for this driver's narrow-filter
- * profile. Revisit if the profile changes. */
+/* RSSI_offset (datasheet §17.3, Table 31): 74 dB at every listed data rate
+ * (1.2/38.4/250/500 kBaud) and both 433/868 MHz bands — verified directly
+ * against the table, not assumed constant across profile changes. */
 #define RSSI_OFFSET_DB 74
 
 #define REG_FIFO      0x3F
@@ -111,13 +120,16 @@ static const char *TAG = "cc1101_radio";
 #define MOD_FORMAT_OOK        (0x3 << 4)
 #define SYNC_MODE_CARRIER_SENSE  0x4
 
-/* AGCCTRL1 (datasheet Table 39 register field, §17.3 "Carrier Sense"):
- * bit6 AGC_LNA_PRIORITY (POR default 1, left as-is), bits[5:4]
- * CARRIER_SENSE_REL_THR=10 ("RSSI must rise 10 dB above the settled
- * level" — self-calibrating, a middle value among the datasheet's three
- * options), bits[3:0] CARRIER_SENSE_ABS_THR (unused in relative mode).
- * Not bench-tuned yet — see WORKLOG. */
-#define AGCCTRL1_CARRIER_SENSE_10DB  0x60
+/* AGCCTRL1 register 0x1C (datasheet §17.4/§29.3) — address re-verified
+ * against the datasheet's own register table after a wrong-register bug,
+ * see WORKLOG. bit6 AGC_LNA_PRIORITY (POR default 1, left as-is), bits[5:4]
+ * CARRIER_SENSE_REL_THR=6dB (0x58), the least strict of the three built-in
+ * options, bits[3:0] CARRIER_SENSE_ABS_THR=1000 (-8, disabled, so only the
+ * relative condition gates). Neither 6dB nor 14dB caught a real,
+ * SDR-confirmed transmission on the bench (2026-09-22, WORKLOG) — not yet
+ * known to be the right value, or even the right mechanism; see rssi_diag's
+ * findings below. */
+#define AGCCTRL1_VALUE  0x58
 
 /* RXBYTES' low 7 bits are the FIFO occupancy; bit7 set is the overflow flag
  * (datasheet §10.4). */
@@ -312,7 +324,7 @@ static esp_err_t cc1101_set_rx_profile(void)
     if (err == ESP_OK) {
         err = write_reg(REG_MDMCFG2, MOD_FORMAT_OOK | SYNC_MODE_CARRIER_SENSE);
     }
-    if (err == ESP_OK) err = write_reg(REG_AGCCTRL1, AGCCTRL1_CARRIER_SENSE_10DB);
+    if (err == ESP_OK) err = write_reg(REG_AGCCTRL1, AGCCTRL1_VALUE);
     if (err == ESP_OK) err = write_reg(REG_PKTCTRL0, 0x02);   /* normal FIFO, no CRC, infinite length */
     if (err == ESP_OK) err = write_reg(REG_MCSM1, 0x0C);      /* RXOFF_MODE=stay in RX */
     /* Three-state GDO1 while CSn is high elsewhere on the shared bus
@@ -428,6 +440,36 @@ static void drain_fifo(void)
     if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_queue_drop_count++;
 }
 
+/* Bench diagnostic, added 2026-09-22 (WORKLOG): RSSI is normally only
+ * reported alongside a captured chunk, so when carrier-sense never opens
+ * the FIFO there's no RSSI data at all to look at. REG_RSSI itself updates
+ * continuously whenever the receiver is active (datasheet §17.3),
+ * independent of the digital sync/carrier-sense gating that controls FIFO
+ * writes, so this reads it unconditionally every poll tick and reports
+ * last/peak once a second — used to correlate against SDR-confirmed real
+ * transmission timestamps (found no measurable bump at any of five
+ * checked, plus an unexplained baseline drift; see WORKLOG). Kept as
+ * standing instrumentation, not reverted — the question it answers isn't
+ * resolved yet. */
+#define RSSI_DIAG_REPORT_MS  1000
+static int s_rssi_diag_peak_dbm = -128;
+static uint32_t s_rssi_diag_last_report_ms;
+
+static void rssi_diag_tick(void)
+{
+    uint8_t rssi_raw = 0;
+    if (read_status(REG_RSSI, &rssi_raw) != ESP_OK) return;
+    int dbm = cc1101_rssi_to_dbm(rssi_raw, RSSI_OFFSET_DB);
+    if (dbm > s_rssi_diag_peak_dbm) s_rssi_diag_peak_dbm = dbm;
+
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    if (now_ms - s_rssi_diag_last_report_ms >= RSSI_DIAG_REPORT_MS) {
+        ESP_LOGI(TAG, "rssi_diag last=%ddBm peak=%ddBm", dbm, s_rssi_diag_peak_dbm);
+        s_rssi_diag_peak_dbm = -128;
+        s_rssi_diag_last_report_ms = now_ms;
+    }
+}
+
 /* Parked on s_poll_sem until a session actually starts, rather than
  * waking every POLL_PERIOD_MS from boot regardless of use — this is a
  * permanently-attached driver on a single-core chip, and CC1101 may never
@@ -440,7 +482,10 @@ static void poll_task(void *arg)
         while (s_running) {
             vTaskDelay(pdMS_TO_TICKS(POLL_PERIOD_MS));
             xSemaphoreTake(s_lock, portMAX_DELAY);
-            if (s_running) drain_fifo();
+            if (s_running) {
+                rssi_diag_tick();
+                drain_fifo();
+            }
             xSemaphoreGive(s_lock);
         }
     }

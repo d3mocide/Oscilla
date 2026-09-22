@@ -261,13 +261,52 @@ complete until its remaining real-frame and view checks are demonstrated.
   `ocp_repl.py --gate-stop` to exercise the LoRa/CC1101 exclusion on real
   hardware.
 
-  **Not yet hardware-confirmed:** whether captured output is real 433 MHz
-  traffic or noise, or whether tonight's carrier-sense squelch profile
-  changes that — the first bench capture (no sync word, AGC at defaults)
-  looked like continuous noise, not device bursts; hardware went offline
-  before the squelch change, or any of tonight's fixes, could be flashed.
-  The new deck screen is equally unverified end-to-end. These are the
-  first things to check next bench session.
+  **2026-09-22, SDR cross-reference session.** Root-caused the whole
+  night's erratic carrier-sense behavior: `REG_AGCCTRL1` was `0x1B`,
+  recalled from training data without sourcing — the real TI datasheet
+  (fetched and verified directly) puts AGCCTRL1 at `0x1C`; `0x1B` is
+  AGCCTRL2. Every earlier "carrier-sense tuning" attempt had been
+  scrambling front-end gain fields, not carrier-sense at all. Fixed the
+  address, redesigned the data-rate target around a real, external
+  ground-truth device (a LaCrosse-TX141THBv2 weather sensor, confirmed
+  independently via an RTL-SDR + `rtl_433` on the same bench) — 26000 baud
+  (achieves 25985) oversamples its 232 µs/460 µs pulses by exactly 6/12
+  bits, replacing the untested 2.4 kBaud target. Swept both built-in
+  relative carrier-sense thresholds (14 dB, then 6 dB, the least strict
+  option) against SDR-confirmed transmission windows: zero chunks
+  captured at either setting, with two and four confirmed real
+  transmissions respectively inside the capture windows. Swapped the bench
+  antenna for a proper 433 MHz whip (was a micro stub): no change, ruling
+  out a simple antenna mismatch. Added a temporary unconditional RSSI
+  diagnostic (`rssi_diag`, reads `REG_RSSI` every poll tick independent of
+  carrier-sense/FIFO gating, since RSSI is normally only visible alongside
+  an already-captured chunk) and time-correlated it against three further
+  SDR-confirmed transmissions: **none produced any measurable RSSI bump**
+  — the CC1101's own signal strength reading shows no distinguishable
+  signature at any of the five confirmed real transmission timestamps
+  checked tonight. Separately, the RSSI baseline itself drifted ~10-15 dB
+  over a 3-minute idle window with nothing eventful happening, which would
+  defeat a delta-based carrier-sense trigger on its own even if the real
+  signal were visible. Neither anomaly is explained yet — leading
+  candidates are receiver-sensitivity margin at the current gain/profile
+  and/or AGC settling instability at 26 kBaud/203 kHz bandwidth, but both
+  are unconfirmed. The `rssi_diag` instrumentation is being kept in the
+  driver (proved genuinely useful, not a throwaway) rather than reverted.
+
+  **Not yet hardware-confirmed:** whether the CC1101 can detect this or
+  any real 433 MHz device at all under any carrier-sense configuration —
+  tonight ruled out the register-address bug, the data-rate/bandwidth
+  mismatch, and antenna mismatch as the explanation, but the underlying
+  no-signal/drifting-baseline finding is unresolved. Will has a
+  purpose-built CC1101 module (a Flipper Zero 400 MHz sub-GHz add-on, same
+  chip, professionally matched PCB antenna circuit) to use as a baseline
+  comparison next session — isolates whether tonight's breadboard
+  construction (a plausible cause: breadboard parasitics are a known
+  problem for RF above ~50 MHz, and could equally explain the drifting
+  baseline as marginal/unstable contact) is the root cause, independent of
+  the driver/register configuration. The new deck screen is still
+  unverified end-to-end on the physical display. These are the first
+  things to check next bench session.
 
 **Exit gate:** every DESIGN §7.2 view backed by real frames; a wardrive session produces a valid WiGLE-importable CSV and a KML track.
 
