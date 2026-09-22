@@ -1,3 +1,35 @@
+## 2026-09-21 — ROADMAP updated; legacy_bench.py tooling and a self-review pass
+
+**Phase:** housekeeping, P3 CC1101 bring-up · **By:** Claude + Will
+
+Hardware stayed offline, so tonight's remaining work was non-bench: brought
+`ROADMAP.md` (stale since 2026-09-17, predating all of tonight's CC1101
+work) up to date with a P7 entry stating plainly what's hardware-confirmed
+(PARTNUM/VERSION readback, fault-free RX start, bidirectional arbiter
+exclusion) versus what isn't (the carrier-sense squelch change, the new deck
+screen — neither has touched real hardware yet).
+
+Added `tools/legacy_bench.py`, turning tonight's by-hand pyserial test
+sequence against the deck's debug console into a reusable script:
+connectivity/debug-mode check, CC1101 hardware-alive check, a timed capture
+with an events/sec readout and a plain-language noise-vs-traffic read, and
+an optional `--arbiter` cross-check.
+
+**Ran `/code-review` against it before trusting it** — found two real bugs
+on the first pass: a `--freq` flag that looked configurable but was never
+actually wired into any debug command (the console has no frequency
+argument at all; removed the flag rather than fake support for it), and an
+`--arbiter` check that would corrupt its own second half if the exact bug
+it exists to catch (the arbiter failing to refuse a cross-lane start) ever
+fired — a toggle command assumes prior state, and a failed refusal leaves
+that assumption wrong for every step after it. Fixed by having the script
+verify and self-correct state after every refusal-dependent step instead of
+assuming the toggle did what was expected. Also added `--selftest`
+(parsing logic checked against real captured session strings, no hardware
+or pyserial needed) to close the gap the review also flagged: this was the
+one tool in `tools/` without a no-hardware verification path, unlike
+`ocp_repl.py`'s own `--selftest`/`--replay`.
+
 ## 2026-09-21 — Deck: CC1101 RX screen (untested — hardware offline)
 
 **Phase:** deck UI, P3 CC1101 bring-up · **By:** Claude + Will
