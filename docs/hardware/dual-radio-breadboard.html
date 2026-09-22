@@ -104,21 +104,59 @@
   .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .toc a { border: 1px solid var(--line); padding: 6px 9px; color: var(--cream); font: 11px var(--mono); text-decoration: none; border-radius: 3px; }
   .toc a:hover { border-color: var(--green); color: var(--green); }
+  .answer-grid, .pass-grid {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+    margin: 18px 0;
+  }
+  .answer-card, .pass-card {
+    border: 1px solid var(--line); border-radius: 7px; background: #100d13;
+    padding: 14px 15px;
+  }
+  .answer-card h3, .pass-card h3 { margin: 0 0 7px; color: var(--green); font-size: 1rem; }
+  .answer-card p, .pass-card p { margin: 0; font-size: 13px; color: #c7bbb8; }
+  .answer-card.power { border-color: #704466; }
+  .answer-card.power h3 { color: var(--pink); }
+  .answer-card.warn { border-color: #6a5525; }
+  .answer-card.warn h3 { color: var(--yellow); }
+  .wire-key { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 16px; font-size: 11px; color: var(--muted); }
+  .wire-key span::before { content: ""; display: inline-block; width: 24px; height: 3px; margin: 0 7px 3px 0; background: var(--wire-color); }
+  .wire-key .spi { --wire-color: #59b8e8; }
+  .wire-key .ctl { --wire-color: #F5D658; }
+  .wire-key .pwr { --wire-color: #F05D9D; }
+  .wire-key .gnd { --wire-color: #9DAF96; }
+  .wire-key .open { --wire-color: #EF514C; }
+  .wire-list { counter-reset: wire; list-style: none; padding: 0; margin: 18px 0; }
+  .wire-list > li {
+    counter-increment: wire; position: relative; padding: 13px 15px 13px 50px;
+    border: 1px solid var(--line); border-bottom: 0; background: #100d13;
+  }
+  .wire-list > li:first-child { border-radius: 7px 7px 0 0; }
+  .wire-list > li:last-child { border-bottom: 1px solid var(--line); border-radius: 0 0 7px 7px; }
+  .wire-list > li::before {
+    content: counter(wire); position: absolute; left: 14px; top: 13px; width: 23px; height: 23px;
+    border: 1px solid var(--green); border-radius: 50%; color: var(--green); text-align: center;
+    font: 700 12px/22px var(--mono);
+  }
+  .wire-list b { color: var(--cream); }
+  .wire-list small { display: block; color: var(--muted-dim); margin-top: 3px; }
+  .pinmap td:first-child { white-space: nowrap; font-weight: 700; color: var(--cream); }
+  .pinmap .open-pin { color: var(--red); }
+  @media (max-width: 760px) {
+    .answer-grid, .pass-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 <main>
 
 <header class="top">
-  <div class="eyebrow">Breadboard layout · reviewed 2026-09-19 · companion to the build guide</div>
+  <div class="eyebrow">Breadboard layout · revised 2026-09-21 · companion to the build guide</div>
   <h1>Dual-Radio Breadboard Layout</h1>
   <p class="lead">
-    How to lay the dual-radio backpack out on a solderless breadboard instead of a
-    soldered harness — where each module sits, how the breadboard's own strips give
-    you the shared SPI bus for free, and which of the validation gates you can
-    actually trust on a breadboard. The electrical <em>why</em> behind every part
-    lives in the <a href="dual-radio-build.html">build guide</a>; this page is the
-    physical layer on top of it.
+    A hole-by-hole assembly guide for a horizontal XIAO ESP32-C5 and Wio-SX1262,
+    plus the off-board CC1101. It shows which header row faces the power rails,
+    every C5↔Wio jumper, where the CC1101 branches onto the shared SPI bus, and
+    exactly where the pull resistors and local capacitor pairs belong.
   </p>
   <div class="badges">
     <span class="badge ok">Reversible · matches Rev E's "proposed" status</span>
@@ -129,8 +167,10 @@
   <div class="toc">
     <a href="#trust">What a breadboard can prove</a>
     <a href="#footprint">The footprint trap</a>
+    <a href="#power">Power answer</a>
     <a href="#layout">Board layout</a>
-    <a href="#strip">One strip = one net</a>
+    <a href="#strip">Shared SPI</a>
+    <a href="#passes">Wire it in passes</a>
     <a href="#components">Components</a>
     <a href="#cc1101">CC1101 off-board</a>
     <a href="#wiring">Wiring table</a>
@@ -138,6 +178,36 @@
     <a href="#order">Build order</a>
   </div>
 </header>
+
+<section id="power">
+  <h2>First: how power should run</h2>
+  <div class="answer-grid">
+    <div class="answer-card power">
+      <h3>One source</h3>
+      <p>The XIAO <b>3V3</b> pin is the only source for both radio modules. Feed the
+        upper + rail once from XIAO 3V3 and the upper − rail once from XIAO GND.
+        Do not feed either rail from a second regulator or USB source.</p>
+    </div>
+    <div class="answer-card">
+      <h3>Two rail locations</h3>
+      <p>The upper rails power the modules and their capacitor pairs. Bridge upper
+        + to lower + and upper − to lower − once so the lower rails can terminate
+        the three Wio pull resistors. That is distribution, not a second feed.</p>
+    </div>
+    <div class="answer-card warn">
+      <h3>Prove every segment</h3>
+      <p>Many breadboards split a rail at the centre. With power off, continuity-map
+        the exact board in front of you and bridge each split you intend to use.
+        A printed red/blue line does not prove the metal underneath is continuous.</p>
+    </div>
+  </div>
+  <div class="note">
+    <b>Physical orientation used throughout this guide:</b> both XIAO-format boards
+    are horizontal, straddle the centre trench, and put their power/SPI header row
+    toward the upper rails. On the XIAO, the USB connector is at the right. Read the
+    Wio's signal-name silkscreen, not its passthrough D-number label.
+  </div>
+</section>
 
 <div class="note">
   <b>Why breadboard this at all.</b> Rev E's own status line reads "Proposed wiring;
@@ -214,221 +284,283 @@
 </section>
 
 <section id="layout">
-  <h2>Board layout</h2>
+  <h2>Board layout — horizontal, with the real header order</h2>
   <p>
-    Both XIAO-footprint boards straddle the centre channel, so every pin lands in its
-    own 5-hole strip with spare holes left for jumpers and passives. Give the two
-    modules their own stretch of board with a gap between them — the gap is where the
-    jumpers and pull-ups live, and it also removes any temptation to bridge straight
-    across.
+    The drawing below uses a concrete example: XIAO on breadboard columns 8–14 and
+    Wio on 22–28. Different column numbers are fine; preserve the orientation, leave
+    at least seven empty columns between the boards, and copy the signal names. Each
+    vertical five-hole strip is one net; strips above and below the centre trench are
+    separate even when they share a printed column number.
   </p>
+  <div class="wire-key" aria-label="Diagram wire colour key">
+    <span class="spi">shared SPI</span><span class="ctl">Wio control</span>
+    <span class="pwr">3V3</span><span class="gnd">ground</span>
+    <span class="open">leave open</span>
+  </div>
 
   <figure>
-    <svg viewBox="0 0 1020 660" role="img" aria-label="Plan view of a solderless breadboard. Explicit jumpers connect the upper and lower 3V3 rails and the upper and lower ground rails. XIAO 3V3 and ground feed the rails. The XIAO straddles the centre channel on the left, the Wio-SX1262 straddles it in the middle with a gap between them, and the CC1101 sits off the board below right, connected by six jumper wires. Pull-up resistors run from chip-select strips to 3V3 and the RF switch pull-down runs to ground.">
+    <svg viewBox="0 0 1400 760" role="img" aria-label="Plan view of a full-size solderless breadboard. A horizontal XIAO C5 with USB at right occupies columns 8 through 14. A horizontal Wio-SX1262 occupies columns 22 through 28. Their power and SPI rows face the upper rails. Every actual header signal is labelled. Explicit wires connect all three SPI lines and five Wio control lines. XIAO 3V3 and ground feed the upper rails once; bridges carry those rails to the lower pull-resistor rails. Wio decoupling capacitors bridge its local 3V3 and ground strips.">
       <style>
-        .bbody { fill: #17141c; stroke: #3b3340; stroke-width: 2; }
-        .chan { fill: #0d0b11; }
-        .rail { fill: #120f16; stroke: #2c2633; stroke-width: 1; }
-        .hole { fill: #2a2531; }
-        .railpos { stroke: #F05D9D; stroke-width: 2; }
-        .railneg { stroke: #9DAF96; stroke-width: 2; }
-        .modw { fill: #1e1828; stroke: #A8DF65; stroke-width: 2; }
-        .modx { fill: #1b2030; stroke: #7fb3d5; stroke-width: 2; }
-        .modc { fill: #2a1f18; stroke: #F5D658; stroke-width: 2; }
-        .mt { font: 700 13px 'Chakra Petch', sans-serif; fill: #F4ECD9; }
-        .ms { font: 9.5px 'IBM Plex Mono', monospace; fill: #6C5D69; }
-        .ann { font: 10.5px 'IBM Plex Mono', monospace; fill: #9DAF96; }
-        .annh { font: 700 10.5px 'IBM Plex Mono', monospace; fill: #F5D658; }
-        .jw { stroke: #F5D658; stroke-width: 2; fill: none; }
-        .rsym { fill: #1d1724; stroke: #F5D658; stroke-width: 1.6; }
-        .badge { fill: #1d1724; stroke: #F5D658; stroke-width: 1.4; }
-        .bnum { font: 700 10px 'IBM Plex Mono', monospace; fill: #F5D658; }
+        .bb { fill:#17141c; stroke:#3b3340; stroke-width:2; }
+        .field { fill:#111017; }
+        .trench { fill:#08070a; }
+        .railbox { fill:#120f16; stroke:#302936; }
+        .prail { stroke:#F05D9D; stroke-width:3; fill:none; }
+        .grail { stroke:#9DAF96; stroke-width:3; fill:none; }
+        .spiWire { stroke:#59b8e8; stroke-width:3; fill:none; }
+        .ctlWire { stroke:#F5D658; stroke-width:2.5; fill:none; }
+        .boardX { fill:#182333; stroke:#7fb3d5; stroke-width:2.5; }
+        .boardW { fill:#201a29; stroke:#A8DF65; stroke-width:2.5; }
+        .pinX { fill:#7fb3d5; }
+        .pinW { fill:#A8DF65; }
+        .pinTxt { font:700 12px 'IBM Plex Mono',monospace; fill:#F4ECD9; }
+        .gpioTxt { font:10px 'IBM Plex Mono',monospace; fill:#9DAF96; }
+        .tiny { font:10.5px 'IBM Plex Mono',monospace; fill:#9DAF96; }
+        .tinyHead { font:700 11px 'IBM Plex Mono',monospace; fill:#F5D658; }
+        .boardTitle { font:700 19px 'Chakra Petch',sans-serif; fill:#F4ECD9; }
+        .openTxt { font:700 10px 'IBM Plex Mono',monospace; fill:#EF514C; }
+        .cap { stroke:#F4ECD9; stroke-width:2.5; }
+        .res { fill:#1d1724; stroke:#F5D658; stroke-width:2; }
+        .hole { fill:#2a2531; }
       </style>
       <defs>
-        <pattern id="holes" width="18" height="18" patternUnits="userSpaceOnUse">
-          <circle class="hole" cx="9" cy="9" r="2.6"/>
+        <pattern id="holes-main" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle class="hole" cx="10" cy="10" r="2.8"/>
         </pattern>
       </defs>
 
-      <!-- board -->
-      <rect class="bbody" x="28" y="40" width="850" height="372" rx="6"/>
+      <rect class="bb" x="30" y="36" width="1340" height="570" rx="9"/>
+      <rect class="railbox" x="65" y="64" width="1270" height="28"/>
+      <rect x="65" y="64" width="1270" height="28" fill="url(#holes-main)"/>
+      <rect class="railbox" x="65" y="101" width="1270" height="28"/>
+      <rect x="65" y="101" width="1270" height="28" fill="url(#holes-main)"/>
+      <path class="prail" d="M58 78H1342"/><path class="grail" d="M58 115H1342"/>
+      <text class="pinTxt" x="1250" y="57" fill="#F05D9D">+ 3V3 · ONE FEED</text>
+      <text class="pinTxt" x="1250" y="148" fill="#9DAF96">− GND</text>
 
-      <!-- top rails -->
-      <rect class="rail" x="46" y="56" width="814" height="20"/>
-      <rect x="46" y="56" width="814" height="20" fill="url(#holes)"/>
-      <rect class="rail" x="46" y="80" width="814" height="20"/>
-      <rect x="46" y="80" width="814" height="20" fill="url(#holes)"/>
-      <path class="railpos" d="M40 66 H866"/>
-      <path class="railneg" d="M40 90 H866"/>
-      <text class="ann" x="884" y="70" fill="#F05D9D">+ 3V3</text>
-      <text class="ann" x="884" y="94">− GND</text>
+      <rect class="field" x="65" y="162" width="1270" height="132"/>
+      <rect x="65" y="162" width="1270" height="132" fill="url(#holes-main)"/>
+      <rect class="trench" x="65" y="296" width="1270" height="30" rx="4"/>
+      <rect class="field" x="65" y="328" width="1270" height="132"/>
+      <rect x="65" y="328" width="1270" height="132" fill="url(#holes-main)"/>
+      <rect class="railbox" x="65" y="496" width="1270" height="28"/>
+      <rect x="65" y="496" width="1270" height="28" fill="url(#holes-main)"/>
+      <rect class="railbox" x="65" y="533" width="1270" height="28"/>
+      <rect x="65" y="533" width="1270" height="28" fill="url(#holes-main)"/>
+      <path class="prail" d="M58 510H1342"/><path class="grail" d="M58 547H1342"/>
 
-      <!-- upper bank -->
-      <rect x="46" y="120" width="814" height="90" fill="url(#holes)"/>
-      <!-- channel -->
-      <rect class="chan" x="46" y="212" width="814" height="26" rx="3"/>
-      <!-- lower bank -->
-      <rect x="46" y="240" width="814" height="90" fill="url(#holes)"/>
+      <!-- one source, mirrored distribution rails -->
+      <path class="prail" d="M65 78H42V510H65"/><path class="grail" d="M65 115H30V547H65"/>
+      <text class="tinyHead" x="80" y="589">BRIDGE ONCE: upper +↕lower + and upper −↕lower −</text>
 
-      <!-- bottom rails -->
-      <rect class="rail" x="46" y="348" width="814" height="20"/>
-      <rect x="46" y="348" width="814" height="20" fill="url(#holes)"/>
-      <rect class="rail" x="46" y="372" width="814" height="20"/>
-      <rect x="46" y="372" width="814" height="20" fill="url(#holes)"/>
-      <path class="railpos" d="M40 358 H866"/>
-      <path class="railneg" d="M40 382 H866"/>
+      <!-- horizontal modules -->
+      <rect class="boardX" x="125" y="236" width="390" height="150" rx="14"/>
+      <rect class="boardW" x="710" y="236" width="390" height="150" rx="14"/>
+      <text class="boardTitle" x="320" y="300" text-anchor="middle">XIAO ESP32-C5</text>
+      <text class="tiny" x="320" y="322" text-anchor="middle">USB-C → right · columns 8–14</text>
+      <text class="boardTitle" x="905" y="300" text-anchor="middle">Wio-SX1262</text>
+      <text class="tiny" x="905" y="322" text-anchor="middle">signal labels shown · columns 22–28</text>
 
-      <!-- upper/lower rail bridges: these rails are otherwise separate -->
-      <path class="railpos" d="M46 66 H20 V358 H46" fill="none"/>
-      <path class="railneg" d="M46 90 H10 V382 H46" fill="none"/>
-      <circle cx="46" cy="66" r="3.5" fill="#F05D9D"/>
-      <circle cx="46" cy="358" r="3.5" fill="#F05D9D"/>
-      <circle cx="46" cy="90" r="3.5" fill="#9DAF96"/>
-      <circle cx="46" cy="382" r="3.5" fill="#9DAF96"/>
-      <text class="annh" x="30" y="28">REQUIRED: TOP ↕ BOTTOM RAIL BRIDGES</text>
-
-      <!-- XIAO straddling -->
-      <rect class="modx" x="96" y="150" width="140" height="150" rx="5"/>
-      <text class="mt" x="166" y="218" text-anchor="middle">XIAO C5</text>
-      <text class="ms" x="166" y="234" text-anchor="middle">straddles channel</text>
-      <path class="railpos" d="M118 150 V66" fill="none"/>
-      <circle cx="118" cy="66" r="3.5" fill="#F05D9D"/>
-      <text class="ms" x="108" y="126" text-anchor="end">3V3 feed</text>
-      <path class="railneg" d="M148 150 V90" fill="none"/>
-      <circle cx="148" cy="90" r="3.5" fill="#9DAF96"/>
-      <text class="ms" x="158" y="113">GND feed</text>
-
-      <!-- Wio straddling -->
-      <rect class="modw" x="396" y="150" width="140" height="150" rx="5"/>
-      <text class="mt" x="466" y="212" text-anchor="middle">Wio-SX1262</text>
-      <text class="ms" x="466" y="228" text-anchor="middle">same footprint —</text>
-      <text class="ms" x="466" y="241" text-anchor="middle">wire by signal name</text>
-
-
-      <!-- pull resistors · numbered, legend below -->
-      <g>
-        <path class="jw" d="M276 150 V128"/>
-        <rect class="rsym" x="269" y="101" width="14" height="27" rx="2"/>
-        <path class="jw" d="M276 101 V66"/>
-        <circle cx="276" cy="66" r="3.5" fill="#F5D658"/>
-        <circle class="badge" cx="292" cy="142" r="9"/>
-        <text class="bnum" x="292" y="146" text-anchor="middle">1</text>
-        <text class="ms" x="276" y="166" text-anchor="middle">NSS net</text>
+      <!-- XIAO top row: D7 D8 D9 D10 3V3 GND 5V -->
+      <g text-anchor="middle">
+        <circle class="pinX" cx="170" cy="220" r="7"/><text class="pinTxt" x="170" y="190">D7</text><text class="gpioTxt" x="170" y="204">UART RX</text>
+        <circle class="pinX" cx="220" cy="220" r="7"/><text class="pinTxt" x="220" y="190">D8</text><text class="gpioTxt" x="220" y="204">SCK</text>
+        <circle class="pinX" cx="270" cy="220" r="7"/><text class="pinTxt" x="270" y="190">D9</text><text class="gpioTxt" x="270" y="204">MISO</text>
+        <circle class="pinX" cx="320" cy="220" r="7"/><text class="pinTxt" x="320" y="190">D10</text><text class="gpioTxt" x="320" y="204">MOSI</text>
+        <circle class="pinX" cx="370" cy="220" r="7"/><text class="pinTxt" x="370" y="190">3V3</text>
+        <circle class="pinX" cx="420" cy="220" r="7"/><text class="pinTxt" x="420" y="190">GND</text>
+        <circle class="pinX" cx="470" cy="220" r="7"/><text class="openTxt" x="470" y="190">5V · OPEN</text>
       </g>
-      <g>
-        <path class="jw" d="M326 150 V128"/>
-        <rect class="rsym" x="319" y="101" width="14" height="27" rx="2"/>
-        <path class="jw" d="M326 101 V66"/>
-        <circle cx="326" cy="66" r="3.5" fill="#F5D658"/>
-        <circle class="badge" cx="342" cy="142" r="9"/>
-        <text class="bnum" x="342" y="146" text-anchor="middle">2</text>
-        <text class="ms" x="326" y="180" text-anchor="middle">RST net</text>
-      </g>
-      <g>
-        <path class="jw" d="M376 300 V330"/>
-        <rect class="rsym" x="369" y="330" width="14" height="27" rx="2"/>
-        <path class="jw" d="M376 357 V382"/>
-        <circle cx="376" cy="382" r="3.5" fill="#9DAF96"/>
-        <circle class="badge" cx="392" cy="324" r="9"/>
-        <text class="bnum" x="392" y="328" text-anchor="middle">3</text>
-        <text class="ms" x="392" y="344" text-anchor="middle">RF_SW net</text>
-      </g>
-      <g>
-        <path class="jw" d="M620 150 V128"/>
-        <rect class="rsym" x="613" y="101" width="14" height="27" rx="2"/>
-        <path class="jw" d="M620 101 V66"/>
-        <circle cx="620" cy="66" r="3.5" fill="#F5D658"/>
-        <circle class="badge" cx="636" cy="142" r="9"/>
-        <text class="bnum" x="636" y="146" text-anchor="middle">4</text>
-        <text class="ms" x="620" y="166" text-anchor="middle">CSn net</text>
+      <!-- XIAO bottom row -->
+      <g text-anchor="middle">
+        <circle class="pinX" cx="170" cy="402" r="7"/><text class="openTxt" x="170" y="427">D6 · UART</text>
+        <circle class="pinX" cx="220" cy="402" r="7"/><text class="pinTxt" x="220" y="427">D5</text><text class="gpioTxt" x="220" y="441">BUSY</text>
+        <circle class="pinX" cx="270" cy="402" r="7"/><text class="pinTxt" x="270" y="427">D4</text><text class="gpioTxt" x="270" y="441">NSS</text>
+        <circle class="pinX" cx="320" cy="402" r="7"/><text class="pinTxt" x="320" y="427">D3</text><text class="gpioTxt" x="320" y="441">CC CSn</text>
+        <circle class="pinX" cx="370" cy="402" r="7"/><text class="pinTxt" x="370" y="427">D2</text><text class="gpioTxt" x="370" y="441">RF_SW</text>
+        <circle class="pinX" cx="420" cy="402" r="7"/><text class="pinTxt" x="420" y="427">D1</text><text class="gpioTxt" x="420" y="441">DIO1</text>
+        <circle class="pinX" cx="470" cy="402" r="7"/><text class="pinTxt" x="470" y="427">D0</text><text class="gpioTxt" x="470" y="441">RST</text>
       </g>
 
-      <!-- pull-resistor legend -->
-      <rect x="46" y="468" width="352" height="106" rx="6" fill="#120f16" stroke="#3b3340"/>
-      <text class="annh" x="62" y="492">ALL FOUR ARE 10 kΩ</text>
-      <text class="ann" x="62" y="512">(1) Wio NSS → + rail</text>
-      <text class="ann" x="62" y="530">(2) Wio RST → + rail</text>
-      <text class="ann" x="62" y="548">(3) Wio RF_SW → − rail · the only pull-down</text>
-      <text class="ann" x="62" y="566">(4) CC1101 CSn → + rail</text>
+      <!-- Wio top row -->
+      <g text-anchor="middle">
+        <circle class="pinW" cx="755" cy="220" r="7"/><text class="openTxt" x="755" y="190">OPEN</text>
+        <circle class="pinW" cx="805" cy="220" r="7"/><text class="pinTxt" x="805" y="190">SCK</text>
+        <circle class="pinW" cx="855" cy="220" r="7"/><text class="pinTxt" x="855" y="190">MISO</text>
+        <circle class="pinW" cx="905" cy="220" r="7"/><text class="pinTxt" x="905" y="190">MOSI</text>
+        <circle class="pinW" cx="955" cy="220" r="7"/><text class="pinTxt" x="955" y="190">3V3</text>
+        <circle class="pinW" cx="1005" cy="220" r="7"/><text class="pinTxt" x="1005" y="190">GND</text>
+        <circle class="pinW" cx="1055" cy="220" r="7"/><text class="openTxt" x="1055" y="190">VIN · OPEN</text>
+      </g>
+      <!-- Wio bottom row -->
+      <g text-anchor="middle">
+        <circle class="pinW" cx="755" cy="402" r="7"/><text class="openTxt" x="755" y="427">OPEN</text>
+        <circle class="pinW" cx="805" cy="402" r="7"/><text class="pinTxt" x="805" y="427">RF_SW</text>
+        <circle class="pinW" cx="855" cy="402" r="7"/><text class="pinTxt" x="855" y="427">NSS</text>
+        <circle class="pinW" cx="905" cy="402" r="7"/><text class="pinTxt" x="905" y="427">BUSY</text>
+        <circle class="pinW" cx="955" cy="402" r="7"/><text class="pinTxt" x="955" y="427">RST</text>
+        <circle class="pinW" cx="1005" cy="402" r="7"/><text class="pinTxt" x="1005" y="427">DIO1</text>
+        <circle class="pinW" cx="1055" cy="402" r="7"/><text class="openTxt" x="1055" y="427">D0 · OPEN</text>
+      </g>
 
-      <!-- CC1101 off board -->
-      <rect class="modc" x="600" y="470" width="280" height="130" rx="6"/>
-      <text class="mt" x="740" y="512" text-anchor="middle">CC1101 · E07-M1101D-SMA</text>
-      <text class="ms" x="740" y="530" text-anchor="middle">off the board · 6 jumpers</text>
-      <text class="ms" x="740" y="546" text-anchor="middle">antenna away from the wiring</text>
-      <text class="ann" x="740" y="572" text-anchor="middle">GND · VCC · SCK · MOSI · MISO · CSn</text>
+      <!-- SPI jumpers: explicit board-to-board nets -->
+      <path class="spiWire" d="M220 220V158H805V220"/>
+      <path class="spiWire" d="M270 220V145H855V220"/>
+      <path class="spiWire" d="M320 220V132H905V220"/>
+      <text class="tinyHead" x="610" y="128" text-anchor="middle" fill="#59b8e8">THREE EXPLICIT JUMPERS · SCK / MISO / MOSI</text>
 
-      <!-- jumper bundle -->
-      <path class="jw" d="M640 470 C640 430, 600 420, 600 392"/>
-      <path class="jw" d="M672 470 C672 432, 640 420, 640 368"/>
-      <path class="jw" d="M704 470 C704 434, 700 420, 700 330"/>
-      <path class="jw" d="M736 470 C736 434, 740 420, 740 330"/>
-      <path class="jw" d="M768 470 C768 434, 780 420, 780 330"/>
-      <path class="jw" d="M800 470 C800 434, 820 420, 820 330"/>
+      <!-- power feeds -->
+      <path class="prail" d="M370 220V78"/><path class="grail" d="M420 220V115"/>
+      <path class="prail" d="M955 220V78"/><path class="grail" d="M1005 220V115"/>
 
-      <text class="ann" x="46" y="432">Each pin sits in its own 5-hole strip — the spare holes are where every jumper and passive goes.</text>
-      <text class="ann" x="46" y="450">Leave a gap between the modules — that is where the jumpers and pull-ups live.</text>
+      <!-- Wio local capacitors across its adjacent 3V3/GND strips -->
+      <path class="prail" d="M955 177V165H972"/><path class="grail" d="M1005 177V165H988"/>
+      <path class="cap" d="M972 156V174M988 156V174"/>
+      <text class="tinyHead" x="980" y="152" text-anchor="middle">100 nF</text>
+      <path class="prail" d="M955 205V197H972"/><path class="grail" d="M1005 205V197H988"/>
+      <path class="cap" d="M972 188V206M988 188V206"/>
+      <text class="tinyHead" x="1025" y="202">10 µF</text>
+
+      <!-- five Wio control jumpers, fanned through the gap -->
+      <path class="ctlWire" d="M220 402V474H905V402"/>
+      <path class="ctlWire" d="M270 402V462H855V402"/>
+      <path class="ctlWire" d="M370 402V450H805V402"/>
+      <path class="ctlWire" d="M420 402V438H1005V402"/>
+      <path class="ctlWire" d="M470 402V426H955V402"/>
+
+      <!-- pull resistors to lower rails -->
+      <path class="ctlWire" d="M805 450V466"/><rect class="res" x="797" y="466" width="16" height="30" rx="2"/><path class="grail" d="M805 496V547"/>
+      <path class="ctlWire" d="M855 462V473"/><rect class="res" x="847" y="473" width="16" height="30" rx="2"/><path class="prail" d="M855 503V510"/>
+      <path class="ctlWire" d="M955 426V466"/><rect class="res" x="947" y="466" width="16" height="30" rx="2"/><path class="prail" d="M955 496V510"/>
+      <text class="tinyHead" x="1080" y="474">10 kΩ: NSS + RST → 3V3</text>
+      <text class="tinyHead" x="1080" y="492">10 kΩ: RF_SW → GND</text>
+
+      <rect x="1040" y="627" width="320" height="98" rx="7" fill="#2a1f18" stroke="#F5D658" stroke-width="2"/>
+      <text class="boardTitle" x="1200" y="658" text-anchor="middle">CC1101 local pod</text>
+      <text class="tiny" x="1200" y="680" text-anchor="middle">six short jumpers from C5-side nets</text>
+      <text class="tinyHead" x="1200" y="702" text-anchor="middle">GND · VCC · SCK · MOSI · MISO · CSn</text>
+      <path class="ctlWire" d="M320 402V686H1040" stroke-dasharray="7 6"/>
+      <text class="tinyHead" x="545" y="680">D3 / GPIO7 → CC1101 CSn</text>
+
+      <text class="tiny" x="80" y="628">CC1101 SCK/MOSI/MISO branch from the same XIAO D8/D10/D9 strips; see the next figure.</text>
+      <text class="tiny" x="80" y="648">CC1101 capacitors and CSn pull-up live at the module end, not at the far end of long wires.</text>
     </svg>
     <figcaption>
-      Plan view, stylised. The rail feeds and upper/lower rail bridges are required;
-      also bridge any centre breaks along each physical rail. Column positions are
-      illustrative — place the modules wherever they fit, but keep the gap and keep
-      the CC1101 off the board. Pin order within each module is deliberately not
-      drawn: wire from the <a href="#wiring">table</a> against your board's own
-      silkscreen. The detailed capacitor figure below owns decoupling placement.
+      This is a placement drawing, not merely a schematic. The pin order matches a
+      clockwise-rotated XIAO (USB at right) and the Wio carrier's actual signal
+      header order. Confirm the silkscreen on the delivered boards before applying
+      power. If your rail gap makes an axial resistor reach awkwardly, use a short
+      jumper to a nearby free strip; never tension the resistor leads.
     </figcaption>
   </figure>
+
+  <div class="note warn">
+    <b>Do not copy the printed column number across the centre trench.</b> For
+    example, “column 12 above” and “column 12 below” are isolated. The XIAO and Wio
+    straddle that trench specifically so their two header rows do not short together.
+  </div>
 </section>
 
 <section id="strip">
-  <h2>One strip = one net</h2>
+  <h2>Build the shared SPI bus deliberately</h2>
   <p>
-    This is the part that makes a breadboard genuinely nicer than a harness for this
-    build. A breadboard strip is five holes that are already connected to each other.
-    That <em>is</em> a net. So the shared SPI bus needs no special wiring at all:
+    A five-hole strip is one electrical node, but the XIAO and Wio are on different
+    strips. The bus is therefore <b>three explicit XIAO→Wio jumpers</b>, with the
+    CC1101 branching from spare holes on the three XIAO strips. Do the same thing for
+    SCK, MISO and MOSI; do not daisy-chain through a radio module's header.
   </p>
   <figure>
-    <svg viewBox="0 0 760 300" role="img" aria-label="Detail of one breadboard strip: the XIAO's SCK pin occupies one hole and the Wio and CC1101 SCK jumpers occupy two more holes in the same strip. The remaining two holes are spare. There is no pull-up on SCK.">
+    <svg viewBox="0 0 980 370" role="img" aria-label="Shared SPI construction. The XIAO D8 strip contains the controller pin, one jumper to Wio SCK, and one jumper to CC1101 SCK. Identical branches are shown for D9 MISO and D10 MOSI. Each branch is an explicit wire. Chip selects remain independent.">
       <style>
-        .h2 { fill: #2a2531; }
-        .strip { fill: #1a1620; stroke: #3b3340; stroke-width: 1.5; }
-        .lab { font: 11px 'IBM Plex Mono', monospace; fill: #9DAF96; }
-        .labh { font: 700 11px 'IBM Plex Mono', monospace; fill: #A8DF65; }
-        .pin { fill: #7fb3d5; }
-        .jmp { fill: #F5D658; }
-        .w { stroke: #F5D658; stroke-width: 2; fill: none; }
-        .rsym2 { fill: #1d1724; stroke: #F5D658; stroke-width: 1.6; }
+        .busStrip { fill:#1a1620; stroke:#4b3c49; stroke-width:1.5; }
+        .busHole { fill:#302936; }
+        .busPin { fill:#7fb3d5; }
+        .busWio { fill:#A8DF65; }
+        .busCc { fill:#F5D658; }
+        .busWire { fill:none; stroke:#59b8e8; stroke-width:3; }
+        .busLabel { font:11px 'IBM Plex Mono',monospace; fill:#9DAF96; }
+        .busHead { font:700 12px 'IBM Plex Mono',monospace; fill:#F4ECD9; }
+        .busWarn { font:700 11px 'IBM Plex Mono',monospace; fill:#F5D658; }
       </style>
-      <rect class="strip" x="255" y="90" width="350" height="56" rx="6"/>
-      <circle class="pin" cx="290" cy="118" r="9"/>
-      <circle class="jmp" cx="362" cy="118" r="9"/>
-      <circle class="jmp" cx="434" cy="118" r="9"/>
-      <circle class="h2" cx="506" cy="118" r="9"/>
-      <circle class="h2" cx="578" cy="118" r="9"/>
-      <text class="labh" x="340" y="78" text-anchor="middle">one 5-hole strip = one electrical node</text>
+      <text class="busHead" x="38" y="40">C5-SIDE FIVE-HOLE STRIPS</text>
+      <text class="busLabel" x="38" y="60">pin + Wio jumper + CC jumper share each node</text>
 
-      <text class="lab" x="290" y="172" text-anchor="middle">XIAO</text>
-      <text class="lab" x="290" y="186" text-anchor="middle">D8 pin</text>
-      <text class="lab" x="362" y="172" text-anchor="middle">jumper</text>
-      <text class="lab" x="362" y="186" text-anchor="middle">Wio SCK</text>
-      <text class="lab" x="434" y="172" text-anchor="middle">jumper</text>
-      <text class="lab" x="434" y="186" text-anchor="middle">CC1101 SCK</text>
-      <text class="lab" x="506" y="172" text-anchor="middle">spare</text>
-      <text class="lab" x="578" y="172" text-anchor="middle">spare</text>
+      <!-- three C5-side strips -->
+      <g>
+        <text class="busHead" x="38" y="112">D8 / GPIO8 · SCK</text>
+        <rect class="busStrip" x="200" y="82" width="330" height="54" rx="7"/>
+        <circle class="busPin" cx="235" cy="109" r="9"/><circle class="busWio" cx="300" cy="109" r="9"/>
+        <circle class="busCc" cx="365" cy="109" r="9"/><circle class="busHole" cx="430" cy="109" r="9"/><circle class="busHole" cx="495" cy="109" r="9"/>
+        <text class="busLabel" x="235" y="154" text-anchor="middle">C5 pin</text>
+        <text class="busLabel" x="300" y="154" text-anchor="middle">to Wio</text>
+        <text class="busLabel" x="365" y="154" text-anchor="middle">to CC</text>
+      </g>
+      <g transform="translate(0 96)">
+        <text class="busHead" x="38" y="112">D9 / GPIO9 · MISO</text>
+        <rect class="busStrip" x="200" y="82" width="330" height="54" rx="7"/>
+        <circle class="busPin" cx="235" cy="109" r="9"/><circle class="busWio" cx="300" cy="109" r="9"/>
+        <circle class="busCc" cx="365" cy="109" r="9"/><circle class="busHole" cx="430" cy="109" r="9"/><circle class="busHole" cx="495" cy="109" r="9"/>
+      </g>
+      <g transform="translate(0 192)">
+        <text class="busHead" x="38" y="112">D10 / GPIO10 · MOSI</text>
+        <rect class="busStrip" x="200" y="82" width="330" height="54" rx="7"/>
+        <circle class="busPin" cx="235" cy="109" r="9"/><circle class="busWio" cx="300" cy="109" r="9"/>
+        <circle class="busCc" cx="365" cy="109" r="9"/><circle class="busHole" cx="430" cy="109" r="9"/><circle class="busHole" cx="495" cy="109" r="9"/>
+      </g>
 
-      <text class="labh" x="40" y="118">SCK · GPIO8</text>
-      <text class="lab" x="40" y="220">No bus wiring needed —</text>
-      <text class="lab" x="40" y="236">both radios just plug</text>
-      <text class="lab" x="40" y="252">into the same strip.</text>
+      <!-- branch destinations -->
+      <rect x="660" y="60" width="260" height="110" rx="9" fill="#201a29" stroke="#A8DF65" stroke-width="2"/>
+      <text class="busHead" x="790" y="88" text-anchor="middle">Wio-SX1262</text>
+      <text class="busLabel" x="790" y="116" text-anchor="middle">SCK ← D8 · MISO ← D9</text>
+      <text class="busLabel" x="790" y="138" text-anchor="middle">MOSI ← D10</text>
+      <rect x="660" y="210" width="260" height="110" rx="9" fill="#2a1f18" stroke="#F5D658" stroke-width="2"/>
+      <text class="busHead" x="790" y="238" text-anchor="middle">CC1101</text>
+      <text class="busLabel" x="790" y="266" text-anchor="middle">pin 5 SCK · pin 7 MISO</text>
+      <text class="busLabel" x="790" y="288" text-anchor="middle">pin 6 MOSI</text>
+      <path class="busWire" d="M300 109H620V115H660M300 205H600V130H660M300 301H580V145H660"/>
+      <path class="busWire" d="M365 109H560V248H660M365 205H545V265H660M365 301H530V282H660"/>
+      <text class="busWarn" x="560" y="350">NSS and CSn are NOT shared</text>
     </svg>
     <figcaption>
-      The same pattern covers MOSI and MISO: neither gets a pull resistor. Only the
-      named chip-select strips get pull-ups, and only the Wio RF_SW strip gets a
-      pull-down; the <a href="dual-radio-build.html#passives">build guide</a> shows
-      those shapes separately.
+      Blue dots are C5 pins, green dots are Wio branches, and yellow dots are
+      CC1101 branches. SCK and MOSI are controller outputs. MISO is shared only
+      because the deselected radio must release it: keep CC1101
+      <code>IOCFG1.GDO1_CFG=0x2E</code>, and validate the real module.
     </figcaption>
   </figure>
+  <div class="note stop">
+    <b>Never join the chip selects.</b> Wio NSS remains on XIAO D4 / GPIO23;
+    CC1101 CSn remains on XIAO D3 / GPIO7. Firmware selects one receiver by pulling
+    only its own CS low. If both are low, both radios can drive MISO and corrupt or
+    electrically contend on the bus.
+  </div>
+</section>
 
+<section id="passes">
+  <h2>Wire it in five passes</h2>
+  <ol class="wire-list">
+    <li><b>Seat and power the XIAO only.</b> Place it horizontal with USB at right.
+      Join split rail segments, feed upper + from XIAO 3V3 and upper − from XIAO
+      GND, then bridge those rails once to the lower +/− pair.
+      <small>Power off; confirm + to − is not shorted before continuing.</small></li>
+    <li><b>Add Wio power and its local capacitors.</b> Seat the Wio horizontal with
+      its 3V3/GND/SPI row facing upward. Run Wio 3V3 to upper + and Wio GND to upper
+      −. Put 100 nF and 10 µF in parallel between the Wio 3V3 and GND five-hole
+      strips, immediately beside the header.
+      <small>100 nF has no polarity. If 10 µF is electrolytic: + to 3V3, striped − leg to GND.</small></li>
+    <li><b>Wire the complete Wio, not just SPI.</b> Add D8→SCK, D9→MISO,
+      D10→MOSI; then D4→NSS, D0→RST, D1→DIO1, D5→BUSY, and D2→RF_SW.
+      <small>Leave Wio VIN, D0, D6 and D7 positions open. BUSY is required.</small></li>
+    <li><b>Add the three Wio startup pulls.</b> From the Wio NSS and RST strips,
+      connect separate 10 kΩ resistors to the lower + rail. From Wio RF_SW, connect
+      a 10 kΩ resistor to the lower − rail.
+      <small>RF_SW is the only pull-down. A resistor is a branch; it never replaces the signal jumper.</small></li>
+    <li><b>Add the CC1101 as a local six-wire pod.</b> Branch SCK, MISO and MOSI from
+      spare holes on XIAO D8, D9 and D10. Add XIAO D3→CC CSn, + rail→VCC, and −
+      rail→GND. At the CC module end fit CSn→VCC 10 kΩ and the 100 nF + 10 µF pair
+      across VCC/GND. Leave GDO0 and GDO2 open.
+      <small>Keep all six jumpers under about 10 cm and run GND in the same bundle.</small></li>
+  </ol>
 </section>
 
 <section id="components">
@@ -441,28 +573,30 @@
   <table>
     <thead><tr><th>Qty</th><th>Part</th><th>Where it plugs in</th></tr></thead>
     <tbody>
-      <tr><td>1</td><td>10 kΩ</td><td>Wio <b>NSS</b> net → <b>+ rail</b></td></tr>
-      <tr><td>1</td><td>10 kΩ</td><td>Wio <b>RST</b> net → <b>+ rail</b></td></tr>
-      <tr><td>1</td><td>10 kΩ</td><td>Wio <b>RF_SW</b> net → <b>− rail</b> — the only one going to ground</td></tr>
-      <tr><td>1</td><td>10 kΩ</td><td>CC1101 <b>CSn</b> net → <b>+ rail</b></td></tr>
-      <tr><td>2</td><td>100 nF ceramic</td><td>One at the Wio, one at the CC1101 — across that module's own 3V3 and ground, a few holes from the module body</td></tr>
-      <tr><td>2</td><td>10 µF ceramic or electrolytic</td><td>Same two places, beside the 100 nF. Striped leg to ground if electrolytic</td></tr>
+      <tr><td>1</td><td>10 kΩ</td><td>Spare hole on Wio <b>NSS</b> strip → lower <b>+ rail</b></td></tr>
+      <tr><td>1</td><td>10 kΩ</td><td>Spare hole on Wio <b>RST</b> strip → lower <b>+ rail</b></td></tr>
+      <tr><td>1</td><td>10 kΩ</td><td>Spare hole on Wio <b>RF_SW</b> strip → lower <b>− rail</b> — the only pull-down</td></tr>
+      <tr><td>1</td><td>10 kΩ</td><td>At the CC1101 pod: module <b>CSn</b> pin 4 → module <b>VCC</b> pin 2</td></tr>
+      <tr><td>2</td><td>100 nF ceramic</td><td>Wio: directly between its adjacent 3V3/GND strips. CC1101: directly across pins 2/1 at the module pod</td></tr>
+      <tr><td>2</td><td>10 µF ceramic or electrolytic</td><td>Parallel with each 100 nF. If electrolytic, + to 3V3/VCC and striped − leg to GND</td></tr>
       <tr><td>6</td><td>Jumper wires</td><td>To the CC1101: GND, VCC, SCK, MOSI, MISO, CSn — shortest you have</td></tr>
     </tbody>
   </table>
   <div class="note">
-    <b>A pull resistor can go in any spare hole on its net.</b> The XIAO's pin strip,
-    the radio's pin strip and the jumper between them are all the same electrical
-    node, so it doesn't matter which end you plug the resistor into — use whichever
-    has room. The full parts list with values, sources and what's already fitted is
-    in the <a href="dual-radio-build.html#bom">build guide</a>.
+    <b>A pull resistor is a third branch on a signal; it is not inline.</b> The signal
+    jumper remains XIAO pin ↔ radio pin. A separate resistor leg shares that signal
+    strip and its other leg goes to the named rail. If the resistor cannot reach a
+    rail without tension, jumper the signal to an unused nearby strip and place the
+    resistor there. The full parts list is in the
+    <a href="dual-radio-build.html#bom">build guide</a>.
   </div>
 
   <h3>Decoupling is the one thing a breadboard makes worse</h3>
   <p>
     The 100 nF's entire job is being physically close to the module's own supply
-    pins. A breadboard invites you to put it somewhere convenient on the rails
-    instead, and that throws away the reason it's there.
+    pins. On the Wio, both capacitor pairs live in the spare holes of its adjacent
+    3V3 and GND strips. The CC1101 is off-board, so its pair must live at the module
+    pod across VCC/GND—not back on the breadboard at the far end of the jumpers.
   </p>
   <figure>
     <svg viewBox="0 0 760 250" role="img" aria-label="Two panels. On the left, the correct placement: the decoupling capacitor bridges 3V3 to ground a few holes from the module. On the right, the wrong placement: the capacitor is out at the far end of the power rails, far from the module it is supposed to be bypassing.">
@@ -549,6 +683,14 @@
       between rows, the two rows land in two adjacent strips (which are independent,
       so that works) — the awkwardness is mechanical overhang, not electrical.</li>
   </ul>
+  <div class="note">
+    <b>What “local pod” means.</b> Put a tiny 2×4 adapter, a two-row female header on
+    perfboard, or soldered short component leads immediately beside the CC1101
+    header. Terminate the six breadboard jumpers there. Fit the 100 nF and 10 µF
+    directly across CC pins 2 (VCC) and 1 (GND), and the 10 kΩ directly from pin 4
+    (CSn) to pin 2 (VCC). If those parts remain back on the main breadboard while the
+    CC1101 is at the end of 10 cm wires, they are not local decoupling.
+  </div>
   <div class="note warn">
     <b>Watch the jumper length.</b> Rev D §4.3 and Rev E §4.3 both want the SPI
     harness under about 10 cm with a ground return alongside. Standard dupont jumpers
@@ -598,21 +740,21 @@
     By signal name, never by position. Wio pads are named by their signal silkscreen;
     if you're looking at a D-number on the Wio, you're reading the wrong label set.
   </p>
-  <table>
+  <table class="pinmap">
     <thead><tr><th>From (XIAO)</th><th>GPIO</th><th>To</th><th>Breadboard note</th></tr></thead>
     <tbody>
-      <tr><td>D8</td><td><code>8</code></td><td>Wio <b>SCK</b> + CC1101 <b>SCK</b></td><td>Both land in the D8 strip. No bus wiring.</td></tr>
-      <tr><td>D10</td><td><code>10</code></td><td>Wio <b>MOSI</b> + CC1101 <b>MOSI</b></td><td>Same — one strip, two jumpers.</td></tr>
-      <tr><td>D9</td><td><code>9</code></td><td>Wio <b>MISO</b> + CC1101 <b>MISO/GDO1</b></td><td>Same. The strip that gate 4 tests.</td></tr>
-      <tr><td>D4</td><td><code>23</code></td><td>Wio <b>NSS</b></td><td>+ 10 kΩ from this strip to + rail.</td></tr>
-      <tr><td>D3</td><td><code>7</code></td><td>CC1101 <b>CSN</b></td><td>+ 10 kΩ to + rail. GPIO7 is the resolved JTAG-source strap; record eFuse state and test recovery.</td></tr>
-      <tr><td>D0</td><td><code>1</code></td><td>Wio <b>RST</b></td><td>+ 10 kΩ from this strip to + rail. <b>Not</b> the Wio pad marked D0.</td></tr>
-      <tr><td>D1</td><td><code>0</code></td><td>Wio <b>DIO1</b></td><td>—</td></tr>
-      <tr><td>D5</td><td><code>24</code></td><td>Wio <b>BUSY</b></td><td>—</td></tr>
-      <tr><td>D2</td><td><code>25</code></td><td>Wio <b>RF_SW</b></td><td>+ 10 kΩ from this strip to <b>− rail</b>. The only pull-down.</td></tr>
-      <tr><td>3V3</td><td>—</td><td>+ rail → Wio 3V3, CC1101 VCC</td><td>Decoupling pair at each module.</td></tr>
-      <tr><td>GND</td><td>—</td><td>− rail → both modules</td><td>Ground jumper travels with the SPI bundle.</td></tr>
-      <tr><td>—</td><td>—</td><td>Wio <b>VIN, D0, D6, D7</b></td><td class="src">Leave unconnected (Rev D §4.1).</td></tr>
+      <tr><td>D8</td><td><code>8</code></td><td>Wio <b>SCK</b> + CC1101 pin 5 <b>SCK</b></td><td>One jumper D8→Wio; a second jumper branches from a spare D8-strip hole to CC.</td></tr>
+      <tr><td>D10</td><td><code>10</code></td><td>Wio <b>MOSI</b> + CC1101 pin 6 <b>MOSI</b></td><td>One jumper D10→Wio; one D10-strip branch to CC.</td></tr>
+      <tr><td>D9</td><td><code>9</code></td><td>Wio <b>MISO</b> + CC1101 pin 7 <b>MISO/GDO1</b></td><td>One jumper D9→Wio; one D9-strip branch to CC. Preserve <code>IOCFG1=0x2E</code>.</td></tr>
+      <tr><td>D4</td><td><code>23</code></td><td>Wio <b>NSS</b></td><td>Dedicated jumper. Separate 10 kΩ branch from Wio NSS strip to lower + rail.</td></tr>
+      <tr><td>D3</td><td><code>7</code></td><td>CC1101 pin 4 <b>CSn</b></td><td>Dedicated jumper. At CC end, 10 kΩ CSn→VCC. Record eFuse state and test recovery.</td></tr>
+      <tr><td>D0</td><td><code>1</code></td><td>Wio <b>RST</b></td><td>Dedicated jumper. Separate 10 kΩ branch to lower + rail. <b>Not</b> Wio D0.</td></tr>
+      <tr><td>D1</td><td><code>0</code></td><td>Wio <b>DIO1</b></td><td>Dedicated jumper; never join a CC1101 GDO pin here.</td></tr>
+      <tr><td>D5</td><td><code>24</code></td><td>Wio <b>BUSY</b></td><td>Dedicated jumper; mandatory for bounded command sequencing.</td></tr>
+      <tr><td>D2</td><td><code>25</code></td><td>Wio <b>RF_SW</b></td><td>Dedicated jumper. Separate 10 kΩ branch to lower <b>− rail</b>.</td></tr>
+      <tr><td>3V3</td><td>—</td><td>upper + rail → Wio 3V3; CC pin 2 VCC</td><td>XIAO is the single source. Capacitor pair at each radio, not merely at the rail feed.</td></tr>
+      <tr><td>GND</td><td>—</td><td>upper − rail → Wio GND; CC pin 1 GND</td><td>CC ground travels in the same short bundle as SPI.</td></tr>
+      <tr><td class="open-pin">OPEN</td><td>—</td><td>Wio <b>VIN, D0, D6, D7</b>; CC <b>GDO0, GDO2</b></td><td class="src">No jumpers. Do not use empty-looking pins to tidy the routing.</td></tr>
     </tbody>
   </table>
   <p class="src">Nets from Rev D §4.1 and Rev E §2. Breadboard placement is this document's own.</p>
@@ -632,9 +774,9 @@
       debug. Don't use a tired board for this.</li>
     <li><b>Reseat after moving the board.</b> Two modules, an SMA connector and a
       jumper bundle put real mechanical stress on the contacts.</li>
-    <li><b>Both boards keep their own USB.</b> Grove red stays disconnected and
-      insulated — the breadboard doesn't change Rev D §9's prototype power rule, and
-      P6 still hasn't happened.</li>
+    <li><b>Cardputer and XIAO keep their own USB power.</b> The Wio and CC1101 take
+      only XIAO 3V3. Grove red stays disconnected and insulated — the breadboard
+      doesn't change Rev D §9's prototype power rule, and P6 still hasn't happened.</li>
     <li><b>Power sequencing still applies.</b> Rev D §9: both endpoints powered
       before active signal lines are connected. On a breadboard it's tempting to plug
       a jumper into a live board. Don't.</li>
@@ -665,7 +807,7 @@
   shared footprint confirmed by the user. GPIO7 behavior was cross-checked against
   the ESP32-C5 datasheet v1.5 and CC1101 shared-MISO behavior against TI Rev I.
   Physical layout is this document's own and carries no authority — if it conflicts
-  with Rev D or Rev E, they win. Last reviewed 2026-09-19.
+  with Rev D or Rev E, they win. Revised and rendered 2026-09-21.
 </footer>
 
 </main>
@@ -680,8 +822,10 @@ const STAGES = [
     steps: [
       ['Map every power-rail segment with continuity before inserting modules.',
        'Upper and lower rails are separate; many rails also split at the centre. Mark each segment before adding jumpers.'],
-      ['Decide placement: XIAO and Wio straddling the channel with a clear gap between them.',
-       'The gap is where jumpers and pull-ups live, and it removes the temptation to bridge straight across.'],
+      ['Choose columns: XIAO horizontal, Wio horizontal, at least seven empty columns between them.',
+       'The worked example uses XIAO 8–14 and Wio 22–28.'],
+      ['Orient XIAO USB at right; put both boards’ 3V3/GND/SPI header row toward the upper rails.',
+       'This makes the rendered pin order match the physical build.'],
       ['Find the signal-name silkscreen on the Wio, not the D-number labels.',
        'FLAG: the Wio prints both. Wiring by position reproduces the stacked pinout Rev D §4 forbids.'],
       ['Locate pin 1 on the CC1101 using the numerals printed at the board edge.',
@@ -691,12 +835,13 @@ const STAGES = [
   {
     name: 'B · Rails and power',
     steps: [
-      ['Seat the XIAO and the Wio across the channel.'],
+      ['Seat the XIAO and the Wio across the channel in the documented horizontal orientation.'],
       ['Bridge upper + to lower + and upper − to lower −; bridge any centre splits.'],
-      ['Run XIAO 3V3 to the joined + rails and XIAO GND to the joined − rails.'],
+      ['Feed upper + once from XIAO 3V3 and upper − once from XIAO GND.',
+       'One source only. The lower rails are joined distribution points, not another supply input.'],
       ['Jumper + rail → Wio 3V3, and − rail → Wio GND.'],
-      ['Fit 100 nF and 10 µF at the Wio, in its own 3V3 strip and nearest ground.',
-       'Close to the module body, not out at the end of the rail. Striped leg to ground if electrolytic.'],
+      ['Fit 100 nF and 10 µF directly between the Wio 3V3 and GND five-hole strips.',
+       'Use spare holes beside the header. Striped leg to ground if electrolytic.'],
       ['Check + rail to − rail is not shorted.',
        'The reading may rise while capacitors charge, but populated modules need not settle fully open. Fail a steady near-zero reading or continuous buzzer.'],
     ],
@@ -704,26 +849,25 @@ const STAGES = [
   {
     name: 'C · Pull resistors',
     steps: [
-      ['10 kΩ from the Wio NSS strip to the + rail.'],
-      ['10 kΩ from the Wio RST strip to the + rail.'],
-      ['10 kΩ from the Wio RF_SW strip to the − rail.',
+      ['10 kΩ from the Wio NSS strip to the lower + rail.'],
+      ['10 kΩ from the Wio RST strip to the lower + rail.'],
+      ['10 kΩ from the Wio RF_SW strip to the lower − rail.',
        'The only pull-down in the build. Check the leg before you let go of it.'],
-      ['10 kΩ from the CC1101 CSn strip to the + rail.',
-       'GPIO7 is the JTAG-source strap with no internal pull. Default JTAG eFuses make its level a don’t-care; record eFuse state and retain cold-boot/native-USB/JTAG recovery tests.'],
     ],
   },
   {
     name: 'D · Signals',
     steps: [
-      ['Wio SCK, MOSI, MISO jumpers into the XIAO D8, D10, D9 strips.',
-       'The strip is the net — nothing else is needed to share the bus.'],
+      ['Run three explicit Wio jumpers: D8→SCK, D9→MISO, D10→MOSI.',
+       'The two boards sit on different strips; no connection exists until each jumper is fitted.'],
       ['Wio control lines by signal name: NSS←D4, RST←D0, DIO1←D1, BUSY←D5, RF_SW←D2.',
        'XIAO D0 goes to the pad marked RST, never the pad marked D0.'],
       ['Confirm Wio VIN, D0, D6 and D7 are unconnected.',
        'Rev D §4.1. D6/D7 are the host UART on the XIAO side.'],
-      ['Wire the CC1101 with six jumpers: GND, VCC, SCK, MOSI, MISO, CSn.',
-       'Shortest jumpers you have; ground travels in the same bundle. GDO0 and GDO2 stay open.'],
-      ['Fit 100 nF and 10 µF at the CC1101 end of its supply jumpers.'],
+      ['Branch CC SCK/MISO/MOSI from spare XIAO D8/D9/D10-strip holes; add D3→CSn, VCC and GND.',
+       'Six jumpers total; shortest you have. Ground travels in the same bundle. GDO0/GDO2 stay open.'],
+      ['At the CC pod, fit 100 nF + 10 µF across pins 2/1 and 10 kΩ across CSn pin 4→VCC pin 2.',
+       'These parts belong at the module end, not back at the main breadboard rail.'],
       ['Verify GPIO7 to GPIO23 reads open.',
        'Rev E §6 gate 1 — no chip-select cross-connection.'],
     ],
@@ -735,7 +879,7 @@ const STAGES = [
       ['Power the XIAO on its own USB, Grove red still disconnected.'],
       ['Measure 3.3 V at each module’s own supply pin, not at the rail.'],
       ['Confirm both CS lines stay high through a C5 reset and USB recovery.',
-       'Gate 2. Both GPIO7 and GPIO25 now carry external pulls.'],
+       'Gate 2. Wio NSS/GPIO23 and CC CSn/GPIO7 have independent pull-ups; RF_SW/GPIO25 has its separate pull-down.'],
       ['Run the existing Wio reset → TCXO → calibrate → RX sequence at 1 MHz.',
        'Known-good path. A failure here points at the breadboard or at something you just changed.'],
       ['Run the bounded CC1101 manual power-on reset and deterministic SPI checks.',
