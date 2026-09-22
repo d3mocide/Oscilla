@@ -23,6 +23,7 @@
 #include "storage/sd_storage.h"
 #include "storage/settings.h"
 #include "storage/wardrive_logger.h"
+#include "model/lora_profiles.h"
 #include "model/number_parse.h"
 #include "ui/gnss_view.h"
 #include "ui/info_view.h"
@@ -519,28 +520,37 @@ void DeckApp::startPacketMonitor(uint32_t now_ms, uint8_t ch)
 }
 
 namespace {
-/* Placeholder until there's a real config UI (no numeric entry on this
- * keyboard yet): MeshCore's own USA/Canada preset, confirmed from their
- * docs, not a protocol-level default (ocp.h's lora_config takes no default
- * frequency on purpose — D-9, receive-only means no baked-in region plan). */
-constexpr uint32_t kBenchFreqHz = 910525000;
-constexpr int kBenchSf = 7;
-constexpr int kBenchBwKhz = 62;
-constexpr int kBenchCr = 1;
-constexpr const char *kMeshCoreUsCaProfile = "meshcore_us_ca";
 }  // namespace
 
-void DeckApp::startLoraConfig(uint32_t now_ms)
+/* Shared by the profile-cycling 'c'/'x' path and the debug console's
+ * lora_manual command — one send/absorb sequence so they can't drift apart
+ * (same reasoning as channel_plans.h's resolvedChannelForProfile() in
+ * LoRaTrace-RX: one function every caller goes through). */
+void DeckApp::sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
+                             const char *profile_token, uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
-    std::string cmd = std::string(OCP_V_LORA_CONFIG) + " " + std::to_string(kBenchFreqHz) + " " +
-                       std::to_string(kBenchSf) + " " + std::to_string(kBenchBwKhz) + " " + std::to_string(kBenchCr);
+    std::string cmd = std::string(OCP_V_LORA_CONFIG) + " " + std::to_string(freq_hz) + " " +
+                       std::to_string(sf) + " " + std::to_string(bw_khz) + " " + std::to_string(cr) +
+                       " " + std::to_string(sync_word);
     if (!client_.send(cmd, now_ms)) {
-        retrySoon([this](uint32_t t) { startLoraConfig(t); }, now_ms);
+        retrySoon([this, freq_hz, sf, bw_khz, cr, sync_word, profile_token](uint32_t t) {
+            sendLoraConfig(freq_hz, sf, bw_khz, cr, sync_word, profile_token, t);
+        }, now_ms);
         return;
     }
-    lora_.configured(kBenchFreqHz, kBenchSf, kBenchBwKhz, kBenchCr, kMeshCoreUsCaProfile);
+    lora_.configured(freq_hz, sf, bw_khz, cr, sync_word, profile_token);
     notice("");
+}
+
+/* Cycles with 'x' (Screen::SubGhz), applies with 'c'. Named presets only —
+ * arbitrary manual entry has no on-device numeric input yet (this keyboard
+ * has none built) and goes through the debug console's lora_manual command
+ * instead, which also calls sendLoraConfig() above. */
+void DeckApp::startLoraConfig(uint32_t now_ms)
+{
+    const auto &p = model::kLoraProfiles[lora_profile_index_];
+    sendLoraConfig(p.freq_hz, p.sf, p.bw_khz, p.cr, p.sync_word, p.token, now_ms);
 }
 
 void DeckApp::startLoraListen(uint32_t now_ms)
@@ -860,6 +870,9 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         case Screen::SubGhz:
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
             else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
+            else if (c == 'x') {
+                lora_profile_index_ = (lora_profile_index_ + 1) % model::kLoraProfileCount;
+            }
             else if (c == 'c') startLoraConfig(now_ms);
             else if (c == 's') {
                 if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
@@ -992,6 +1005,28 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
         if (arg == "config") startLoraConfig(now_ms);
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
         else startLoraListen(now_ms);
+    }
+    else if (cmd == "lora_manual") {
+        /* lora_manual <freq_hz> <sf> <bw_khz> <cr> [sync_word] — the only
+         * arbitrary-parameter path until this keyboard has real numeric
+         * entry (see startLoraConfig's comment). Whitespace-split by hand,
+         * same idiom as cmd/arg's own split above. */
+        std::string rest = arg;
+        std::string tok[5];
+        size_t n = 0;
+        while (n < 5 && !rest.empty()) {
+            size_t sp = rest.find(' ');
+            tok[n++] = rest.substr(0, sp);
+            rest = sp == std::string::npos ? "" : rest.substr(sp + 1);
+        }
+        if (n < 4) { log("debug: lora_manual needs freq_hz sf bw_khz cr [sync_word]"); return; }
+        uint64_t freq = 0, sf = 0, bw = 0, cr = 0, sync = 0x12;
+        bool ok = model::parseUnsigned(tok[0], &freq) && model::parseUnsigned(tok[1], &sf) &&
+                  model::parseUnsigned(tok[2], &bw) && model::parseUnsigned(tok[3], &cr);
+        if (ok && n == 5) ok = model::parseUnsigned(tok[4], &sync) && sync <= 255;
+        if (!ok) { log("debug: lora_manual args must be whole unsigned integers, sync_word 0..255"); return; }
+        sendLoraConfig(static_cast<uint32_t>(freq), static_cast<int>(sf), static_cast<int>(bw),
+                       static_cast<int>(cr), static_cast<uint8_t>(sync), "manual", now_ms);
     }
     else if (cmd == "channel") {
         if (arg.empty()) { log("debug: channel needs a number"); return; }
@@ -1271,8 +1306,8 @@ void DeckApp::draw(uint32_t now_ms)
                          makeChrome("802.15.4"));
         break;
     case Screen::SubGhz:
-        ui::drawSubGhzView(lora_, lora_cursor_,
-                           makeChrome("LORA RX"));
+        ui::drawSubGhzView(lora_, lora_cursor_, makeChrome("LORA RX"),
+                           model::kLoraProfiles[lora_profile_index_].label);
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_,

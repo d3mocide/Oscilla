@@ -10,6 +10,7 @@
 
 #include <M5Cardputer.h>
 
+#include "model/lora_profiles.h"
 #include "ui/canvas.h"
 #include "ui/link_view.h"
 #include "ui/list_row.h"
@@ -48,9 +49,22 @@ uint16_t framingColour(model::Framing f)
     }
 }
 
+/* Looks up the short on-screen label for a configured/manifest profile
+ * token; anything not in the table (including the debug console's
+ * lora_manual "manual" token) falls back to MANUAL — consistent with
+ * LoraModel::configured()'s own "unknown token means manual" rule. */
+const char *profileLabel(const std::string &token)
+{
+    for (const auto &p : model::kLoraProfiles) {
+        if (token == p.token) return p.label;
+    }
+    return "MANUAL";
+}
+
 }  // namespace
 
-void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeState &chrome)
+void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeState &chrome,
+                    const char *pending_profile_label)
 {
     auto &d = ui::canvas();
     beginChrome(chrome);
@@ -104,8 +118,7 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
                       (unsigned long)(lora.freqHz() / 1000000UL),
                       (unsigned long)((lora.freqHz() % 1000000UL) / 1000UL));
         d.setTextColor(lora.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.printf("%s SF%d BW%d %s", freq, lora.sf(), lora.bwKhz(),
-                 lora.profile() == "meshcore_us_ca" ? "MCORE" : "MANUAL");
+        d.printf("%s SF%d BW%d %s", freq, lora.sf(), lora.bwKhz(), profileLabel(lora.profile()));
         if (lora.health().valid) {
             d.setCursor(4, kDetailRowY + 9);
             d.setTextColor((lora.health().irq_drop || lora.health().radio_drop ||
@@ -118,7 +131,7 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
         }
     } else {
         d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.print("CFG REQUIRED · PRESS c");
+        d.printf("CFG REQUIRED - c=%s (x=next)", pending_profile_label);
     }
 
     endChrome(chrome);

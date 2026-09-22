@@ -50,6 +50,9 @@ typedef struct {
     uint8_t   sf;        /* 5..12 */
     lora_bw_t bw;
     uint8_t   cr;        /* 1..4 -> 4/5 .. 4/8 */
+    uint8_t   sync_word; /* LoRa sync word byte (e.g. 0x12 private, 0x2B Meshtastic) — a receive
+                           * filter, not cosmetic: the chip only raises RX for a matching sync
+                           * word (see lora_set_sync_word() in lora_radio.c). */
 } lora_rx_params_t;
 
 #define LORA_MAX_PAYLOAD 255

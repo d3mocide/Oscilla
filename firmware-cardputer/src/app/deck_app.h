@@ -114,6 +114,8 @@ private:
     void startChannelView(uint32_t now_ms);
     void startPacketMonitor(uint32_t now_ms, uint8_t ch);
     void startLoraConfig(uint32_t now_ms);
+    void sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
+                       const char *profile_token, uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
@@ -171,6 +173,10 @@ private:
     uint32_t spectrum_started_ms_ = 0;
     size_t lora_cursor_ = 0;
     uint32_t last_lora_health_poll_ms_ = 0;
+    /* Which model::kLoraProfiles[] entry 'c' would apply next — cycled with
+     * 'x', independent of whichever profile is actually configured/running
+     * (lora_.profile()) until 'c' is pressed again. */
+    size_t lora_profile_index_ = 0;
     /* A rejected lora_listen (e.g. sent before lora_config) must not create
      * a session file — the ack only exists after the probe actually
      * confirms, so the [LORA]/error reply is what triggers lora_.begin()

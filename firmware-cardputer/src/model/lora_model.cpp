@@ -42,13 +42,15 @@ bool kvFloat(const ocp::Item &it, const char *key, float lo, float hi, float *ou
 
 }  // namespace
 
-void LoraModel::configured(uint32_t freq_hz, int sf, int bw_khz, int cr, const char *profile)
+void LoraModel::configured(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
+                           const char *profile)
 {
     has_config_ = true;
     freq_hz_ = freq_hz;
     sf_ = sf;
     bw_khz_ = bw_khz;
     cr_ = cr;
+    sync_word_ = sync_word;
     profile_ = profile && *profile ? profile : "manual";
 }
 

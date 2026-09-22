@@ -91,12 +91,18 @@ static int bw_to_khz(lora_bw_t bw)
     return 0;
 }
 
-/* lora_config <freq_hz> <sf> <bw_khz> <cr>. No default frequency (D-9: no
- * region plan since receive-only) — the caller always states one. */
+/* RadioLib's own default (see lora_radio.c's lora_set_sync_word citation) —
+ * an omitted 5th arg keeps existing 4-arg callers behaving exactly as
+ * before, since this is also MeshCore's real sync word. */
+#define SYNC_WORD_DEFAULT 0x12
+
+/* lora_config <freq_hz> <sf> <bw_khz> <cr> [sync_word]. No default frequency
+ * (D-9: no region plan since receive-only) — the caller always states one.
+ * sync_word is optional and decimal (0..255) on the wire; omitted means
+ * SYNC_WORD_DEFAULT. */
 void lora_cmd_config(int argc, char **argv)
 {
-    (void)argc;   /* dispatch() already enforced exactly 4 args */
-    uint32_t freq = 0, sf = 0, cr = 0;
+    uint32_t freq = 0, sf = 0, cr = 0, sync = SYNC_WORD_DEFAULT;
     lora_bw_t bw;
 
     if (!ocp_parse_u32(argv[1], &freq) || !ocp_parse_u32(argv[2], &sf) ||
@@ -120,16 +126,24 @@ void lora_cmd_config(int argc, char **argv)
         ocp_emit_error(OCP_ERR_BADARG, "cr must be 1..4 (4/5..4/8)");
         return;
     }
+    if (argc == 6) {   /* argc counts argv[0]=verb too; 6 means a 5th arg (sync_word) is present */
+        if (!ocp_parse_u32(argv[5], &sync) || sync > 255) {
+            ocp_emit_error(OCP_ERR_BADARG, "sync_word must be 0..255");
+            return;
+        }
+    }
 
     s_params.freq_hz = freq;
     s_params.sf = (uint8_t)sf;
     s_params.bw = bw;
     s_params.cr = (uint8_t)cr;
+    s_params.sync_word = (uint8_t)sync;
     s_configured = true;
 
-    ocp_emit_compact(OCP_MARK_CFG, "%s=%lu %s=%lu %s=%d %s=%lu",
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%lu %s=%lu %s=%d %s=%lu %s=%lu",
                      OCP_K_FREQ, (unsigned long)freq, OCP_K_SF, (unsigned long)sf,
-                     OCP_K_BW, bw_to_khz(bw), OCP_K_CR, (unsigned long)cr);
+                     OCP_K_BW, bw_to_khz(bw), OCP_K_CR, (unsigned long)cr,
+                     OCP_K_SYNC, (unsigned long)sync);
 }
 
 static void emit_packet(const lora_packet_t *p)
@@ -195,9 +209,10 @@ void lora_cmd_listen(void)
         return;
     }
 
-    ocp_emit_compact(OCP_MARK_LORA, "%s=%lu %s=%d %s=%d %s=%ld",
+    ocp_emit_compact(OCP_MARK_LORA, "%s=%lu %s=%d %s=%d %s=%ld %s=%d",
                      OCP_K_FREQ, (unsigned long)s_params.freq_hz, OCP_K_SF, s_params.sf,
-                     OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr);
+                     OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr,
+                     OCP_K_SYNC, s_params.sync_word);
 }
 
 void lora_cmd_status(void)
@@ -213,10 +228,11 @@ void lora_cmd_status(void)
                          OCP_K_OCP_DROP, (unsigned long)ocp_drop, OCP_K_HW_FAULT);
         return;
     }
-    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu",
+    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld %s=%d %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu",
                      OCP_K_RUNNING, running ? 1 : 0,
                      OCP_K_FREQ, (unsigned long)s_params.freq_hz, OCP_K_SF, s_params.sf,
                      OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr,
+                     OCP_K_SYNC, s_params.sync_word,
                      OCP_K_RX, (unsigned long)stats.rx,
                      OCP_K_CRC_ERR, (unsigned long)stats.crc_err,
                      OCP_K_HEADER_ERR, (unsigned long)stats.header_err,

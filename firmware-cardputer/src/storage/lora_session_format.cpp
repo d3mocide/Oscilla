@@ -15,9 +15,10 @@ std::string loraSessionManifest(uint32_t started_ms, const model::LoraModel &lor
     char text[192];
     std::snprintf(text, sizeof text,
                   "schema=oscilla-lora-session-v1\n"
-                  "started_ms=%lu\nprofile=%s\nfreq_hz=%lu\nsf=%d\nbw_khz=%d\ncr=%d\n",
+                  "started_ms=%lu\nprofile=%s\nfreq_hz=%lu\nsf=%d\nbw_khz=%d\ncr=%d\nsync_word=0x%02X\n",
                   (unsigned long)started_ms, lora.profile().c_str(),
-                  (unsigned long)lora.freqHz(), lora.sf(), lora.bwKhz(), lora.cr());
+                  (unsigned long)lora.freqHz(), lora.sf(), lora.bwKhz(), lora.cr(),
+                  lora.syncWord());
     return text;
 }
 

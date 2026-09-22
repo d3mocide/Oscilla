@@ -1,3 +1,45 @@
+## 2026-09-22 — LSI-8: LoRa sync-word register write, Meshtastic profile, manual config
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Investigated the operator's sibling project, LoRaTrace-RX, for its
+source-verified LoRa preset table (`src/channel_plans.h`) ahead of adding a
+manual/multi-profile config path. That surfaced a real gap: `lora_radio.c`
+never wrote the SX1262's LoRa sync-word register — no `WriteRegister`
+opcode existed in the driver at all. Every MeshCore reception confirmed to
+date rode on whatever the chip's actual reset-default sync word happens to
+be, not a verified value.
+
+Closed it properly: added `OP_WRITE_REGISTER` (`0x0D`) and
+`lora_set_sync_word()`, writing the sync word to register `0x0740`/`0x0741`
+per RadioLib's `SX126x::setSyncWord`/`SX126x_registers.h` — a
+widely-deployed, independently-verified SX126x driver, cited rather than
+guessed since this repo has no local datasheet PDF. `lora_config` gained an
+optional 5th `sync_word` argument (decimal 0..255, default `0x12` — chosen
+so every existing 4-arg caller, including MeshCore, is unaffected).
+
+Added a second named profile, Meshtastic US LongFast (906.875MHz, SF11,
+BW250, CR4/5, sync `0x2B`), sourced the same way as MeshCore's own values —
+cross-checked against LoRaTrace-RX's table and its upstream firmware
+citations, not re-derived. `model::kLoraProfiles` (new,
+`lora_profiles.h`) holds both; a new host test pins their exact values so a
+future edit can't silently drift from the source. The Sub-GHz card's `x`
+key cycles between them; `c` applies whichever is selected, shown on-screen
+before commit. Arbitrary manual entry has no on-device path yet (no numeric
+keyboard input built) — added `lora_manual <freq_hz> <sf> <bw_khz> <cr>
+[sync_word]` as a debug-console command instead, sharing the same
+send/absorb code path as the profile picker. The session manifest now
+records `sync_word` in hex alongside the existing fields.
+
+Host suite, OCP selftest, and both real board builds pass. **Not yet
+hardware-confirmed, and the very first thing to check next session is
+whether MeshCore reception is unaffected** — the whole point of the
+`0x12` default is that it should be a no-op, but that's a claim about real
+silicon, not proven by tests off real hardware. A Meshtastic session is not
+meaningful evidence until that MeshCore regression check passes first.
+Full detail in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md#lsi-8-sync-word-register-write-second-profile-manual-entry-2026-09-22).
+
 ## 2026-09-22 — LSI-7: mid-session SX1262 hardware fault counter
 
 **Phase:** P3 follow-up · **By:** Claude + operator

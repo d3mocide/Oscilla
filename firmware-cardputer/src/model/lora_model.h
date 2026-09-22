@@ -51,7 +51,7 @@ public:
 
     /* lora_config accepted: remember what the deck asked for, echoed back
      * from the same values it sent (not parsed from the ambiguous [CFG]). */
-    void configured(uint32_t freq_hz, int sf, int bw_khz, int cr, const char *profile);
+    void configured(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word, const char *profile);
 
     /* lora_listen (re)started: forget the old session's log. */
     void begin();
@@ -78,6 +78,7 @@ public:
     int sf() const { return sf_; }
     int bwKhz() const { return bw_khz_; }
     int cr() const { return cr_; }
+    uint8_t syncWord() const { return sync_word_; }
     const std::string &profile() const { return profile_; }
     uint32_t totalCount() const { return total_; }
     const std::vector<LoraPacket> &packets() const { return packets_; }
@@ -90,6 +91,7 @@ private:
     int sf_ = 0;
     int bw_khz_ = 0;
     int cr_ = 0;
+    uint8_t sync_word_ = 0;
     std::string profile_ = "manual";
     uint32_t total_ = 0;
     LoraHealth health_;

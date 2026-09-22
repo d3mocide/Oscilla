@@ -178,7 +178,7 @@ typedef enum {
     X(ZIG_LIST,          OCP_V_ZIG_LIST,          OCP_CC_IEEE802154,  0,  0,  OCP_MARK_ZIG)        \
     X(ZIG_NODES,         OCP_V_ZIG_NODES,         OCP_CC_IEEE802154,  0,  1,  OCP_MARK_ZIG)        \
     X(ZIG_CLEAR,         OCP_V_ZIG_CLEAR,         OCP_CC_IEEE802154,  0,  0,  OCP_MARK_ZIG)        \
-    X(LORA_CONFIG,       OCP_V_LORA_CONFIG,       OCP_CC_LORA_RX,     4,  4,  OCP_MARK_CFG)        \
+    X(LORA_CONFIG,       OCP_V_LORA_CONFIG,       OCP_CC_LORA_RX,     4,  5,  OCP_MARK_CFG)        \
     X(LORA_LISTEN,       OCP_V_LORA_LISTEN,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)
@@ -258,6 +258,7 @@ typedef enum {
 #define OCP_K_SF                "sf"
 #define OCP_K_BW                "bw"
 #define OCP_K_CR                "cr"
+#define OCP_K_SYNC              "sync"      /* LoRa sync word, decimal 0..255 */
 #define OCP_K_RX                "rx"        /* SX1262 received-packet events */
 #define OCP_K_CRC_ERR           "crc_err"   /* SX1262 LoRa CRC errors */
 #define OCP_K_HEADER_ERR        "header_err"/* SX1262 header errors */

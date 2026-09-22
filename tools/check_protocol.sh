@@ -207,6 +207,12 @@ python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/lora_session_format_test" | tail -1 | sed 's/^/  /'
 
+# Named LoRa profile presets: pins the sourced values (LoRaTrace-RX's
+# channel_plans.h) against drift.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/lora_profiles_test" \
+    firmware-cardputer/test/host/lora_profiles_test.cpp
+"$out/lora_profiles_test" | tail -1 | sed 's/^/  /'
+
 # The deck's NMEA reader: checksum, chunking, bounds - no OCP link involved.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/nmea_parser_test" \
     firmware-cardputer/test/host/nmea_parser_test.cpp firmware-cardputer/src/gnss/nmea_parser.cpp

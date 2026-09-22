@@ -10,9 +10,9 @@ int main()
 {
     int failures = 0;
     model::LoraModel lora;
-    lora.configured(910525000, 7, 62, 1, "meshcore_us_ca");
+    lora.configured(910525000, 7, 62, 1, 0x12, "meshcore_us_ca");
     const std::string manifest = storage::loraSessionManifest(1234, lora);
-    const bool manifest_ok = manifest == "schema=oscilla-lora-session-v1\nstarted_ms=1234\nprofile=meshcore_us_ca\nfreq_hz=910525000\nsf=7\nbw_khz=62\ncr=1\n";
+    const bool manifest_ok = manifest == "schema=oscilla-lora-session-v1\nstarted_ms=1234\nprofile=meshcore_us_ca\nfreq_hz=910525000\nsf=7\nbw_khz=62\ncr=1\nsync_word=0x12\n";
     std::printf("  %s  manifest records profile and exact configuration\n", manifest_ok ? "PASS" : "FAIL");
     failures += !manifest_ok;
 

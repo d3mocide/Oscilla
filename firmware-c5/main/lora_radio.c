@@ -69,6 +69,14 @@ static const char *TAG = "lora_radio";
 #define OP_GET_STATUS             0xC0
 #define OP_GET_DEVICE_ERRORS      0x17
 #define OP_CLEAR_DEVICE_ERRORS    0x07
+#define OP_WRITE_REGISTER         0x0D
+
+/* LoRa sync word register, datasheet §13.4.9 ("LoRaSyncWord"). Not in
+ * Oscilla's own opcode table until now — cross-checked against RadioLib's
+ * SX126x_registers.h (RADIOLIB_SX126X_REG_LORA_SYNC_WORD_MSB/_LSB), a
+ * widely-deployed, independently-verified SX126x driver, not re-derived
+ * from a datasheet PDF this project doesn't have a local copy of. */
+#define REG_LORA_SYNC_WORD_MSB    0x0740
 
 #define STDBY_RC    0x00
 #define STDBY_XOSC  0x01
@@ -117,6 +125,7 @@ static bool rx_write_opcode_allowed(uint8_t opcode)
         case OP_SET_PACKET_PARAMS:
         case OP_SET_BUFFER_BASE_ADDR:
         case OP_CLEAR_DEVICE_ERRORS:
+        case OP_WRITE_REGISTER:
             return true;
         default:
             return false;
@@ -217,6 +226,44 @@ static esp_err_t read_buffer(uint8_t offset, uint8_t *out, size_t len)
     cs_deselect();
     if (err == ESP_OK) memcpy(out, &rx[3], len);
     return err;
+}
+
+/* WriteRegister's own shape: opcode, 16-bit address (MSB first), then data —
+ * distinct from cmd_write()'s opcode+payload commands, which have no
+ * separate address field. No response expected beyond the status byte. */
+static esp_err_t write_register(uint16_t addr, const uint8_t *data, size_t len)
+{
+    if (!rx_write_opcode_allowed(OP_WRITE_REGISTER)) return ESP_ERR_NOT_SUPPORTED;
+    esp_err_t err = wait_busy_low();
+    if (err != ESP_OK) return err;
+
+    uint8_t tx[3 + 4] = { OP_WRITE_REGISTER, (uint8_t)(addr >> 8), (uint8_t)addr };
+    if (len > sizeof(tx) - 3) return ESP_ERR_INVALID_SIZE;
+    memcpy(&tx[3], data, len);
+
+    spi_transaction_t t = { .length = (3 + len) * 8, .tx_buffer = tx };
+    cs_select();
+    err = spi_device_transmit(s_spi, &t);
+    cs_deselect();
+    return err;
+}
+
+/* LoRa sync word is a receive filter (datasheet §13.4.9), not cosmetic —
+ * the chip only raises RX for a matching sync word. Byte layout (MSB at
+ * REG_LORA_SYNC_WORD_MSB, LSB at +1) cross-checked against RadioLib's
+ * SX126x::setSyncWord (SX126x_config.cpp): each register nibble-packs half
+ * the sync word with half of a fixed control-bits byte (0x44, RadioLib's
+ * own default) rather than the sync word occupying either register alone.
+ * Not re-derived from scratch — this is the same formula, cited rather
+ * than guessed. */
+static esp_err_t lora_set_sync_word(uint8_t sync_word)
+{
+    const uint8_t control_bits = 0x44;
+    uint8_t data[2] = {
+        (uint8_t)((sync_word & 0xF0) | ((control_bits & 0xF0) >> 4)),
+        (uint8_t)(((sync_word & 0x0F) << 4) | (control_bits & 0x0F)),
+    };
+    return write_register(REG_LORA_SYNC_WORD_MSB, data, sizeof data);
 }
 
 /* ---- RF-switch coherence (Rev D §4.4) ---------------------------------- */
@@ -436,6 +483,7 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
     }
     if (err == ESP_OK) err = lora_bw_cr_sf_to_modparams(params);
     if (err == ESP_OK) err = lora_set_packet_params();
+    if (err == ESP_OK) err = lora_set_sync_word(params->sync_word);
 
     if (err == ESP_OK) {
         /* IrqMask, DIO1Mask, DIO2Mask, DIO3Mask — DIO2/3 are the RF switch
