@@ -11,6 +11,7 @@ Expected contents as phases land:
 |---|---|---|
 | `link-bringup.md` | P1 | Grove UART bring-up: boot-noise capture, resync behaviour, reset recovery |
 | `lora-harness.md` | P3 | Wio-SX1262 harness continuity check, BUSY/TCXO observations, the D-10 resolution and its source |
+| `lora-session-soak.md` | P3 follow-up (LSI-5) | Known-source / source-absent soak procedure for the session-integrity counters, and dated run results |
 | `gnss.md` | P4 | ATGM336H baud, NMEA sentences seen, cold/warm fix times |
 | `ieee802154-validation.md` | P7 | Controlled passive MAC capture and no-auto-ACK positive-control evidence |
 | `shared-spi.md` | P5 | SD + TFT shared-bus soak results |

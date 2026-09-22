@@ -1,3 +1,22 @@
+## 2026-09-22 — P7 display confirmations (BLE Scan, Packet Monitor); LSI-5 procedure written
+
+**Phase:** P7 · **By:** Claude + operator
+
+Two long-open P7 gaps closed: the BLE Scan and Packet Monitor cards were
+viewed live on the Cardputer's own screen during a real scan and a locked
+packet-monitor session — Will confirmed both render cleanly. This was a
+direct visual check, not an automated one: a background console-log capture
+intended to cross-verify data flow was started too early and its window
+closed before the key presses happened, so this rests on the operator's own
+look at the screen, not a captured log. Recorded honestly rather than
+claiming a capture that didn't land.
+
+Also wrote the LSI-5 soak procedure (known-source / source-absent runs,
+what to record, what would fail each run) in
+[`docs/hardware/lora-session-soak.md`](docs/hardware/lora-session-soak.md).
+No soak has been run yet — this is the procedure only, tracked as such in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md).
+
 ## 2026-09-22 — LoRa Session Integrity software slice
 
 **Phase:** P3 follow-up · **By:** Codex + operator
