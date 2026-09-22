@@ -1,3 +1,64 @@
+## 2026-09-22 — CC1101 hardware triangulation: breadboard, module, and C5 all ruled out
+
+**Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will
+
+Direct follow-up to the RSSI ground-truth session below, same night. That
+session found no measurable RSSI bump at any of five SDR-confirmed real
+LaCrosse transmissions, with the driver, wiring, antenna, and profile all
+unchanged from the fix pass. Three more physical configurations were
+swapped in, one variable at a time, to find out which one explained it —
+same firmware throughout, no register/profile changes between rounds.
+
+**1. Koko CC1101 module (Flipper Zero 400 MHz sub-GHz add-on) on the same
+breadboard, same antenna, same C5.** Purpose-built module — CC1101 chip,
+same as ours, but a professionally matched PCB antenna front end instead
+of our own breakout's. Ran the same three-way capture (SDR watcher, CC1101
+RX session, timestamped probe RSSI log) against 3 more confirmed real
+transmissions (09:55:09, 09:55:59, 09:56:49). **Zero chunks, zero
+measurable RSSI bump at any of the three** — identical to the original
+breakout. One genuine finding from this run: the RSSI baseline was flat
+and stable throughout (-96 to -100 dBm, no drift), unlike the earlier
+session's ~10-15 dB climb over its first 3 minutes — settling that as AGC
+warm-up after a cold RX start, not an ongoing instability, since this run
+started already-settled.
+
+**2. Original cheap breakout, direct-wired (not breadboard) to a second,
+previously-used C5** (`38:44:BE:1F:4F:A0`, the board documented in
+`docs/hardware/link-bringup.md` — the "old wire harness" unit). Reflashed
+it with tonight's build (it did not have the CC1101 firmware on it). First
+attempt failed at the connectivity check — debug mode had dropped on the
+deck's own console after the USB/UART swap (re-triggered from the deck's
+UI, not the physical keyboard shortcut this time; cause not
+investigated — not worth chasing at this hour). Retried clean: SDR watcher
+confirmed 3 more real transmissions (10:20:59, 10:21:49, 10:22:39).
+**Zero chunks, zero measurable RSSI bump at any of the three, flat -89 to
+-93 dBm baseline throughout** — same null result a third time, on
+different silicon entirely.
+
+**Conclusion.** Eleven confirmed real transmissions checked across tonight
+(5 from the first RSSI session, 3 with the Koko module, 3 with the
+direct-wired harness C5) — zero measurable RSSI signature on any of them,
+across three physically distinct configurations that share nothing except
+the driver's own configuration and capture architecture. This rules out
+the breadboard, the antenna, the specific CC1101 module, and the specific
+C5 unit as explanations. What's left is the constant across all three: the
+driver's carrier-sense-gated FIFO capture with an RSSI-threshold squelch —
+a known weak point of CC1101-class chips for OOK/ASK relative to what an
+SDR does. `rtl_433` isn't gating on any threshold; it does correlation-
+based envelope detection across the whole capture in software.
+
+**Next step, not started tonight:** switch to CC1101's **async serial
+mode** — GDO0 outputs the raw demodulated bitstream continuously, no
+squelch, no FIFO framing — and do pulse-width/envelope decoding in
+firmware, the same fundamental technique `rtl_433` uses, just on the MCU
+instead of a host. This is a real architecture change (different capture
+model, a GDO0 wiring/pin-allocation decision), not a config tweak —
+exactly what Codex's Workstream B/D research flagged and got deferred
+pending that pin decision. Tonight's converged, three-way-ruled-out result
+is a much stronger reason to make that call next session than "revisit
+later." Not attempted tonight — a fresh decision, not a rushed one at this
+hour.
+
 ## 2026-09-22 — CC1101 SDR cross-reference: address bug fixed, real device still not seen
 
 **Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will

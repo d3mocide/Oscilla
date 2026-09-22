@@ -293,20 +293,34 @@ complete until its remaining real-frame and view checks are demonstrated.
   are unconfirmed. The `rssi_diag` instrumentation is being kept in the
   driver (proved genuinely useful, not a throwaway) rather than reverted.
 
-  **Not yet hardware-confirmed:** whether the CC1101 can detect this or
-  any real 433 MHz device at all under any carrier-sense configuration —
-  tonight ruled out the register-address bug, the data-rate/bandwidth
-  mismatch, and antenna mismatch as the explanation, but the underlying
-  no-signal/drifting-baseline finding is unresolved. Will has a
-  purpose-built CC1101 module (a Flipper Zero 400 MHz sub-GHz add-on, same
-  chip, professionally matched PCB antenna circuit) to use as a baseline
-  comparison next session — isolates whether tonight's breadboard
-  construction (a plausible cause: breadboard parasitics are a known
-  problem for RF above ~50 MHz, and could equally explain the drifting
-  baseline as marginal/unstable contact) is the root cause, independent of
-  the driver/register configuration. The new deck screen is still
-  unverified end-to-end on the physical display. These are the first
-  things to check next bench session.
+  **2026-09-22, hardware triangulation.** Ran the same SDR-cross-referenced
+  capture against two more physical configurations, same firmware
+  throughout: a Koko CC1101 module (Flipper Zero 400 MHz add-on —
+  professionally matched PCB antenna front end) on the same breadboard, and
+  the original breakout direct-wired to a second, previously-used C5
+  (`38:44:BE:1F:4F:A0`). Both gave the identical result — zero chunks, zero
+  measurable RSSI bump — against 6 more SDR-confirmed real transmissions (11
+  total checked tonight, across all three configurations). This rules out
+  the breadboard, the antenna, the specific module, and the specific C5 as
+  explanations; what's constant across all three is the driver's
+  carrier-sense-gated FIFO/RSSI-squelch architecture itself, a known weak
+  point of CC1101-class chips for OOK/ASK relative to an SDR's
+  correlation-based software demod. The Koko run also settled the earlier
+  baseline-drift question: flat and stable throughout that run (no
+  ~10-15 dB climb), so the earlier drift reads as AGC warm-up on a cold RX
+  start, not an ongoing instability.
+
+  **Not yet hardware-confirmed:** whether the CC1101 can detect any real
+  433 MHz device at all under this capture architecture, on any hardware.
+  **Next step: CC1101 async serial mode** — GDO0 outputs the raw
+  demodulated bitstream continuously, no squelch, no FIFO framing; firmware
+  does pulse-width/envelope decoding directly, the same fundamental
+  technique `rtl_433` uses in software. A real architecture change needing
+  a GDO0 wiring/pin-allocation decision, not a config tweak — this is what
+  Codex's deferred Workstream D was gesturing at, and tonight's convergent
+  three-way-ruled-out result makes it the clear next-session starting point
+  rather than a someday item. Not attempted tonight. The new deck screen is
+  still unverified end-to-end on the physical display.
 
 **Exit gate:** every DESIGN §7.2 view backed by real frames; a wardrive session produces a valid WiGLE-importable CSV and a KML track.
 
