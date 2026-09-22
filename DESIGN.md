@@ -364,6 +364,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/sd_storage` | services | Internal microSD mount + the single shared bus lock (§7.4) |
 | `src/storage/lora_log_format` | services | Pure CSV row shape for the LoRa session log (§9.2); no SD I/O, host-tested |
 | `src/storage/lora_logger` | services | Opens/writes/closes the LoRa session file on SD, under `sd_storage`'s lock |
+| `src/storage/legacy_logger` | services | Same, for the CC1101 session file — exact mirror of `lora_logger` |
 | `src/gnss/nmea_parser` | services | Checksum-verified, chunk-invariant NMEA sentence reader; host-tested |
 | `src/model/gnss_model` | model | Current-fix service: position/date/age, and the four `GnssState` values (§9.1) |
 | `src/storage/wardrive_csv` · `src/storage/wardrive_kml` | services | Pure WigleWifi-1.6 CSV / KML document shapes (§9.2); no SD I/O, host-tested |

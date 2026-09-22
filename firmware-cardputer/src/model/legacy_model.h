@@ -1,10 +1,17 @@
 /*
  * legacy_model.h — the deck's view of legacy_config/legacy_listen/status
- * (CC1101 debug-console bring-up only; no screen/view yet — deliberately
- * out of scope for this pass, see WORKLOG). A running count and the most
- * recent RSSI, nothing else: deck_app.h's log()/dump() policy is "counts
- * and states only," and raw captured bytes are field data (SECURITY.md) —
- * this model never stores or logs a payload, unlike LoraModel.
+ * (CC1101): a live log of received sub-GHz chunks, same shape as
+ * model::LoraModel minus the LoRa-only fields (no SF/BW/CR, no SNR, no
+ * framing guess — CC1101 v1 has none of those concepts, raw capture only).
+ * Framework-agnostic; host-tested in test/host/legacy_model_test.cpp.
+ *
+ * Showing/logging the raw payload is a deliberate choice, not a departure
+ * from a security rule: SECURITY.md governs what leaves the deck (SD
+ * export, sharing) and requires every renderer to re-escape decoded bytes
+ * before display (both satisfied here the same way LoraModel/subghz_view
+ * already do it — printable() at render time, an opt-in per-session SD
+ * logger for export). There is no blanket rule against a CC1101 screen
+ * showing what it received.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -12,34 +19,54 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "ocp/ocp_item.h"
 
 namespace model {
 
+struct LegacyPacket {
+    int rssi = 0;
+    uint16_t len = 0;
+    std::string hex;   /* undecoded payload */
+};
+
 class LegacyModel {
 public:
-    void configured(uint32_t freq_hz) { has_config_ = true; freq_hz_ = freq_hz; }
-    void begin() { active_ = true; total_ = 0; last_rssi_ = 0; }
-    void stop() { active_ = false; }
-    void clear() { active_ = false; has_config_ = false; total_ = 0; last_rssi_ = 0; }
+    static constexpr size_t kMaxRows = 32;   /* newest-first, oldest dropped past this */
 
-    /* Absorb an [EVT] kind=legacy. Returns true if it was one (and counted),
-     * false for any other kind or a malformed event. */
-    bool absorbEvent(const ocp::Item &evt);
+    void configured(uint32_t freq_hz) { has_config_ = true; freq_hz_ = freq_hz; }
+
+    /* legacy_listen (re)started: forget the old session's log. */
+    void begin();
+
+    /* [STOP] landed: the log persists for a last look, only "live" stops. */
+    void stop() { active_ = false; }
+
+    /* Probe rebooted: nothing here is trustworthy any more. */
+    void clear();
+
+    /* Absorb an [EVT] kind=legacy. Returns the new packet (a pointer into
+     * packets_[0]) on success, or nullptr if the event was a different kind
+     * or malformed — callers need this to know when to write a log row
+     * without re-parsing the event themselves (same contract as
+     * LoraModel::absorbEvent). */
+    const LegacyPacket *absorbEvent(const ocp::Item &evt);
 
     bool active() const { return active_; }
     bool hasConfig() const { return has_config_; }
     uint32_t freqHz() const { return freq_hz_; }
     uint32_t total() const { return total_; }
-    int lastRssi() const { return last_rssi_; }
+    int lastRssi() const { return packets_.empty() ? 0 : packets_.front().rssi; }
+    const std::vector<LegacyPacket> &packets() const { return packets_; }
 
 private:
     bool active_ = false;
     bool has_config_ = false;
     uint32_t freq_hz_ = 0;
     uint32_t total_ = 0;
-    int last_rssi_ = 0;
+    std::vector<LegacyPacket> packets_;   /* index 0 = most recent */
 };
 
 }  // namespace model

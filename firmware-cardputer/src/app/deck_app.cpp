@@ -19,6 +19,7 @@
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
 #include "ui/help_view.h"
+#include "storage/legacy_logger.h"
 #include "storage/lora_logger.h"
 #include "storage/sd_storage.h"
 #include "storage/settings.h"
@@ -30,6 +31,7 @@
 #include "ui/zig_view.h"
 #include "ui/settings_view.h"
 #include "ui/spectrum_view.h"
+#include "ui/legacy_view.h"
 #include "ui/subghz_view.h"
 #include "ui/sweep_view.h"
 #include "ui/trace_view.h"
@@ -66,6 +68,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "spectrum" || name == "packet_monitor" || name == "monitor") *out = Screen::Spectrum;
     else if (name == "zig" || name == "802154" || name == "zigbee") *out = Screen::Zig;
     else if (name == "subghz" || name == "lora" || name == "lora_rx") *out = Screen::SubGhz;
+    else if (name == "legacy" || name == "cc1101" || name == "legacy_rx") *out = Screen::Legacy;
     else if (name == "deauth" || name == "deauth_detect") *out = Screen::Deauth;
     else if (name == "anti" || name == "antisurv" || name == "anti_surveillance") *out = Screen::AntiSurveillance;
     else if (name == "drive" || name == "wardrive") *out = Screen::Drive;
@@ -133,6 +136,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         lora_.clear();
         storage::loraLogEnd();
         legacy_.clear();
+        storage::legacyLogEnd();
         deauth_.clear();
         bt_.clear();
         anti_.clear();
@@ -290,6 +294,7 @@ void DeckApp::onReply(const ocp::Item &it)
         }
         if (all || *lane == OCP_LANE_LEGACY) {
             legacy_.stop();
+            storage::legacyLogEnd();
         }
         if (all || *lane == OCP_LANE_PHY) {
             PhyHandoff::Start start;
@@ -331,6 +336,8 @@ void DeckApp::onReply(const ocp::Item &it)
         if (legacy_listen_pending_) {
             legacy_listen_pending_ = false;
             legacy_.begin();
+            legacy_cursor_ = 0;
+            log(storage::legacyLogBegin() ? "legacy log: recording" : "legacy log: sd unavailable, not recording this session");
         } else if (const auto *partnum = it.get(OCP_K_PARTNUM)) {
             const auto *chipver = it.get(OCP_K_CHIPVER);
             log("legacy id partnum=" + *partnum + " chipver=" + (chipver ? *chipver : "?"));
@@ -396,7 +403,9 @@ void DeckApp::onEvent(const ocp::Item &it)
     if (const auto *p = lora_.absorbEvent(it)) {   /* kind=lora is the only source of truth here too */
         storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
     }
-    legacy_.absorbEvent(it);     /* kind=legacy: count + last RSSI only, no storage yet */
+    if (const auto *p = legacy_.absorbEvent(it)) {   /* kind=legacy is the only source of truth here too */
+        storage::legacyLogPacket(legacy_.freqHz(), *p);
+    }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
     anti_.absorbEvent(it, now_); /* kind=airtag + deck-local movement correlation */
@@ -769,12 +778,15 @@ void DeckApp::back(uint32_t now_ms)
     /* A live sniffer/spectrum mode has no pending command once its ack
      * lands (it's a stream, not a blocking reply), so leaving the screen
      * must send `stop` unconditionally rather than only when something is
-     * pending. Scoped per D-16: SubGhz is the LoRa lane, the other three
-     * are the PHY lane — a bare stop here would cancel whichever of the
-     * two isn't actually being left, same bug D-16 fixed at the protocol
-     * layer, just reachable again if this call didn't scope it too. */
+     * pending. Scoped per D-16: SubGhz and Legacy are their own sub-GHz
+     * lanes, the rest are the PHY lane — a bare stop here would cancel
+     * whichever lane isn't actually being left, same bug D-16 fixed at the
+     * protocol layer, just reachable again if this call didn't scope it
+     * too. */
     if (screen_ == Screen::SubGhz) {
         client_.stop(now_ms, OCP_LANE_LORA);
+    } else if (screen_ == Screen::Legacy) {
+        client_.stop(now_ms, OCP_LANE_LEGACY);
     } else if (screen_ == Screen::Sweep || screen_ == Screen::Contacts || screen_ == Screen::Spectrum || screen_ == Screen::Zig || screen_ == Screen::Deauth || screen_ == Screen::AntiSurveillance || screen_ == Screen::Beacons) {
         stopPhy(now_ms);
     } else if (screen_ == Screen::Trace && client_.pending()) {
@@ -907,6 +919,15 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 's') {
                 if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
                 else startLoraListen(now_ms);
+            }
+            break;
+        case Screen::Legacy:
+            if (c == ';' && legacy_cursor_ > 0) legacy_cursor_--;
+            else if (c == '.' && legacy_cursor_ + 1 < legacy_.packets().size()) legacy_cursor_++;
+            else if (c == 'c') startLegacyConfig(now_ms);
+            else if (c == 's') {
+                if (legacy_.active()) client_.stop(now_ms, OCP_LANE_LEGACY);
+                else startLegacyListen(now_ms);
             }
             break;
         case Screen::Deauth:
@@ -1251,7 +1272,7 @@ void DeckApp::draw(uint32_t now_ms)
         }
         chrome.storage = storage::ready() ? ui::IndicatorState::Ready : ui::IndicatorState::Fault;
         const bool phy_active = phyEngineActive();
-        chrome.rf = (phy_active || lora_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
+        chrome.rf = (phy_active || lora_.active() || legacy_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
         if (!battery_polled_ || now_ms - last_battery_poll_ms_ >= kBatteryPollMs) {
             battery_polled_ = true;
             last_battery_poll_ms_ = now_ms;
@@ -1260,7 +1281,7 @@ void DeckApp::draw(uint32_t now_ms)
         }
         chrome.battery_pct = cached_battery_pct_;
         chrome.charging = cached_charging_;
-        chrome.live = phy_active || lora_.active();
+        chrome.live = phy_active || lora_.active() || legacy_.active();
         chrome.debug = debug_mode_;
         char transport[64];
         int len = std::snprintf(transport, sizeof transport, "BPK %s", ocp::linkStateName(client_.state()));
@@ -1319,6 +1340,10 @@ void DeckApp::draw(uint32_t now_ms)
     case Screen::SubGhz:
         ui::drawSubGhzView(lora_, lora_cursor_,
                            makeChrome("LORA RX"));
+        break;
+    case Screen::Legacy:
+        ui::drawLegacyView(legacy_, legacy_cursor_,
+                            makeChrome("CC1101 RX"));
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_,

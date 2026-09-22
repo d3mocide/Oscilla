@@ -29,14 +29,41 @@ long kvLong(const ocp::Item &it, const char *key, long lo, long hi, long dflt)
 
 }  // namespace
 
-bool LegacyModel::absorbEvent(const ocp::Item &evt)
+void LegacyModel::begin()
+{
+    active_ = true;
+    total_ = 0;
+    packets_.clear();
+}
+
+void LegacyModel::clear()
+{
+    active_ = false;
+    has_config_ = false;
+    total_ = 0;
+    packets_.clear();
+}
+
+const LegacyPacket *LegacyModel::absorbEvent(const ocp::Item &evt)
 {
     const auto *kind = evt.get(OCP_K_KIND);
-    if (!kind || *kind != OCP_EVT_KIND_LEGACY) return false;
+    if (!kind || *kind != OCP_EVT_KIND_LEGACY) return nullptr;
 
-    last_rssi_ = static_cast<int>(kvLong(evt, OCP_K_RSSI, -200, 0, last_rssi_));
+    const auto *hex = evt.get(OCP_K_HEX);
+    long len = kvLong(evt, OCP_K_LEN, 0, 64, -1);
+    if (!hex || len < 0 || hex->size() != static_cast<size_t>(len) * 2) {
+        return nullptr;   /* malformed: never trust a partial event */
+    }
+
+    LegacyPacket p;
+    p.rssi = static_cast<int>(kvLong(evt, OCP_K_RSSI, -200, 0, 0));
+    p.len = static_cast<uint16_t>(len);
+    p.hex = *hex;
+
     total_++;
-    return true;
+    packets_.insert(packets_.begin(), p);
+    if (packets_.size() > kMaxRows) packets_.resize(kMaxRows);
+    return &packets_.front();
 }
 
 }  // namespace model

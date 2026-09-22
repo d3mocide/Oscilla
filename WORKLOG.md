@@ -1,3 +1,43 @@
+## 2026-09-21 — Deck: CC1101 RX screen (untested — hardware offline)
+
+**Phase:** deck UI, P3 CC1101 bring-up · **By:** Claude + Will
+
+Built the deck's first real CC1101 screen — previously the only way to see
+`legacy_listen` activity was the debug-console `dump` counter, deliberately
+minimal per the driver plan. New `Screen::Legacy` card, end-to-end mirror of
+the LoRa screen (`ui/subghz_view.*`) since Will decided the full packet list
+(RSSI/length/raw hex) was worth it, same as LoRa, rather than a
+live-readout-only screen: `LegacyModel` now actually stores a capped,
+newest-first packet log (it previously threw the payload away on purpose —
+its own header comment called that a debug-console-phase scope choice, not
+a security mandate, and the probe was already sending `len=`/`hex=` for
+every event unused). `SECURITY.md` governs SD-export/sharing and
+cross-render escaping, not whether this lane gets a screen; on-screen raw
+hex already has precedent (LoRa) and goes through the same `printable()`
+escaping every renderer owes captured bytes.
+
+New: `ui/legacy_view.*`, `storage/legacy_logger.*` + `legacy_log_format.*`
+(per-session SD CSV, exact mirror of `lora_logger.*`), `Screen::Legacy` in
+`deck_navigation.*`, full wiring in `deck_app.*` (input, draw dispatch,
+`OCP_LANE_LEGACY` scoping in `back()`, chrome RF/LIVE indicator extended to
+include `legacy_.active()`, SD log begin/packet/end at the same three
+points LoRa's are). Two new host tests (`legacy_model_test.cpp`,
+`legacy_log_format_test.cpp`, 16 + 3 checks) added to `check_protocol.sh`
+following the exact LoRa pattern — the earlier claim in the driver plan that
+new `test/host/*_test.cpp` files get picked up automatically was wrong;
+`check_protocol.sh` lists each test's build command explicitly and needed
+the two new entries added by hand.
+
+`check_protocol.sh` (now 16 + 3 more checks, all green) and a full
+PlatformIO rebuild (`cardputer-adv`/`grove-bridge`/`adv-check`, all three
+SUCCESS) both pass clean.
+
+**Not yet bench-confirmed** — hardware is offline for the night (same as
+the carrier-sense entry above). Does the screen actually render correctly,
+does SD logging actually write a readable file, does list scrolling/cursor
+bounds behave with real (sparse, post-squelch) capture data — all untested
+until the next bench session.
+
 ## 2026-09-21 — CC1101: carrier-sense gating instead of free-running (untested — hardware offline)
 
 **Phase:** P3 CC1101 bring-up · **By:** Claude + Will

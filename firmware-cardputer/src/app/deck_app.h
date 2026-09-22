@@ -181,6 +181,7 @@ private:
     bool lora_listen_pending_ = false;
     /* Same reasoning as lora_listen_pending_ above, for legacy_listen. */
     bool legacy_listen_pending_ = false;
+    size_t legacy_cursor_ = 0;
     size_t deauth_cursor_ = 0;
     size_t anti_cursor_ = 0;
     size_t bt_cursor_ = 0;
