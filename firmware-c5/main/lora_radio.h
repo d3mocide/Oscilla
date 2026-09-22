@@ -73,6 +73,16 @@ typedef struct {
     lora_packet_t   packet;   /* only when kind == LORA_EVT_PACKET */
 } lora_event_t;
 
+/* Monotonic within one lora_radio_rx_start() session. These identify queue
+ * boundaries; they are not an RF-layer traffic estimate. */
+typedef struct {
+    uint32_t rx;
+    uint32_t crc_err;
+    uint32_t header_err;
+    uint32_t irq_drop;
+    uint32_t event_drop;
+} lora_radio_stats_t;
+
 /* SPI bus + GPIO bring-up. Call once at boot. Idempotent-safe to call even
  * if the Wio harness isn't attached; failures here stay local (main.c's
  * "a radio that fails to come up stays local" pattern). */
@@ -93,5 +103,9 @@ bool lora_radio_is_running(void);
  * timeout, never blocks forever regardless of timeout_ms value chosen by
  * the caller. */
 bool lora_radio_next_event(lora_event_t *out, uint32_t timeout_ms);
+
+/* Snapshot the current listener-session counters. Safe while RX is active;
+ * a concurrent event may appear in either adjacent snapshot. */
+void lora_radio_get_stats(lora_radio_stats_t *out);
 
 #endif /* OSCILLA_LORA_RADIO_H */

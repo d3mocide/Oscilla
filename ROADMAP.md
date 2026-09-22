@@ -123,6 +123,12 @@ Still open, not blocking the gate: the NSS/RST/RF_SW pull resistors Rev D calls 
 
 Framing classification exists now: `model::classifyLoraFrame` (2026-09-14, extended same day) is a structural best-effort guess covering **meshtastic/lorawan/meshcore/unknown** — one more than DESIGN §9.1's original `meshtastic|lorawan|unknown` set, added because MeshCore is the only traffic actually seen on the bench so far (see P3 exit gate above). Meshtastic's fixed-size header + broadcast marker, LoRaWAN's MHDR + length invariants, and MeshCore's `Packet` header + path/payload length-consistency chain are all cited against the real upstream source (`meshcore-dev/MeshCore`'s `src/Packet.{h,cpp}`, fetched 2026-09-14) or spec, not guessed. 46 host tests, including several that caught real cross-talk between the LoRaWAN and MeshCore gates on the same synthetic fixture and had to be adjusted so each test isolates what it means to. **✅ Hardware-confirmed the same day.** Flashed to the probe, real MeshCore repeater traffic observed live in the Cardputer's Sub-GHz view: the `C` tag (green) rendered correctly next to real received packets — the classifier's structural guess actually fires on live traffic, not just the synthetic fixtures it was built against. Doesn't retire the classifier's own documented limits (the ~2.3% LoRaWAN-gate false-positive rate on non-LoRaWAN bytes is still arithmetic, not something one bench session rules out over a large enough sample), but the headline risk — real MeshCore traffic reading as `unknown` or misclassifying as `lorawan` — did not happen in this observation.
 
+**Follow-up — LoRa Session Integrity (2026-09-22):** P3 reception remains
+complete; its session-provenance, health-counter, SD-record, and soak follow-up
+is tracked separately in [`docs/lora-session-integrity.md`](docs/lora-session-integrity.md).
+It does not expand P3's receive-only capability surface or re-open the P3 exit
+gate.
+
 🟢 **Found, root-caused, and fixed, same day:** a 2h soak cross-referenced against an independent MeshCore observer showed real RX silently stalling after ~30 minutes with zero errors logged — a `GetIrqStatus` off-by-one that could leave a fired IRQ bit uncleared, and since DIO1 is edge-triggered, stuck-high forever. Fixed and bench-confirmed: a 66.8-minute retest logged 524 packets with the largest gap between any two consecutive packets at 55.1s (zero gaps over 60s, anywhere). See `docs/hardware/lora-harness.md` and WORKLOG 2026-09-13 for both the finding and the confirmation.
 
 ---

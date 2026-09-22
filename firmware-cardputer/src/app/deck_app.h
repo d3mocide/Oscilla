@@ -170,6 +170,7 @@ private:
     size_t spectrum_cursor_ = 0;
     uint32_t spectrum_started_ms_ = 0;
     size_t lora_cursor_ = 0;
+    uint32_t last_lora_health_poll_ms_ = 0;
     /* A rejected lora_listen (e.g. sent before lora_config) must not create
      * a session file — the ack only exists after the probe actually
      * confirms, so the [LORA]/error reply is what triggers lora_.begin()

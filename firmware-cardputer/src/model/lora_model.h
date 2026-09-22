@@ -34,13 +34,23 @@ struct LoraPacket {
     Framing framing = Framing::Unknown;   /* best-effort guess; see lora_framing.h */
 };
 
+struct LoraHealth {
+    bool valid = false;
+    uint32_t rx = 0;
+    uint32_t crc_err = 0;
+    uint32_t header_err = 0;
+    uint32_t irq_drop = 0;
+    uint32_t radio_drop = 0;
+    uint32_t ocp_drop = 0;
+};
+
 class LoraModel {
 public:
     static constexpr size_t kMaxRows = 32;   /* newest-first, oldest dropped past this */
 
     /* lora_config accepted: remember what the deck asked for, echoed back
      * from the same values it sent (not parsed from the ambiguous [CFG]). */
-    void configured(uint32_t freq_hz, int sf, int bw_khz, int cr);
+    void configured(uint32_t freq_hz, int sf, int bw_khz, int cr, const char *profile);
 
     /* lora_listen (re)started: forget the old session's log. */
     void begin();
@@ -57,14 +67,20 @@ public:
      * know when to write a log row without re-parsing the event themselves. */
     const LoraPacket *absorbEvent(const ocp::Item &evt);
 
+    /* Absorb a compact [LORA] status reply. Reject partial/corrupt counter
+     * sets so a stale number never masquerades as current health. */
+    bool absorbStatus(const ocp::Item &reply);
+
     bool active() const { return active_; }
     bool hasConfig() const { return has_config_; }
     uint32_t freqHz() const { return freq_hz_; }
     int sf() const { return sf_; }
     int bwKhz() const { return bw_khz_; }
     int cr() const { return cr_; }
+    const std::string &profile() const { return profile_; }
     uint32_t totalCount() const { return total_; }
     const std::vector<LoraPacket> &packets() const { return packets_; }
+    const LoraHealth &health() const { return health_; }
 
 private:
     bool active_ = false;
@@ -73,7 +89,9 @@ private:
     int sf_ = 0;
     int bw_khz_ = 0;
     int cr_ = 0;
+    std::string profile_ = "manual";
     uint32_t total_ = 0;
+    LoraHealth health_;
     std::vector<LoraPacket> packets_;   /* index 0 = most recent */
 };
 

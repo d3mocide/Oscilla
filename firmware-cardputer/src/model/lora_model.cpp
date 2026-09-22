@@ -42,13 +42,14 @@ bool kvFloat(const ocp::Item &it, const char *key, float lo, float hi, float *ou
 
 }  // namespace
 
-void LoraModel::configured(uint32_t freq_hz, int sf, int bw_khz, int cr)
+void LoraModel::configured(uint32_t freq_hz, int sf, int bw_khz, int cr, const char *profile)
 {
     has_config_ = true;
     freq_hz_ = freq_hz;
     sf_ = sf;
     bw_khz_ = bw_khz;
     cr_ = cr;
+    profile_ = profile && *profile ? profile : "manual";
 }
 
 void LoraModel::begin()
@@ -56,14 +57,39 @@ void LoraModel::begin()
     active_ = true;
     total_ = 0;
     packets_.clear();
+    health_ = {};
 }
 
 void LoraModel::clear()
 {
     active_ = false;
     has_config_ = false;
+    profile_ = "manual";
     total_ = 0;
     packets_.clear();
+    health_ = {};
+}
+
+bool LoraModel::absorbStatus(const ocp::Item &reply)
+{
+    if (reply.tag != OCP_MARK_LORA) return false;
+
+    const long rx = kvLong(reply, OCP_K_RX, 0, 2147483647L, -1);
+    const long crc = kvLong(reply, OCP_K_CRC_ERR, 0, 2147483647L, -1);
+    const long header = kvLong(reply, OCP_K_HEADER_ERR, 0, 2147483647L, -1);
+    const long irq_drop = kvLong(reply, OCP_K_IRQ_DROP, 0, 2147483647L, -1);
+    const long radio_drop = kvLong(reply, OCP_K_RADIO_DROP, 0, 2147483647L, -1);
+    const long ocp_drop = kvLong(reply, OCP_K_OCP_DROP, 0, 2147483647L, -1);
+    if (rx < 0 || crc < 0 || header < 0 || irq_drop < 0 || radio_drop < 0 || ocp_drop < 0) return false;
+
+    health_.valid = true;
+    health_.rx = static_cast<uint32_t>(rx);
+    health_.crc_err = static_cast<uint32_t>(crc);
+    health_.header_err = static_cast<uint32_t>(header);
+    health_.irq_drop = static_cast<uint32_t>(irq_drop);
+    health_.radio_drop = static_cast<uint32_t>(radio_drop);
+    health_.ocp_drop = static_cast<uint32_t>(ocp_drop);
+    return true;
 }
 
 const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt)

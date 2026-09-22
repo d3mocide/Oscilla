@@ -273,10 +273,14 @@ The verb table is not the whole story: an innocent verb could still call a trans
 > stop
 [STOP] lane=all running=1 END
 > lora_status
-[LORA] BEGIN state=idle
-[LORA] freq=0 sf=0 bw=0 cr=0 rx=0 crc_err=0 fault=none
-[LORA] END
+[LORA] running=0 configured=0 rx=0 crc_err=0 header_err=0 irq_drop=0 radio_drop=0 ocp_drop=0 END
 ```
+
+When configured, `[LORA]` also carries `freq`, `sf`, `bw`, and `cr`.
+`rx`, `crc_err`, `header_err`, `irq_drop`, `radio_drop`, and `ocp_drop` are
+monotonic counters for the current listener session. They identify the radio,
+queue, and OCP boundaries respectively; an absent packet is not itself an
+error indication or an RF traffic measurement.
 
 ---
 

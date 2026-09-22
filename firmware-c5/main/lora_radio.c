@@ -97,6 +97,7 @@ static QueueHandle_t s_dio1_queue;   /* ISR -> radio task, holds nothing but a t
 static QueueHandle_t s_event_queue;  /* radio task -> caller (lora_recon.c) */
 static TaskHandle_t s_task;
 static volatile bool s_running;
+static volatile lora_radio_stats_t s_stats;
 
 static bool rx_write_opcode_allowed(uint8_t opcode)
 {
@@ -353,6 +354,13 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
 
+    /* A new listener owns a new evidence window. At this point the previous
+     * drain task is known idle by lora_recon.c, so no old event can leak into
+     * the reset counter window. */
+    memset((void *)&s_stats, 0, sizeof s_stats);
+    xQueueReset(s_dio1_queue);
+    xQueueReset(s_event_queue);
+
     esp_err_t err = hw_reset();
 
     uint8_t standby_rc = STDBY_RC;
@@ -487,6 +495,19 @@ bool lora_radio_next_event(lora_event_t *out, uint32_t timeout_ms)
     return xQueueReceive(s_event_queue, out, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
 }
 
+void lora_radio_get_stats(lora_radio_stats_t *out)
+{
+    if (!out) return;
+    /* Word-sized counters are an observational snapshot, not a lock-free
+     * transaction. A simultaneous ISR/task increment can only move a value
+     * forward in the next status response. */
+    out->rx = s_stats.rx;
+    out->crc_err = s_stats.crc_err;
+    out->header_err = s_stats.header_err;
+    out->irq_drop = s_stats.irq_drop;
+    out->event_drop = s_stats.event_drop;
+}
+
 /* ---- DIO1 ISR + radio task ------------------------------------------------ */
 
 static void IRAM_ATTR dio1_isr(void *arg)
@@ -494,7 +515,7 @@ static void IRAM_ATTR dio1_isr(void *arg)
     (void)arg;
     uint8_t tag = 1;
     BaseType_t woken = pdFALSE;
-    xQueueSendFromISR(s_dio1_queue, &tag, &woken);
+    if (xQueueSendFromISR(s_dio1_queue, &tag, &woken) != pdTRUE) s_stats.irq_drop++;
     if (woken) portYIELD_FROM_ISR();
 }
 
@@ -514,7 +535,14 @@ static void handle_rx_done(void)
         evt.packet.rssi_dbm = (int16_t)(-(int16_t)pkt_status[0] / 2);
         evt.packet.snr_db = (float)(int8_t)pkt_status[1] / 4.0f;
     }
-    xQueueSend(s_event_queue, &evt, 0);
+    s_stats.rx++;
+    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_stats.event_drop++;
+}
+
+static void queue_radio_event(lora_evt_kind_t kind)
+{
+    lora_event_t evt = { .kind = kind };
+    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_stats.event_drop++;
 }
 
 static void lora_task(void *arg)
@@ -551,16 +579,15 @@ static void lora_task(void *arg)
             if (!(irq & (IRQ_CRC_ERR | IRQ_HEADER_ERR))) handle_rx_done();
         }
         if (irq & IRQ_TIMEOUT) {
-            lora_event_t evt = { .kind = LORA_EVT_TIMEOUT };
-            xQueueSend(s_event_queue, &evt, 0);
+            queue_radio_event(LORA_EVT_TIMEOUT);
         }
         if (irq & IRQ_CRC_ERR) {
-            lora_event_t evt = { .kind = LORA_EVT_CRC_ERR };
-            xQueueSend(s_event_queue, &evt, 0);
+            s_stats.crc_err++;
+            queue_radio_event(LORA_EVT_CRC_ERR);
         }
         if (irq & IRQ_HEADER_ERR) {
-            lora_event_t evt = { .kind = LORA_EVT_HEADER_ERR };
-            xQueueSend(s_event_queue, &evt, 0);
+            s_stats.header_err++;
+            queue_radio_event(LORA_EVT_HEADER_ERR);
         }
 
         xSemaphoreGive(s_lock);

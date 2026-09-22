@@ -104,8 +104,17 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
                       (unsigned long)(lora.freqHz() / 1000000UL),
                       (unsigned long)((lora.freqHz() % 1000000UL) / 1000UL));
         d.setTextColor(lora.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.printf("%s SF%d BW%d N%u", freq, lora.sf(), lora.bwKhz(),
-                 (unsigned)lora.totalCount());
+        d.printf("%s SF%d BW%d %s", freq, lora.sf(), lora.bwKhz(),
+                 lora.profile() == "meshcore_us_ca" ? "MCORE" : "MANUAL");
+        if (lora.health().valid) {
+            d.setCursor(4, kDetailRowY + 9);
+            d.setTextColor((lora.health().irq_drop || lora.health().radio_drop || lora.health().ocp_drop)
+                               ? kCalibrationYellow : kMutedSlate, kVoidInk);
+            d.printf("RX%u C%u H%u D%u/%u/%u", (unsigned)lora.health().rx,
+                     (unsigned)lora.health().crc_err, (unsigned)lora.health().header_err,
+                     (unsigned)lora.health().irq_drop, (unsigned)lora.health().radio_drop,
+                     (unsigned)lora.health().ocp_drop);
+        }
     } else {
         d.setTextColor(kCalibrationYellow, kVoidInk);
         d.print("CFG REQUIRED · PRESS c");

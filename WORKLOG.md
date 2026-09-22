@@ -1,3 +1,43 @@
+## 2026-09-22 — LoRa Session Integrity software slice
+
+**Phase:** P3 follow-up · **By:** Codex + operator
+
+Added the tracked receive-only follow-up in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md). The C5 now
+reports listener-session `rx`, CRC/header, DIO1-queue, radio-event-queue, and
+OCP-event-queue counters through `lora_status`; starting a new listener resets
+the radio counters and takes a new OCP-drop baseline. The deck names the
+already-qualified `meshcore_us_ca` configuration, polls that status every 10 s,
+shows the latest snapshot, and writes three sidecars per session:
+`log_NNNN.csv`, `log_NNNN.meta`, and `log_NNNN.health.csv`.
+
+The manifest holds configuration provenance; the health CSV holds the probe
+counters plus deck packet/health write-drop counters. Neither turns a quiet
+counter into an RF claim. Host checks passed for hostile/partial health
+parsing and the sidecar format, and both target firmware builds completed.
+Hardware display, SD-card inspection, restart-boundary, and controlled
+known-source/source-absent evidence remain open and are explicitly tracked;
+no raw observations were recorded here.
+
+## 2026-09-22 — LoRa Session Integrity hardware-confirmed (LSI-1..4)
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Flashed both firmwares from the session above to the bench probe (esp32c5,
+uart transport) and deck (cardputer-adv); both booted clean, no crash-loop.
+Confirmed on hardware: the deck's Sub-GHz view shows `MCORE` for the named
+`meshcore_us_ca` profile; a start/stop/start pass showed the health counters
+reset at the second start, on-screen and in the SD evidence; SD inspection
+showed `log_0021`/`log_0022` (the two new sessions) each with a `.meta` and
+`.health.csv` sidecar, matching manifest configuration, append-only monotonic
+health rows, and a packet-CSV header byte-identical to a pre-feature session.
+Full detail, including one documented (non-bug) counter-skew observation at
+session-stop, is in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md#hardware-confirmation-2026-09-22).
+LSI-1 through LSI-4 move from implemented to hardware-confirmed. LSI-5 (soak
+procedure) and LSI-6 (P6 combined qualification) remain open. No raw field
+observations recorded.
+
 ## 2026-09-22 — D-15 resolved: archive CC1101 from the v1 backpack
 
 **Phase:** P3 decision · **By:** Codex + operator

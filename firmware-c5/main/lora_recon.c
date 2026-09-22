@@ -40,6 +40,7 @@ static bool s_ready;
 static bool s_configured;
 static lora_rx_params_t s_params;
 static volatile bool s_drain_idle = true;
+static uint32_t s_ocp_lora_drop_start;
 
 esp_err_t lora_recon_init(void)
 {
@@ -184,6 +185,7 @@ void lora_cmd_listen(void)
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
         return;
     }
+    s_ocp_lora_drop_start = ocp_event_drop_count(OCP_EVENT_RECORD_LORA);
 
     s_drain_idle = false;
     if (xTaskCreate(drain_task, "lora_drain", 4096, NULL, 5, NULL) != pdPASS) {
@@ -201,14 +203,26 @@ void lora_cmd_listen(void)
 void lora_cmd_status(void)
 {
     bool running = lora_radio_is_running();
+    lora_radio_stats_t stats = { 0 };
+    lora_radio_get_stats(&stats);
+    uint32_t ocp_drop = ocp_event_drop_count(OCP_EVENT_RECORD_LORA) - s_ocp_lora_drop_start;
     if (!s_configured) {
-        ocp_emit_compact(OCP_MARK_LORA, "%s=%d configured=0", OCP_K_RUNNING, running ? 1 : 0);
+        ocp_emit_compact(OCP_MARK_LORA, "%s=%d configured=0 %s=0 %s=0 %s=0 %s=0 %s=0 %s=%lu",
+                         OCP_K_RUNNING, running ? 1 : 0,
+                         OCP_K_RX, OCP_K_CRC_ERR, OCP_K_HEADER_ERR, OCP_K_IRQ_DROP, OCP_K_RADIO_DROP,
+                         OCP_K_OCP_DROP, (unsigned long)ocp_drop);
         return;
     }
-    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld",
+    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu",
                      OCP_K_RUNNING, running ? 1 : 0,
                      OCP_K_FREQ, (unsigned long)s_params.freq_hz, OCP_K_SF, s_params.sf,
-                     OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr);
+                     OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr,
+                     OCP_K_RX, (unsigned long)stats.rx,
+                     OCP_K_CRC_ERR, (unsigned long)stats.crc_err,
+                     OCP_K_HEADER_ERR, (unsigned long)stats.header_err,
+                     OCP_K_IRQ_DROP, (unsigned long)stats.irq_drop,
+                     OCP_K_RADIO_DROP, (unsigned long)stats.event_drop,
+                     OCP_K_OCP_DROP, (unsigned long)ocp_drop);
 }
 
 bool lora_cmd_stop(void)

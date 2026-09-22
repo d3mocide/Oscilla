@@ -44,6 +44,7 @@ constexpr uint32_t kBusyRedrawMs = 500;   /* elapsed counter while scanning */
 constexpr uint32_t kContactsPollMs = 1500;   /* [CLIENTS]/[PROBES] are the authority, events are just a ticker */
 constexpr uint32_t kZigPollMs = 1500;       /* [ZIG] table is authoritative; events are only first-sighting hints */
 constexpr uint32_t kInfoPollMs = 2000;       /* how often to refresh the probe's heap/uptime */
+constexpr uint32_t kLoraHealthPollMs = 10000; /* bounded session evidence, not a packet-rate meter */
 constexpr uint32_t kBatteryPollMs = 4000;    /* M5.Power is an I2C read; battery barely moves */
 constexpr uint32_t kNoticeDurationMs = 2000; /* transient toast lifetime */
 constexpr uint32_t kPendingRetryWindowMs = 4000;   /* generous vs. any single command's own reply timeout */
@@ -286,6 +287,7 @@ void DeckApp::onReply(const ocp::Item &it)
         }
         if (all || *lane == OCP_LANE_LORA) {
             lora_.stop();
+            storage::loraLogHealth(lora_.health());
             storage::loraLogEnd();
         }
         if (all || *lane == OCP_LANE_PHY) {
@@ -312,11 +314,13 @@ void DeckApp::onReply(const ocp::Item &it)
          * below. lora_listen_pending_ (set only by startLoraListen, cleared
          * here or on error) is what tells the two apart, since this marker
          * alone doesn't say which verb it's answering. */
+        const bool health_updated = lora_.absorbStatus(it);
+        if (health_updated) storage::loraLogHealth(lora_.health());
         if (lora_listen_pending_) {
             lora_listen_pending_ = false;
             lora_.begin();
             lora_cursor_ = 0;
-            log(storage::loraLogBegin() ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
+            log(storage::loraLogBegin(lora_) ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
         } else {
             log("lora reply");
         }
@@ -523,6 +527,7 @@ constexpr uint32_t kBenchFreqHz = 910525000;
 constexpr int kBenchSf = 7;
 constexpr int kBenchBwKhz = 62;
 constexpr int kBenchCr = 1;
+constexpr const char *kMeshCoreUsCaProfile = "meshcore_us_ca";
 }  // namespace
 
 void DeckApp::startLoraConfig(uint32_t now_ms)
@@ -534,7 +539,7 @@ void DeckApp::startLoraConfig(uint32_t now_ms)
         retrySoon([this](uint32_t t) { startLoraConfig(t); }, now_ms);
         return;
     }
-    lora_.configured(kBenchFreqHz, kBenchSf, kBenchBwKhz, kBenchCr);
+    lora_.configured(kBenchFreqHz, kBenchSf, kBenchBwKhz, kBenchCr, kMeshCoreUsCaProfile);
     notice("");
 }
 
@@ -1142,6 +1147,11 @@ void DeckApp::tick(uint32_t now_ms)
         now_ms - last_zig_poll_ms_ >= kZigPollMs) {
         last_zig_poll_ms_ = now_ms;
         client_.send(OCP_V_ZIG_LIST, now_ms);
+    }
+    if (lora_.active() && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_lora_health_poll_ms_ >= kLoraHealthPollMs) {
+        last_lora_health_poll_ms_ = now_ms;
+        client_.send(OCP_V_LORA_STATUS, now_ms);
     }
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
         now_ms - last_keepalive_ms_ >= kKeepaliveMs) {

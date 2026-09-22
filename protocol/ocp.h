@@ -258,6 +258,12 @@ typedef enum {
 #define OCP_K_SF                "sf"
 #define OCP_K_BW                "bw"
 #define OCP_K_CR                "cr"
+#define OCP_K_RX                "rx"        /* SX1262 received-packet events */
+#define OCP_K_CRC_ERR           "crc_err"   /* SX1262 LoRa CRC errors */
+#define OCP_K_HEADER_ERR        "header_err"/* SX1262 header errors */
+#define OCP_K_IRQ_DROP          "irq_drop"  /* DIO1 ISR queue overflow */
+#define OCP_K_RADIO_DROP        "radio_drop"/* radio-task event queue overflow */
+#define OCP_K_OCP_DROP          "ocp_drop"  /* probe OCP event queue overflow */
 #define OCP_K_SNR               "snr"
 #define OCP_K_LEN               "len"
 #define OCP_K_HEX               "hex"
