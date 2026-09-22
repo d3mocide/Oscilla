@@ -1,3 +1,32 @@
+## 2026-09-21 — CC1101: carrier-sense gating instead of free-running (untested — hardware offline)
+
+**Phase:** P3 CC1101 bring-up · **By:** Claude + Will
+
+Background research (433 MHz ISM traffic landscape — device classes, typical
+modulation/bit-rate/duty-cycle, receiver-tuning practice) confirmed the
+suspicion from the last entry: the earlier free-running capture
+(`SYNC_MODE=0`, ~1,095 events/20s at -63 dBm) is almost certainly noise, not
+device traffic — every real 433 MHz device class bursts for single-digit to
+low-tens of milliseconds with multi-second-to-hour gaps (FCC 15.231 actually
+mandates this for US devices), nothing like a continuous stream.
+
+Switched `MDMCFG2` from `SYNC_MODE=0` (no gating at all — report every
+demodulated bit regardless of signal presence) to `SYNC_MODE=4`,
+carrier-sense-above-threshold: gates on RSSI without requiring a literal
+sync-word match, which matters since we don't know any real device's sync
+word. Added `AGCCTRL1`'s relative carrier-sense threshold (10 dB rise over
+the settled level, self-calibrating to the local noise floor rather than a
+hardcoded dBm guess) — the one AGC-family register this driver now touches,
+each field cited to datasheet §17.3/Table 39. Deliberately one change at a
+time rather than also adding a software burst/gap heuristic on top, so a
+bench retest can tell what actually moved the needle.
+
+**Not yet bench-confirmed** — Will took the hardware offline for the night
+before this could be flashed. `check_protocol.sh` and the probe-only bench
+build pass; real-hardware behavior (does the event rate actually drop from
+noise-continuous to burst-sparse) is untested. Do not treat this as fixed
+until it's been run against the real chip.
+
 ## 2026-09-21 — Deck: clear transient link stats on probe reset
 
 **Phase:** deck polish, unrelated to the CC1101 work above · **By:** Claude + Will

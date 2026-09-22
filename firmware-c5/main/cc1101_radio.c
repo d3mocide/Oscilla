@@ -6,11 +6,12 @@
  * same discipline lora_radio.c holds itself to for the SX1262 (its own
  * header warns third-party register-map assumptions tend to be wrong).
  *
- * AGC, front-end, and TEST0-2 registers are deliberately left at their
- * power-on-reset defaults in this first pass rather than copying
- * "recommended settings" from an online example I can't trace back to the
- * datasheet myself. Real sensitivity likely needs that tuning — this is a
- * known, flagged gap, not an oversight (see WORKLOG).
+ * Front-end and TEST0-2 registers are deliberately left at their
+ * power-on-reset defaults rather than copying "recommended settings" from an
+ * online example I can't trace back to the datasheet myself. AGCCTRL1 is the
+ * one exception (relative carrier-sense threshold — see cc1101_set_rx_profile),
+ * added after the first bench capture turned out to be free-running noise,
+ * not device traffic (see WORKLOG).
  *
  * Locking: s_lock guards s_running against concurrent rx_start/rx_stop/
  * is_running calls from the dispatch task while the poll task is mid-drain.
@@ -64,6 +65,7 @@ static const char *TAG = "cc1101_radio";
 #define REG_MDMCFG3   0x11
 #define REG_MDMCFG2   0x12
 #define REG_MCSM1     0x17
+#define REG_AGCCTRL1  0x1B
 
 /* Status registers, datasheet Table 45 — status registers require the burst
  * bit set even for a single byte (§10.4's documented quirk: without it, the
@@ -92,8 +94,25 @@ static const char *TAG = "cc1101_radio";
 #define HDR_READ         0x80
 #define HDR_BURST        0x40
 
-/* MDMCFG2 MOD_FORMAT field, bits [6:4] (datasheet Table 49). */
-#define MOD_FORMAT_OOK  (0x3 << 4)
+/* MDMCFG2 fields (datasheet Table 49). MOD_FORMAT is bits [6:4]; SYNC_MODE
+ * is bits [2:0] — 100 is "no preamble/sync word, carrier-sense above
+ * threshold" (as opposed to 000, "no preamble/sync", which has no gating at
+ * all and reports every demodulated bit regardless of signal presence).
+ * Carrier-sense doesn't require knowing any device's real sync word, unlike
+ * the 15/16- or 16/16-bit sync-match modes — appropriate here since we
+ * don't know one. */
+#define MOD_FORMAT_OOK        (0x3 << 4)
+#define SYNC_MODE_CARRIER_SENSE  0x4
+
+/* AGCCTRL1 (datasheet Table 39 register field, §17.3 "Carrier Sense"):
+ * bit6 AGC_LNA_PRIORITY (POR default 1, left as-is), bits[5:4]
+ * CARRIER_SENSE_REL_THR, bits[3:0] CARRIER_SENSE_ABS_THR (unused in
+ * relative mode). 10 = "RSSI must rise 10 dB above the point it stayed at
+ * for a while" — self-calibrates to the local noise floor rather than a
+ * hardcoded dBm guess, which is why relative mode is used instead of the
+ * absolute-threshold field. Chosen as a middle value among the datasheet's
+ * three options (6/10/14 dB); not bench-tuned yet, see WORKLOG. */
+#define AGCCTRL1_CARRIER_SENSE_10DB  0x60
 
 static spi_device_handle_t s_spi;
 static SemaphoreHandle_t s_lock;
@@ -266,20 +285,25 @@ static esp_err_t cc1101_set_rf_frequency(uint32_t freq_hz)
     return err;
 }
 
-/* Fixed conservative starting point: ~2.4 kBaud, no sync word (per-sensor
- * preambles are unknown so the FIFO must free-run — datasheet §13.10.1,
- * SYNC_MODE=0), infinite packet length (LENGTH_CONFIG=10, datasheet §8) so
- * raw demodulated bytes just keep filling the FIFO for the poll task to
- * drain, no CRC/whitening (an external sensor doesn't speak CC1101's own
- * framing). Not asserted correct for any specific sensor — a starting
- * point to tune once real captures exist (same stance as D-10). */
+/* Fixed conservative starting point: ~2.4 kBaud, carrier-sense-gated (no
+ * literal sync word — per-sensor preambles are unknown, but free-running
+ * with SYNC_MODE=0 turned out to report continuous noise as if it were
+ * data, not just silence between real bursts; see WORKLOG), infinite packet
+ * length (LENGTH_CONFIG=10, datasheet §8) so a real burst's demodulated
+ * bytes just keep filling the FIFO for the poll task to drain, no
+ * CRC/whitening (an external sensor doesn't speak CC1101's own framing).
+ * Not asserted correct for any specific sensor — a starting point to tune
+ * once real captures exist (same stance as D-10). */
 static esp_err_t cc1101_set_rx_profile(void)
 {
     /* DRATE = (256+DRATE_M) * 2^DRATE_E * f_osc / 2^28 (datasheet §13.5).
      * DRATE_E=6, DRATE_M=0 -> ~2.4 kBaud at 26 MHz. */
     esp_err_t err = write_reg(REG_MDMCFG4, 0x06);   /* CHANBW left default, DRATE_E=6 */
     if (err == ESP_OK) err = write_reg(REG_MDMCFG3, 0x00);   /* DRATE_M=0 */
-    if (err == ESP_OK) err = write_reg(REG_MDMCFG2, MOD_FORMAT_OOK);   /* OOK, sync_mode=0 */
+    if (err == ESP_OK) {
+        err = write_reg(REG_MDMCFG2, MOD_FORMAT_OOK | SYNC_MODE_CARRIER_SENSE);
+    }
+    if (err == ESP_OK) err = write_reg(REG_AGCCTRL1, AGCCTRL1_CARRIER_SENSE_10DB);
     if (err == ESP_OK) err = write_reg(REG_PKTCTRL0, 0x02);   /* normal FIFO, no CRC, infinite length */
     if (err == ESP_OK) err = write_reg(REG_MCSM1, 0x0C);      /* RXOFF_MODE=stay in RX */
     /* Three-state GDO1 while CSn is high elsewhere on the shared bus
