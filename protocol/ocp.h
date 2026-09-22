@@ -69,6 +69,7 @@ extern "C" {
 #define OCP_MARK_BLE            "[BLE]"
 #define OCP_MARK_ZIG            "[ZIG]"
 #define OCP_MARK_LORA           "[LORA]"
+#define OCP_MARK_LEGACY         "[LEGACY]"
 #define OCP_MARK_EVT            "[EVT]"
 #define OCP_MARK_ERR            "[ERR]"
 #define OCP_MARK_FT             "[FT]"   /* reserved, unimplemented (D-2) */
@@ -84,6 +85,7 @@ extern "C" {
 #define OCP_CAP_BLE             "ble"
 #define OCP_CAP_IEEE802154      "ieee802154"
 #define OCP_CAP_LORA_RX         "lora_rx"
+#define OCP_CAP_LEGACY_RX       "legacy_rx"   /* CC1101: legacy OOK/FSK/GFSK, receive only */
 
 #define OCP_CAP_SEP             ","
 
@@ -94,7 +96,8 @@ typedef enum {
     OCP_CC_WIFI,
     OCP_CC_BLE,
     OCP_CC_IEEE802154,
-    OCP_CC_LORA_RX
+    OCP_CC_LORA_RX,
+    OCP_CC_LEGACY_RX
 } ocp_cap_class_t;
 
 /* --- Verbs (DESIGN Appendix A) -------------------------------------------- */
@@ -139,6 +142,11 @@ typedef enum {
 #define OCP_V_LORA_LISTEN       "lora_listen"
 #define OCP_V_LORA_STATUS       "lora_status"
 
+/* CC1101 legacy sub-GHz — receive only */
+#define OCP_V_LEGACY_CONFIG     "legacy_config"
+#define OCP_V_LEGACY_LISTEN     "legacy_listen"
+#define OCP_V_LEGACY_STATUS     "legacy_status"
+
 /* Mixed */
 #define OCP_V_START_WARDRIVE    "start_wardrive"
 
@@ -181,6 +189,9 @@ typedef enum {
     X(LORA_CONFIG,       OCP_V_LORA_CONFIG,       OCP_CC_LORA_RX,     4,  4,  OCP_MARK_CFG)        \
     X(LORA_LISTEN,       OCP_V_LORA_LISTEN,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
+    X(LEGACY_CONFIG,     OCP_V_LEGACY_CONFIG,     OCP_CC_LEGACY_RX,  1,  1,  OCP_MARK_CFG)        \
+    X(LEGACY_LISTEN,     OCP_V_LEGACY_LISTEN,     OCP_CC_LEGACY_RX,  0,  0,  OCP_MARK_LEGACY)     \
+    X(LEGACY_STATUS,     OCP_V_LEGACY_STATUS,     OCP_CC_LEGACY_RX,  0,  0,  OCP_MARK_LEGACY)     \
     X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)
 
 /* --- Errors (OCP-SPEC §5.3) ----------------------------------------------- */
@@ -202,6 +213,7 @@ typedef enum {
 #define OCP_EVT_KIND_NETWORK   "network"   /* start_wifi_scan: a newly seen AP */
 #define OCP_EVT_KIND_CHAN       "chan"
 #define OCP_EVT_KIND_LORA       "lora"
+#define OCP_EVT_KIND_LEGACY     "legacy"
 #define OCP_EVT_KIND_CLIENT     "client"
 #define OCP_EVT_KIND_PROBE      "probe"
 #define OCP_EVT_KIND_DEAUTH     "deauth"
@@ -261,6 +273,8 @@ typedef enum {
 #define OCP_K_SNR               "snr"
 #define OCP_K_LEN               "len"
 #define OCP_K_HEX               "hex"
+#define OCP_K_PARTNUM           "partnum"   /* [LEGACY]: CC1101 PARTNUM register, hardware-alive check */
+#define OCP_K_CHIPVER           "chipver"   /* [LEGACY]: CC1101 VERSION register */
 
 /* 802.15.4 frames (OCP-SPEC §12). */
 #define OCP_K_STATE             "state"
@@ -333,11 +347,14 @@ typedef enum {
 #define OCP_OWNER_BLE           "ble"
 #define OCP_OWNER_IEEE802154    "ieee802154"
 
-/* `stop` scope: DESIGN §6.2's two arbiter lanes, plus "all" (D-16).
+/* `stop` scope: DESIGN §6.2's arbiter lanes, plus "all" (D-16). LoRa and
+ * legacy (CC1101) additionally exclude each other via the sub-GHz arbiter
+ * (one shared SPI bus, one active engine) — see DESIGN §6.2.
  * A bare `stop` means OCP_LANE_ALL, so older decks keep working. */
 #define OCP_LANE_ALL            "all"
 #define OCP_LANE_PHY            "phy"
 #define OCP_LANE_LORA           "lora"
+#define OCP_LANE_LEGACY         "legacy"
 
 /* --- Helpers -------------------------------------------------------------- */
 
@@ -348,6 +365,7 @@ static inline const char *ocp_cap_class_name(ocp_cap_class_t cc)
         case OCP_CC_BLE:         return OCP_CAP_BLE;
         case OCP_CC_IEEE802154:  return OCP_CAP_IEEE802154;
         case OCP_CC_LORA_RX:     return OCP_CAP_LORA_RX;
+        case OCP_CC_LEGACY_RX:   return OCP_CAP_LEGACY_RX;
         case OCP_CC_NONE:        break;
     }
     return "";

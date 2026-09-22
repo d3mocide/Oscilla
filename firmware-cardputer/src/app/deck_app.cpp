@@ -87,6 +87,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         if (s != ocp::LinkState::Ready) {
             phy_handoff_.clear();
             lora_listen_pending_ = false;
+            legacy_listen_pending_ = false;
             scan_pending_ = false;
             wifi_continuous_pending_ = false;
             zig_start_pending_ = false;
@@ -124,6 +125,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         probe_uptime_ms_ = 0;
         lora_.clear();
         storage::loraLogEnd();
+        legacy_.clear();
         deauth_.clear();
         bt_.clear();
         anti_.clear();
@@ -163,6 +165,7 @@ void DeckApp::onReply(const ocp::Item &it)
 
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
+        legacy_listen_pending_ = false;
         if (wifi_continuous_pending_) {
             wifi_continuous_pending_ = false;
             scan_.stop();
@@ -278,6 +281,9 @@ void DeckApp::onReply(const ocp::Item &it)
             lora_.stop();
             storage::loraLogEnd();
         }
+        if (all || *lane == OCP_LANE_LEGACY) {
+            legacy_.stop();
+        }
         if (all || *lane == OCP_LANE_PHY) {
             PhyHandoff::Start start;
             if (phy_handoff_.takeAfterStop(&start)) start(now_);
@@ -309,6 +315,20 @@ void DeckApp::onReply(const ocp::Item &it)
             log(storage::loraLogBegin() ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
         } else {
             log("lora reply");
+        }
+    } else if (it.tag == OCP_MARK_LEGACY) {
+        /* Same reasoning as OCP_MARK_LORA above. legacy_status also answers
+         * on this marker (debug-console "legacy id") — when it carries a
+         * partnum=, log it: that's the CC1101 hardware-alive check, and
+         * there's no dedicated debug screen for it yet (see WORKLOG). */
+        if (legacy_listen_pending_) {
+            legacy_listen_pending_ = false;
+            legacy_.begin();
+        } else if (const auto *partnum = it.get(OCP_K_PARTNUM)) {
+            const auto *chipver = it.get(OCP_K_CHIPVER);
+            log("legacy id partnum=" + *partnum + " chipver=" + (chipver ? *chipver : "?"));
+        } else {
+            log("legacy reply");
         }
     } else if (it.tag == OCP_MARK_CFG) {
         /* Shared reply marker (packet_monitor and deauth_detector both use
@@ -369,6 +389,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     if (const auto *p = lora_.absorbEvent(it)) {   /* kind=lora is the only source of truth here too */
         storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
     }
+    legacy_.absorbEvent(it);     /* kind=legacy: count + last RSSI only, no storage yet */
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     bt_.absorbEvent(it);         /* kind=airtag is the only source of truth here too */
     anti_.absorbEvent(it, now_); /* kind=airtag + deck-local movement correlation */
@@ -537,6 +558,37 @@ void DeckApp::startLoraListen(uint32_t now_ms)
         return;
     }
     lora_listen_pending_ = true;   /* [LORA]/error reply decides whether to actually start (below) */
+    notice("");
+}
+
+namespace {
+/* CC1101 debug-console bring-up only (see legacy_model.h) — 433.92 MHz is
+ * the common US weather-sensor frequency, a starting point to try, not a
+ * region plan (same D-9 reasoning kBenchFreqHz above already states). */
+constexpr uint32_t kLegacyBenchFreqHz = 433920000;
+}  // namespace
+
+void DeckApp::startLegacyConfig(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    std::string cmd = std::string(OCP_V_LEGACY_CONFIG) + " " + std::to_string(kLegacyBenchFreqHz);
+    if (!client_.send(cmd, now_ms)) {
+        retrySoon([this](uint32_t t) { startLegacyConfig(t); }, now_ms);
+        return;
+    }
+    legacy_.configured(kLegacyBenchFreqHz);
+    notice("");
+}
+
+void DeckApp::startLegacyListen(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!legacy_.hasConfig()) { notice("config first (legacy config)"); return; }
+    if (!client_.send(OCP_V_LEGACY_LISTEN, now_ms)) {
+        retrySoon([this](uint32_t t) { startLegacyListen(t); }, now_ms);
+        return;
+    }
+    legacy_listen_pending_ = true;
     notice("");
 }
 
@@ -977,6 +1029,12 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
         else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
         else startLoraListen(now_ms);
     }
+    else if (cmd == "legacy") {
+        if (arg == "config") startLegacyConfig(now_ms);
+        else if (arg == "id") client_.send(OCP_V_LEGACY_STATUS, now_ms);
+        else if (legacy_.active()) client_.stop(now_ms, OCP_LANE_LEGACY);
+        else startLegacyListen(now_ms);
+    }
     else if (cmd == "channel") {
         if (arg.empty()) { log("debug: channel needs a number"); return; }
         uint64_t ch = 0;
@@ -1017,6 +1075,8 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " zig_nodes=" + std::to_string(zig_.nodes().size()) +
             " zig_active=" + std::string(zig_.active() ? "1" : "0") +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
+            " legacy_pkts=" + std::to_string(legacy_.total()) +
+            " legacy_rssi=" + std::to_string(legacy_.lastRssi()) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
             " bt_trackers=" + std::to_string(bt_.deviceTrackerCount()) +

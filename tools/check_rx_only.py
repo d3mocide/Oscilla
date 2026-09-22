@@ -45,6 +45,11 @@ PROBE_BANNED = {
     "SX126X_CMD_SET_TX": "LoRa transmit",
     "sx1262_transmit": "LoRa transmit",
     "lora_tx": "LoRa transmit",
+    # CC1101 (our driver's names, reserved so they can't appear)
+    "STROBE_STX": "CC1101 transmit strobe",
+    "STROBE_SFSTXON": "CC1101 TX-mode-with-calibration strobe",
+    "cc1101_transmit": "CC1101 transmit",
+    "legacy_tx": "CC1101 transmit",
 }
 
 # Includes are matched with strings kept: `#include "esp_wifi.h"` is a literal.

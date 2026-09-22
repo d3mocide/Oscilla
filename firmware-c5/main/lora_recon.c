@@ -6,9 +6,12 @@
  * event queue into [EVT] kind=lora lines on a small dedicated task.
  *
  * radio_arbiter.c doesn't model a LoRa lane (DESIGN §6.2 defers the full
- * two-lane interlock to P6), so ocp_server.c's STOP handler calls
+ * PHY/LoRa interlock to P6), so ocp_server.c's STOP handler calls
  * lora_cmd_stop() directly, idempotently, rather than going through the PHY
- * arbiter — and only when the requested lane covers LoRa (D-16).
+ * arbiter — and only when the requested lane covers LoRa (D-16). LoRa does,
+ * however, arbitrate against the CC1101 via subghz_arbiter.c: the two share
+ * one SPI bus and only one may receive at a time
+ * (c5-dual-radio-wiring.md §5.2).
  *
  * SPDX-License-Identifier: MIT
  */
@@ -26,6 +29,7 @@
 #include "ocp.h"
 #include "ocp_frame.h"
 #include "ocp_parse.h"
+#include "subghz_arbiter.h"
 
 static const char *TAG = "lora_recon";
 
@@ -152,6 +156,12 @@ static void drain_task(void *arg)
     vTaskDelete(NULL);
 }
 
+static void lora_teardown(void)
+{
+    lora_radio_rx_stop();
+    subghz_arbiter_release(SUBGHZ_OWNER_LORA);
+}
+
 void lora_cmd_listen(void)
 {
     if (!s_configured) {
@@ -162,9 +172,14 @@ void lora_cmd_listen(void)
         ocp_emit_error(OCP_ERR_BUSY, "already listening");
         return;
     }
+    if (subghz_arbiter_acquire(SUBGHZ_OWNER_LORA, lora_teardown) != ESP_OK) {
+        ocp_emit_error(OCP_ERR_BUSY, "cc1101 is using the shared sub-GHz bus");
+        return;
+    }
 
     esp_err_t err = lora_radio_rx_start(&s_params);
     if (err != ESP_OK) {
+        subghz_arbiter_release(SUBGHZ_OWNER_LORA);
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
         return;
     }
@@ -195,7 +210,6 @@ void lora_cmd_status(void)
 
 bool lora_cmd_stop(void)
 {
-    bool was_running = lora_radio_is_running();
-    lora_radio_rx_stop();   /* safe even if not running; drain_task notices and self-exits */
-    return was_running;
+    if (subghz_arbiter_owner() != SUBGHZ_OWNER_LORA) return false;
+    return subghz_arbiter_stop();   /* runs lora_teardown(); drain_task notices and self-exits */
 }

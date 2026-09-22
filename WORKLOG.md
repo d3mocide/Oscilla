@@ -1,3 +1,155 @@
+## 2026-09-21 — Swapped C5 re-bring-up: prod firmware confirms real LoRa RX; bench-USB path still silent
+
+**Phase:** P3 hardware re-bring-up · **By:** Claude + Will
+
+Continued bring-up on the swapped C5 (new unit, MAC `38:44:BE:BF:D2:94`,
+`AGENTS.md` gotcha 9 updated with the old address kept for reference). The
+Wio's Rev D passives (NSS and RST pull-ups, RF_SW pull-down) are fitted
+in-line on the breadboard, corrected from an earlier statement in this same
+entry that wrongly carried forward "no resistors" from much earlier in the
+session, before this rewiring happened. CC1101 CSn pull-up to 3V3 and its
+100 nF/10 µF VCC decoupling pair have also been added, matching
+`c5-dual-radio-wiring.md` §4.2 in full. Moot for actual testing either way —
+see below.
+
+Native-USB auto-reset (`esptool --before usb_reset`) failed twice on this
+board, both as a plain flash and as a bare `chip_id` query — "Write timeout"
+then "Input/output error configuring the port," with the device node
+re-enumerating on its own between attempts. Manual BOOT+RESET into the ROM
+loader (`--loader`) worked both times once tried. Not diagnosed further; flag
+for whoever bench-tests this unit next in case it's a board-specific quirk
+rather than one-off flakiness.
+
+Reflashed `build-bench` (USB OCP) first to pick up where the prior BUSY-stuck
+session left off, but got no signal at all this time — no `[HELLO]`, no ROM
+boot text, zero bytes over USB across multiple resets and a manual reset
+pulse. Different symptom from the earlier BUSY-stuck-high fault (that one at
+least reached `[HELLO]` and accepted `lora_config`). Not triaged — abandoned
+this thread per Will's call rather than keep guessing blind without a status
+LED or Grove-UART log to look at.
+
+Reflashed `build-uart` (Grove/prod firmware) instead. With Grove data
+connected to the Cardputer (5V still disconnected, USB powering both boards
+separately per the bench power rule) and the CC1101 now also breadboarded
+in (unpowered/untested — no firmware exists for it, see below), Will reported
+LoRa receiving. Verified independently rather than taking that at face value:
+the deck's own `dump` debug command (requires debug mode already on) reported
+`link=ready`, live probe heap figures (`probe_heap=99948` etc., meaning a real
+status round-trip, not a stale value), and `lora_pkts=3` — real packets
+received and parsed end-to-end through the deck's own accounting.
+
+**CC1101 has no firmware path yet**, checked directly: no `cc1101.c`/`.h` in
+`firmware-c5/main/`, no verb in `protocol/ocp.h`. `docs/DECISIONS.md` D-15 is
+still `🔵 Leaning` and `c5-dual-radio-wiring.md` is explicitly proposed, not
+validated. Breadboarding it changes nothing to test until that firmware
+exists — flagged to Will rather than proceeding on wiring alone.
+
+**Net result:** Wio-SX1262 receive confirmed working end-to-end on the new C5
+over the production Grove path, with the Wio's Rev D passives fitted. Bench-USB
+path on this same unit is an open, undiagnosed silence — separate from, and not
+explained by, today's earlier BUSY-stuck-high fault. CC1101 pull-up and decoupling
+are now fitted per §4.2 as well, but not yet testable regardless — no
+firmware exists for it (see above).
+
+## 2026-09-21 — CC1101 driver written; hardware confirmed alive, signal-vs-noise unresolved
+
+**Phase:** P3 CC1101 bring-up · **By:** Claude + Will
+
+Wrote the first CC1101 receive driver (`cc1101_radio.c`), OCP glue
+(`legacy_recon.c`), and a `subghz_arbiter.c` that arbitrates the shared
+Wio/CC1101 SPI bus (`c5-dual-radio-wiring.md` §5.2) — LoRa now goes through
+the same arbiter instead of its old ad-hoc bypass. New verbs
+`legacy_config`/`legacy_listen`/`legacy_status`, cap `legacy_rx`, `stop
+legacy` lane. `./tools/check_protocol.sh`, `ocp_repl.py --selftest`, and both
+firmware variants (bench + uart) built clean throughout.
+
+Added minimal debug-console-only deck wiring (`legacy_model.h/.cpp`, `legacy
+config`/`legacy`/`legacy id` debug commands, `legacy_pkts=`/`legacy_rssi=` in
+`dump`) — no screen/view, deliberately deferred, see the CC1101 plan.
+
+**Bug found and fixed on the bench, not in review.** First live test:
+`legacy id` (PARTNUM/VERSION read) succeeded, but `legacy_listen` failed
+`err code=hwfault` every time. Root cause: every SPI helper except
+`hw_reset()` called `wait_miso_low()` *before* asserting CS. CC1101's SO
+pin only signals "not ready" in the brief window right after a CS-low edge
+(datasheet §19.1) — outside that window it's an ordinary MISO line shared
+with the Wio, and reading it while deselected reads bus-float/other-device
+state, not chip status. `legacy id` happened to pass because `hw_reset()`
+itself has the correct order; every other helper had it backwards. Fixed by
+dropping the precondition from `strobe()`/`write_reg()`/`read_status()`/
+`read_fifo()` (ordinary access after a confirmed-awake reset needs no extra
+wait) and rewriting `hw_reset()`'s own SRES strobe inline so CS stays low
+across the whole sequence instead of dropping mid-reset through `strobe()`'s
+own select/deselect.
+
+**Bench-confirmed after the fix, 2026-09-21:**
+- `legacy id`: `partnum=0 chipver=20` — exactly the documented/commonly-
+  reported genuine-CC1101 signature (PARTNUM is fixed at 0x00 per datasheet;
+  0x14 VERSION matches widely-reported real silicon). Confirms the SPI
+  wiring, manual reset sequence, and burst-status-read implementation are
+  correct.
+- `legacy_listen` at 433.92 MHz: no fault, 20-second window produced 1,095
+  FIFO-drain events, RSSI ≈ -63 dBm, all via the deck's own `dump` counter
+  (not a guess).
+
+**Not established: whether that's a real weather station or just noise.**
+`SYNC_MODE=0` (no sync word — no sensor's real preamble is known) plus
+AGC/front-end registers left at power-on defaults (deliberately, per the
+plan — no register value copied from an unverified example) means the OOK
+slicer will toggle on any energy crossing its default threshold, including
+plain RF noise. A steady 1,095/20s with no visible gaps looks more like
+continuous chatter than the short, infrequent bursts a real sensor sends.
+Next step before claiming a real reception: either a squelch/RSSI threshold
+so only strong events count, or AGC tuning traced to the datasheet, then a
+comparison against a known transmitter at a known distance.
+
+CC1101 pull-up/decoupling from earlier this session are fitted per §4.2 in
+full; Wio passives likewise. Neither radio is field-ready by Rev D's own
+standard regardless.
+
+## 2026-09-21 — Breadboard guide rewritten as a physical assembly reference
+
+**Phase:** P3 documentation · **By:** Codex
+
+Reworked `docs/hardware/dual-radio-breadboard.html` around the actual horizontal
+XIAO/Wio placement instead of generic module blocks. The guide now labels the
+real header order, answers the single-source power/rail question, draws all three
+explicit C5→Wio SPI jumpers and all five Wio control jumpers, shows the CC1101
+branches from the C5-side SPI strips, and places each pull resistor and capacitor
+pair at its physical termination. The off-board CC1101 is now treated as a local
+six-wire pod so its decoupling stays at the module rather than at the far end of
+the breadboard rails.
+
+Corrected the earlier claim that separate modules inherit a shared SPI bus “for
+free” from breadboard strips: they do not; each Wio connection is an explicit
+jumper, while each CC1101 signal branches from a spare hole on the corresponding
+C5 strip. Added a five-pass build sequence and made the interactive checklist
+match it. Chromium rendering at 1440 px showed no console errors or diagram label
+collisions; HTML parsing and whitespace checks passed. This is documentation and
+render evidence only. The current Wio BUSY-high hardware fault and every CC1101
+electrical/RF gate remain open.
+
+## 2026-09-21 — New C5 + Wio breadboard: bench transport passes; Wio BUSY fault blocks RX
+
+**Phase:** P3 hardware re-bring-up · **By:** Codex + Will
+
+Flashed the newly connected ESP32-C5 with the current USB OCP bench image;
+esptool verified every written image hash and the running probe answered
+`[HELLO]` with `lora_rx` advertised. A receive configuration for 910.525 MHz,
+SF7, BW62.5, CR4/5 was accepted, but `lora_listen` faulted before SPI/RX setup:
+`lora_radio: BUSY stuck high past 1000 ms` (`ESP_ERR_TIMEOUT`). `stop lora`
+remained clean and the probe stayed responsive.
+
+After the initial resistor correction, the identical bench sequence still
+produced the same BUSY timeout. The startup passives therefore remain part of
+the required wiring, but are not yet the demonstrated cause of the fault.
+
+This proves the C5, flash, USB transport, and OCP command path—not the Wio
+harness. Cardputer integration is deliberately deferred. Next physical check:
+verify Wio 3V3/GND and that its **BUSY** silkscreen pin, not a shield-position
+label, reaches XIAO D5/GPIO24; then verify RST reaches D0/GPIO1. Retest the
+bench image before attaching Grove.
+
 ## 2026-09-21 — 802.15.4 view: PAN tab, extended-address display fix, BAD-row indicator
 
 **Phase:** P8 polish, 802.15.4 UI · **By:** Claude + Will

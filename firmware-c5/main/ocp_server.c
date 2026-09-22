@@ -8,6 +8,8 @@
 #include "ocp_frame.h"
 #include "ocp_transport.h"
 #include "ble_recon.h"
+#include "cc1101_radio.h"
+#include "legacy_recon.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
 #include "probe_restart.h"
@@ -64,6 +66,9 @@ const char *ocp_server_caps(void)
     if (lora_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_LORA_RX);
     }
+    if (legacy_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_LEGACY_RX);
+    }
     if (ble_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_BLE);
     }
@@ -95,6 +100,7 @@ static int cap_available(ocp_cap_class_t cc)
         case OCP_CC_BLE:        return strstr(caps, OCP_CAP_BLE) != NULL;
         case OCP_CC_IEEE802154: return strstr(caps, OCP_CAP_IEEE802154) != NULL;
         case OCP_CC_LORA_RX:    return strstr(caps, OCP_CAP_LORA_RX) != NULL;
+        case OCP_CC_LEGACY_RX:  return strstr(caps, OCP_CAP_LEGACY_RX) != NULL;
     }
     return 0;
 }
@@ -120,9 +126,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
+                         "%s=%s lora=%s legacy=%s link=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
+                         !legacy_recon_ready() ? "absent" : cc1101_radio_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
@@ -141,21 +148,25 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
          * Scoped per lane (D-16): a bare `stop` still means every lane, so a
          * deck that predates the argument is unaffected. */
         const char *lane = (argc > 1) ? argv[1] : OCP_LANE_ALL;
-        bool all  = !strcmp(lane, OCP_LANE_ALL);
-        bool phy  = all || !strcmp(lane, OCP_LANE_PHY);
-        bool lora = all || !strcmp(lane, OCP_LANE_LORA);
+        bool all    = !strcmp(lane, OCP_LANE_ALL);
+        bool phy    = all || !strcmp(lane, OCP_LANE_PHY);
+        bool lora   = all || !strcmp(lane, OCP_LANE_LORA);
+        bool legacy = all || !strcmp(lane, OCP_LANE_LEGACY);
 
-        if (!phy && !lora) {
+        if (!phy && !lora && !legacy) {
             ocp_emit_error(OCP_ERR_BADARG, "lane must be " OCP_LANE_ALL ", "
-                                           OCP_LANE_PHY " or " OCP_LANE_LORA);
+                                           OCP_LANE_PHY ", " OCP_LANE_LORA
+                                           " or " OCP_LANE_LEGACY);
             break;
         }
 
-        /* LoRa isn't in the PHY arbiter (DESIGN §6.2 defers the two-lane
-         * interlock to P6), so it's released directly here, idempotently. */
+        /* Neither sub-GHz radio is in the PHY arbiter (DESIGN §6.2 defers
+         * that interlock to P6), so both are released directly here,
+         * idempotently, via subghz_arbiter. */
         bool running = false;
-        if (phy)  running |= arbiter_stop_all();
-        if (lora) running |= lora_cmd_stop();
+        if (phy)    running |= arbiter_stop_all();
+        if (lora)   running |= lora_cmd_stop();
+        if (legacy) running |= legacy_cmd_stop();
 
         ocp_emit_compact(OCP_MARK_STOP, "%s=%s %s=%d",
                          OCP_K_LANE, lane, OCP_K_RUNNING, running ? 1 : 0);
@@ -177,6 +188,18 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_LORA_STATUS:
         lora_cmd_status();
+        break;
+
+    case OCP_VID_LEGACY_CONFIG:
+        legacy_cmd_config(argc, argv);
+        break;
+
+    case OCP_VID_LEGACY_LISTEN:
+        legacy_cmd_listen();
+        break;
+
+    case OCP_VID_LEGACY_STATUS:
+        legacy_cmd_status();
         break;
 
     case OCP_VID_SCAN_NETWORKS:

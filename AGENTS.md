@@ -110,7 +110,8 @@ result; this repo's culture is that a claim without evidence is a defect.
    same Espressif VID/PID and swap port numbers on replug. Address them by
    `/dev/serial/by-id/…<usb-serial>` and **always pass `--chip`** to esptool —
    an explicit `--chip esp32c5` is what stopped a probe image being written to
-   the Cardputer. Probe `38:44:BE:1F:4F:A0`, deck `50:78:7D:CE:6D:64`.
+   the Cardputer. Probe `38:44:BE:BF:D2:94` (swapped 2026-09-21; was
+   `38:44:BE:1F:4F:A0`), deck `50:78:7D:CE:6D:64`.
 10. **A JTAG `reset` leaves the C5 parked in ROM.** OpenOCD's `reset run`
     is a CPU reset; the chip loops at `0x4003B10E` and never boots the app.
     Use the RESET button or `esptool --after watchdog_reset`. Halt/resume

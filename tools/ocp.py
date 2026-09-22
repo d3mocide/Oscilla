@@ -498,6 +498,7 @@ CAP_CLASS_CAPS = {
     "OCP_CC_BLE": {"ble"},
     "OCP_CC_IEEE802154": {"ieee802154"},
     "OCP_CC_LORA_RX": {"lora_rx"},
+    "OCP_CC_LEGACY_RX": {"legacy_rx"},
 }
 
 

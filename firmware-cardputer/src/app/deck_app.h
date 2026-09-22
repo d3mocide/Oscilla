@@ -28,6 +28,7 @@
 #include "model/deauth_model.h"
 #include "model/anti_surveillance_model.h"
 #include "model/gnss_model.h"
+#include "model/legacy_model.h"
 #include "model/lora_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
@@ -115,6 +116,8 @@ private:
     void startPacketMonitor(uint32_t now_ms, uint8_t ch);
     void startLoraConfig(uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
+    void startLegacyConfig(uint32_t now_ms);
+    void startLegacyListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
      * one radio mode, so starting one requires the other two to be idle. */
@@ -145,6 +148,7 @@ private:
     model::ContactsModel contacts_;
     model::SpectrumModel spectrum_;
     model::LoraModel lora_;
+    model::LegacyModel legacy_;
     model::DeauthModel deauth_;
     model::BtModel bt_;
     model::AntiSurveillanceModel anti_;
@@ -175,6 +179,8 @@ private:
      * confirms, so the [LORA]/error reply is what triggers lora_.begin()
      * and storage::loraLogBegin(), not the optimistic send. */
     bool lora_listen_pending_ = false;
+    /* Same reasoning as lora_listen_pending_ above, for legacy_listen. */
+    bool legacy_listen_pending_ = false;
     size_t deauth_cursor_ = 0;
     size_t anti_cursor_ = 0;
     size_t bt_cursor_ = 0;
