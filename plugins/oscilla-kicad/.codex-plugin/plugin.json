@@ -1,0 +1,19 @@
+{
+  "name": "oscilla-kicad",
+  "version": "0.1.0",
+  "description": "KiCad verification and release workflow for Oscilla hardware.",
+  "author": {
+    "name": "d3mocide"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Oscilla KiCad",
+    "shortDescription": "Verify and release Oscilla KiCad hardware.",
+    "longDescription": "A local KiCad workflow and MCP bridge for Oscilla schematic, layout, and fabrication checks.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use the Oscilla KiCad workflow to review the single-Wio carrier before fabrication."
+  },
+  "mcpServers": "./.mcp.json"
+}

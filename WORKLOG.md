@@ -1,3 +1,46 @@
+## 2026-09-22 — Corrected personal KiCad plugin marketplace source path
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+The initial personal marketplace entry incorrectly used
+`./plugins/oscilla-kicad` even though the marketplace itself is rooted at
+`~/.agents/plugins`. Codex therefore resolved a nonexistent doubled path.
+Corrected the entry to `./oscilla-kicad`, which resolves to the installed
+plugin's actual manifest. The operator must refresh the Codex desktop app and
+retry installation; no KiCad design artifact was produced.
+
+## 2026-09-22 — KiCad 10 MCP bridge live
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Operator installed KiCad 10.0.6. The local `oscilla-kicad` package is now in
+the personal Codex marketplace; its installed source matches this repository's
+plugin source. Live checks confirmed that `kicad-cli` reports 10.0.6 and that
+the MCP bridge's `kicad_status` tool reaches it successfully. The installed
+CLI exposes each wrapped command: schematic ERC, PCB DRC, board render,
+Gerber export, and drill export.
+
+No KiCad project exists yet and no schematic, PCB, ERC/DRC report, Gerber, or
+physical board evidence was produced by this activation.
+
+## 2026-09-22 — Repo-local KiCad skill and MCP bridge scaffolded
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Added [`plugins/oscilla-kicad`](plugins/oscilla-kicad): a repo-local Codex
+plugin that keeps the single-Wio carrier's Rev D wiring, pull/bypass parts,
+and physical qualification boundaries available as a focused KiCad workflow.
+Its stdio MCP bridge exposes KiCad CLI status, ERC, DRC with schematic parity,
+board render, and Gerber/Excellon export. All file-bearing tools confine their
+inputs and generated reports to an explicit project root; fabrication export
+requires a new or empty output directory.
+
+The plugin and skill validators pass, and a direct MCP initialize/tool-list
+fixture passes. `kicad-cli` is not installed yet, so only the expected
+unavailable status result was exercised; live ERC/DRC/render/export evidence
+awaits the operator's KiCad installation and the first `.kicad_sch`/
+`.kicad_pcb` project.
+
 ## 2026-09-22 — P7 display confirmations (BLE Scan, Packet Monitor); LSI-5 procedure written
 
 **Phase:** P7 · **By:** Claude + operator

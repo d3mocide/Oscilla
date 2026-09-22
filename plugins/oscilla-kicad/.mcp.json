@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "oscilla_kicad": {
+      "command": "python3",
+      "args": [
+        "./scripts/kicad_mcp.py"
+      ]
+    }
+  }
+}
