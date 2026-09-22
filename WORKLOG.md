@@ -1,3 +1,23 @@
+## 2026-09-22 — LSI-5 soak: known-source pass, source-absent control inconclusive
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Ran both halves of the LSI-5 soak procedure on the bench (build `c2e572e`).
+Run 1 (known-source, antenna on, ~38.8 min): clean — 282 packets, zero
+`irq_drop`/`radio_drop`/`ocp_drop`, largest inter-packet gap 57.9s, matching
+the shape of the already-fixed stall bug's confirmation soak in
+`lora-harness.md`. Run 2 (antenna disconnected as the source-absent
+substitute, ~35.8 min) was meant to show near-zero `rx`; instead it logged
+283 packets — essentially the same rate as Run 1. RSSI data shows the
+substitution wasn't a no-op: mean RSSI dropped a real ~28 dB (-81.9 to
+-110.3 dBm), but the bench sits close enough to a strong MeshCore repeater
+that even the attenuated signal still decoded reliably. The zero-packet SD
+path (LSI-3's untested case) remains undemonstrated as a result. Full
+numbers and interpretation in
+[`docs/hardware/lora-session-soak.md`](docs/hardware/lora-session-soak.md).
+Next attempt needs real distance or shielding from the repeater, or the
+still-unbuilt manual off-frequency profile.
+
 ## 2026-09-22 — Corrected personal KiCad plugin marketplace source path
 
 **Phase:** Hardware tooling · **By:** Codex + operator

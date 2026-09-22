@@ -77,3 +77,53 @@ build identity (commit hashes), device/antenna setup, and (if used) the
 observer cross-reference. No raw hex payloads, no RSSI/SNR value dumps —
 aggregate counts and deltas only, per the project's field-data policy
 (AGENTS.md §3.5, `SECURITY.md`).
+
+---
+
+## Run results — 2026-09-22
+
+**Build identity:** `c2e572e` (both firmware trees; no `firmware-c5/` or
+`firmware-cardputer/src/` changes since). **Setup:** bench power rule
+followed (each board own USB, Grove 5V disconnected). Run 2 used the
+antenna-disconnect substitution noted above, not a manual off-frequency
+profile (that UI doesn't exist yet — see LSI-5 status). No independent
+observer cross-reference used this round.
+
+| | Run 1 — known-source (antenna on) | Run 2 — antenna disconnected |
+|---|---|---|
+| Session | `log_0023` | `log_0024` |
+| Duration | 2327.9s (~38.8 min) | 2145.2s (~35.8 min) |
+| `rx` (final) | 282 packets logged | 283 packets logged |
+| `crc_err` | 1 | 0 |
+| `header_err` | 3 | 7 |
+| `irq_drop` / `radio_drop` / `ocp_drop` | 0 / 0 / 0 | 0 / 0 / 0 |
+| Largest inter-packet gap | 57.9s (0 gaps > 60s) | 52.1s (0 gaps > 60s) |
+| RSSI mean / median / range | -81.9 / -81 / -101 to -69 dBm | -110.3 / -110 / -115 to -106 dBm |
+
+**Run 1 (known-source): clean pass.** No stall, no drops, shape matches the
+already-confirmed-fixed soak in `lora-harness.md` (55.1s max gap there vs.
+57.9s here). Health rows, manifest, and packet CSV all correct.
+
+**Run 2 (source-absent control): did not achieve a genuine no-source
+condition, and that is itself the finding.** RSSI dropped by a real ~28 dB
+mean (-81.9 → -110.3 dBm) confirming the antenna-disconnect substitution
+did meaningfully attenuate the signal — but the nearby MeshCore repeater is
+strong enough at this bench location that even the attenuated signal still
+decoded at essentially the same packet rate as Run 1 (283 vs. 282 packets).
+The counters and sidecars behaved exactly as designed and faithfully
+reported a real, if weak, received signal — this is not a bug in the
+session-integrity code. It does mean:
+
+- The zero-packet SD-sidecar case (recording step 4 above) is **still not
+  demonstrated** — every session captured on this bench so far has logged
+  real packets.
+- A genuine source-absent control at this location needs either real
+  physical distance/shielding from the repeater, or tuning off-frequency
+  (blocked on the not-yet-built manual-profile UI, tracked as a deferred
+  decision in `docs/lora-session-integrity.md`).
+- Worth trying next: move the Wio harness to a location with weaker known
+  coverage, or wrap it in a shielded enclosure/bag, and repeat Run 2 to
+  finally exercise the zero-packet path.
+
+LSI-5's known-source requirement is satisfied by Run 1. The source-absent
+requirement remains open pending a run that actually achieves low signal.
