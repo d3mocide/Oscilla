@@ -86,6 +86,17 @@ public:
     const ProbeInfo &probe() const { return probe_; }
     const ClientStats &stats() const { return stats_; }
 
+    /* Zeroes the counters that are direct symptoms of a disconnect/reconnect
+     * transition (a pending command timing out because the probe vanished
+     * mid-flight, boot chatter read as noise/stray) rather than an ongoing
+     * link problem. `resets`/`hellos`/`events`/`errors` are left alone —
+     * they're meaningful running totals, not restart artifacts. Call after
+     * an onReset() callback has read stats() for its own diagnostic, e.g.
+     * the coexistence-defect restart (D-18, probe_restart.c) is expected
+     * and shouldn't make a later, genuine timeout look like a fifth in a
+     * row. */
+    void clearTransientStats();
+
 private:
     void setState(LinkState s);
     void onItem(Item &&it);

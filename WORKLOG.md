@@ -1,3 +1,24 @@
+## 2026-09-21 — Deck: clear transient link stats on probe reset
+
+**Phase:** deck polish, unrelated to the CC1101 work above · **By:** Claude + Will
+
+Found in testing, not related to the CC1101 session: ending a zig (802.15.4)
+scan reliably showed a timeout, because it does — `probe_restart_if_safe()`
+(`probe_restart.c`, D-18's coexistence-defect workaround) genuinely reboots
+the probe once LoRa isn't blocking it, stranding whatever command was
+in-flight and reading a burst of boot chatter as noise/stray on the way back
+up. All expected. The problem was that `ocp::ClientStats` (`timeouts`,
+`noise`, `stray`) never got cleared, so each of these fully-expected restarts
+permanently inflated counters meant to signal an actual link problem — a
+later genuine timeout would read as "the Nth failure" against a baseline
+already full of benign restart artifacts.
+
+Added `Client::clearTransientStats()` (`ocp_client.h`/`.cpp`), called from
+`deck_app.cpp`'s `onReset` handler right after it logs the pre-clear values
+for that event. `resets`/`hellos`/`events`/`errors` are left alone — they're
+meaningful running totals, not disconnect/reconnect artifacts. Host suite
+(`client_test.cpp`, 55 checks) and both firmware builds stayed green.
+
 ## 2026-09-21 — Swapped C5 re-bring-up: prod firmware confirms real LoRa RX; bench-USB path still silent
 
 **Phase:** P3 hardware re-bring-up · **By:** Claude + Will

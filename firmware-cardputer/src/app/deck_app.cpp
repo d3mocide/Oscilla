@@ -116,6 +116,13 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         const auto &st = client_.stats();
         log("probe-reset resets=" + std::to_string(st.resets) + " noise=" + std::to_string(st.noise) +
             " stray=" + std::to_string(st.stray));
+        /* A reboot (e.g. the zig/coexistence-defect restart, D-18) always
+         * strands a pending command and reads some boot chatter as
+         * noise/stray on the way back up — expected, not an ongoing link
+         * problem, so it shouldn't inflate the counters a later genuine
+         * timeout gets judged against. The line above already logged the
+         * pre-clear values for this specific event. */
+        client_.clearTransientStats();
         scan_.clear();
         contacts_.clear();
         spectrum_.clear();

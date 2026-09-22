@@ -161,6 +161,13 @@ void Client::tick(uint32_t now_ms)
     if (dead) setState(LinkState::Disconnected);
 }
 
+void Client::clearTransientStats()
+{
+    stats_.timeouts = 0;
+    stats_.noise = 0;
+    stats_.stray = 0;
+}
+
 void Client::handleHello(const Item &it)
 {
     stats_.hellos++;
