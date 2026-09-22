@@ -2,20 +2,18 @@
  * main.c — oscilla-c5 (the probe).
  *
  * Boot order (DESIGN §6.1): NVS -> arbiters -> platform -> OCP server.
- * LoRa lands in P3, CC1101 alongside it as a second sub-GHz radio.
+ * LoRa lands in P3 through the Wio-SX1262 harness.
  *
  * SPDX-License-Identifier: MIT
  */
 
 #include "ble_recon.h"
-#include "legacy_recon.h"
 #include "lora_recon.h"
 #include "ocp_frame.h"
 #include "ocp_server.h"
 #include "ocp_transport.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
-#include "subghz_arbiter.h"
 #include "wifi_deauth.h"
 #include "wifi_inspect.h"
 #include "wifi_networks.h"
@@ -40,7 +38,6 @@ void app_main(void)
 
     ESP_ERROR_CHECK(status_led_start());    /* first, so boot is visible */
     ESP_ERROR_CHECK(arbiter_init());
-    ESP_ERROR_CHECK(subghz_arbiter_init());
 
     /* A radio that fails to come up stays local: the probe still answers, it
      * just doesn't advertise that cap. */
@@ -53,7 +50,6 @@ void app_main(void)
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     if (lora_recon_init() != ESP_OK) ESP_LOGE(TAG, "lora unavailable");
-    if (legacy_recon_init() != ESP_OK) ESP_LOGE(TAG, "legacy (cc1101) unavailable");
 
     /* BLE is async (ble_recon_ready() flips true once the NimBLE host
      * actually syncs, not merely when this call returns) — cap_available()

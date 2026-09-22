@@ -22,7 +22,6 @@ enum class Screen : uint8_t {
     Spectrum,
     Zig,
     SubGhz,
-    Legacy,
     Deauth,
     AntiSurveillance,
     Drive,

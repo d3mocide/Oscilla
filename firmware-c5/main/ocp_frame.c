@@ -159,7 +159,6 @@ static const char *event_kind_name(ocp_event_record_kind_t kind)
         case OCP_EVENT_RECORD_CHAN:    return OCP_EVT_KIND_CHAN;
         case OCP_EVENT_RECORD_ZIG:     return OCP_EVT_KIND_ZIG;
         case OCP_EVENT_RECORD_LORA:    return OCP_EVT_KIND_LORA;
-        case OCP_EVENT_RECORD_LEGACY:  return OCP_EVT_KIND_LEGACY;
         case OCP_EVENT_RECORD_KIND_COUNT: break;
     }
     return "unknown";
@@ -269,14 +268,6 @@ static void emit_event_record(const ocp_event_record_t *event)
             emit_event_fields(event_kind_name(event->kind), "%s=%d %s=%.1f %s=%u %s=%s",
                               OCP_K_RSSI, r->rssi_dbm, OCP_K_SNR, (double)r->snr_db,
                               OCP_K_LEN, (unsigned)r->len, OCP_K_HEX, hex);
-            break;
-        }
-        case OCP_EVENT_RECORD_LEGACY: {
-            const ocp_event_legacy_t *r = &event->data.legacy;
-            char hex[64 * 2 + 1];
-            if (!lora_bytes_to_hex(r->payload, r->len, hex, sizeof hex, NULL)) return;
-            emit_event_fields(event_kind_name(event->kind), "%s=%d %s=%u %s=%s",
-                              OCP_K_RSSI, r->rssi_dbm, OCP_K_LEN, (unsigned)r->len, OCP_K_HEX, hex);
             break;
         }
         case OCP_EVENT_RECORD_KIND_COUNT:

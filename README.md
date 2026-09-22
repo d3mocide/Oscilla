@@ -11,7 +11,7 @@
 [![Zero Transmit](https://img.shields.io/badge/INVARIANT-ZERO_TRANSMIT-85E37D?style=flat-square&labelColor=060806)](AGENTS.md#3-invariants--do-not-break-these)
 [![Architecture](https://img.shields.io/badge/CONTRACT-TWO_MACHINES_%C2%B7_ONE_WIRE-F5D658?style=flat-square&labelColor=060806)](protocol/OCP-SPEC.md)
 [![Status](https://img.shields.io/badge/ROADMAP-P4_COMPLETE_%C2%B7_P5_NEXT-87D5CB?style=flat-square&labelColor=060806)](ROADMAP.md)
-[![Radios](https://img.shields.io/badge/RADIOS-WI--FI_%C2%B7_BLE_%C2%B7_802.15.4_%C2%B7_SX1262-6C8A67?style=flat-square&labelColor=060806)](docs/hardware/c5-dual-radio-wiring.md)
+[![Radios](https://img.shields.io/badge/RADIOS-WI--FI_%C2%B7_BLE_%C2%B7_802.15.4_%C2%B7_SX1262-6C8A67?style=flat-square&labelColor=060806)](Research/c5-backpack-design.md)
 [![External Viewports](https://img.shields.io/badge/UI_SYSTEM-320%C3%97240_ILI9341-FAF4D3?style=flat-square&labelColor=060806)](docs/brand/oscilla-master-brand-ui-guide.html#external-display-cards)
 [![License](https://img.shields.io/badge/LICENSE-MIT-1D2A1F?style=flat-square&labelColor=060806)](LICENSE)
 
@@ -20,7 +20,7 @@
 **Wireless discovery, packet dissection, and field telemetry instrument for the M5Stack Cardputer ADV.**  
 *An open-source RF instrumentation initiative by **d3FRAG Networks**.*
 
-[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Dual-Radio Wiring (Rev E)](docs/hardware/c5-dual-radio-wiring.md) · [Backpack Build Guide](docs/hardware/dual-radio-build.html) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
+[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
 
 </div>
 
@@ -40,28 +40,26 @@ Oscilla splits physical responsibilities cleanly between two microcontrollers jo
 ```text
 ┌──────────────────────────────────────────────┐       4-Pin Grove Crossover Cable       ┌──────────────────────────────────────────────┐
 │                  THE DECK                    │      (UART 115200 8N1 · Crossover)      │                  THE PROBE                   │
-│            M5Stack Cardputer ADV             │◄───────────────────────────────────────►│        Seeed XIAO C5 Dual-Radio Backpack     │
+│            M5Stack Cardputer ADV             │◄───────────────────────────────────────►│        Seeed XIAO C5 Radio Backpack          │
 │                                              │      G2 (TX) ──► D7   G1 (RX) ◄── D6    │                                              │
 │  • ESP32-S3 Dual-Core (UI, Storage, GNSS)    │                                         │  • ESP32-C5 RISC-V (2.4 / 5 GHz Wi-Fi 6)     │
 │  • 56-Key Matrix Keyboard + Navigation D-Pad │           OSCILLA CONTROL PROTOCOL      │  • Bluetooth 5.0 LE (Coded PHY / 1M / 2M)    │
 │  • ST7789 240×135 Built-in Screen (Primary)  │           `protocol/ocp.h` Contract     │  • IEEE 802.15.4 MAC observer                 │
 │  • ILI9341 320×240 External Panel (P5 plan)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
-│  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • CC1101 extension planned (D-15)            │
+│  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • One external sub-GHz receiver (SX1262)     │
 │  • ATGM336H GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[WIFI]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
 └──────────────────────────────────────────────┘                                         └──────────────────────────────────────────────┘
 ```
 
-### Sub-GHz Architecture (SX1262 + planned CC1101)
+### Sub-GHz Architecture (SX1262)
 
-The C5 probe uses the SX1262 receiver today; the CC1101 is a planned D-15 extension sharing its SPI bus ([`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md), [D-15](docs/DECISIONS.md)):
+The C5 probe's v1 sub-GHz receiver is the Wio-SX1262. D-15 archives the
+former CC1101 experiment in the separate `cc1101` branch; it is not a product
+mode.
 
 | Peripheral           | Primary Band              | Demodulation Target              | Example Target Traffic                                       |
 | -------------------- | ------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | **Seeed Wio-SX1262** | **915 MHz** (862–930 MHz) | LoRa Chirp Spread Spectrum       | Meshtastic mesh, LoRaWAN sensors, decentralized telemetry    |
-| **TI CC1101 (planned)** | **433 MHz** (387–464 MHz) | Narrowband OOK, ASK, 2-FSK, GFSK | Legacy ISM weather stations, TPMS, security sensors, remotes |
-
-- **Pin-Efficient Shared Bus:** Both modules share SPI clock (`D8` / GPIO8), MOSI (`D10` / GPIO10), and MISO (`D9` / GPIO9). Wio chip select is dedicated on `D4` (GPIO23) and CC1101 chip select on `D3` (GPIO7). No extra pins are needed for CC1101 (SPI strobe reset + FIFO polling).
-- **Mutual Desense Prevention:** The planned CC1101 extension will schedule only one sub-GHz receive engine at a time (`lora_rx` XOR `legacy_rx`) and use independent, band-matched antennas.
 
 ### Why two machines?
 
@@ -111,7 +109,6 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | Document / Directory                                                             | Role & Authority                                                                    | Never                                           |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------- |
 | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md)               | **Hardware Authority (Rev D)**: Pins, rails, bus sharing, electrical limits.        | Write a pin constant from any other file.       |
-| [`docs/hardware/c5-dual-radio-wiring.md`](docs/hardware/c5-dual-radio-wiring.md) | **Dual-Radio Authority (Rev E)**: Wio-SX1262 + CC1101 shared SPI pinout & passives. | Share chip selects or combine antenna ports.    |
 | [`DESIGN.md`](DESIGN.md)                                                         | **Software Authority**: Architecture, task boundaries, module scope.                | Exceed documented scope without a decision.     |
 | [`protocol/`](protocol/)                                                         | **The Contract**: `ocp.h` (literals) + `OCP-SPEC.md` (wire behavior).               | Hardcode a verb or marker string anywhere else. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md)                                         | **Decision Register**: D-numbered records of resolved/deferred questions.           | Resolve a `⛔` decision by guessing.            |
@@ -122,8 +119,6 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | [`tools/`](tools/)                                                               | **Host Client & Verification**: CLI parser, REPL, and compliance test suites.       | Require hardware for protocol verification.     |
 | [`docs/brand/`](docs/brand/)                                                     | **Visual System**: Master Brand & UI Guide for primary and external displays.       | Deviate from brand color and font tokens.       |
 | [`docs/deck-ui-state.html`](docs/deck-ui-state.html)                             | **As-Built UI Reference**: what the deck actually renders today, read from `ui/*.cpp`. | Treat as design authority — that's `docs/brand/`. |
-| [`docs/hardware/dual-radio-build.html`](docs/hardware/dual-radio-build.html)      | **Bench Build Guide**: passives, shared SPI, and the assembly/verification order for the dual-radio backpack. | Substitute it for Rev D / Rev E when they disagree. |
-| [`docs/hardware/dual-radio-breadboard.html`](docs/hardware/dual-radio-breadboard.html) | **Breadboard Layout**: solderless layout, the Wio/XIAO footprint trap, and which gates a breadboard can prove. | Record gate 6/7 results from a breadboard. |
 
 ---
 

@@ -1,3 +1,17 @@
+## 2026-09-22 — D-15 resolved: archive CC1101 from the v1 backpack
+
+**Phase:** P3 decision · **By:** Codex + operator
+
+Resolved D-15 as **archived from v1**. The historical implementation remains
+on branch `cc1101`; it is not a supported runtime capability. `main` now
+contains one external sub-GHz receiver: the Wio-SX1262.
+
+Removed the CC1101 probe/deck implementation, its OCP surface, host tooling,
+and dual-radio build documentation. The C5/Wio and deck were reflashed with
+the matching simplified firmware and checked through the normal deck link.
+The retained software checks are `check_protocol.sh`, `git diff --check`, and
+both firmware builds. No field captures are recorded in this commit.
+
 ## 2026-09-22 — CC1101 hardware triangulation: breadboard, module, and C5 all ruled out
 
 **Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will

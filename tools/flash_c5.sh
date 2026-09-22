@@ -34,7 +34,7 @@ if [ "$#" -gt 1 ]; then
     exit 2
 fi
 
-port="${1:-${C5_PORT:-/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_38:44:BE:1F:4F:A0-if00}}"
+port="${1:-${C5_PORT:-/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_38:44:BE:BF:D2:94-if00}}"
 build="firmware-c5/build-$variant"
 
 for image in bootloader/bootloader.bin partition_table/partition-table.bin oscilla-c5.bin; do

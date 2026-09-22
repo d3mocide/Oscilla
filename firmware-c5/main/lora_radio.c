@@ -141,9 +141,8 @@ static bool rx_read_opcode_allowed(uint8_t opcode)
 static void cs_select(void)   { gpio_set_level(PIN_NSS, 0); }
 static void cs_deselect(void) { gpio_set_level(PIN_NSS, 1); }
 
-/* Bounded: BUSY must fall before any new command, and it never gets to wait
- * forever — fault, never hang (Rev D §4.3's rule, same one the CC1101 CSn
- * and Wio harness bring-up already commit to). */
+/* Bounded: BUSY must fall before any new command, or fault rather than hang.
+ * See Rev D §4.3. */
 static esp_err_t wait_busy_low(void)
 {
     int64_t deadline = esp_timer_get_time() + (int64_t)BUSY_TIMEOUT_MS * 1000;

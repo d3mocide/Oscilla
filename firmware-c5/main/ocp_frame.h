@@ -30,7 +30,6 @@ typedef enum {
     OCP_EVENT_RECORD_CHAN,
     OCP_EVENT_RECORD_ZIG,
     OCP_EVENT_RECORD_LORA,
-    OCP_EVENT_RECORD_LEGACY,
     OCP_EVENT_RECORD_KIND_COUNT,
 } ocp_event_record_kind_t;
 
@@ -61,9 +60,6 @@ typedef struct { uint8_t channel; uint32_t packets; } ocp_event_sniff_t;
 typedef struct { uint8_t channel; uint32_t packets; } ocp_event_chan_t;
 typedef struct { uint16_t pan; uint8_t channel, lqi; int8_t rssi; } ocp_event_zig_t;
 typedef struct { uint8_t len, payload[255]; int16_t rssi_dbm; float snr_db; } ocp_event_lora_t;
-/* CC1101 FIFO drain chunk: 64 bytes is the chip's own FIFO depth (datasheet
- * §20), so one drain can never exceed it. */
-typedef struct { uint8_t len, payload[64]; int16_t rssi_dbm; } ocp_event_legacy_t;
 
 typedef struct {
     ocp_event_record_kind_t kind;
@@ -78,7 +74,6 @@ typedef struct {
         ocp_event_chan_t chan;
         ocp_event_zig_t zig;
         ocp_event_lora_t lora;
-        ocp_event_legacy_t legacy;
     } data;
 } ocp_event_record_t;
 

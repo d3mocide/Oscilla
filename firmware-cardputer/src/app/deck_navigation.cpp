@@ -17,7 +17,6 @@ constexpr NavItem kCards[] = {
     {Screen::Beacons,  Section::Observe, "BLE SCAN"},
     {Screen::Zig,      Section::Observe, "802.15.4"},
     {Screen::SubGhz,   Section::Observe, "LORA RX"},
-    {Screen::Legacy,   Section::Observe, "CC1101 RX"},
     {Screen::Spectrum, Section::Analyze, "PACKET MONITOR"},
     {Screen::Contacts, Section::Analyze, "SNIFFER"},
     {Screen::Deauth,   Section::Analyze, "DEAUTH DETECT"},
