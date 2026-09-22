@@ -42,6 +42,7 @@ struct LoraHealth {
     uint32_t irq_drop = 0;
     uint32_t radio_drop = 0;
     uint32_t ocp_drop = 0;
+    uint32_t hw_fault = 0;
 };
 
 class LoraModel {

@@ -1,3 +1,27 @@
+## 2026-09-22 — LSI-7: mid-session SX1262 hardware fault counter
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Scoped and implemented LSI-7, tracked as "planned, scope not designed" until
+now. Found a concrete gap while reading `lora_radio.c`'s task loop: if the
+`GetIrqStatus` SPI read fails while a session is already running, the task
+silently `continue`s — no counter, no log — and the same is true if the
+matching `ClearIrqStatus` write fails after a successful read. Both are now
+counted in a new `hw_fault` field on `lora_radio_stats_t`, distinct from
+`irq_drop` (ISR-to-task queue full) and from the pre-existing one-shot
+`[ERR] hwfault` `lora_listen` can return before a session even starts.
+
+Threaded end to end: `OCP_K_HW_FAULT` in `ocp.h`, `lora_status`'s wire
+format and `OCP-SPEC.md`, `LoraModel::absorbStatus` (host-tested for both a
+complete reply and one missing only `hw_fault`, confirming the field is
+mandatory, not silently defaulted), the Sub-GHz view's health line and its
+drop-warning color, and the health CSV sidecar (`lora_session_format`,
+header and row, host-tested). Host suite passed (`lora model test` now
+18/18), OCP selftest passed, both real board builds passed. Not yet
+hardware-confirmed — there's no known way to reproduce a real SPI fault on
+the bench on demand, so this waits for either an incidental occurrence or a
+deliberately induced one (loose harness wire, bus contention) next session.
+
 ## 2026-09-22 — LSI-5 soak: known-source pass, source-absent control inconclusive
 
 **Phase:** P3 follow-up · **By:** Claude + operator

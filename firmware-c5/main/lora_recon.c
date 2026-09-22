@@ -207,13 +207,13 @@ void lora_cmd_status(void)
     lora_radio_get_stats(&stats);
     uint32_t ocp_drop = ocp_event_drop_count(OCP_EVENT_RECORD_LORA) - s_ocp_lora_drop_start;
     if (!s_configured) {
-        ocp_emit_compact(OCP_MARK_LORA, "%s=%d configured=0 %s=0 %s=0 %s=0 %s=0 %s=0 %s=%lu",
+        ocp_emit_compact(OCP_MARK_LORA, "%s=%d configured=0 %s=0 %s=0 %s=0 %s=0 %s=0 %s=%lu %s=0",
                          OCP_K_RUNNING, running ? 1 : 0,
                          OCP_K_RX, OCP_K_CRC_ERR, OCP_K_HEADER_ERR, OCP_K_IRQ_DROP, OCP_K_RADIO_DROP,
-                         OCP_K_OCP_DROP, (unsigned long)ocp_drop);
+                         OCP_K_OCP_DROP, (unsigned long)ocp_drop, OCP_K_HW_FAULT);
         return;
     }
-    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu",
+    ocp_emit_compact(OCP_MARK_LORA, "%s=%d %s=%lu %s=%d %s=%d %s=%ld %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu",
                      OCP_K_RUNNING, running ? 1 : 0,
                      OCP_K_FREQ, (unsigned long)s_params.freq_hz, OCP_K_SF, s_params.sf,
                      OCP_K_BW, bw_to_khz(s_params.bw), OCP_K_CR, (long)s_params.cr,
@@ -222,7 +222,8 @@ void lora_cmd_status(void)
                      OCP_K_HEADER_ERR, (unsigned long)stats.header_err,
                      OCP_K_IRQ_DROP, (unsigned long)stats.irq_drop,
                      OCP_K_RADIO_DROP, (unsigned long)stats.event_drop,
-                     OCP_K_OCP_DROP, (unsigned long)ocp_drop);
+                     OCP_K_OCP_DROP, (unsigned long)ocp_drop,
+                     OCP_K_HW_FAULT, (unsigned long)stats.hw_fault);
 }
 
 bool lora_cmd_stop(void)

@@ -38,7 +38,7 @@ discovery sweep, or any transmit-capable feature.
 | LSI-4 | Surface the same state on the deck without claiming RF meaning from an empty counter. | The Sub-GHz view displays profile/configuration and the latest health snapshot. | Hardware-confirmed 2026-09-22 |
 | LSI-5 | Establish a repeatable receive-only soak procedure. | Controlled known-source and source-absent runs, build identity, device/antenna setup, counter deltas, and manual log inspection in `docs/hardware/`. | Known-source run hardware-confirmed 2026-09-22 (clean, no stalls/drops); source-absent control run but did not reach a genuine no-signal condition (bench too close to a strong repeater) — see [`docs/hardware/lora-session-soak.md`](hardware/lora-session-soak.md) |
 | LSI-6 | Complete combined power/SD/TFT qualification after the panel arrives. | P6 current/supply measurements and a multi-hour all-subsystem soak. | Blocked on P5 hardware |
-| LSI-7 | Track mid-session SX1262 hardware faults, not just queue drops and CRC/header errors. Today a hardware fault only surfaces as a one-shot `[ERR] hwfault` at `lora_listen`; nothing counts a fault that happens while already running. | TBD — needs a definition of what counts as a running-session fault on this radio and where in `lora_radio.c`'s task loop it would be observed, before any counter or wire field is added. | Planned (proposed 2026-09-22, scope not designed) |
+| LSI-7 | Track mid-session SX1262 hardware faults, not just queue drops and CRC/header errors. Scoped to a concrete gap found in `lora_radio.c`'s task loop: a `GetIrqStatus`/`ClearIrqStatus` SPI transaction failing while already listening was previously silent — no counter, no log. | New `hw_fault` counter, wired through `lora_status`, the deck model, the Sub-GHz view, and the health CSV sidecar. Host-tested (partial-reply rejection included). | Implemented and host-tested 2026-09-22; hardware confirmation pending |
 
 ## Session contract
 
@@ -51,6 +51,7 @@ write/drop counters separately. A health row therefore distinguishes:
 | `crc_err` / `header_err` | The radio reported that receive failure. | Total on-air traffic or interference level. |
 | `irq_drop` / `radio_drop` | Firmware could not enqueue an IRQ or radio event. | An RF-layer loss estimate beyond that queue boundary. |
 | `ocp_drop` | The probe could not enqueue a LoRa record for OCP delivery. | A deck or SD write failure. |
+| `hw_fault` | A `GetIrqStatus`/`ClearIrqStatus` SPI transaction to the SX1262 failed while a session was already running. | The chip is unresponsive going forward — a single bus glitch and a wedged chip both increment this the same way. |
 | deck SD counters | The deck could not persist a row or health record. | A C5 radio loss. |
 
 All counters are monotonic within a listener session. Starting a listener is

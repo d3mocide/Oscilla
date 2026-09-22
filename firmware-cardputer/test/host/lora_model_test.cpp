@@ -86,21 +86,29 @@ int main()
     }
     {
         model::LoraModel m;
-        check(!m.absorbStatus(eventOf("[LORA] running=1 rx=3 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 ocp_drop=6 END\n")),
+        check(!m.absorbStatus(eventOf("[LORA] running=1 rx=3 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 ocp_drop=6 hw_fault=7 END\n")),
               "status parser accepts replies, not events");
         ocp::Parser p;
         ocp::Item reply;
-        const std::string wire = "[LORA] running=1 rx=3 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 ocp_drop=6 END\n";
+        const std::string wire = "[LORA] running=1 rx=3 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 ocp_drop=6 hw_fault=7 END\n";
         p.feed(reinterpret_cast<const uint8_t *>(wire.data()), wire.size(),
                [&](ocp::Item &&it) { reply = std::move(it); });
         check(m.absorbStatus(reply) && m.health().valid && m.health().rx == 3 && m.health().crc_err == 1 &&
-              m.health().header_err == 2 && m.health().irq_drop == 4 && m.health().radio_drop == 5 && m.health().ocp_drop == 6,
+              m.health().header_err == 2 && m.health().irq_drop == 4 && m.health().radio_drop == 5 &&
+              m.health().ocp_drop == 6 && m.health().hw_fault == 7,
               "complete C5 health snapshot is parsed as one unit");
         const std::string partial_wire = "[LORA] running=1 rx=4 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 END\n";
         ocp::Parser partial_parser;
         partial_parser.feed(reinterpret_cast<const uint8_t *>(partial_wire.data()), partial_wire.size(),
                             [&](ocp::Item &&it) { reply = std::move(it); });
         check(!m.absorbStatus(reply) && m.health().rx == 3, "partial health reply cannot overwrite the last complete snapshot");
+        const std::string no_hw_fault_wire =
+            "[LORA] running=1 rx=9 crc_err=1 header_err=2 irq_drop=4 radio_drop=5 ocp_drop=6 END\n";
+        ocp::Parser no_hw_fault_parser;
+        no_hw_fault_parser.feed(reinterpret_cast<const uint8_t *>(no_hw_fault_wire.data()), no_hw_fault_wire.size(),
+                                [&](ocp::Item &&it) { reply = std::move(it); });
+        check(!m.absorbStatus(reply) && m.health().rx == 3,
+              "a reply missing only hw_fault is rejected as partial, not silently defaulted");
     }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "lora model test FAILED" : "lora model test OK",

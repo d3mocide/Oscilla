@@ -23,7 +23,8 @@ std::string loraSessionManifest(uint32_t started_ms, const model::LoraModel &lor
 
 std::string loraHealthHeader()
 {
-    return "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,packet_rows,packet_drops,health_drops\n";
+    return "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,hw_fault,"
+           "packet_rows,packet_drops,health_drops\n";
 }
 
 std::string loraHealthRow(uint32_t ts_ms, const model::LoraHealth &health,
@@ -31,12 +32,13 @@ std::string loraHealthRow(uint32_t ts_ms, const model::LoraHealth &health,
                           uint32_t health_drops)
 {
     char row[192];
-    std::snprintf(row, sizeof row, "%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
+    std::snprintf(row, sizeof row, "%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
                   (unsigned long)ts_ms, (unsigned long)health.rx,
                   (unsigned long)health.crc_err, (unsigned long)health.header_err,
                   (unsigned long)health.irq_drop, (unsigned long)health.radio_drop,
-                  (unsigned long)health.ocp_drop, (unsigned long)packet_rows,
-                  (unsigned long)packet_drops, (unsigned long)health_drops);
+                  (unsigned long)health.ocp_drop, (unsigned long)health.hw_fault,
+                  (unsigned long)packet_rows, (unsigned long)packet_drops,
+                  (unsigned long)health_drops);
     return row;
 }
 

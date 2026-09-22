@@ -80,7 +80,10 @@ bool LoraModel::absorbStatus(const ocp::Item &reply)
     const long irq_drop = kvLong(reply, OCP_K_IRQ_DROP, 0, 2147483647L, -1);
     const long radio_drop = kvLong(reply, OCP_K_RADIO_DROP, 0, 2147483647L, -1);
     const long ocp_drop = kvLong(reply, OCP_K_OCP_DROP, 0, 2147483647L, -1);
-    if (rx < 0 || crc < 0 || header < 0 || irq_drop < 0 || radio_drop < 0 || ocp_drop < 0) return false;
+    const long hw_fault = kvLong(reply, OCP_K_HW_FAULT, 0, 2147483647L, -1);
+    if (rx < 0 || crc < 0 || header < 0 || irq_drop < 0 || radio_drop < 0 || ocp_drop < 0 || hw_fault < 0) {
+        return false;
+    }
 
     health_.valid = true;
     health_.rx = static_cast<uint32_t>(rx);
@@ -89,6 +92,7 @@ bool LoraModel::absorbStatus(const ocp::Item &reply)
     health_.irq_drop = static_cast<uint32_t>(irq_drop);
     health_.radio_drop = static_cast<uint32_t>(radio_drop);
     health_.ocp_drop = static_cast<uint32_t>(ocp_drop);
+    health_.hw_fault = static_cast<uint32_t>(hw_fault);
     return true;
 }
 

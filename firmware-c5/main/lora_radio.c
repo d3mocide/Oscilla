@@ -506,6 +506,7 @@ void lora_radio_get_stats(lora_radio_stats_t *out)
     out->header_err = s_stats.header_err;
     out->irq_drop = s_stats.irq_drop;
     out->event_drop = s_stats.event_drop;
+    out->hw_fault = s_stats.hw_fault;
 }
 
 /* ---- DIO1 ISR + radio task ------------------------------------------------ */
@@ -567,13 +568,18 @@ static void lora_task(void *arg)
          * 2026-09-13, docs/hardware/lora-harness.md). */
         uint8_t irq_raw[2];
         if (cmd_read(OP_GET_IRQ_STATUS, irq_raw, sizeof irq_raw) != ESP_OK) {
+            /* Can't know what fired, so nothing below can safely run this
+             * cycle. Counted, not just logged: a wedged bus here reproduces
+             * the same symptom as the original silent DIO1 stall
+             * (lora-harness.md) — an evidence gap this closes. */
+            s_stats.hw_fault++;
             xSemaphoreGive(s_lock);
             continue;
         }
         uint16_t irq = ((uint16_t)irq_raw[0] << 8) | irq_raw[1];
 
         uint8_t clear[2] = { (uint8_t)(irq >> 8), (uint8_t)irq };
-        cmd_write(OP_CLEAR_IRQ_STATUS, clear, sizeof clear);
+        if (cmd_write(OP_CLEAR_IRQ_STATUS, clear, sizeof clear) != ESP_OK) s_stats.hw_fault++;
 
         if (irq & IRQ_RX_DONE) {
             if (!(irq & (IRQ_CRC_ERR | IRQ_HEADER_ERR))) handle_rx_done();

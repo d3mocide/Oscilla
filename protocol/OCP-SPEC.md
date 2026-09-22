@@ -273,14 +273,18 @@ The verb table is not the whole story: an innocent verb could still call a trans
 > stop
 [STOP] lane=all running=1 END
 > lora_status
-[LORA] running=0 configured=0 rx=0 crc_err=0 header_err=0 irq_drop=0 radio_drop=0 ocp_drop=0 END
+[LORA] running=0 configured=0 rx=0 crc_err=0 header_err=0 irq_drop=0 radio_drop=0 ocp_drop=0 hw_fault=0 END
 ```
 
 When configured, `[LORA]` also carries `freq`, `sf`, `bw`, and `cr`.
-`rx`, `crc_err`, `header_err`, `irq_drop`, `radio_drop`, and `ocp_drop` are
-monotonic counters for the current listener session. They identify the radio,
-queue, and OCP boundaries respectively; an absent packet is not itself an
-error indication or an RF traffic measurement.
+`rx`, `crc_err`, `header_err`, `irq_drop`, `radio_drop`, `ocp_drop`, and
+`hw_fault` are monotonic counters for the current listener session. They
+identify the radio, queue, OCP, and SPI-transaction boundaries respectively;
+an absent packet is not itself an error indication or an RF traffic
+measurement. `hw_fault` counts a `GetIrqStatus`/`ClearIrqStatus` SPI
+transaction failing while already listening — distinct from `irq_drop`
+(the queue between the ISR and the radio task was full) and from the
+one-shot `[ERR] hwfault` `lora_listen` can return before a session starts.
 
 ---
 

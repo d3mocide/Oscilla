@@ -121,9 +121,13 @@ session-integrity code. It does mean:
   physical distance/shielding from the repeater, or tuning off-frequency
   (blocked on the not-yet-built manual-profile UI, tracked as a deferred
   decision in `docs/lora-session-integrity.md`).
-- Worth trying next: move the Wio harness to a location with weaker known
-  coverage, or wrap it in a shielded enclosure/bag, and repeat Run 2 to
-  finally exercise the zero-packet path.
+- Worth trying next, and simpler than relocating the bench: power down the
+  known nearby repeater used for Run 1 and repeat Run 2 with the antenna
+  reconnected. Removes the source instead of attenuating the receiver, which
+  is the actual confound this attempt ran into. Caveat: MeshCore floods
+  across every repeater in range, so this only reads as "silent" if that
+  repeater is the sole nearby node — worth noting in the next write-up
+  whether that's known to be true or just assumed.
 
 LSI-5's known-source requirement is satisfied by Run 1. The source-absent
 requirement remains open pending a run that actually achieves low signal.

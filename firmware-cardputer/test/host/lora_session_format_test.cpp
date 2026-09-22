@@ -17,9 +17,11 @@ int main()
     failures += !manifest_ok;
 
     model::LoraHealth h;
-    h.valid = true; h.rx = 3; h.crc_err = 1; h.header_err = 2; h.irq_drop = 4; h.radio_drop = 5; h.ocp_drop = 6;
-    const bool header_ok = storage::loraHealthHeader() == "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,packet_rows,packet_drops,health_drops\n";
-    const bool row_ok = storage::loraHealthRow(99, h, 7, 8, 9) == "99,3,1,2,4,5,6,7,8,9\n";
+    h.valid = true; h.rx = 3; h.crc_err = 1; h.header_err = 2; h.irq_drop = 4; h.radio_drop = 5;
+    h.ocp_drop = 6; h.hw_fault = 7;
+    const bool header_ok = storage::loraHealthHeader() ==
+        "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,hw_fault,packet_rows,packet_drops,health_drops\n";
+    const bool row_ok = storage::loraHealthRow(99, h, 8, 9, 10) == "99,3,1,2,4,5,6,7,8,9,10\n";
     std::printf("  %s  health sidecar schema is stable\n", header_ok && row_ok ? "PASS" : "FAIL");
     failures += !(header_ok && row_ok);
     std::printf("\n%s\n", failures ? "lora session format test FAILED" : "lora session format test OK");
