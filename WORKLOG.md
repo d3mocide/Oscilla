@@ -1,3 +1,41 @@
+## 2026-09-23 — LoRa review fixes hardware-confirmed: DIO1 stall, config-on-ack, busy-reject
+
+**Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
+
+Ran the bench pass the 14107f6/c9a4bed commits were flashed for but not yet
+verified on. Pre-flash gates (`check_protocol.sh`, `ocp_repl.py --selftest`,
+`build_firmware.sh`) all green, then both boards reflashed
+(probe `--uart`/Grove variant, deck `cardputer-adv`) and driven over the
+deck's USB debug console — same remote-no-keypress approach as LSI-8's
+2026-09-22 hardware confirmation, since `lora_manual` bypasses screen/cursor
+gating by design. All three checks receive/config-only, nothing transmitted.
+
+**DIO1 re-service / stall fix:** 90 s MeshCore listen (`meshcore_us_ca`
+profile), dumped every 15 s. `rx` climbed monotonically (3→6→7→11→12→12),
+`hw_fault` stayed `0` throughout — the re-service and requeue-dedup changes
+introduced no false `hw_fault` counting and no regression in reception.
+
+**Config-on-ack fix:** `lora_manual 906875000 11 63 1` (bandwidth `63` isn't
+in the SX1262's allowed set) drew `err code=badarg` from the probe, and the
+deck's `dump` showed `lora_cfg=meshcore_us_ca@910525000/sync18` unchanged
+before and after — the rejected config never touched the model, confirming
+`lora_config_pending_` really is ack-gated on real hardware, not just in the
+host suite.
+
+**Busy-reject fix:** with the lane listening, `lora_manual 906875000 11 250
+1 43` (otherwise-valid Meshtastic params) drew `err code=busy` — the probe
+correctly refuses `lora_config` while `lora_radio_is_running()`, matching
+14107f6's provenance fix.
+
+Not exercised this pass: the two defects `c9a4bed` specifically targeted
+(stale `lora_config_pending_` surviving a client-side timeout; DIO1 double-
+service double-counting an empty status read as `hw_fault`) don't have a
+console-reachable trigger — both need either a deliberately slow/dropped
+`[CFG]` reply or an injected bus glitch, neither of which this bench pass
+attempted. The mainline paths they sit next to (ack-gated commit, DIO1
+re-service under real traffic) are now hardware-confirmed; the edge cases
+themselves are still host-suite-only.
+
 ## 2026-09-22 — LoRa review fixes: register-write audit, config-on-ack, DIO1 stall
 
 **Phase:** P3 follow-up · **By:** Claude (Opus) + operator
