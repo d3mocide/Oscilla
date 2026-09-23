@@ -84,7 +84,7 @@ typedef struct {
     uint32_t header_err;
     uint32_t irq_drop;
     uint32_t event_drop;
-    uint32_t hw_fault;   /* GetIrqStatus/ClearIrqStatus SPI transaction failed while running */
+    uint32_t hw_fault;   /* GetIrqStatus/ClearIrqStatus failed, or read back empty, while running */
 } lora_radio_stats_t;
 
 /* SPI bus + GPIO bring-up. Call once at boot. Idempotent-safe to call even

@@ -89,6 +89,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         if (s != ocp::LinkState::Ready) {
             phy_handoff_.clear();
             lora_listen_pending_ = false;
+            lora_config_pending_ = false;
             scan_pending_ = false;
             wifi_continuous_pending_ = false;
             zig_start_pending_ = false;
@@ -175,6 +176,7 @@ void DeckApp::onReply(const ocp::Item &it)
 
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
+        lora_config_pending_ = false;   /* rejected: probe and model both keep the previous config */
         if (wifi_continuous_pending_) {
             wifi_continuous_pending_ = false;
             scan_.stop();
@@ -216,6 +218,12 @@ void DeckApp::onReply(const ocp::Item &it)
     }
 
     last_reply_ = it.tag;
+    if (it.tag == OCP_MARK_CFG && lora_config_pending_) {
+        lora_config_pending_ = false;
+        const auto &c = lora_config_sent_;
+        lora_.configured(c.freq_hz, c.sf, c.bw_khz, c.cr, c.sync_word, c.profile_token);
+        notice("");
+    }
     if (it.tag == OCP_MARK_BLE && bt_scan_pending_) {
         bt_scan_pending_ = false;
     }
@@ -322,8 +330,8 @@ void DeckApp::onReply(const ocp::Item &it)
             lora_.begin();
             lora_cursor_ = 0;
             log(storage::loraLogBegin(lora_) ? "lora log: recording" : "lora log: sd unavailable, not recording this session");
-        } else {
-            log("lora reply");
+        } else if (!health_updated) {
+            log("lora reply");   /* routine 10s health polls stay quiet */
         }
     } else if (it.tag == OCP_MARK_CFG) {
         /* Shared reply marker (packet_monitor and deauth_detector both use
@@ -539,8 +547,9 @@ void DeckApp::sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8
         }, now_ms);
         return;
     }
-    lora_.configured(freq_hz, sf, bw_khz, cr, sync_word, profile_token);
-    notice("");
+    lora_config_sent_ = {freq_hz, sf, bw_khz, cr, sync_word, profile_token};
+    lora_config_pending_ = true;   /* committed to lora_ only on [CFG], see onReply() */
+    notice("configuring lora...");
 }
 
 /* Cycles with 'x' (Screen::SubGhz), applies with 'c'. Named presets only —
@@ -1024,6 +1033,9 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
         bool ok = model::parseUnsigned(tok[0], &freq) && model::parseUnsigned(tok[1], &sf) &&
                   model::parseUnsigned(tok[2], &bw) && model::parseUnsigned(tok[3], &cr);
         if (ok && n == 5) ok = model::parseUnsigned(tok[4], &sync) && sync <= 255;
+        /* Bound before the narrowing casts below; the probe still owns the
+         * real SX1262 range checks and answers badarg on anything else. */
+        if (ok) ok = freq <= UINT32_MAX && sf <= 255 && bw <= 65535 && cr <= 255;
         if (!ok) { log("debug: lora_manual args must be whole unsigned integers, sync_word 0..255"); return; }
         sendLoraConfig(static_cast<uint32_t>(freq), static_cast<int>(sf), static_cast<int>(bw),
                        static_cast<int>(cr), static_cast<uint8_t>(sync), "manual", now_ms);
@@ -1068,6 +1080,12 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
             " zig_nodes=" + std::to_string(zig_.nodes().size()) +
             " zig_active=" + std::string(zig_.active() ? "1" : "0") +
             " lora_pkts=" + std::to_string(lora_.packets().size()) +
+            " lora_cfg=" + (lora_.hasConfig() ? lora_.profile() + "@" + std::to_string(lora_.freqHz()) +
+                                                    "/sync" + std::to_string(lora_.syncWord())
+                                              : std::string("none")) +
+            " lora_active=" + std::string(lora_.active() ? "1" : "0") +
+            " lora_rx=" + std::to_string(lora_.health().rx) +
+            " lora_hw_fault=" + std::to_string(lora_.health().hw_fault) +
             " deauth_evt=" + std::to_string(deauth_.events().size()) +
             " bt_devices=" + std::to_string(bt_.devices().size()) +
             " bt_trackers=" + std::to_string(bt_.deviceTrackerCount()) +

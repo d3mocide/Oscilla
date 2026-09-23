@@ -46,6 +46,7 @@ static const char *TAG = "lora_radio";
 #define SPI_HOST_ID       SPI2_HOST
 #define SPI_INITIAL_HZ    1000000     /* Rev D §4: start ~1 MHz */
 #define BUSY_TIMEOUT_MS   1000        /* covers the 3.5 ms full calibration with generous margin */
+#define DIO1_RETRY_MS     10          /* re-service delay while DIO1 stays high */
 
 /* Opcodes, SX1261/2 datasheet §11 command tables. */
 #define OP_SET_SLEEP              0x84
@@ -125,7 +126,6 @@ static bool rx_write_opcode_allowed(uint8_t opcode)
         case OP_SET_PACKET_PARAMS:
         case OP_SET_BUFFER_BASE_ADDR:
         case OP_CLEAR_DEVICE_ERRORS:
-        case OP_WRITE_REGISTER:
             return true;
         default:
             return false;
@@ -228,12 +228,20 @@ static esp_err_t read_buffer(uint8_t offset, uint8_t *out, size_t len)
     return err;
 }
 
+/* Register writes are allowlisted by address, the same way cmd_write() is
+ * by opcode: PA/TX-clamp registers stay unreachable (D-8). The whole
+ * [addr, addr+len) span must fall inside one allowed register block. */
+static bool rx_register_write_allowed(uint16_t addr, size_t len)
+{
+    return addr == REG_LORA_SYNC_WORD_MSB && len == 2;
+}
+
 /* WriteRegister's own shape: opcode, 16-bit address (MSB first), then data —
  * distinct from cmd_write()'s opcode+payload commands, which have no
  * separate address field. No response expected beyond the status byte. */
 static esp_err_t write_register(uint16_t addr, const uint8_t *data, size_t len)
 {
-    if (!rx_write_opcode_allowed(OP_WRITE_REGISTER)) return ESP_ERR_NOT_SUPPORTED;
+    if (!rx_register_write_allowed(addr, len)) return ESP_ERR_NOT_SUPPORTED;
     esp_err_t err = wait_busy_low();
     if (err != ESP_OK) return err;
 
@@ -594,6 +602,19 @@ static void queue_radio_event(lora_evt_kind_t kind)
     if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) s_stats.event_drop++;
 }
 
+/* DIO1 is edge-triggered: still high after a pass means an IRQ bit was
+ * never cleared (failed read/clear) or another latched mid-service, and no
+ * new edge will ever announce it — the lora-harness.md silent-stall shape.
+ * Re-drive the loop from the level instead. The delay is a yield, so a
+ * persistently failing bus can't starve the single core (AGENTS gotcha 6). */
+static void requeue_if_dio1_high(void)
+{
+    if (!s_running || !gpio_get_level(PIN_DIO1)) return;
+    vTaskDelay(pdMS_TO_TICKS(DIO1_RETRY_MS));
+    uint8_t tag = 1;
+    (void)xQueueSend(s_dio1_queue, &tag, 0);   /* full queue already guarantees another pass */
+}
+
 static void lora_task(void *arg)
 {
     (void)arg;
@@ -617,14 +638,16 @@ static void lora_task(void *arg)
         uint8_t irq_raw[2];
         if (cmd_read(OP_GET_IRQ_STATUS, irq_raw, sizeof irq_raw) != ESP_OK) {
             /* Can't know what fired, so nothing below can safely run this
-             * cycle. Counted, not just logged: a wedged bus here reproduces
-             * the same symptom as the original silent DIO1 stall
-             * (lora-harness.md) — an evidence gap this closes. */
+             * cycle; requeue_if_dio1_high() retries it. */
             s_stats.hw_fault++;
             xSemaphoreGive(s_lock);
+            requeue_if_dio1_high();
             continue;
         }
         uint16_t irq = ((uint16_t)irq_raw[0] << 8) | irq_raw[1];
+        /* Only reached via a DIO1 edge or a still-high DIO1: an empty status
+         * means the read itself was wrong, not that nothing fired. */
+        if (irq == 0) s_stats.hw_fault++;
 
         uint8_t clear[2] = { (uint8_t)(irq >> 8), (uint8_t)irq };
         if (cmd_write(OP_CLEAR_IRQ_STATUS, clear, sizeof clear) != ESP_OK) s_stats.hw_fault++;
@@ -645,5 +668,6 @@ static void lora_task(void *arg)
         }
 
         xSemaphoreGive(s_lock);
+        requeue_if_dio1_high();
     }
 }

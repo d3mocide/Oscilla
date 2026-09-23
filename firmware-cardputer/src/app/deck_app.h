@@ -182,6 +182,20 @@ private:
      * confirms, so the [LORA]/error reply is what triggers lora_.begin()
      * and storage::loraLogBegin(), not the optimistic send. */
     bool lora_listen_pending_ = false;
+    /* Same rule for lora_config: the model (and so the display and the next
+     * session manifest) only takes the new parameters once [CFG] confirms
+     * the probe accepted them. A rejected config leaves both sides on their
+     * previous values. */
+    struct PendingLoraConfig {
+        uint32_t freq_hz;
+        int sf;
+        int bw_khz;
+        int cr;
+        uint8_t sync_word;
+        const char *profile_token;   /* static storage: kLoraProfiles or a literal */
+    };
+    bool lora_config_pending_ = false;
+    PendingLoraConfig lora_config_sent_{};
     size_t deauth_cursor_ = 0;
     size_t anti_cursor_ = 0;
     size_t bt_cursor_ = 0;

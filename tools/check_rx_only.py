@@ -123,6 +123,9 @@ LORA_RX_READ_OPCODES = {
     "OP_GET_STATUS", "OP_GET_DEVICE_ERRORS",
 }
 LORA_FORBIDDEN_OPCODE_VALUES = {"0x83", "0x8e", "0x95", "0xd1", "0xd2"}
+# SX1262 registers the driver may write, name -> address. PA/TX-clamp/OCP
+# registers must never appear here (D-8).
+LORA_RX_WRITE_REGISTERS = {"REG_LORA_SYNC_WORD_MSB": "0x0740"}
 
 
 def configuration_problems(root: Path) -> list[str]:
@@ -176,6 +179,15 @@ def configuration_problems(root: Path) -> list[str]:
                 continue
             if first not in LORA_RX_READ_OPCODES:
                 problems.append(f"firmware-c5/main/lora_radio.c: cmd_read opcode is not RX-allowlisted: {first}")
+        for match in re.finditer(r"\bwrite_register\s*\(([^)]*)\)", code, re.DOTALL):
+            first = match.group(1).split(",", 1)[0].strip()
+            if first.startswith("uint16_t"):
+                continue
+            if first not in LORA_RX_WRITE_REGISTERS:
+                problems.append(f"firmware-c5/main/lora_radio.c: write_register address is not RX-allowlisted: {first}")
+        for name, value in re.findall(r"#define\s+(REG_\w+)\s+(0x[0-9A-Fa-f]+)", code):
+            if LORA_RX_WRITE_REGISTERS.get(name, "").lower() != value.lower():
+                problems.append(f"firmware-c5/main/lora_radio.c: register {name}={value} is not RX-allowlisted")
 
     return problems
 

@@ -282,17 +282,24 @@ When configured, `[LORA]` also carries `freq`, `sf`, `bw`, and `cr`.
 identify the radio, queue, OCP, and SPI-transaction boundaries respectively;
 an absent packet is not itself an error indication or an RF traffic
 measurement. `hw_fault` counts a `GetIrqStatus`/`ClearIrqStatus` SPI
-transaction failing while already listening — distinct from `irq_drop`
-(the queue between the ISR and the radio task was full) and from the
-one-shot `[ERR] hwfault` `lora_listen` can return before a session starts.
+transaction failing, or an IRQ status reading back empty while DIO1 was
+asserted, while already listening — distinct from `irq_drop` (the queue
+between the ISR and the radio task was full) and from the one-shot
+`[ERR] hwfault` `lora_listen` can return before a session starts. The deck
+treats a `[LORA]` status reply missing any of these counters as partial and
+ignores it, so a deck and probe built from different `ocp.h` revisions
+report no health rather than wrong health.
 
 `lora_config <freq_hz> <sf> <bw_khz> <cr> [sync_word]` takes an optional
 5th argument, decimal 0..255, the LoRa sync word — a receive filter, not
 cosmetic: the SX1262 only raises an RX interrupt for a matching sync word.
-Omitted, it defaults to `18` (`0x12`), which is also MeshCore's own sync
-word, so every caller written before this argument existed keeps behaving
-exactly as it did. The `[CFG]` reply and `[LORA]`'s `lora_listen`/
-`lora_status` lines all echo the active value back as `sync`.
+Omitted, it defaults to `18` (`0x12`): the chip's own reset value for this
+register (the private-network sync word) and also MeshCore's, so every
+caller written before this argument existed keeps behaving exactly as it
+did. The `[CFG]` reply and `[LORA]`'s `lora_listen`/`lora_status` lines
+all echo the active value back as `sync`. `lora_config` while a listener is
+running answers `[ERR] code=busy` and leaves the active configuration
+unchanged — stop the LoRa lane first.
 
 ---
 

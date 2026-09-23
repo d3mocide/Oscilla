@@ -1,7 +1,7 @@
-/* lora_profiles_test.cpp — pins the sourced preset values in
- * model/lora_profiles.h so a typo or an "improvement" without a source
- * can't silently drift from what LoRaTrace-RX's channel_plans.h verified
- * against upstream firmware. */
+/* lora_profiles_test.cpp — change detector for model/lora_profiles.h.
+ * The expected values here are a second copy, not an independent source:
+ * this catches an accidental edit, not a wrong citation. Any intended
+ * change must update both, with a source (see the header's own comment). */
 
 #include <cstdio>
 #include <cstring>

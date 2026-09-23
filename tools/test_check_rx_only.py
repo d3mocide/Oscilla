@@ -55,6 +55,14 @@ def main() -> int:
          "#define OP_SET_SLEEP              0x84",
          "#define OP_SET_TX                0x83\n#define OP_SET_SLEEP              0x84\nstatic void forbidden_tx_opcode(void) { cmd_write(OP_SET_TX, NULL, 0); }",
          "SX1262 SetTx opcode introduced"),
+        ("firmware-c5/main/lora_radio.c",
+         "return write_register(REG_LORA_SYNC_WORD_MSB, data, sizeof data);",
+         "return write_register(0x08D8, data, sizeof data);",
+         "SX1262 register write to a non-allowlisted address"),
+        ("firmware-c5/main/lora_radio.c",
+         "#define REG_LORA_SYNC_WORD_MSB    0x0740",
+         "#define REG_LORA_SYNC_WORD_MSB    0x08E7",
+         "SX1262 allowlisted register name repointed at another address"),
         ("firmware-c5/main/zig_radio.c",
          "esp_ieee802154_set_promiscuous(true)",
          "esp_ieee802154_set_promiscuous(false)",
@@ -63,7 +71,7 @@ def main() -> int:
     for rel, old, new, label in mutations:
         with checkout() as tmp:
             expect_fail(Path(tmp), rel, old, new, label)
-    print("receive-only mutation tests OK: baseline plus 4 rejected mutations")
+    print(f"receive-only mutation tests OK: baseline plus {len(mutations)} rejected mutations")
     return 0
 
 

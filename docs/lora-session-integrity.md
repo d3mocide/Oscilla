@@ -57,7 +57,7 @@ write/drop counters separately. A health row therefore distinguishes:
 | `crc_err` / `header_err` | The radio reported that receive failure. | Total on-air traffic or interference level. |
 | `irq_drop` / `radio_drop` | Firmware could not enqueue an IRQ or radio event. | An RF-layer loss estimate beyond that queue boundary. |
 | `ocp_drop` | The probe could not enqueue a LoRa record for OCP delivery. | A deck or SD write failure. |
-| `hw_fault` | A `GetIrqStatus`/`ClearIrqStatus` SPI transaction to the SX1262 failed while a session was already running. | The chip is unresponsive going forward — a single bus glitch and a wedged chip both increment this the same way. |
+| `hw_fault` | A `GetIrqStatus`/`ClearIrqStatus` SPI transaction to the SX1262 failed, or the IRQ status read back empty while DIO1 was asserted, during a running session. The radio task re-services a still-asserted DIO1 instead of stalling, so a persistent fault keeps this climbing rather than freezing at 1. | The chip is unresponsive going forward — a single bus glitch and a wedged chip both increment this the same way; only its rate of growth tells them apart. |
 | deck SD counters | The deck could not persist a row or health record. | A C5 radio loss. |
 
 All counters are monotonic within a listener session. Starting a listener is
@@ -120,8 +120,13 @@ Software slice only — nothing below is hardware-confirmed yet.
 **What changed and why.** `lora_radio.c` never wrote the SX1262's LoRa sync
 word register (no `WriteRegister` opcode existed in the driver at all,
 found while investigating LoRaTrace-RX's preset table, which does set one).
-Every confirmed MeshCore reception to date rode on whatever the chip's
-actual reset-default sync word happens to be, not a verified `0x12` write.
+Every confirmed MeshCore reception to date rode on the register's reset
+value, `0x1424` — which is exactly sync word `0x12` (the private-network
+word) nibble-packed with control bits `0x44`. So MeshCore worked by design,
+not luck; Oscilla just never wrote or verified it. (Reset value per the
+SX126x register table, which this repo doesn't archive locally; it matches
+RadioLib's private-network encoding, and the no-regression run below is
+consistent with it.)
 `lora_set_sync_word()` (new, in `lora_radio.c`) now writes it explicitly —
 opcode `0x0D` and register `0x0740`/`0x0741`, cross-checked against
 RadioLib's `SX126x::setSyncWord`/`SX126x_registers.h` (a widely-deployed,
@@ -132,8 +137,8 @@ chosen specifically so it's a no-op for MeshCore and for every existing
 
 **The one thing this must confirm on real hardware before anything else:**
 that writing the sync-word register explicitly does not change MeshCore
-reception at all — i.e., that `0x12` really is what the chip was already
-defaulting to, not a lucky coincidence of a different mechanism. Re-run a
+reception at all — i.e., that the explicit write matches the reset value
+the chip was already using. Re-run a
 short known-source MeshCore session (same setup as the LSI-5 known-source
 run) after flashing and confirm `rx`/packet counts look the same as before
 this change landed. Only after that holds is a Meshtastic run (new profile,
@@ -169,7 +174,7 @@ hardware. Zero packets over 634.7s (no known Meshtastic source in range,
 expected) but also zero errors/faults of any kind while the driver held a
 sync word it had never written to real silicon before this session. This
 is the first proof the `WriteRegister` path works for a value other than
-the lucky default, and — as a bonus — it's also the first zero-packet
+the reset default, and — as a bonus — it's also the first zero-packet
 session captured, satisfying the zero-packet SD case LSI-3/LSI-5's
 acceptance plan never had a real example of: the manifest and health CSV
 both opened, wrote monotonic zero rows for the full session, and closed

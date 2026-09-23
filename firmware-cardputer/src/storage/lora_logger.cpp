@@ -25,11 +25,13 @@ char g_packet_path[48] = "";
 char g_health_path[56] = "";
 LoraLogStats g_stats;
 
-bool appendVerified(File &file, const char *path, const std::string &text)
+/* A short print() is the failure signal; no per-row FAT lookup under the
+ * shared SD/TFT bus lock (Rev D §5.2). */
+bool appendVerified(File &file, const std::string &text)
 {
     if (file.print(text.c_str()) != text.size()) return false;
     file.flush();
-    return SD.exists(path);
+    return true;
 }
 }  // namespace
 
@@ -60,9 +62,9 @@ bool loraLogBegin(const model::LoraModel &lora)
     g_packet_file = SD.open(g_packet_path, FILE_WRITE);
     g_health_file = SD.open(g_health_path, FILE_WRITE);
     const bool opened = manifest && g_packet_file && g_health_file;
-    bool written = opened && appendVerified(manifest, manifest_path, loraSessionManifest(millis(), lora)) &&
-                   appendVerified(g_packet_file, g_packet_path, loraLogHeader()) &&
-                   appendVerified(g_health_file, g_health_path, loraHealthHeader());
+    bool written = opened && appendVerified(manifest, loraSessionManifest(millis(), lora)) &&
+                   appendVerified(g_packet_file, loraLogHeader()) &&
+                   appendVerified(g_health_file, loraHealthHeader());
     if (manifest) manifest.close();
     if (!written) {
         if (g_packet_file) g_packet_file.close();
@@ -84,7 +86,7 @@ void loraLogPacket(uint32_t freq_hz, int sf, int bw_khz, int cr, const model::Lo
     if (!lock()) { g_stats.packet_drops++; return; }
 
     std::string row = loraLogRow(millis(), freq_hz, sf, bw_khz, cr, p);
-    if (appendVerified(g_packet_file, g_packet_path, row)) g_stats.packet_rows++;
+    if (appendVerified(g_packet_file, row)) g_stats.packet_rows++;
     else g_stats.packet_drops++;
 
     unlock();
@@ -96,7 +98,7 @@ void loraLogHealth(const model::LoraHealth &health)
     if (!lock()) { g_stats.health_drops++; return; }
     std::string row = loraHealthRow(millis(), health, g_stats.packet_rows,
                                     g_stats.packet_drops, g_stats.health_drops);
-    if (appendVerified(g_health_file, g_health_path, row)) g_stats.health_rows++;
+    if (appendVerified(g_health_file, row)) g_stats.health_rows++;
     else g_stats.health_drops++;
     unlock();
 }

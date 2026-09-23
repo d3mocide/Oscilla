@@ -105,6 +105,12 @@ void lora_cmd_config(int argc, char **argv)
     uint32_t freq = 0, sf = 0, cr = 0, sync = SYNC_WORD_DEFAULT;
     lora_bw_t bw;
 
+    /* s_params is what lora_status reports; changing it under a running
+     * radio would report parameters the chip isn't using. */
+    if (lora_radio_is_running()) {
+        ocp_emit_error(OCP_ERR_BUSY, "stop lora before reconfiguring");
+        return;
+    }
     if (!ocp_parse_u32(argv[1], &freq) || !ocp_parse_u32(argv[2], &sf) ||
         !ocp_parse_u32(argv[4], &cr)) {
         ocp_emit_error(OCP_ERR_BADARG, "freq/sf/bw/cr must be whole unsigned integers");

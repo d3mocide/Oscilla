@@ -1,3 +1,39 @@
+## 2026-09-22 — LoRa review fixes: register-write audit, config-on-ack, DIO1 stall
+
+**Phase:** P3 follow-up · **By:** Claude (Opus) + operator
+
+Reviewed the LoRa session-integrity, LSI-7 and LSI-8 commits and fixed
+what the review found. **Receive-only audit gap:** LSI-8's
+`write_register()` could write any SX1262 register, and
+`check_rx_only.py` only audited `cmd_write`/`cmd_read` opcodes, so a PA or
+TX-clamp register write would have passed. The driver now allowlists
+register writes by address (`0x0740` only, and `OP_WRITE_REGISTER` is no
+longer in the `cmd_write` opcode list), and the audit rejects any other
+`write_register` address or any repointed `REG_*` constant; two new
+mutation tests prove both go red (6 total). **Config provenance:** the deck
+committed a `lora_config` to its model on send, not on ack, so a rejected
+`lora_manual` would show and record parameters the probe never applied. It
+now commits only on `[CFG]` (`lora_config_pending_`, mirroring
+`lora_listen_pending_`), and bounds `lora_manual`'s values before narrowing
+casts. Also found while tracing it: the probe accepted `lora_config` mid-
+session, so `lora_status` could report parameters the running radio wasn't
+using; it now answers `busy` until the lane is stopped. **DIO1 stall:** a
+failed `GetIrqStatus`/`ClearIrqStatus` left an IRQ bit set on an
+edge-triggered line, so one bus glitch meant `hw_fault=1` and silent RX
+death forever — the 2026-09-13 stall class. The radio task now re-services
+DIO1 by level after each pass (10 ms yield between retries, gotcha 6), and
+an empty IRQ status read while DIO1 is asserted also counts as `hw_fault`.
+**Smaller:** corrected the tracker's "lucky default" framing (the sync-word
+register resets to `0x1424`, which is `0x12` + control `0x44` — MeshCore
+worked by design); dropped a per-row `SD.exists()` under the shared bus
+lock; reworded `lora_profiles_test` as a change detector, not a source
+check; stopped logging every 10 s health poll; added LoRa config/health to
+the debug `dump`; documented the busy rule and version-skew behaviour in
+OCP-SPEC. Host suite, audit mutations, OCP selftest and both builds pass.
+**Not yet hardware-verified** — the boards were disconnected before the
+reflash; the stall re-service, config-on-ack and busy rejection all change
+runtime behaviour and need a bench pass.
+
 ## 2026-09-22 — LSI-8 hardware-confirmed: sync-word write, no MeshCore regression
 
 **Phase:** P3 follow-up · **By:** Claude + operator
