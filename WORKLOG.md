@@ -1,3 +1,23 @@
+## 2026-09-22 — Three deferred decisions revisited: retention, build ID, thresholds
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Looked into all three items on `docs/lora-session-integrity.md`'s deferred
+list. **Retention policy decided:** no automatic deletion or rotation of
+session files, ever — the operator manages the SD card manually, chosen
+because auto-deleting a real field observation is worse than a slowly
+filling card. **Build identifier:** confirmed the blocker is real — both
+firmwares report a manually-bumped version string
+(`PROJECT_VER`/`OSCILLA_DECK_VER`) that hasn't moved since 2026-09-13
+despite everything built since, so it can't identify which commit produced
+a session. Wrote up a concrete design (git-derived build ID as a new field
+alongside the existing version strings, on both firmwares) for a future
+session — not implemented now, by request. **Counter-growth thresholds:**
+reviewed and confirmed still correctly blocked — LSI-5's evidence base
+(one ~39-minute run, one inconclusive control) isn't the long-duration,
+multi-condition data this needs. Full detail in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md).
+
 ## 2026-09-22 — LSI-8: LoRa sync-word register write, Meshtastic profile, manual config
 
 **Phase:** P3 follow-up · **By:** Claude + operator

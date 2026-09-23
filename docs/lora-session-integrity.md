@@ -149,12 +149,63 @@ debug console over USB (`lora_manual <freq_hz> <sf> <bw_khz> <cr>
 the field, no laptop, is still not possible. Only the two named profiles
 are cyclable on-device (`x` key, Sub-GHz card).
 
+## Retention policy (decided 2026-09-22)
+
+**No automatic deletion or rotation of session files, ever.** The operator
+manages the SD card manually. Chosen deliberately over a count-based cap:
+an automatic-delete policy risks silently discarding a real field
+observation, which is a worse failure mode than an SD card slowly filling
+up — consistent with `SECURITY.md`'s "never commit field data" caution
+applied one step further (don't auto-*delete* it either). Revisit only if
+the 9999-session index cap (`lora_logger.cpp`'s `kMaxSessionIndex`) ever
+becomes a real constraint, which is nowhere close today.
+
+## Build identifier — design only, not implemented (2026-09-22)
+
+Confirmed the prerequisite this was blocked on doesn't exist yet: both
+firmwares report a manually-bumped human version string
+(`firmware-c5/CMakeLists.txt`'s `PROJECT_VER`, `firmware-cardputer`'s
+`OSCILLA_DECK_VER`), deliberately not git-derived (the CMake comment says
+so explicitly), and neither has moved since 2026-09-13 despite everything
+built since — `ver=0.2.0` cannot distinguish which commit produced a given
+SD session. The design below is written up for a future implementation
+session, not built now.
+
+- **Don't touch `PROJECT_VER`/`OSCILLA_DECK_VER`.** They're a deliberate,
+  documented choice (human-readable semantic version, not build noise) —
+  add a separate field alongside them, don't repurpose them.
+- **C5 (ESP-IDF/CMake):** capture `git rev-parse --short=8 HEAD` (plus a
+  dirty-tree check) in `firmware-c5/CMakeLists.txt` at configure time and
+  expose it as a new compile definition, e.g. `OSCILLA_BUILD_ID`, to
+  `main/`. Surface it as a new `[HELLO]`/`version` field (new `OCP_K_*`
+  key) — additive to the wire protocol, not a replacement for `ver`.
+- **Deck (PlatformIO):** `platformio.ini` already runs a pre-build hook
+  (`extra_scripts = pre:cxx17.py`) — the same mechanism can inject a
+  git-derived define the way `cxx17.py` already injects build flags,
+  without a new pattern. The deck has no wire verb reporting its own
+  version (it's a client, not a server — same reason `OSCILLA_DECK_VER`
+  exists as a build flag instead of a verb reply); its build ID would show
+  in the Info view's DECK section the same way.
+- **Manifest:** record both independently — `build_id=<hash>[-dirty]`
+  (probe) and `deck_build_id=<hash>[-dirty]` (deck) — since each firmware
+  is flashed separately and can genuinely differ between sessions.
+- **Open question for whoever implements this:** should a `-dirty` build
+  (uncommitted local changes at build time) just get flagged in the
+  manifest, or actively warn the operator that this session's evidence
+  isn't reproducible from any commit? Leaning toward flag-and-warn, not
+  block — a dirty bench build is normal during active development — but
+  that's a real decision, not a default to assume silently.
+
+## Counter-growth thresholds — reviewed, still correctly deferred (2026-09-22)
+
+Revisited this alongside the other two deferred items. The gate stands:
+LSI-5 has one clean ~39-minute known-source run and one inconclusive
+source-absent control — not the controlled, long-duration, multi-condition
+evidence base this needs. Setting numeric thresholds now would be guessing
+exactly the way this project avoids. No change; still blocked on real soak
+data (see `docs/hardware/lora-session-soak.md`'s open next-attempt note).
+
 ## Deferred decisions
 
 - On-device numeric entry for truly manual (no-laptop) configuration —
   `lora_manual` over the debug console is the only path today (see LSI-8).
-- Retention/rotation policy for session files.
-- Thresholds that turn counter growth into an on-screen warning; establish
-  them only after controlled and long-duration measurements.
-- Whether manifest files should carry a firmware build identifier; that needs
-  a stable shared source of build identity first.
