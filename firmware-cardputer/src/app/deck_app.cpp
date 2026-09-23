@@ -1130,6 +1130,16 @@ void DeckApp::tick(uint32_t now_ms)
         log("anti start timeout");
     }
 
+    /* A reply clears the client's pending state and runs onReply() in the
+     * same step, so a flag still set once the client is idle means the reply
+     * never came. Left set, the next unrelated [CFG] would commit a stale
+     * config into lora_ and the next session manifest. */
+    if (lora_config_pending_ && !client_.pending()) {
+        lora_config_pending_ = false;
+        notice("lora config timed out");
+        log("lora config timeout");
+    }
+
     if (spectrum_start_pending_ && !client_.pending() &&
         now_ms - spectrum_started_ms_ >= ocp::Client::kReplyTimeoutMs) {
         spectrum_start_pending_ = false;

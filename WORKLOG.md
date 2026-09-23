@@ -34,6 +34,14 @@ OCP-SPEC. Host suite, audit mutations, OCP selftest and both builds pass.
 reflash; the stall re-service, config-on-ack and busy rejection all change
 runtime behaviour and need a bench pass.
 
+Follow-up before flashing, from re-reviewing those fixes: a timed-out
+`lora_config` left `lora_config_pending_` set, so the next unrelated
+`[CFG]` reply would have committed the stale config — now cleared in
+`tick()` once the client goes idle without a reply. And the DIO1 requeue
+could double-service a fresh IRQ, making the empty-status rule count a
+false `hw_fault`; an empty read now only counts if DIO1 is still asserted
+after it, and the requeue skips when a pass is already queued.
+
 ## 2026-09-22 — LSI-8 hardware-confirmed: sync-word write, no MeshCore regression
 
 **Phase:** P3 follow-up · **By:** Claude + operator

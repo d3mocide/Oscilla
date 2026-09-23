@@ -611,8 +611,10 @@ static void requeue_if_dio1_high(void)
 {
     if (!s_running || !gpio_get_level(PIN_DIO1)) return;
     vTaskDelay(pdMS_TO_TICKS(DIO1_RETRY_MS));
+    /* A pass already queued (e.g. the ISR saw a fresh edge) covers it. */
+    if (uxQueueMessagesWaiting(s_dio1_queue) > 0) return;
     uint8_t tag = 1;
-    (void)xQueueSend(s_dio1_queue, &tag, 0);   /* full queue already guarantees another pass */
+    (void)xQueueSend(s_dio1_queue, &tag, 0);
 }
 
 static void lora_task(void *arg)
@@ -645,9 +647,11 @@ static void lora_task(void *arg)
             continue;
         }
         uint16_t irq = ((uint16_t)irq_raw[0] << 8) | irq_raw[1];
-        /* Only reached via a DIO1 edge or a still-high DIO1: an empty status
-         * means the read itself was wrong, not that nothing fired. */
-        if (irq == 0) s_stats.hw_fault++;
+        /* Empty status is benign if DIO1 has already dropped (a duplicate
+         * pass after the ISR and requeue both fired); with DIO1 still
+         * asserted the chip is claiming an IRQ it won't report, so the read
+         * itself is wrong. */
+        if (irq == 0 && gpio_get_level(PIN_DIO1)) s_stats.hw_fault++;
 
         uint8_t clear[2] = { (uint8_t)(irq >> 8), (uint8_t)irq };
         if (cmd_write(OP_CLEAR_IRQ_STATUS, clear, sizeof clear) != ESP_OK) s_stats.hw_fault++;
