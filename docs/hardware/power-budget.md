@@ -19,9 +19,10 @@
 
 ## 2. Scope — what is measurable now, and what is not
 
-P6's entry gate is P2–P5 exits met. **It is not met:** P4 (GNSS) is mid-flight
-and P5 (external TFT) has not started, so the GNSS and TFT loads do not exist
-on the bench and the *combined* soak cannot be run.
+P6's entry gate is P2–P5 exits met. **It is not met:** P4 (GNSS) closed
+2026-09-16, but P5 (external TFT) has not started, so the TFT load does not
+exist on the bench and the *combined* soak — which needs every deck
+peripheral present, not just GNSS — cannot be run yet.
 
 The **probe-side RF subset can be measured now** — P2 and P3 are both closed,
 so Wi-Fi and LoRa RX both run on real hardware today. That subset is also the

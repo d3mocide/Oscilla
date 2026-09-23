@@ -47,7 +47,7 @@ Oscilla splits physical responsibilities cleanly between two microcontrollers jo
 │  • ST7789 240×135 Built-in Screen (Primary)  │           `protocol/ocp.h` Contract     │  • IEEE 802.15.4 MAC observer                 │
 │  • ILI9341 320×240 External Panel (P5 plan)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
 │  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • One external sub-GHz receiver (SX1262)     │
-│  • ATGM336H GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[WIFI]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
+│  • ATGM336H GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[SCAN]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
 └──────────────────────────────────────────────┘                                         └──────────────────────────────────────────────┘
 ```
 
@@ -132,7 +132,7 @@ You can verify the protocol contract and parser conformance on your workstation 
 # Verify ocp.h compiles clean, invariants hold, and no transmit verbs exist:
 ./tools/check_protocol.sh
 
-# Run the 21-point OCP-SPEC §9 parser compliance test suite:
+# Run the OCP-SPEC §9 parser compliance test suite (27 checks):
 python3 tools/ocp_repl.py --selftest
 
 # Replay an adversarial fixture containing boot chatter, escaped octets, and split frames:

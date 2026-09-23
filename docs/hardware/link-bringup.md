@@ -9,6 +9,11 @@ insulated).
 | XIAO ESP32-C5 (probe), rev v1.0 / ROM `eco2` | `38:44:BE:1F:4F:A0` | `/dev/serial/by-id/…38:44:BE:1F:4F:A0-if00` |
 | Cardputer ADV (deck), ESP32-S3 | `50:78:7D:CE:6D:64` | `/dev/serial/by-id/…50:78:7D:CE:6D:64-if00` |
 
+The probe's serial above is what this 2026-09-12 session actually saw —
+left as-is for the historical record. It swapped 2026-09-21 to
+`38:44:BE:BF:D2:94` (AGENTS.md gotcha 9); substitute the current value
+before reusing any command below that hardcodes it (the JTAG line check).
+
 ## Wiring as verified
 
 | Cardputer | → XIAO | Check |
@@ -69,7 +74,9 @@ Cardputer. A connected RX line reads low ~80–90% of samples; a dead one never
 does. Needs the OpenOCD udev rule (AGENTS.md §5).
 
 ```sh
-openocd -f board/esp32c5-builtin.cfg -c "adapter serial 38:44:BE:1F:4F:A0" -c init \
+# Probe serial as of 2026-09-21 (AGENTS.md gotcha 9) -- was 38:44:BE:1F:4F:A0
+# during this session's original 2026-09-12 bring-up.
+openocd -f board/esp32c5-builtin.cfg -c "adapter serial 38:44:BE:BF:D2:94" -c init \
   -c 'for {set i 0} {$i < 40} {incr i} { halt; echo [format 0x%08x [read_memory 0x60091064 32 1]]; resume; sleep 40 }' \
   -c shutdown
 ```

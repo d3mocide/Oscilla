@@ -370,7 +370,7 @@ Passively captures beacons from one scanned AP on its channel:
 ### 10.4 `start_sniffer`, `show_clients`, `show_probes`
 
 Passively hops a fixed channel list — 2.4 GHz 1–13 plus the non-DFS 5 GHz
-channels (36/40/44/48, 149/153/157/161/165), `SNIFF_DWELL_MS` each, plain
+channels (36/40/44/48, 149/153/157/161/165), `WIFI_CHAN_DWELL_MS` each, plain
 round-robin (D-UCB dwell weighting is deferred to P8, D-6; DFS channels are
 excluded pending [D-14](../docs/DECISIONS.md) — see `wifi_sniff.c`'s header
 comment) — and builds

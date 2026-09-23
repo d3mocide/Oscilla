@@ -1,3 +1,144 @@
+## 2026-09-23 — Full documentation sweep: 9 real staleness findings, fixed
+
+**Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
+
+Full audit of every maintained doc in the repo (excluded: vendored library
+READMEs under `.pio/libdeps/`, and `hardware/`'s active uncommitted WIP).
+Three parallel research passes — root/protocol docs, hardware docs, brand/
+misc docs — each read every assigned file in full and cross-checked every
+concrete claim (paths, constants, pin numbers, status/phase claims, decision
+refs) against current source, `git log`, and `docs/DECISIONS.md`, not
+against assumption. Every finding was independently re-verified with a
+direct grep/read before touching anything. 9 real findings, all fixed:
+
+- **README.md**: architecture diagram listed a nonexistent `[WIFI]` OCP
+  marker (real Wi-Fi replies use `[SCAN]`); "21-point" selftest count was
+  stale (`ocp_repl.py --selftest` reports 27 today).
+- **protocol/OCP-SPEC.md §10.4**: cited `SNIFF_DWELL_MS`, a constant that no
+  longer exists — renamed to `WIFI_CHAN_DWELL_MS` (`wifi_channels.h`) at
+  some point without the spec following.
+- **Research/c5-backpack-design.md (Rev D)**: header still said "electrical
+  bench validation pending" and "custom firmware has not yet been
+  implemented" — false since 2026-09-12/13; P1–P4 are all hardware-confirmed
+  and the document contradicted its own later sections (§4.3, §8.1) which
+  already cite bench results.
+- **docs/hardware/link-bringup.md**: the 2026-09-12 bring-up table and a
+  copy-pasteable JTAG command both hardcoded the probe's old serial
+  (`38:44:BE:1F:4F:A0`), which swapped 2026-09-21 (AGENTS.md gotcha 9) to
+  `38:44:BE:BF:D2:94`. Left the historical table as-is, added a note, and
+  updated the reusable command to the current value — the old one would
+  silently target nothing today.
+- **docs/hardware/power-budget.md**: claimed P4 (GNSS) was "mid-flight";
+  closed 2026-09-16 per ROADMAP.md.
+- **docs/brand/README.md**: two spots still said "Sub-GHz" for the LoRa RX
+  card/view — renamed in firmware 2026-09-17 (`deck_navigation.cpp`'s
+  `"LORA RX"` label); the sibling HTML brand guide already uses the current
+  name, only this file hadn't caught up.
+- **docs/brand/oscilla-master-brand-ui-guide.html**: the Observe/LoRa RX and
+  Drive/Session gallery cards were both tagged `future` (P3/P4), i.e. "not
+  built yet" — both phases shipped and are hardware-confirmed. Changed to
+  `NOW` and `EARLY` respectively (Drive gets `EARLY` like Packet Monitor's
+  card, since the probe-driven wardrive survey piece is still P7).
+- **docs/brand/DESIGN.md deleted**, operator's call after being flagged: a
+  Material-Design-3-style token export (Space Grotesk/JetBrains Mono fonts,
+  `surface-container`/`primary: '#c3fc7e'`-style tokens) that contradicted
+  the real brand system everywhere else — `docs/brand/README.md`, the HTML
+  guide, and `ui/theme.h` all agree on Chakra Petch/IBM Plex Mono and the
+  Void Ink/Field Green/Signal Pink palette. Zero inbound references from
+  any other doc; looked like an orphaned auto-export from a theme-builder
+  tool that was never actually wired in.
+
+**Checked clean, no changes:** CLAUDE.md, SECURITY.md,
+docs/BUILD_REPRODUCIBILITY.md, docs/SECURITY_CODE_AUDIT_2026-09-16.md (a
+dated point-in-time report, correctly framed as historical),
+docs/hardware/README.md, cardputer-adv.md, ieee802154-validation.md,
+lora-harness.md, lora-session-soak.md, bench-zig-emitter/README.md, and the
+three `plugins/oscilla-kicad/` reference/skill docs. AGENTS.md, DESIGN.md,
+ROADMAP.md, docs/DECISIONS.md, and docs/lora-session-integrity.md were
+already covered by the earlier pass this session (commit `e1a05dc`).
+
+## 2026-09-23 — C5/Wio carrier: bring the left edge to the connector line
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Moved only the compact board's left Edge.Cuts boundary 2 mm inward, from
+x=100 mm to x=102 mm, following the operator's green guide. The new outline is
+62 x 44 mm. The nearest existing routed copper is the inner-layer +3V3 segment
+at x=104 mm. Rerouted the Grove 5 V protection path on B.Cu from x=102 mm to
+x=104 mm, leaving a 2 mm edge setback. Replaced the clipped footprint J1 field
+with on-board silk above the connector. Rebased mounting-hole coordinates
+to the new top-left corner; absolute hole positions are unchanged.
+
+Rendered and reran DRC with schematic parity after the outline, route, and label
+changes. This is a plan-view fit adjustment only; verify Grove and C5 USB-C
+mating access against the purchased connectors and printed case before
+freezing the outline.
+
+## 2026-09-23 — C5/Wio carrier: restore F1 body in render
+
+**Phase:** Hardware tooling · **By:** Codex
+
+The F1 footprint referenced `Fuse_1812_4532Metric.step`, which is not present
+in the installed KiCad 3D model library; renders therefore showed only its
+pads. Pointed the 1812 PPTC visualization to KiCad's available 1812 chip-body
+model. This changes the review rendering only; F1's footprint, value, and
+electrical connections are unchanged. The chip model is a package-shape proxy,
+not a manufacturer-accurate rendering of the Bourns part.
+
+Regenerated the compact board 3D render and verified that a body is visible
+over F1. This does not establish component clearance or assembly fit.
+
+## 2026-09-23 — C5/Wio carrier: Grove proxy and C5 row labels
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Attached a standard KiCad 4-pin, 2.00 mm right-angle connector model to J1 so
+the Grove connector body appears in the board render. This is a visual proxy,
+not the exact Seeed 1125R-4P body; its local planning footprint still needs
+vendor-drawing or physical verification. Added silk-only J4/J5 labels beside
+the two C5 socket rows while preserving U1 as the schematic's 14-contact
+module interface. Confirmed F1 already has the planned Bourns
+`MF-MSMF125/16X` value and a generic 1812 fuse 3D body in the render.
+
+KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
+unconnected items, and zero parity errors. This edit changed 3D/assembly
+graphics and silkscreen labels only; no electrical nets changed.
+
+## 2026-09-23 — C5/Wio carrier: add C5 socket models to assembly render
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Added two 1x7 female socket 3D models to the socketed C5 carrier footprint,
+positioned on the 14 C5 through-hole contacts. This makes the carrier-side
+socket arrangement visible alongside the Wio sockets in the review render.
+Male headers remain soldered to the removable C5 module; the render does not
+yet include the C5 or Wio module bodies themselves. The generic KiCad socket
+models communicate the connector arrangement, not a selected vendor socket's
+exact height or body shape.
+
+KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
+unconnected items, and zero parity errors. The fresh 3D render was inspected.
+No electrical nets or board geometry changed.
+
+## 2026-09-23 — C5/Wio carrier: align module rows and move H2
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Moved H2 beside the left side of the C5 to match the operator's marked
+location, moved its silk reference clear of the Grove footprint, and shortened
+the board from 64 x 48 mm to 64 x 44 mm. The C5 and Wio socket rows now share
+the same horizontal centerlines (122.48 mm and 137.72 mm in board coordinates)
+and each 1x7 row uses 2.54 mm pin pitch. The operator confirmed by testing
+that C5 and Wio pin positions are 1:1-compatible. U1 retains two 1x7 through-
+hole socket rows for the user's C5 male-header test arrangement; the 1.0 mm
+drill / 1.8 mm land are still prototype assumptions.
+
+KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
+unconnected items, and zero parity errors. ERC reports the five intentional
+isolated `NC_*` warnings. The fresh board render was reviewed. Board-envelope
+arithmetic is 26.7% less plan area than the 80 x 48 mm draft. No enclosure CAD
+or physical fit evidence is available yet.
+
 ## 2026-09-23 — Documentation currency pass: AGENTS.md, DESIGN.md, LSI tracker
 
 **Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator

@@ -2,10 +2,13 @@
 
 **Revision:** D — Markdown coding-agent handoff  
 **Date:** 2026-09-12  
-**Status:** Signal assignments selected; electrical bench validation pending  
+**Status:** Signal assignments selected 2026-09-12; bench-validated since —
+Grove UART link, LoRa RX harness, Cardputer ADV board support, and GNSS are
+all hardware-confirmed (see WORKLOG.md and ROADMAP.md P1–P4). P5 (external
+TFT) and P6 (combined power/soak) have not started.  
 **Scope:** Component ownership, physical connections, firmware pin configuration, and electrical constraints.
 
-This document supersedes the original architecture draft and PDF revisions A–C for pin assignments. Use the tables and configuration below as the implementation baseline. Custom firmware has not yet been implemented or tested against this hardware.
+This document supersedes the original architecture draft and PDF revisions A–C for pin assignments. Use the tables and configuration below as the implementation baseline; it remains the sole authority for pins/rails/bus-sharing (AGENTS.md §2) regardless of how much firmware has since been built against it.
 
 ## 1. Actual components and ownership
 

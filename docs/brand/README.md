@@ -106,7 +106,7 @@ order so operators learn the cluster spatially.
 The target top-level deck is shallow:
 
 1. **SYSTEM** — Link, Info
-2. **OBSERVE** — Wi-Fi, BLE, 802.15.4, Sub-GHz
+2. **OBSERVE** — Wi-Fi, BLE, 802.15.4, LoRa
 3. **ANALYZE** — Packet Monitor, Sniffer, captures
 4. **DRIVE** — GNSS, markers, logging, session state
 5. **LOGS** — offline review
@@ -139,7 +139,7 @@ reading dock without imitating deck chrome.
 | Packet Monitor | channel occupancy bars, baseline comparison, focused-channel RF inspector |
 | Sniffer | ranked relationship table, client counts, security/freshness detail, anomaly context |
 | Drive | GNSS breadcrumb and marker-event history, accuracy, movement/session context |
-| Sub-GHz / BLE / 802.15.4 frames | protocol cadence or dense frame context, RSSI/SNR, selected-frame decode |
+| LoRa RX / BLE / 802.15.4 frames | protocol cadence or dense frame context, RSSI/SNR, selected-frame decode |
 | Logs | session comparison, timeline/density overview, preview counts and explicit cached state |
 
 The external panel may show unique context or a useful visualization, but it
