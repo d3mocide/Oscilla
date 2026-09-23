@@ -1,4 +1,7 @@
 # ─── Build output ────────────────────────────────────────────────────────────
+# PCB and enclosure design files are local WIP pending a publication decision.
+/hardware/
+
 # ESP-IDF
 firmware-c5/build/
 firmware-c5/build-*/

@@ -29,7 +29,8 @@ cannot silently drift.
 | Protocol wire behaviour — framing, escaping, parser duties | [`protocol/OCP-SPEC.md`](protocol/OCP-SPEC.md) | — |
 | Anything contested or deferred | [`docs/DECISIONS.md`](docs/DECISIONS.md) (`D-n`) | Resolve a `⛔` decision by guessing |
 | What to work on next, and what "done" means | [`ROADMAP.md`](ROADMAP.md) | Declare an exit gate met without evidence |
-| What actually happened | [`WORKLOG.md`](WORKLOG.md) | — |
+| Project / software history | [`WORKLOG.md`](WORKLOG.md) | — |
+| PCB, mechanical, and carrier revision history | [`docs/hardware/WORKLOG.md`](docs/hardware/WORKLOG.md) | — |
 
 No `⛔` decision is currently blocking — D-10 (SX1262 TCXO startup delay) and
 D-12 (Cardputer ADV support) both resolved on hardware (2026-09-13,
@@ -163,11 +164,13 @@ result; this repo's culture is that a claim without evidence is a defect.
 - **Write the adversarial test first.** The `[HELLO]` bug in gotcha 3 was found
   by building a hostile fixture before trusting the parser. Do that again for
   the deck's transport layer.
-- **Append a [`WORKLOG.md`](WORKLOG.md) entry** for any real work: what changed,
-  what was decided, what surprised you. Newest first. It is the project's
-  memory and it is honest about mistakes — keep it that way.
+- **Record real work in the right worklog.** Firmware, software, protocol, and
+  cross-project changes go in [`WORKLOG.md`](WORKLOG.md). PCB, electrical,
+  mechanical, enclosure, and carrier revisions go in
+  [`docs/hardware/WORKLOG.md`](docs/hardware/WORKLOG.md), newest first. Keep
+  failed experiments and their evidence; do not round a POC up to a release.
 - **Update [`docs/DECISIONS.md`](docs/DECISIONS.md)** when a `D-n` moves, and
-  note the move in the worklog.
+  note the move in the relevant worklog.
 - **A phase is done when its exit gate is demonstrated**, on hardware where the
   gate says hardware. If you can only verify part of it, say which part and
   mark the rest unverified. Never round up.

@@ -57,88 +57,6 @@ three `plugins/oscilla-kicad/` reference/skill docs. AGENTS.md, DESIGN.md,
 ROADMAP.md, docs/DECISIONS.md, and docs/lora-session-integrity.md were
 already covered by the earlier pass this session (commit `e1a05dc`).
 
-## 2026-09-23 — C5/Wio carrier: bring the left edge to the connector line
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Moved only the compact board's left Edge.Cuts boundary 2 mm inward, from
-x=100 mm to x=102 mm, following the operator's green guide. The new outline is
-62 x 44 mm. The nearest existing routed copper is the inner-layer +3V3 segment
-at x=104 mm. Rerouted the Grove 5 V protection path on B.Cu from x=102 mm to
-x=104 mm, leaving a 2 mm edge setback. Replaced the clipped footprint J1 field
-with on-board silk above the connector. Rebased mounting-hole coordinates
-to the new top-left corner; absolute hole positions are unchanged.
-
-Rendered and reran DRC with schematic parity after the outline, route, and label
-changes. This is a plan-view fit adjustment only; verify Grove and C5 USB-C
-mating access against the purchased connectors and printed case before
-freezing the outline.
-
-## 2026-09-23 — C5/Wio carrier: restore F1 body in render
-
-**Phase:** Hardware tooling · **By:** Codex
-
-The F1 footprint referenced `Fuse_1812_4532Metric.step`, which is not present
-in the installed KiCad 3D model library; renders therefore showed only its
-pads. Pointed the 1812 PPTC visualization to KiCad's available 1812 chip-body
-model. This changes the review rendering only; F1's footprint, value, and
-electrical connections are unchanged. The chip model is a package-shape proxy,
-not a manufacturer-accurate rendering of the Bourns part.
-
-Regenerated the compact board 3D render and verified that a body is visible
-over F1. This does not establish component clearance or assembly fit.
-
-## 2026-09-23 — C5/Wio carrier: Grove proxy and C5 row labels
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Attached a standard KiCad 4-pin, 2.00 mm right-angle connector model to J1 so
-the Grove connector body appears in the board render. This is a visual proxy,
-not the exact Seeed 1125R-4P body; its local planning footprint still needs
-vendor-drawing or physical verification. Added silk-only J4/J5 labels beside
-the two C5 socket rows while preserving U1 as the schematic's 14-contact
-module interface. Confirmed F1 already has the planned Bourns
-`MF-MSMF125/16X` value and a generic 1812 fuse 3D body in the render.
-
-KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
-unconnected items, and zero parity errors. This edit changed 3D/assembly
-graphics and silkscreen labels only; no electrical nets changed.
-
-## 2026-09-23 — C5/Wio carrier: add C5 socket models to assembly render
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Added two 1x7 female socket 3D models to the socketed C5 carrier footprint,
-positioned on the 14 C5 through-hole contacts. This makes the carrier-side
-socket arrangement visible alongside the Wio sockets in the review render.
-Male headers remain soldered to the removable C5 module; the render does not
-yet include the C5 or Wio module bodies themselves. The generic KiCad socket
-models communicate the connector arrangement, not a selected vendor socket's
-exact height or body shape.
-
-KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
-unconnected items, and zero parity errors. The fresh 3D render was inspected.
-No electrical nets or board geometry changed.
-
-## 2026-09-23 — C5/Wio carrier: align module rows and move H2
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Moved H2 beside the left side of the C5 to match the operator's marked
-location, moved its silk reference clear of the Grove footprint, and shortened
-the board from 64 x 48 mm to 64 x 44 mm. The C5 and Wio socket rows now share
-the same horizontal centerlines (122.48 mm and 137.72 mm in board coordinates)
-and each 1x7 row uses 2.54 mm pin pitch. The operator confirmed by testing
-that C5 and Wio pin positions are 1:1-compatible. U1 retains two 1x7 through-
-hole socket rows for the user's C5 male-header test arrangement; the 1.0 mm
-drill / 1.8 mm land are still prototype assumptions.
-
-KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
-unconnected items, and zero parity errors. ERC reports the five intentional
-isolated `NC_*` warnings. The fresh board render was reviewed. Board-envelope
-arithmetic is 26.7% less plan area than the 80 x 48 mm draft. No enclosure CAD
-or physical fit evidence is available yet.
-
 ## 2026-09-23 — Documentation currency pass: AGENTS.md, DESIGN.md, LSI tracker
 
 **Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
@@ -182,49 +100,6 @@ since it directly explains why that looked broken.
 ROADMAP's P3 section correctly delegates detail to the LSI tracker instead
 of duplicating it, and D-8/D-9/D-10/D-12 all match their current resolved
 state. No changes needed there.
-
-## 2026-09-23 — C5/Wio carrier: update socket geometry to XIAO mating grid
-
-Moved the Wio socket rows from 17.78 mm to 15.24 mm center-to-center while
-preserving their pair midpoint and 2.54 mm pin pitch. The spacing follows the
-official Seeed XIAO ESP32-C5 DIP footprint and the Wio's stated XIAO
-compatibility; Seeed's accessible documentation does not give a numeric
-row-spacing callout for the exact Wio carrier SKU, so that remains pending
-physical cross-check. Added two socket-strip assembly outlines to the C5's
-embedded and project-local footprints, keeping copper pads and module centers
-unchanged. Reduced the C5 socket lands from 2.0 mm to 1.8 mm (still a 0.4 mm
-annular ring around the 1.0 mm assumed drill); this provides clearance for the
-existing direct SPI traces without changing the published pad centers. Moved
-the flexible lower-centre M2 point to `(28, 44)` mm from the board's top-left
-and extended the bottom edge 4 mm (to a 64 x 48 mm envelope) so it clears the
-C5/Wio courtyards and reset trace while retaining 4 mm of board-edge margin.
-
-**Verified:** KiCad parsed the board and produced a fresh render. DRC reports
-zero violations, zero unconnected items, and zero schematic-parity issues. ERC
-reports the expected five intentional isolated `NC_*` label warnings. The
-board is still a layout POC, not order-ready, and physical module fit is
-unverified.
-
-## 2026-09-23 — C5/Wio compact carrier: footprint-cache and silk cleanup
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Adapted the socketed C5 footprint to Seeed's published XIAO ESP32-C5 DIP body
-outline and 2.54 mm pad grid (15.24 mm row spacing). The carrier's 1.0 mm
-socket drill and 2.0 mm land remain prototype assumptions. Adjusted the C5
-escape endpoints to the revised hole centers without changing their net
-assignments. Refreshed all embedded standard-footprint copies from KiCad 10.0.6
-and both custom copies from the project libraries. Removed cramped explanatory
-front-silkscreen notes; assembly and case intent remain documented in the
-README/mechanical review. Marked schematic test points and mounting datums
-out-of-BOM to match their standard footprint attributes.
-
-**Verified:** KiCad 10.0.6 render succeeds; DRC reports zero unconnected items,
-zero schematic-parity issues, no footprint/library mismatches, and no silk/text
-violations. One DRC error remains: the C5 module courtyard overlaps the
-lower-centre M2 hole courtyard. ERC still reports the five intentional isolated
-`NC_*` contacts. The Grove footprint is not yet vendor-outline-verified; the
-board remains a POC and is not ready to order.
 
 ## 2026-09-23 — SubGhz view: 'x' profile cycling now shown after a config exists
 
@@ -364,24 +239,6 @@ Still open: on-device `x` profile-cycling was never exercised (everything
 today went through the debug console), and an actual Meshtastic *reception*
 test still needs a real nearby Meshtastic node. Full detail in
 [`docs/lora-session-integrity.md`](docs/lora-session-integrity.md#hardware-confirmed-2026-09-22).
-
-## 2026-09-22 — C5/Wio carrier: conservative Grove-power POC estimate
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Converted the requested Grove-powered concept into a deliberately bounded POC
-power plan. The only series topology is `Grove red → F1 → D1 → C5 5 V`, with
-the diode oriented to prevent USB-to-Grove back-feed. Reserved a Bourns
-`MF-MSMF125/16X` 1812 PPTC (1.25 A hold / 2.50 A trip at 23 °C; 1.00 A hold at
-40 °C) and a Diodes Inc. B240A-class 2 A/40 V SMA Schottky. The revised
-mechanical board shows this as a placement reservation, not routed copper.
-
-The estimate uses Rev D's provisional 0.91 A / 3.3 V combined-margin load:
-3.00 W. At an assumed 80% conversion efficiency that is 0.75 A from 5 V;
-with an additional 25% POC allowance the planning source load is 0.94 A,
-rounded to **1.0 A**. This does not prove Cardputer availability, C5 regulator
-thermal behavior, diode temperature, or USB/Grove isolation. P6 remains the
-release gate; no fabrication output or Grove-only authorization was produced.
 
 ## 2026-09-22 — Three deferred decisions revisited: retention, build ID, thresholds
 
@@ -4955,40 +4812,3 @@ the channel bars by splitting unused chart width across both sides, and used
 the recovered vertical space to give the chart a taller top region.
 
 ## 2026-09-17 — Made Beacons PHY conflicts explicit and restored its pink accent
-## 2026-09-22 — C5 + single-Wio co-mounted carrier started (not release-ready)
-
-**Phase:** Hardware tooling · **By:** Codex + operator
-
-Operator selected a co-mounted C5/Wio carrier with a Grove input, superseding
-the initial USB-only connector disposition. The first KiCad 10 routing draft
-used Rev D's custom Wio signal map and a 0.75 A-hold PTC plus SS14. It was
-subsequently archived as an unverified experiment in
-[`hardware/archive/c5-wio-carrier-routing-draft-2026-09-22`](hardware/archive/c5-wio-carrier-routing-draft-2026-09-22/),
-not carried forward as the carrier design. No fabrication output was produced
-or approved; module fit, antenna clearance, boot/USB recovery, and P6 power
-headroom stay physical gates.
-# 2026-09-22 — C5/Wio carrier: archived routing experiment; added fit-first floorplan
-
-- Moved the unverified 90 x 68 mm manual-routing experiment to
-  `hardware/archive/c5-wio-carrier-routing-draft-2026-09-22/`; it remains a
-  record only and is not a fabrication candidate.
-- Added `hardware/c5-wio-carrier/` as a clean 80 x 48 mm mechanical KiCad
-  floorplan. It reserves separate C5 USB-C access, Wio antenna clearance,
-  Grove edge ingress, and four candidate M2 locations while fitting inside
-  the Cardputer ADV's published 84 x 54 mm plan envelope.
-- This is deliberately not an electrical release: no final module footprints,
-  schematic, selected Grove connector, selected 5 V protection, or routed
-  netlist exists yet. Case alignment, P6 power current, USB/Grove isolation,
-  and C5 cold-boot/native-USB recovery with GPIO25 attached stay as physical
-  gates.
-- Operator clarified the supplied C5 orientation: USB-C is at the module's
-  top edge. The 80 x 48 mm floorplan now places that edge at the case opening.
-  Both radios use IPEX/u.FL coax leads to external case-mounted antennas, so
-  the Wio antenna bay was removed. The four 2.2 mm M2 centers form a 70 x
-  38 mm rectangle, 5 mm in from each board edge, and now define the enclosure
-  standoff datum; the future case is designed from the PCB.
-- Replaced the oversized generic Grove service box with the selected compact
-  Seeed `1125R-4P` 90-degree, 2.00 mm connector reservation. Added the
-  explicit C5/Wio/Grove electrical contract and verified official C5 SMD
-  footprint availability. Grove 5 V remains routed only through an as-yet
-  unselected protection stage pending P6 current and back-feed qualification.

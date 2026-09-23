@@ -7,6 +7,10 @@ different thing and is allowed to contradict the plan.
 
 Expected contents as phases land:
 
+[`WORKLOG.md`](WORKLOG.md) contains PCB, electrical, mechanical, and enclosure
+revision history. Firmware and project-wide history stays in the repository
+root [`WORKLOG.md`](../../WORKLOG.md).
+
 | File | Phase | Contents |
 |---|---|---|
 | `link-bringup.md` | P1 | Grove UART bring-up: boot-noise capture, resync behaviour, reset recovery |
