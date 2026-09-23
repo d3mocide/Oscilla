@@ -453,7 +453,9 @@ If transmit features are ever wanted — LoRa telemetry, range testing, or autho
 { pan_id; proto(802154); confidence; channel_mask; nodes; }
 { pan_id; short/ext addr; role(coordinator|router|end); rssi(last/best/avg); lqi; }
 // LoRa packet observation
-{ freq_hz; sf; bw; cr; rssi; snr; len; crc_ok; framing_guess(meshtastic|lorawan|unknown); }
+{ freq_hz; sf; bw; cr; rssi; snr; len; framing_guess(meshtastic|lorawan|meshcore|unknown); }
+// LoRa session health (LSI-2/LSI-7, counted per listener session, not per packet)
+{ rx; crc_err; header_err; irq_drop; radio_drop; ocp_drop; hw_fault; }
 // GPS fix — DECK-SIDE ONLY, never crosses OCP
 { lat; lon; alt; hdop; utc; valid; age_ms; }
 ```

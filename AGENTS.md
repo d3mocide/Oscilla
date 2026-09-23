@@ -31,8 +31,10 @@ cannot silently drift.
 | What to work on next, and what "done" means | [`ROADMAP.md`](ROADMAP.md) | Declare an exit gate met without evidence |
 | What actually happened | [`WORKLOG.md`](WORKLOG.md) | — |
 
-Currently blocking: **D-10** (SX1262 TCXO startup delay — Rev D says *do not
-guess*). D-12 (Cardputer ADV support) is resolved.
+No `⛔` decision is currently blocking — D-10 (SX1262 TCXO startup delay) and
+D-12 (Cardputer ADV support) both resolved on hardware (2026-09-13,
+2026-09-12). Check [`docs/DECISIONS.md`](docs/DECISIONS.md) before assuming
+that's still true; a new `⛔` row means stop and ask (§8).
 
 ## 3. Invariants — do not break these
 
@@ -240,7 +242,7 @@ understand one behaviour is a tax on every future session.
 ## 8. When to stop and ask
 
 - A task seems to need transmitting (§3.1).
-- A `⛔` decision blocks the path (currently D-10).
+- A `⛔` decision blocks the path — check [`docs/DECISIONS.md`](docs/DECISIONS.md); none currently.
 - Rev D and DESIGN.md disagree about something Rev D doesn't actually cover.
 - A change would weaken a stated guarantee — tripwire, bounded wait, bus lock,
   escaping, receive-only.

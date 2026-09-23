@@ -1,9 +1,12 @@
 # LoRa Session Integrity Tracker
 
-**Status:** LSI-1 through LSI-4 and LSI-7 hardware-confirmed; LSI-5's
-known-source half hardware-confirmed, source-absent control still
-inconclusive; LSI-8 (sync-word write, second profile, manual entry)
-implemented and host-tested, hardware confirmation pending (2026-09-22)  
+**Status:** LSI-1 through LSI-4 hardware-confirmed; LSI-5's known-source
+half hardware-confirmed, source-absent control still inconclusive; LSI-7's
+`hw_fault` counter hardware-confirmed not to false-fire, genuine-fault
+detection still unverified; LSI-8 (sync-word write, second profile, manual
+entry) hardware-confirmed 2026-09-22. A follow-up review pass (register-write
+audit, config-on-ack, DIO1 re-service) hardware-confirmed 2026-09-23 — see
+below.  
 **Owner:** Oscilla P3 follow-up  
 **Scope:** Wio-SX1262 receive-only capture through the C5, OCP, Cardputer, and SD card.
 
@@ -43,8 +46,8 @@ discovery sweep, or any transmit-capable feature.
 | LSI-4 | Surface the same state on the deck without claiming RF meaning from an empty counter. | The Sub-GHz view displays profile/configuration and the latest health snapshot. | Hardware-confirmed 2026-09-22 |
 | LSI-5 | Establish a repeatable receive-only soak procedure. | Controlled known-source and source-absent runs, build identity, device/antenna setup, counter deltas, and manual log inspection in `docs/hardware/`. | Known-source run hardware-confirmed 2026-09-22 (clean, no stalls/drops); source-absent control run but did not reach a genuine no-signal condition (bench too close to a strong repeater) — see [`docs/hardware/lora-session-soak.md`](hardware/lora-session-soak.md) |
 | LSI-6 | Complete combined power/SD/TFT qualification after the panel arrives. | P6 current/supply measurements and a multi-hour all-subsystem soak. | Blocked on P5 hardware |
-| LSI-7 | Track mid-session SX1262 hardware faults, not just queue drops and CRC/header errors. Scoped to a concrete gap found in `lora_radio.c`'s task loop: a `GetIrqStatus`/`ClearIrqStatus` SPI transaction failing while already listening was previously silent — no counter, no log. | New `hw_fault` counter, wired through `lora_status`, the deck model, the Sub-GHz view, and the health CSV sidecar. Host-tested (partial-reply rejection included). | Implemented and host-tested 2026-09-22; hardware confirmation pending |
-| LSI-8 | Manual/multi-profile `lora_config`: a real LoRa sync-word register write (closing a driver gap — see below), a second named profile (Meshtastic US LongFast), on-device profile cycling, and arbitrary manual entry via the debug console. | `lora_config` accepts an optional 5th `sync_word` arg (defaults to `0x12`, no behavior change for existing 4-arg callers); `x` cycles `model::kLoraProfiles` on the Sub-GHz card; `lora_manual <freq> <sf> <bw> <cr> [sync]` debug command for arbitrary values; sync word recorded in the session manifest. Host-tested (profile table values pinned against LoRaTrace-RX's sourcing). | Sync-word write and MeshCore no-regression hardware-confirmed 2026-09-22; on-device `x` profile-cycling and real Meshtastic reception still untested |
+| LSI-7 | Track mid-session SX1262 hardware faults, not just queue drops and CRC/header errors. Scoped to a concrete gap found in `lora_radio.c`'s task loop: a `GetIrqStatus`/`ClearIrqStatus` SPI transaction failing while already listening was previously silent — no counter, no log. | New `hw_fault` counter, wired through `lora_status`, the deck model, the Sub-GHz view, and the health CSV sidecar. Host-tested (partial-reply rejection included). | Hardware-confirmed 2026-09-23 that the counter (and the DIO1 re-service logic added alongside it, see below) stays at 0 under real MeshCore traffic — no false-fire. Genuinely forcing a fault (bus glitch / dropped `[CFG]` reply) to confirm it *fires* is still untested; needs fault injection, not a normal bench pass. |
+| LSI-8 | Manual/multi-profile `lora_config`: a real LoRa sync-word register write (closing a driver gap — see below), a second named profile (Meshtastic US LongFast), on-device profile cycling, and arbitrary manual entry via the debug console. | `lora_config` accepts an optional 5th `sync_word` arg (defaults to `0x12`, no behavior change for existing 4-arg callers); `x` cycles `model::kLoraProfiles` on the Sub-GHz card; `lora_manual <freq> <sf> <bw> <cr> [sync]` debug command for arbitrary values; sync word recorded in the session manifest. Host-tested (profile table values pinned against LoRaTrace-RX's sourcing). | Sync-word write and MeshCore no-regression hardware-confirmed 2026-09-22. On-device `x` profile-cycling: the underlying cycle worked all along, but `subghz_view.cpp` only ever drew the pending-profile label in the `!hasConfig()` state, so it looked broken once a config existed — found and fixed 2026-09-23 (flashed, not yet operator-confirmed on the physical screen). Real Meshtastic reception still untested (needs a real nearby node). |
 
 ## Session contract
 
@@ -189,7 +192,49 @@ traffic decodes correctly.
 debug console over USB (`lora_manual <freq_hz> <sf> <bw_khz> <cr>
 [sync_word]`) — this keyboard has no numeric-entry widget, so "manual" in
 the field, no laptop, is still not possible. Only the two named profiles
-are cyclable on-device (`x` key, Sub-GHz card).
+are cyclable on-device (`x` key, Sub-GHz card) — see the 2026-09-23 note
+below on a display bug that made this look non-functional.
+
+## Review fixes hardware-confirmed (2026-09-23): DIO1 stall, config-on-ack, busy-reject
+
+Re-reviewing the LSI-7/LSI-8 commits (before today's session, see WORKLOG
+14107f6/c9a4bed) found three defects, fixed and now bench-confirmed:
+
+- **Receive-only audit gap.** LSI-8's `write_register()` could write any
+  SX1262 register; `check_rx_only.py` never looked at it. Now allowlisted to
+  `0x0740` only, with mutation tests proving any other address goes red.
+- **Config provenance.** The deck committed a `lora_config` to its model on
+  *send*, not on ack — a rejected `lora_manual` would show and record
+  parameters the probe never applied. Now commits only on `[CFG]`.
+- **DIO1 stall.** A failed `GetIrqStatus`/`ClearIrqStatus` left an IRQ bit
+  set on the edge-triggered line — the 2026-09-13 stall class, reopened.
+  The radio task now re-services a still-asserted DIO1 instead of stalling
+  (this is what LSI-7's `hw_fault` semantics above already describe).
+
+**Hardware-confirmed 2026-09-23**, driven remotely over the debug console
+(same approach as LSI-8's): a 90 s MeshCore listen showed `rx` climbing
+(3→6→7→11→12→12) with `hw_fault` staying `0` throughout — the DIO1
+re-service introduced no regression or false fault. A rejected
+`lora_manual` (bandwidth `63`, not a valid SX1262 value) drew `err
+code=badarg` and left `dump`'s `lora_cfg` unchanged, confirming the
+ack-gated commit on real hardware. A `lora_manual` sent while already
+listening drew `err code=busy`, confirming the probe's busy-reject. Full
+detail in WORKLOG 2026-09-23.
+
+**Not exercised this pass:** `c9a4bed`'s two specific edge cases (a timed-out
+`lora_config` leaving stale `lora_config_pending_`; DIO1's double-service
+possibly double-counting an empty status read as `hw_fault`) have no
+console-reachable trigger — they need a deliberately dropped `[CFG]` reply
+or an injected bus glitch, neither attempted here. Host-suite-verified only.
+
+**Also found and fixed 2026-09-23: SubGhz `x` display bug.** On-device
+profile cycling (`x`, Sub-GHz card) turned out to work correctly underneath
+— `lora_profile_index_` kept advancing — but `subghz_view.cpp` only ever
+drew the pending-profile label in the `!hasConfig()` branch, so once a
+config existed there was no on-screen feedback on what `x` had selected.
+Fixed by showing `x=<LABEL>` next to the applied config whenever the
+pending selection differs from it. Flashed; not yet operator-confirmed on
+the physical screen (no debug-console path exercises the `x` key itself).
 
 ## Retention policy (decided 2026-09-22)
 

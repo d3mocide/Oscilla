@@ -1,3 +1,90 @@
+## 2026-09-23 — Documentation currency pass: AGENTS.md, DESIGN.md, LSI tracker
+
+**Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
+
+Prompted by "is our documentation up to date" after today's LoRa hardware
+pass. Checked the LoRa-specific tracker plus the project-wide authority
+docs (AGENTS.md, DESIGN.md, ROADMAP.md, `docs/DECISIONS.md`) against
+current source and commit history rather than assuming.
+
+**Real staleness found, not just LoRa:** AGENTS.md's own "currently
+blocking" line still named **D-10** as a blocking `⛔` decision — but
+`docs/DECISIONS.md`, the document AGENTS.md itself names as authority for
+decisions, has said D-10 was resolved since 2026-09-13 and explicitly
+states "none currently blocking." AGENTS.md is the first file any agent
+(human or not) reads in this repo; it had been telling every session for
+over a week that a resolved decision was still an open gate. Fixed both
+copies (§2's summary line and §8's "when to stop and ask" line) to point
+at `docs/DECISIONS.md` as the live source instead of hardcoding a decision
+ID that can go stale again.
+
+**DESIGN.md §9.1's LoRa packet record was also stale**, and knowingly so —
+`model/lora_framing.h`'s own header comment has said since 2026-09-14 that
+MeshCore isn't in "DESIGN's original meshtastic|lorawan|unknown set," but
+nobody had gone back and fixed the set it was pointing at. Added
+`meshcore`, and removed `crc_ok`: grepped the whole tree for it and it was
+never implemented as a per-packet field — CRC failures are a session-level
+counter (`LoraHealth.crc_err`, LSI-2/LSI-7), not per-packet — so the record
+was documenting a field that doesn't exist. Added the session-health record
+shape alongside it instead.
+
+**`docs/lora-session-integrity.md`** got the most substantive update: added
+today's hardware confirmation of the review-fix pass (14107f6/c9a4bed →
+commit `e7cde97`) that neither this tracker nor its LSI-7/LSI-8 rows
+mentioned at all, despite the DIO1 re-service change directly rewriting
+what LSI-7's `hw_fault` counter means. Updated LSI-7's and LSI-8's status
+cells, and added a note on the SubGhz `x` display bug found and fixed
+today (commit `60b81bc`) under LSI-8's "on-device profile cycling" line,
+since it directly explains why that looked broken.
+
+**ROADMAP.md and `docs/DECISIONS.md` were checked and found accurate** —
+ROADMAP's P3 section correctly delegates detail to the LSI tracker instead
+of duplicating it, and D-8/D-9/D-10/D-12 all match their current resolved
+state. No changes needed there.
+
+## 2026-09-23 — C5/Wio carrier: update socket geometry to XIAO mating grid
+
+Moved the Wio socket rows from 17.78 mm to 15.24 mm center-to-center while
+preserving their pair midpoint and 2.54 mm pin pitch. The spacing follows the
+official Seeed XIAO ESP32-C5 DIP footprint and the Wio's stated XIAO
+compatibility; Seeed's accessible documentation does not give a numeric
+row-spacing callout for the exact Wio carrier SKU, so that remains pending
+physical cross-check. Added two socket-strip assembly outlines to the C5's
+embedded and project-local footprints, keeping copper pads and module centers
+unchanged. Reduced the C5 socket lands from 2.0 mm to 1.8 mm (still a 0.4 mm
+annular ring around the 1.0 mm assumed drill); this provides clearance for the
+existing direct SPI traces without changing the published pad centers. Moved
+the flexible lower-centre M2 point to `(28, 44)` mm from the board's top-left
+and extended the bottom edge 4 mm (to a 64 x 48 mm envelope) so it clears the
+C5/Wio courtyards and reset trace while retaining 4 mm of board-edge margin.
+
+**Verified:** KiCad parsed the board and produced a fresh render. DRC reports
+zero violations, zero unconnected items, and zero schematic-parity issues. ERC
+reports the expected five intentional isolated `NC_*` label warnings. The
+board is still a layout POC, not order-ready, and physical module fit is
+unverified.
+
+## 2026-09-23 — C5/Wio compact carrier: footprint-cache and silk cleanup
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Adapted the socketed C5 footprint to Seeed's published XIAO ESP32-C5 DIP body
+outline and 2.54 mm pad grid (15.24 mm row spacing). The carrier's 1.0 mm
+socket drill and 2.0 mm land remain prototype assumptions. Adjusted the C5
+escape endpoints to the revised hole centers without changing their net
+assignments. Refreshed all embedded standard-footprint copies from KiCad 10.0.6
+and both custom copies from the project libraries. Removed cramped explanatory
+front-silkscreen notes; assembly and case intent remain documented in the
+README/mechanical review. Marked schematic test points and mounting datums
+out-of-BOM to match their standard footprint attributes.
+
+**Verified:** KiCad 10.0.6 render succeeds; DRC reports zero unconnected items,
+zero schematic-parity issues, no footprint/library mismatches, and no silk/text
+violations. One DRC error remains: the C5 module courtyard overlaps the
+lower-centre M2 hole courtyard. ERC still reports the five intentional isolated
+`NC_*` contacts. The Grove footprint is not yet vendor-outline-verified; the
+board remains a POC and is not ready to order.
+
 ## 2026-09-23 — SubGhz view: 'x' profile cycling now shown after a config exists
 
 **Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
