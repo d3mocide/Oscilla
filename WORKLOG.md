@@ -1,3 +1,51 @@
+## 2026-09-22 — LSI-8 hardware-confirmed: sync-word write, no MeshCore regression
+
+**Phase:** P3 follow-up · **By:** Claude + operator
+
+Ran both LSI-8 checks over the debug console (driven remotely via the
+deck's USB serial — `lora_manual` bypasses the screen/cursor gating by
+design, so no physical key presses were needed). **MeshCore regression
+check (`log_0025`):** 93 packets over 635.5s, zero `crc_err`/`hw_fault`/
+`irq_drop`/`radio_drop`, largest gap 35.8s — no regression from the
+now-explicit sync-word write, reception rate and error counters consistent
+with the pre-LSI-8 baseline. Mean RSSI was notably stronger this session
+(-69.0 vs -81.9 dBm) but that's attributed to normal session-to-session
+variance in which MeshCore repeater retransmissions get heard, not a code
+defect — sync word can't affect the RSSI of a packet it lets through.
+
+**Meshtastic-parameter mechanical test (`log_0026`, `lora_manual
+906875000 11 250 1 43`):** first time the `WriteRegister` sync-word path
+has run with a value other than the lucky default on real silicon —
+zero errors/faults across the full session. Zero packets (no known
+Meshtastic source nearby), which incidentally also produced the first
+zero-packet SD session on record — manifest and health CSV both opened,
+logged monotonic zeros, and closed correctly, closing a gap LSI-3/LSI-5's
+acceptance plan never had a real example of. Manifest correctly recorded
+`profile=manual` and `sync_word=0x2B` in both new sessions.
+
+Still open: on-device `x` profile-cycling was never exercised (everything
+today went through the debug console), and an actual Meshtastic *reception*
+test still needs a real nearby Meshtastic node. Full detail in
+[`docs/lora-session-integrity.md`](docs/lora-session-integrity.md#hardware-confirmed-2026-09-22).
+
+## 2026-09-22 — C5/Wio carrier: conservative Grove-power POC estimate
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Converted the requested Grove-powered concept into a deliberately bounded POC
+power plan. The only series topology is `Grove red → F1 → D1 → C5 5 V`, with
+the diode oriented to prevent USB-to-Grove back-feed. Reserved a Bourns
+`MF-MSMF125/16X` 1812 PPTC (1.25 A hold / 2.50 A trip at 23 °C; 1.00 A hold at
+40 °C) and a Diodes Inc. B240A-class 2 A/40 V SMA Schottky. The revised
+mechanical board shows this as a placement reservation, not routed copper.
+
+The estimate uses Rev D's provisional 0.91 A / 3.3 V combined-margin load:
+3.00 W. At an assumed 80% conversion efficiency that is 0.75 A from 5 V;
+with an additional 25% POC allowance the planning source load is 0.94 A,
+rounded to **1.0 A**. This does not prove Cardputer availability, C5 regulator
+thermal behavior, diode temperature, or USB/Grove isolation. P6 remains the
+release gate; no fabrication output or Grove-only authorization was produced.
+
 ## 2026-09-22 — Three deferred decisions revisited: retention, build ID, thresholds
 
 **Phase:** P3 follow-up · **By:** Claude + operator
@@ -4570,3 +4618,40 @@ the channel bars by splitting unused chart width across both sides, and used
 the recovered vertical space to give the chart a taller top region.
 
 ## 2026-09-17 — Made Beacons PHY conflicts explicit and restored its pink accent
+## 2026-09-22 — C5 + single-Wio co-mounted carrier started (not release-ready)
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Operator selected a co-mounted C5/Wio carrier with a Grove input, superseding
+the initial USB-only connector disposition. The first KiCad 10 routing draft
+used Rev D's custom Wio signal map and a 0.75 A-hold PTC plus SS14. It was
+subsequently archived as an unverified experiment in
+[`hardware/archive/c5-wio-carrier-routing-draft-2026-09-22`](hardware/archive/c5-wio-carrier-routing-draft-2026-09-22/),
+not carried forward as the carrier design. No fabrication output was produced
+or approved; module fit, antenna clearance, boot/USB recovery, and P6 power
+headroom stay physical gates.
+# 2026-09-22 — C5/Wio carrier: archived routing experiment; added fit-first floorplan
+
+- Moved the unverified 90 x 68 mm manual-routing experiment to
+  `hardware/archive/c5-wio-carrier-routing-draft-2026-09-22/`; it remains a
+  record only and is not a fabrication candidate.
+- Added `hardware/c5-wio-carrier/` as a clean 80 x 48 mm mechanical KiCad
+  floorplan. It reserves separate C5 USB-C access, Wio antenna clearance,
+  Grove edge ingress, and four candidate M2 locations while fitting inside
+  the Cardputer ADV's published 84 x 54 mm plan envelope.
+- This is deliberately not an electrical release: no final module footprints,
+  schematic, selected Grove connector, selected 5 V protection, or routed
+  netlist exists yet. Case alignment, P6 power current, USB/Grove isolation,
+  and C5 cold-boot/native-USB recovery with GPIO25 attached stay as physical
+  gates.
+- Operator clarified the supplied C5 orientation: USB-C is at the module's
+  top edge. The 80 x 48 mm floorplan now places that edge at the case opening.
+  Both radios use IPEX/u.FL coax leads to external case-mounted antennas, so
+  the Wio antenna bay was removed. The four 2.2 mm M2 centers form a 70 x
+  38 mm rectangle, 5 mm in from each board edge, and now define the enclosure
+  standoff datum; the future case is designed from the PCB.
+- Replaced the oversized generic Grove service box with the selected compact
+  Seeed `1125R-4P` 90-degree, 2.00 mm connector reservation. Added the
+  explicit C5/Wio/Grove electrical contract and verified official C5 SMD
+  footprint availability. Grove 5 V remains routed only through an as-yet
+  unselected protection stage pending P6 current and back-feed qualification.

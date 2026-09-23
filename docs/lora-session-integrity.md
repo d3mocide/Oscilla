@@ -44,7 +44,7 @@ discovery sweep, or any transmit-capable feature.
 | LSI-5 | Establish a repeatable receive-only soak procedure. | Controlled known-source and source-absent runs, build identity, device/antenna setup, counter deltas, and manual log inspection in `docs/hardware/`. | Known-source run hardware-confirmed 2026-09-22 (clean, no stalls/drops); source-absent control run but did not reach a genuine no-signal condition (bench too close to a strong repeater) — see [`docs/hardware/lora-session-soak.md`](hardware/lora-session-soak.md) |
 | LSI-6 | Complete combined power/SD/TFT qualification after the panel arrives. | P6 current/supply measurements and a multi-hour all-subsystem soak. | Blocked on P5 hardware |
 | LSI-7 | Track mid-session SX1262 hardware faults, not just queue drops and CRC/header errors. Scoped to a concrete gap found in `lora_radio.c`'s task loop: a `GetIrqStatus`/`ClearIrqStatus` SPI transaction failing while already listening was previously silent — no counter, no log. | New `hw_fault` counter, wired through `lora_status`, the deck model, the Sub-GHz view, and the health CSV sidecar. Host-tested (partial-reply rejection included). | Implemented and host-tested 2026-09-22; hardware confirmation pending |
-| LSI-8 | Manual/multi-profile `lora_config`: a real LoRa sync-word register write (closing a driver gap — see below), a second named profile (Meshtastic US LongFast), on-device profile cycling, and arbitrary manual entry via the debug console. | `lora_config` accepts an optional 5th `sync_word` arg (defaults to `0x12`, no behavior change for existing 4-arg callers); `x` cycles `model::kLoraProfiles` on the Sub-GHz card; `lora_manual <freq> <sf> <bw> <cr> [sync]` debug command for arbitrary values; sync word recorded in the session manifest. Host-tested (profile table values pinned against LoRaTrace-RX's sourcing). | Implemented and host-tested 2026-09-22; hardware confirmation pending (see caution below) |
+| LSI-8 | Manual/multi-profile `lora_config`: a real LoRa sync-word register write (closing a driver gap — see below), a second named profile (Meshtastic US LongFast), on-device profile cycling, and arbitrary manual entry via the debug console. | `lora_config` accepts an optional 5th `sync_word` arg (defaults to `0x12`, no behavior change for existing 4-arg callers); `x` cycles `model::kLoraProfiles` on the Sub-GHz card; `lora_manual <freq> <sf> <bw> <cr> [sync]` debug command for arbitrary values; sync word recorded in the session manifest. Host-tested (profile table values pinned against LoRaTrace-RX's sourcing). | Sync-word write and MeshCore no-regression hardware-confirmed 2026-09-22; on-device `x` profile-cycling and real Meshtastic reception still untested |
 
 ## Session contract
 
@@ -142,6 +142,43 @@ meaningful evidence rather than noise.
 
 **New provenance field:** the session manifest now records `sync_word` in
 hex, alongside `profile`/`freq_hz`/`sf`/`bw_khz`/`cr`.
+
+### Hardware-confirmed 2026-09-22
+
+Both checks above ran, over the debug console (driven remotely, no physical
+key presses — `lora_manual` bypasses the screen/cursor gating by design).
+
+**MeshCore regression check (`log_0025`):** 93 packets over 635.5s, zero
+`crc_err`/`hw_fault`/`irq_drop`/`radio_drop`, 2 `header_err`, largest
+inter-packet gap 35.8s (well under the 60s threshold that mattered for the
+original silent-stall bug). **No regression** — reception rate, timing, and
+error counters are consistent with or better than the pre-LSI-8 baseline
+(`log_0023`: 282 packets/2327.9s). One honest observation, not a concern:
+mean RSSI was -69.0 dBm here vs -81.9 dBm in that baseline — a real shift,
+but sync word only gates which packets pass the filter, it cannot change
+the RSSI of a packet that does get through. A shorter 10-minute window
+sampling a different mix of MeshCore's flooded retransmissions is a far
+more likely explanation than a code defect, and `lora-harness.md` already
+documents this kind of session-to-session RSSI variance as normal for this
+network's flooding behavior.
+
+**Meshtastic-parameter mechanical test (`log_0026`, via `lora_manual
+906875000 11 250 1 43`):** manifest correctly recorded `profile=manual`,
+`sync_word=0x2B` — the new field threads through end-to-end on real
+hardware. Zero packets over 634.7s (no known Meshtastic source in range,
+expected) but also zero errors/faults of any kind while the driver held a
+sync word it had never written to real silicon before this session. This
+is the first proof the `WriteRegister` path works for a value other than
+the lucky default, and — as a bonus — it's also the first zero-packet
+session captured, satisfying the zero-packet SD case LSI-3/LSI-5's
+acceptance plan never had a real example of: the manifest and health CSV
+both opened, wrote monotonic zero rows for the full session, and closed
+correctly with nothing to log.
+
+**Still open:** an actual Meshtastic *reception* test needs a real nearby
+Meshtastic node, which wasn't available for this session — today's
+Meshtastic run proves the mechanism doesn't fault, not that real Meshtastic
+traffic decodes correctly.
 
 **No on-device numeric entry.** Arbitrary manual values still require the
 debug console over USB (`lora_manual <freq_hz> <sf> <bw_khz> <cr>
