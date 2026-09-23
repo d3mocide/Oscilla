@@ -7,6 +7,7 @@
 #include "ui/subghz_view.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include <M5Cardputer.h>
 
@@ -119,6 +120,14 @@ void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeSta
                       (unsigned long)((lora.freqHz() % 1000000UL) / 1000UL));
         d.setTextColor(lora.active() ? kFieldGreen : kMutedSlate, kVoidInk);
         d.printf("%s SF%d BW%d %s", freq, lora.sf(), lora.bwKhz(), profileLabel(lora.profile()));
+        /* pending_profile_label used to be drawn only in the !hasConfig()
+         * branch below, so 'x' after a config existed had no feedback.
+         * Shown only when it differs from what's applied, to stay quiet
+         * in the common case. */
+        if (std::strcmp(pending_profile_label, profileLabel(lora.profile())) != 0) {
+            d.setTextColor(kCalibrationYellow, kVoidInk);
+            d.printf(" x=%s", pending_profile_label);
+        }
         if (lora.health().valid) {
             d.setCursor(4, kDetailRowY + 9);
             d.setTextColor((lora.health().irq_drop || lora.health().radio_drop ||

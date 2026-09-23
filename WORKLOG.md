@@ -1,3 +1,30 @@
+## 2026-09-23 — SubGhz view: 'x' profile cycling now shown after a config exists
+
+**Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
+
+Operator found on-device profile cycling (`x`, Sub-GHz card — the still-open
+item from LSI-8's acceptance plan) "busted" once a config had ever been
+applied: `lora_profile_index_` was still advancing correctly on every `x`
+press, but `subghz_view.cpp`'s detail row only ever drew
+`pending_profile_label` inside the `!lora.hasConfig()` branch
+("CFG REQUIRED - c=%s (x=next)"). Once `hasConfig()` is true that branch is
+permanently dead, so the screen showed the *applied* profile and gave no
+feedback on what `x` had selected since.
+
+Considered a toast (`notice()`) instead; rejected it — `kNoticeDurationMs`
+is 2s, and the whole point is deciding what to apply with `c`, which can
+take longer than that to think about. Fixed by appending `x=<label>` to the
+applied-config line whenever the pending selection differs from what's
+running, matching how Contacts/Zig already show their own `x`-cycled tab
+state persistently rather than transiently.
+
+Host suite and both builds pass; deck reflashed. **Not yet hardware-
+confirmed** — this is a rendering fix with no debug-console equivalent for
+`x` (it's wired only through the physical key handler), so it needs an
+actual on-screen look: configure, cycle `x`, confirm the indicator appears
+and tracks the selection, confirm it clears once the newly-selected profile
+is applied.
+
 ## 2026-09-23 — LoRa review fixes hardware-confirmed: DIO1 stall, config-on-ack, busy-reject
 
 **Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator
