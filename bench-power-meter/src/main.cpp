@@ -45,7 +45,7 @@ static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr int64_t kAttachSlowUs = 100000;
 static constexpr int64_t kAttachBackoffUs = 15000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.10";
+static constexpr const char *kMeterVer = "0.3.11";
 
 namespace {
 
@@ -152,10 +152,21 @@ void scanBus(TwoWire &w, char *out, size_t cap)
 /* Wiring diagnosis: who answers on each bus, and on the display pins swapped. */
 void emitScan()
 {
-    char ina_bus[64], oled_bus[64], oled_swapped[64];
+    char ina_bus[64], ina_swapped[64], oled_bus[64], oled_swapped[64];
     scanBus(Wire, ina_bus, sizeof ina_bus);
+    if (g_ina) {   /* in use: sampling owns the bus */
+        snprintf(ina_swapped, sizeof ina_swapped, "skipped");
+    } else {
+        Wire.end();
+        Wire.begin(kSclPin, kSdaPin, kI2cHz);
+        scanBus(Wire, ina_swapped, sizeof ina_swapped);
+        Wire.end();
+        Wire.begin(kSdaPin, kSclPin, kI2cHz);
+        Wire.setTimeOut(5);
+    }
     oledScan(oled_bus, oled_swapped, sizeof oled_bus);
-    emitf("#PWR scan ina_bus=%s oled_bus=%s oled_swapped=%s", ina_bus, oled_bus, oled_swapped);
+    emitf("#PWR scan ina_bus=%s ina_swapped=%s oled_bus=%s oled_swapped=%s", ina_bus,
+          ina_swapped, oled_bus, oled_swapped);
 }
 
 /* UART only while the probe is powered: never back-feed an unpowered C5 (Rev D §9). */
