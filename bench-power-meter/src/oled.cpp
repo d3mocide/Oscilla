@@ -83,8 +83,14 @@ void scanInto(TwoWire &w, char *out, size_t cap)
     size_t len = 0;
     out[0] = '\0';
     for (uint8_t a = 0x08; a < 0x78; a++) {
+        uint32_t t = millis();
         w.beginTransmission(a);
-        if (w.endTransmission() != 0) continue;
+        uint8_t rc = w.endTransmission();
+        if (millis() - t > 100) {   /* sick bus: each probe costs 1 s */
+            snprintf(out, cap, "stalled_at_0x%02X", a);
+            return;
+        }
+        if (rc != 0) continue;
         int n = snprintf(out + len, cap - len, "%s0x%02X", len ? "," : "", a);
         if (n < 0 || static_cast<size_t>(n) >= cap - len) break;
         len += static_cast<size_t>(n);
