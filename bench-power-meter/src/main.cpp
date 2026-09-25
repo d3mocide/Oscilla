@@ -45,7 +45,7 @@ static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr int64_t kAttachSlowUs = 100000;
 static constexpr int64_t kAttachBackoffUs = 15000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.11";
+static constexpr const char *kMeterVer = "0.3.12";
 
 namespace {
 
@@ -164,9 +164,13 @@ void emitScan()
         Wire.begin(kSdaPin, kSclPin, kI2cHz);
         Wire.setTimeOut(5);
     }
+    /* How 0x40 fails: 2 = clean NACK (nobody home), 4/5 = the bus misbehaved. */
+    Wire.beginTransmission(0x40);
+    uint8_t rc40 = Wire.endTransmission();
     oledScan(oled_bus, oled_swapped, sizeof oled_bus);
-    emitf("#PWR scan ina_bus=%s ina_swapped=%s oled_bus=%s oled_swapped=%s", ina_bus,
-          ina_swapped, oled_bus, oled_swapped);
+    emitf("#PWR scan ina_bus=%s ina_swapped=%s rc40=%u sda=%d scl=%d oled_bus=%s oled_swapped=%s",
+          ina_bus, ina_swapped, rc40, gpio_get_level(static_cast<gpio_num_t>(kSdaPin)),
+          gpio_get_level(static_cast<gpio_num_t>(kSclPin)), oled_bus, oled_swapped);
 }
 
 /* UART only while the probe is powered: never back-feed an unpowered C5 (Rev D §9). */
