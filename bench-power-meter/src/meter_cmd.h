@@ -10,11 +10,11 @@
 
 namespace meter {
 
-enum class CmdKind { Invalid, StreamOn, StreamOff, Window, Shunt, Sag, Mark, Info, Scan };
+enum class CmdKind { Invalid, StreamOn, StreamOff, Window, Shunt, Sag, Mark, Info, Scan, Panel };
 
 struct Cmd {
     CmdKind kind = CmdKind::Invalid;
-    uint32_t value = 0;             /* Window: ms, Shunt: µΩ, Sag: mV */
+    uint32_t value = 0;             /* Window: ms, Shunt: µΩ, Sag: mV, Panel: 0 ssd1306 / 1 sh1106 */
     char label[33] = {};            /* Mark */
     const char *err = nullptr;      /* Invalid: why */
 };

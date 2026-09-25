@@ -61,6 +61,10 @@ Cmd parseCommand(const char *line, bool overflow)
         c.kind = CmdKind::Info;
     } else if (std::strcmp(verb, "scan") == 0 && !arg) {
         c.kind = CmdKind::Scan;
+    } else if (std::strcmp(verb, "panel") == 0 && arg &&
+               (std::strcmp(arg, "ssd1306") == 0 || std::strcmp(arg, "sh1106") == 0)) {
+        c.kind = CmdKind::Panel;
+        c.value = std::strcmp(arg, "sh1106") == 0 ? 1 : 0;
     } else if (std::strcmp(verb, "stream") == 0 && arg && std::strcmp(arg, "on") == 0) {
         c.kind = CmdKind::StreamOn;
     } else if (std::strcmp(verb, "stream") == 0 && arg && std::strcmp(arg, "off") == 0) {

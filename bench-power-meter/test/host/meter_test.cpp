@@ -172,6 +172,9 @@ void testCommands()
     check(parseCommand("stream on", false).kind == CmdKind::StreamOn, "stream on");
     check(parseCommand("scan", false).kind == CmdKind::Scan, "scan");
     check(parseCommand("scan x", false).kind == CmdKind::Invalid, "scan takes no argument");
+    check(parseCommand("panel sh1106", false).value == 1, "panel sh1106");
+    check(parseCommand("panel ssd1306", false).kind == CmdKind::Panel, "panel ssd1306");
+    check(parseCommand("panel ili9341", false).kind == CmdKind::Invalid, "unknown panel rejected");
     check(parseCommand("window 50", false).value == 50, "window 50");
     check(parseCommand("window 5", false).kind == CmdKind::Invalid, "window below range rejected");
     check(parseCommand("shunt 20000", false).value == 20000, "shunt in µΩ");

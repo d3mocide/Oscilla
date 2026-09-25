@@ -103,7 +103,7 @@ drifts, so check both fillets before calibrating.
 
 ## Optional display
 
-A 128×64 SSD1306 (I²C, at 0x3C or 0x3D, found automatically) shows the chip,
+A 128×64 SSD1306 or SH1106 (I²C, at 0x3C or 0x3D, found automatically; pick the controller with `#panel`) shows the chip,
 the rail voltage, the probe's power state, and the mean, low and peak current
 over each 0.5 s. It also shows rail minimum and sag/clip/I²C flags, and the
 current `#mark` label while a sequence runs. It works whether or not the host
@@ -164,6 +164,7 @@ forwarded to the probe. Every other byte passes straight through.
 | `#shunt <µΩ>` | Shunt value used for scaling. The firmware default is 20000; `power_sequence.py` always sets it |
 | `#sag <mV>` | Latching bus-undervoltage alert threshold; 0 turns it off (default 3150) |
 | `#scan` | Replies `#PWR scan ina_bus=… oled_bus=… oled_swapped=…`: every I²C address answering on the INA bus (D4/D5), the display bus (D9/D10), and the display pins swapped. For wiring faults. |
+| `#panel ssd1306` / `#panel sh1106` | Display controller, saved across reboots. The two look identical and share an address. If `#info` shows `frames=` climbing but the screen stays dark, try the other one. |
 | `#mark <label>` | Replies `#PWR mark t_us=… label=…`, timestamped when the meter receives it |
 
 Settings replies are `#PWR ok cmd="…"` or `#PWR err msg="…"`.

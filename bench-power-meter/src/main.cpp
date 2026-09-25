@@ -40,7 +40,7 @@ static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr int64_t kDisplayWindowUs = 500000;
 static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.2";
+static constexpr const char *kMeterVer = "0.3.3";
 
 namespace {
 
@@ -94,11 +94,11 @@ void emitf(const char *fmt, ...)
 
 void emitInfo()
 {
-    emitf("#PWR info ver=%s ina=%s adc=%s oled=0x%02X probe=%s stream=%d window_ms=%" PRIu32
-          " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32,
+    emitf("#PWR info ver=%s ina=%s adc=%s oled=0x%02X panel=%s frames=%" PRIu32
+          " probe=%s stream=%d window_ms=%" PRIu32 " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32,
           kMeterVer, g_ina ? g_ina->name() : "absent", g_ina ? g_ina->setup() : "none",
-          oledAddress(), g_power.up() ? "up" : "down", g_stream ? 1 : 0, g_window_us / 1000,
-          g_shunt_uohm, g_sag_mv);
+          oledAddress(), oledPanelName(), oledFrames(), g_power.up() ? "up" : "down",
+          g_stream ? 1 : 0, g_window_us / 1000, g_shunt_uohm, g_sag_mv);
 }
 
 void scanBus(TwoWire &w, char *out, size_t cap)
@@ -151,6 +151,9 @@ struct Commands : meter::CommandSink {
         case meter::CmdKind::Scan:
             emitScan();
             return;
+        case meter::CmdKind::Panel:
+            oledSetPanel(c.value ? OledPanel::Sh1106 : OledPanel::Ssd1306);
+            break;
         case meter::CmdKind::StreamOn:
             g_stream = true;
             meter::windowReset(g_win, nowUs());
