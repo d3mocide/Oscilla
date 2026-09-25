@@ -5,7 +5,8 @@ ESP32-S3, built for the P6 measurement in
 [`docs/hardware/power-budget.md`](../docs/hardware/power-budget.md). It does
 two jobs:
 
-- it reads an INA226 wired in series with the probe's supply
+- it reads an INA226 (or INA228, detected by ID at boot) wired in series
+  with the probe's supply
 - it bridges the probe's OCP UART to the laptop, taking over the Cardputer's
   `grove-bridge` role
 
@@ -19,7 +20,7 @@ the meter forwards the host's OCP bytes exactly as it gets them.
 ## Wiring
 
 ```
-supply ──► regulator OUT ──► INA226 IN+ ─[20 mΩ]─ IN− (+VBUS) ──► probe rail
+supply ──► regulator OUT ──► INA226 IN+ ─[R050]─ IN− (+VBUS) ──► probe rail
 Laptop ──USB-C──► XIAO S3                       all GND common
 ```
 
@@ -37,8 +38,10 @@ Laptop ──USB-C──► XIAO S3                       all GND common
 - **The probe end follows Rev D §3.** The S3 pins above are bench-only. Rev D
   doesn't cover this board, and they're defined in one place:
   [`src/main.cpp`](src/main.cpp).
-- **INA226 VBUS must connect to IN−.** Many modules tie them together
-  already; if yours doesn't, add a jumper. Leave the address pins at 0x40.
+- **INA226 VBUS must connect to IN−.** On the HW-899 module this pin is
+  labelled **VBS** and isn't tied to IN−, so add a jumper. Without it the
+  meter never sees the probe's rail and never enables the UART. Leave the
+  address pins at 0x40.
 - **The probe runs the UART build, with its USB unplugged** (power-budget.md
   §5).
 - **Grove red (5 V) stays disconnected and insulated.**
@@ -57,19 +60,44 @@ doesn't care which. Tell the host script which one with `--rail`:
 the moment the rail falls below 2.7 V. So plugging and unplugging the supply
 never drives the UART into an unpowered C5 (Rev D §9).
 
-## Shunt and INA226 setup
+## Shunt and sensor setup
 
-- **Shunt:** 20 mΩ, 1%, low-TCR, 2512. Full scale is 81.92 mV / 20 mΩ =
-  4.1 A, with 125 µA per LSB. The module's stock 100 mΩ shunt clips at
-  819 mA, below Rev D's 910 mA planning figure.
-- **INA226 config `0x4007`:** no averaging, 140 µs conversions for shunt and
-  bus, continuous mode. Each current sample integrates over 140 µs, so a
-  spike shorter than that is averaged in rather than caught as a peak. The
-  shunt is only measured while the bus conversion isn't running. This is
-  much coarser than a PPK2 (§4).
-- **Calibrating:** solder joints add milliohms, which is several percent at
-  20 mΩ. Pass a known current through the shunt and compare against a DMM,
-  then use the corrected value with `--shunt-mohm`.
+**Shunt.** The module's stock 100 mΩ (R100) clips at 819 mA, below Rev D's
+910 mA planning figure, so replace it with a lower value. This bench uses an
+**R050 (50 mΩ)**:
+
+| Chip | Full scale | Step | With R050 |
+|---|---|---|---|
+| INA226 | ±81.92 mV | 2.5 µV | 1.64 A range, 50 µA steps |
+| INA228 | ±163.84 mV | 312.5 nV | 3.28 A range, 6.25 µA steps |
+
+An R020 (4.1 A range on an INA226) also works. Values above R100 (R200,
+R220) have *lower* ceilings, around 400 mA, and are only suited to
+low-current work.
+
+**ADC setup** (`adc=` in `#info`):
+
+| Chip | Conversion | Notes |
+|---|---|---|
+| INA226 | 140 µs shunt, 140 µs bus, no averaging, continuous | Shunt covered about 50% of the time |
+| INA228 | 150 µs shunt, 50 µs bus, no averaging, continuous | Shunt covered about 75% of the time |
+
+Each sample integrates over its conversion time, so a spike shorter than that
+is averaged in rather than caught as a peak. Means are sound, but a reported
+peak is a lower bound. That's much coarser than a PPK2 (power-budget.md §4).
+
+**Calibrating.** The host script requires `--shunt-mohm`, with no default,
+so the wrong resistor can't be assumed by accident. A DMM can't resolve
+50 mΩ directly, so measure it with a known current instead:
+
+1. Pass a known current through IN+ → IN−. For example, 3.3 V through a
+   33 Ω ½ W resistor gives about 100 mA.
+2. Measure the millivolts across IN+/IN− and the milliamps through the
+   circuit.
+3. The shunt value in mΩ is mV × 1000 ÷ mA. Pass that to `--shunt-mohm`.
+
+A poorly wetted joint at either end of the shunt adds resistance and
+drifts, so check both fillets before calibrating.
 
 ## Build and flash
 
@@ -91,10 +119,10 @@ forwarded to the probe. Every other byte passes straight through.
 
 | Command | Effect |
 |---|---|
-| `#info` | Replies `#PWR info …`: INA226 detected, probe power state, settings |
+| `#info` | Replies `#PWR info …`: `ina=ina226\|ina228\|absent`, `adc=` setup, probe power state, settings |
 | `#stream on` / `#stream off` | Start or stop `win` and `probe` lines |
 | `#window <ms>` | Window length, 10–10000 ms (default 50) |
-| `#shunt <µΩ>` | Shunt value used for scaling (default 20000) |
+| `#shunt <µΩ>` | Shunt value used for scaling. The firmware default is 20000; `power_sequence.py` always sets it |
 | `#sag <mV>` | Latching bus-undervoltage alert threshold; 0 turns it off (default 3150) |
 | `#mark <label>` | Replies `#PWR mark t_us=… label=…`, timestamped when the meter receives it |
 

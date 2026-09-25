@@ -67,7 +67,7 @@ the SX1262's RX ramp are short, and a 1–2 Hz USB meter averages straight
 through them.
 
 **In use (2026-09-24): [`bench-power-meter/`](../../bench-power-meter/README.md)**,
-an INA226 with a 20 mΩ shunt read by a spare XIAO ESP32-S3. It measures at
+an INA226 (INA228 also supported) with a 50 mΩ shunt read by a spare XIAO ESP32-S3. It measures at
 the right point and voltage, and reports mean, floor and peak for each short
 window, so it covers **idle and mean** per state. For **peaks** it falls short of the
 requirement above: each sample integrates over 140 µs and only about half
@@ -135,7 +135,7 @@ anyone having to remember it:
 ```
 host ──USB── XIAO S3 (bench-power-meter) ──UART── probe
                     │ I²C                            │
-             INA226 ─[20 mΩ]─────────────────────────┘ 3V3 pad (or 5V pin)
+             INA226 ─[R050]───────────────────────────┘ 3V3 pad (or 5V pin)
                     ▲ supply (e.g. AMS1117-3.3 from a USB charger)
 ```
 

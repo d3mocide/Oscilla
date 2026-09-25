@@ -1,3 +1,31 @@
+## 2026-09-24 (later) — Power meter: INA228 detection, R050 shunt, monitor mode
+
+**Phase:** P6 prep · **By:** Will + Claude
+
+- **R050 fitted, not R020.** The parts on hand were R050, R200 and R220. The
+  R200 and R220 have *lower* ceilings (about 400 mA). R050 on an INA226 gives
+  a 1.64 A range with 50 µA steps. The earlier entry's 20 mΩ figures were the
+  plan; this is what's actually fitted.
+- **INA228 support, detected by ID at boot.** I misread the module's marking
+  as "228" from a photo, and Will confirmed it's an INA226. The support was
+  already written and tested, and it costs nothing at runtime, so it stays.
+  The drivers now share one register-I/O layer, with the chip-specific
+  arithmetic in `ina_decode.h` (host-tested: 24-bit sign extension, bus/limit
+  LSBs). Window stats take the chip's own LSB and full scale. I haven't
+  checked the INA228 register values against a datasheet copy in this repo,
+  because there isn't one; they're from memory of TI's map, so they need
+  checking on real silicon before an INA228 is trusted.
+- **`--shunt-mohm` is now required**, with no default. A 20 mΩ default would
+  have silently mis-scaled the R050 by 2.5×.
+- **`power_sequence.py --monitor`**: meter only, 1 s windows, no probe
+  needed. For the dry run and for calibration.
+- **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
+  IN−, so it needs a jumper. Without it the meter never sees the rail.
+- **Verified:** meter builds (0 warnings); host tests 58/58 and selftest
+  13/13; `check_protocol.sh` green. **Not verified:** anything on hardware.
+
+---
+
 ## 2026-09-24 — P6 bench power meter: INA226 on a XIAO S3, nothing measured yet
 
 **Phase:** P6 prep · **By:** Will + Claude

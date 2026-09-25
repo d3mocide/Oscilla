@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "ina_decode.h"
 #include "meter_cmd.h"
 #include "meter_mux.h"
 #include "meter_window.h"
@@ -185,27 +186,58 @@ void testCommands()
 
 void testWindow()
 {
+    const ShuntScale s226{kIna226ShuntLsbPv, kIna226FullScale};
+    const ShuntScale s228{kIna228ShuntLsbPv, kIna228FullScale};
+
     /* 20 mΩ: 1 LSB = 2.5 µV = 125 µA. */
-    check(rawToMicroamps(1, 20000) == 125, "1 LSB at 20 mΩ is 125 µA");
-    check(rawToMicroamps(-8, 20000) == -1000, "negative current keeps its sign");
+    check(rawToMicroamps(1, s226.lsb_pv, 20000) == 125, "INA226: 1 LSB at 20 mΩ is 125 µA");
+    check(rawToMicroamps(-8, s226.lsb_pv, 20000) == -1000, "negative current keeps its sign");
+    /* 50 mΩ: 1 LSB = 312.5 nV = 6.25 µA; 16 LSB = 100 µA exactly. */
+    check(rawToMicroamps(16, s228.lsb_pv, 50000) == 100, "INA228: 16 LSB at 50 mΩ is 100 µA");
+    check(rawToMicroamps(static_cast<int64_t>(kIna228FullScale) * 10000, s228.lsb_pv, 50000)
+              == static_cast<int64_t>(kIna228FullScale) * 62500,
+          "INA228: a long window's sum does not overflow");
 
     Window w;
     windowReset(w, 1000);
-    windowAddShunt(w, 800);   /* 100 mA */
-    windowAddShunt(w, 2400);  /* 300 mA */
-    windowAddShunt(w, INT16_MAX);
+    windowAddShunt(w, 800, s226);   /* 100 mA */
+    windowAddShunt(w, 2400, s226);  /* 300 mA */
+    windowAddShunt(w, INT16_MAX, s226);
     windowAddBus(w, 3300);
     windowAddBus(w, 3120);
     check(w.clip == 1, "full-scale sample counted as clipped");
     char line[320];
     WindowFlags f{true, 0, 0, 0, 0};
-    int n = formatWindow(line, sizeof line, w, 51000, 20000, f);
+    int n = formatWindow(line, sizeof line, w, 51000, 20000, s226.lsb_pv, f);
     check(n > 0 && std::strstr(line, " i_min_ua=100000 ") && std::strstr(line, " vbus_min_mv=3120 ") &&
               std::strstr(line, " sag=1 "), "window line carries min, bus minimum and sag");
-    check(formatWindow(line, 20, w, 51000, 20000, f) == -1, "a too-small buffer is refused");
+    check(formatWindow(line, 20, w, 51000, 20000, s226.lsb_pv, f) == -1, "a too-small buffer is refused");
+
+    Window w8;
+    windowReset(w8, 0);
+    windowAddShunt(w8, INT16_MAX, s228);
+    check(w8.clip == 0, "INA226 full scale is not clipping on an INA228");
+    windowAddShunt(w8, -kIna228FullScale - 1, s228);
+    check(w8.clip == 1, "INA228 negative full scale counts as clipped");
 
     windowReset(w, 51000);
     check(w.n == 0 && w.vbus_min_mv == 3120, "reset keeps only the latest bus reading");
+}
+
+void testDecode()
+{
+    check(ina226Shunt(0xFFFF) == -1, "INA226 shunt is two's complement");
+    check(ina226BusMv(2640) == 3300, "INA226 bus: 2640 LSB is 3.3 V");
+    check(ina226AlertLimit(3150) == 2520, "INA226 alert limit for 3.15 V");
+
+    /* 24-bit register, value in bits 23:4. */
+    check(ina228Raw20(0x000010) == 1, "INA228: bits 3:0 are not part of the value");
+    check(ina228Raw20(0xFFFFF0) == -1, "INA228: sign extends from bit 23");
+    check(ina228Raw20(0x7FFFF0) == kIna228FullScale, "INA228: positive full scale");
+    check(ina228Raw20(0x800000) == -kIna228FullScale - 1, "INA228: negative full scale");
+    check(ina228Raw20(0xFFFFFF) == -1, "INA228: reserved low bits ignored when set");
+    check(ina228BusMv(16896) == 3300, "INA228 bus: 16896 LSB is 3.3 V");
+    check(ina228Buvl(3150) == 1008, "INA228 BUVL for 3.15 V");
 }
 
 void testProbePower()
@@ -233,6 +265,7 @@ int main()
     testUplink();
     testCommands();
     testWindow();
+    testDecode();
     testProbePower();
     std::printf("meter: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

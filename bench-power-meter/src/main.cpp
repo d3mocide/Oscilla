@@ -2,7 +2,7 @@
  * main.cpp — Oscilla P6 bench power meter on a XIAO ESP32-S3. Not Oscilla
  * firmware: bench instrumentation, like firmware-cardputer/bench/.
  *
- * INA226 in series with the probe's supply; UART bridge to the probe's OCP
+ * INA226 or INA228 in series with the probe's supply; UART bridge to the probe's OCP
  * link; both multiplexed onto USB (meter_mux.h). Method:
  * docs/hardware/power-budget.md. Wiring and line format: README.md.
  *
@@ -16,11 +16,12 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include "ina226.h"
+#include "ina_bus.h"
 #include "meter_cmd.h"
 #include "meter_mux.h"
 #include "meter_window.h"
 #include "ocp.h"
+#include "power_sensor.h"
 #include "probe_power.h"
 
 /* Bench wiring (README). Probe end is Rev D §3: C5 D7/GPIO12 RX, D6/GPIO11 TX.
@@ -31,11 +32,9 @@ static constexpr int kSdaPin = 5;       /* D4 */
 static constexpr int kSclPin = 6;       /* D5 */
 static constexpr uint32_t kI2cHz = 400000;
 
-/* AVG=1, VBUSCT=VSHCT=140 µs, continuous shunt+bus (INA226 config register). */
-static constexpr uint16_t kInaConfig = 0x4007;
 static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.1.0";
+static constexpr const char *kMeterVer = "0.2.0";
 
 namespace {
 
@@ -51,9 +50,10 @@ meter::Downlink g_down;
 meter::Uplink g_up;
 meter::ProbePower g_power;
 meter::Window g_win;
-Ina226 g_ina(Wire);
+InaBus g_bus(Wire);
+PowerSensor *g_ina = nullptr;
+meter::ShuntScale g_scale{0, 0};
 
-bool g_ina_ok = false;
 bool g_stream = false;
 uint32_t g_window_us = 50000;
 uint32_t g_shunt_uohm = 20000;
@@ -85,10 +85,11 @@ void emitf(const char *fmt, ...)
 
 void emitInfo()
 {
-    emitf("#PWR info ver=%s ina=%s probe=%s stream=%d window_ms=%" PRIu32
-          " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32 " config=0x%04X",
-          kMeterVer, g_ina_ok ? "ok" : "absent", g_power.up() ? "up" : "down",
-          g_stream ? 1 : 0, g_window_us / 1000, g_shunt_uohm, g_sag_mv, kInaConfig);
+    emitf("#PWR info ver=%s ina=%s adc=%s probe=%s stream=%d window_ms=%" PRIu32
+          " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32,
+          kMeterVer, g_ina ? g_ina->name() : "absent", g_ina ? g_ina->setup() : "none",
+          g_power.up() ? "up" : "down", g_stream ? 1 : 0, g_window_us / 1000,
+          g_shunt_uohm, g_sag_mv);
 }
 
 /* UART only while the probe is powered: never back-feed an unpowered C5 (Rev D §9). */
@@ -130,7 +131,7 @@ struct Commands : meter::CommandSink {
             break;
         case meter::CmdKind::Sag:
             g_sag_mv = c.value;
-            if (g_ina_ok && !g_ina.setSagAlert(g_sag_mv)) {
+            if (g_ina && !g_ina->setSagAlert(g_sag_mv)) {
                 emitf("#PWR err msg=\"i2c\"");
                 return;
             }
@@ -164,8 +165,8 @@ void pumpProbe()
 
 void sampleBus(int64_t now)
 {
-    uint16_t raw = 0;
-    int32_t mv = g_ina.readBus(raw) ? meter::busRawToMv(raw) : -1;
+    int32_t mv = -1;
+    if (!g_ina->readBusMv(mv)) mv = -1;
     if (mv >= 0) meter::windowAddBus(g_win, mv);
 
     switch (g_power.update(mv, now)) {
@@ -188,10 +189,11 @@ void closeWindow(int64_t now)
     /* Previous line not yet out: keep accumulating; t0/t1 make it self-describing. */
     if (!g_down.pendingEmpty()) return;
     bool sag = false;
-    if (g_ina_ok && g_sag_mv > 0 && !g_ina.readSag(sag)) sag = false;
-    meter::WindowFlags f{sag, g_down.cuts(), g_up.dropped(), g_ina.errors(), g_lost};
+    if (g_ina && g_sag_mv > 0 && !g_ina->readSag(sag)) sag = false;
+    meter::WindowFlags f{sag, g_down.cuts(), g_up.dropped(), g_bus.errors(), g_lost};
     char line[320];
-    if (meter::formatWindow(line, sizeof line, g_win, now, g_shunt_uohm, f) < 0) g_lost++;
+    if (meter::formatWindow(line, sizeof line, g_win, now, g_shunt_uohm, g_scale.lsb_pv, f) < 0)
+        g_lost++;
     else emit(line);
     meter::windowReset(g_win, now);
 }
@@ -208,7 +210,9 @@ void setup()
     probeUart(false);
     Wire.begin(kSdaPin, kSclPin, kI2cHz);
     Wire.setTimeOut(5);   /* ms: a wedged bus faults, never hangs */
-    g_ina_ok = g_ina.begin(kInaConfig) && g_ina.setSagAlert(g_sag_mv);
+    g_ina = detectSensor(g_bus);
+    if (g_ina && !g_ina->setSagAlert(g_sag_mv)) g_ina = nullptr;
+    if (g_ina) g_scale = {g_ina->shuntLsbPv(), g_ina->fullScale()};
     meter::windowReset(g_win, nowUs());
 }
 
@@ -221,9 +225,9 @@ void loop()
     pumpHost();
     pumpProbe();
 
-    if (g_ina_ok) {
-        int16_t raw = 0;
-        if (g_ina.readShunt(raw)) meter::windowAddShunt(g_win, raw);
+    if (g_ina) {
+        int32_t raw = 0;
+        if (g_ina->readShunt(raw)) meter::windowAddShunt(g_win, raw, g_scale);
         if (now - g_last_bus_us >= kBusPeriodUs) {
             g_last_bus_us = now;
             sampleBus(now);

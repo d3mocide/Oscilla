@@ -19,13 +19,13 @@ void windowReset(Window &w, int64_t t0_us)
     w.vbus_min_mv = keep_vbus;
 }
 
-void windowAddShunt(Window &w, int16_t raw)
+void windowAddShunt(Window &w, int32_t raw, const ShuntScale &sc)
 {
     if (w.n == 0 || raw < w.min) w.min = raw;
     if (w.n == 0 || raw > w.max) w.max = raw;
     w.sum += raw;
     w.n++;
-    if (raw == INT16_MAX || raw == INT16_MIN) w.clip++;
+    if (raw >= sc.full_scale || raw <= -sc.full_scale - 1) w.clip++;
 }
 
 void windowAddBus(Window &w, int32_t mv)
@@ -34,20 +34,20 @@ void windowAddBus(Window &w, int32_t mv)
     if (w.vbus_min_mv < 0 || mv < w.vbus_min_mv) w.vbus_min_mv = mv;
 }
 
-int64_t rawToMicroamps(int64_t raw, uint32_t shunt_uohm)
+int64_t rawToMicroamps(int64_t raw, int64_t lsb_pv, uint32_t shunt_uohm)
 {
-    /* µA = raw * 2.5 µV / (uohm µΩ) * 1e6 = raw * 2500 nV * 1000 / uohm. */
-    return raw * kShuntLsbNv * 1000 / static_cast<int64_t>(shunt_uohm);
+    /* pV / µΩ = µA. */
+    return raw * lsb_pv / static_cast<int64_t>(shunt_uohm);
 }
 
 int formatWindow(char *buf, size_t cap, const Window &w, int64_t t1_us,
-                 uint32_t shunt_uohm, const WindowFlags &f)
+                 uint32_t shunt_uohm, int64_t lsb_pv, const WindowFlags &f)
 {
     int64_t mean = 0, lo = 0, hi = 0;
     if (w.n > 0) {
-        mean = rawToMicroamps(w.sum, shunt_uohm) / static_cast<int64_t>(w.n);
-        lo = rawToMicroamps(w.min, shunt_uohm);
-        hi = rawToMicroamps(w.max, shunt_uohm);
+        mean = rawToMicroamps(w.sum, lsb_pv, shunt_uohm) / static_cast<int64_t>(w.n);
+        lo = rawToMicroamps(w.min, lsb_pv, shunt_uohm);
+        hi = rawToMicroamps(w.max, lsb_pv, shunt_uohm);
     }
     int len = std::snprintf(
         buf, cap,

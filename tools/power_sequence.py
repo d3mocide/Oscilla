@@ -2,7 +2,8 @@
 """power_sequence.py — walk the P6 state matrix through bench-power-meter.
 
     power_sequence.py --selftest
-    power_sequence.py /dev/serial/by-id/<xiao-s3> --rail 3v3 [--dwell 20]
+    power_sequence.py /dev/serial/by-id/<xiao-s3> --rail 3v3 --shunt-mohm 50 [--dwell 20]
+    power_sequence.py /dev/serial/by-id/<xiao-s3> --monitor --shunt-mohm 50
 
 The meter's USB carries both the probe's OCP link and the current readings;
 this script drives the probe through docs/hardware/power-budget.md §6, marks
@@ -139,8 +140,8 @@ def run_live(args) -> int:
         if info is None:
             print("meter did not answer #info — wrong port, or not the meter firmware?")
             return 1
-        if info.kv.get("ina") != "ok":
-            print("meter reports ina=absent — check the INA226 wiring (README)")
+        if info.kv.get("ina") not in ("ina226", "ina228"):
+            print(f"meter reports ina={info.kv.get('ina')} — check the INA226 wiring (README)")
             return 1
         shunt_uohm = round(args.shunt_mohm * 1000)
         for cmd in (f"window {args.window_ms}", f"shunt {shunt_uohm}", f"sag {RAILS[args.rail]}"):
@@ -187,6 +188,9 @@ def run_live(args) -> int:
         link.close()
 
     marks = [m for m in link.marks if m.kv.get("label") != "end"]
+    if not link.windows or not marks:
+        print("no windows or marks recorded — nothing to summarise")
+        return 1
     end_us = end.int("t_us") if end else link.windows[-1].int("t1_us")
     figures = summarize(link.windows, marks, end_us, round(args.settle * 1e6),
                         link.probe_events, errors)
@@ -228,6 +232,55 @@ def write_run(args, info: Meter, link: Link, figures, statuses) -> None:
         print(f"{s.label:<18} {ma(s.mean_ua):>8} {ma(s.min_ua):>7} {ma(s.max_ua):>7} {vb:>6}  "
               f"{'' if s.valid else 'INVALID: '}{tail}")
     print(f"\nwrote {out}")
+
+
+def run_monitor(args) -> int:
+    """Meter only, no probe needed: print 1 s windows until Ctrl-C."""
+    link = Link(args.port)
+    try:
+        link.meter("stream off")
+        link.wait(lambda i: False, 0.3)
+        link.meter("info")
+        info = link.wait(lambda i: isinstance(i, Meter) and i.kind == "info", 2.0)
+        if info is None:
+            print("meter did not answer #info — wrong port, or not the meter firmware?")
+            return 1
+        print(" ".join(f"{k}={v}" for k, v in info.kv.items()))
+        if info.kv.get("ina") not in ("ina226", "ina228"):
+            print("no INA226/INA228 found — check VCC/GND/SDA(D4)/SCL(D5)")
+            return 1
+        sag = RAILS[args.rail] if args.rail else 0
+        for cmd in ("window 1000", f"shunt {round(args.shunt_mohm * 1000)}", f"sag {sag}"):
+            if not meter_ok(link, cmd):
+                print(f"meter refused '#{cmd}'")
+                return 1
+        link.meter("stream on")
+        print(f"{'mean mA':>9} {'min':>8} {'peak':>8} {'Vbus':>6} {'Vmin':>6} {'n':>6}  flags")
+        while True:
+            item = link.wait(lambda i: isinstance(i, Meter) and i.kind in ("win", "probe"), 5.0)
+            if item is None:
+                print("no windows for 5 s — meter stalled?")
+                continue
+            if item.kind == "probe":
+                print(f"  rail {item.kv.get('state')} at {item.kv.get('vbus_mv')} mV")
+                continue
+            print(format_window_row(item))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        try:
+            link.meter("stream off")
+        finally:
+            link.close()
+    return 0
+
+
+def format_window_row(w: Meter) -> str:
+    ma = lambda k: f"{w.int(k) / 1000:.2f}"  # noqa: E731
+    volts = lambda k: f"{w.int(k) / 1000:.2f}" if w.int(k) >= 0 else "-"  # noqa: E731
+    flags = [f"{k}={w.int(k)}" for k in ("sag", "clip", "i2c_err", "lost") if w.int(k)]
+    return (f"{ma('i_ua'):>9} {ma('i_min_ua'):>8} {ma('i_max_ua'):>8} {volts('vbus_mv'):>6} "
+            f"{volts('vbus_min_mv'):>6} {w.int('n'):>6}  {' '.join(flags)}")
 
 
 def selftest() -> int:
@@ -287,6 +340,8 @@ def selftest() -> int:
           not b.valid and "supply sagged" in b.problems and "probe lost power" in b.problems
           and "x: [ERR] busy" in b.problems)
 
+    row = format_window_row(wins[1])
+    check("monitor row shows mA and volts", "200.00" in row and "3.30" in row and row.endswith("  "))
     m = reply_markers()
     check("reply markers come from ocp.h", m.get("stop") == "[STOP]" and m.get("reboot") == "")
     for label, cmds in state_matrix("915000000 7 125 1"):
@@ -305,8 +360,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("port", nargs="?", help="the meter's /dev/serial/by-id/… path")
     ap.add_argument("--selftest", action="store_true", help="offline checks, no hardware")
+    ap.add_argument("--monitor", action="store_true",
+                    help="meter only: print 1 s windows until Ctrl-C (dry run, calibration)")
     ap.add_argument("--rail", choices=sorted(RAILS), help="where the shunt sits (required live)")
-    ap.add_argument("--shunt-mohm", type=float, default=20.0, help="calibrated shunt value")
+    ap.add_argument("--shunt-mohm", type=float,
+                    help="calibrated shunt value in mΩ (required live; no default on purpose)")
     ap.add_argument("--window-ms", type=int, default=50)
     ap.add_argument("--dwell", type=float, default=20.0, help="seconds per state")
     ap.add_argument("--settle", type=float, default=2.0, help="seconds skipped after each transition")
@@ -317,8 +375,14 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
-    if not args.port or not args.rail:
-        ap.error("a live run needs a port and --rail")
+    if args.monitor:
+        if not args.port or args.shunt_mohm is None:
+            ap.error("--monitor needs a port and --shunt-mohm")
+        return run_monitor(args)
+    if not args.port or not args.rail or args.shunt_mohm is None:
+        ap.error("a live run needs a port, --rail and --shunt-mohm")
+    if not 1.0 <= args.shunt_mohm <= 1000.0:
+        ap.error("--shunt-mohm must be 1-1000 (the meter's accepted range)")
     return run_live(args)
 
 
