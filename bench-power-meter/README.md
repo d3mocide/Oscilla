@@ -161,7 +161,7 @@ forwarded to the probe. Every other byte passes straight through.
 | `#info` | Replies `#PWR info …`: `ina=ina226\|ina228\|absent`, `adc=` setup, probe power state, settings |
 | `#stream on` / `#stream off` | Start or stop `win` and `probe` lines |
 | `#window <ms>` | Window length, 10–10000 ms (default 50) |
-| `#shunt <µΩ>` | Shunt value used for scaling. The firmware default is 20000; `power_sequence.py` always sets it |
+| `#shunt <µΩ>` | Shunt value used for scaling, **saved across reboots** so the display stays right without a host. First boot defaults to 20000; `power_sequence.py` always sets it |
 | `#sag <mV>` | Latching bus-undervoltage alert threshold; 0 turns it off (default 3150) |
 | `#scan` | Replies `#PWR scan ina_bus=… oled_bus=… oled_swapped=…`: every I²C address answering on the INA bus (D4/D5), the display bus (D9/D10), and the display pins swapped. For wiring faults. |
 | `#panel ssd1306` / `#panel sh1106` | Display controller, saved across reboots. The two look identical and share an address. If `#info` shows `frames=` climbing but the screen stays dark, try the other one. |

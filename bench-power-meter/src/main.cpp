@@ -9,6 +9,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include <Arduino.h>
+#include <Preferences.h>
 #include <Wire.h>
 #include <esp_timer.h>
 #include <driver/gpio.h>
@@ -46,7 +47,7 @@ static constexpr int64_t kAttachSlowUs = 100000;
 static constexpr int64_t kAttachBackoffUs = 15000000;
 static constexpr int64_t kUsbKickUs = 20000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.14";
+static constexpr const char *kMeterVer = "0.3.15";
 
 namespace {
 
@@ -86,7 +87,7 @@ meter::ShuntScale g_scale{0, 0};
 
 bool g_stream = false;
 uint32_t g_window_us = 50000;
-uint32_t g_shunt_uohm = 20000;
+uint32_t g_shunt_uohm = 20000;   /* until NVS says otherwise; see loadShunt() */
 uint32_t g_sag_mv = 3150;
 uint32_t g_lost = 0;
 int64_t g_last_bus_us = 0;
@@ -175,6 +176,25 @@ void emitScan()
           gpio_get_level(static_cast<gpio_num_t>(kSclPin)), oled_bus, oled_swapped);
 }
 
+/* The shunt value lives in NVS so the display stays right across reboots
+ * without a host (bench: a reset fell back to 20 mΩ and showed 5x). */
+void loadShunt()
+{
+    Preferences prefs;
+    if (!prefs.begin("meter", true)) return;
+    uint32_t v = prefs.getUInt("shunt_uohm", 0);
+    prefs.end();
+    if (v >= meter::kShuntMinUohm && v <= meter::kShuntMaxUohm) g_shunt_uohm = v;
+}
+
+void saveShunt()
+{
+    Preferences prefs;
+    if (!prefs.begin("meter", false)) return;
+    if (prefs.getUInt("shunt_uohm", 0) != g_shunt_uohm) prefs.putUInt("shunt_uohm", g_shunt_uohm);
+    prefs.end();
+}
+
 /* UART only while the probe is powered: never back-feed an unpowered C5 (Rev D §9). */
 void probeUart(bool on)
 {
@@ -225,6 +245,7 @@ struct Commands : meter::CommandSink {
             break;
         case meter::CmdKind::Shunt:
             g_shunt_uohm = c.value;
+            saveShunt();
             break;
         case meter::CmdKind::Sag:
             g_sag_mv = c.value;
@@ -362,6 +383,7 @@ void setup()
     probeUart(false);
     Wire.begin(kSdaPin, kSclPin, kI2cHz);
     Wire.setTimeOut(5);   /* ms: a wedged bus faults, never hangs */
+    loadShunt();
     oledBegin(kOledSdaPin, kOledSclPin);
     attachPeripherals();   /* either may be absent; retried from loop() */
     meter::windowReset(g_win, nowUs());
