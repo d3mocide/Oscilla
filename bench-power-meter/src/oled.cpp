@@ -57,10 +57,15 @@ void task(void *)
 
 }  // namespace
 
-bool oledBegin(int sda, int scl)
+void oledBegin(int sda, int scl)
 {
     Wire1.begin(sda, scl, kOledI2cHz);
     Wire1.setTimeOut(20);
+}
+
+bool oledAttach()
+{
+    if (g_addr) return true;
     for (uint8_t a : {uint8_t{0x3C}, uint8_t{0x3D}}) {
         if (answers(a)) {
             g_addr = a;

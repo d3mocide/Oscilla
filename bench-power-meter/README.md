@@ -127,7 +127,8 @@ python3 tools/power_sequence.py /dev/serial/by-id/<xiao-s3> --monitor --shunt-mo
 What to expect:
 
 1. The `#info` line should say `ina=ina226`. If it says `absent`, check
-   VCC/GND/SDA/SCL.
+   VCC/GND/SDA/SCL. The meter retries every 2 s, and `--monitor` waits for
+   it, so you can wire the INA226 or display with the S3 powered.
 2. With the load disconnected, about 0 mA and Vbus near 0. This is the
    zero offset.
 3. With the load connected, a `rail up` line, Vbus about 3.3 V, and a mean

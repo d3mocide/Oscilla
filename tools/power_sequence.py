@@ -247,8 +247,12 @@ def run_monitor(args) -> int:
             return 1
         print(" ".join(f"{k}={v}" for k, v in info.kv.items()))
         if info.kv.get("ina") not in ("ina226", "ina228"):
-            print("no INA226/INA228 found — check VCC/GND/SDA(D4)/SCL(D5)")
-            return 1
+            print("no INA226/INA228 yet — check VCC/GND/SDA(D4)/SCL(D5); waiting (Ctrl-C to quit)")
+            while info is None or info.kv.get("ina") not in ("ina226", "ina228"):
+                link.wait(lambda i: False, 2.0)
+                link.meter("info")
+                info = link.wait(lambda i: isinstance(i, Meter) and i.kind == "info", 2.0)
+            print(" ".join(f"{k}={v}" for k, v in info.kv.items()))
         sag = RAILS[args.rail] if args.rail else 0
         for cmd in ("window 1000", f"shunt {round(args.shunt_mohm * 1000)}", f"sag {sag}"):
             if not meter_ok(link, cmd):

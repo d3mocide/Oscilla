@@ -9,8 +9,10 @@
 
 #include "display_text.h"
 
-/* Starts the display task if a panel answers at 0x3C or 0x3D. */
-bool oledBegin(int sda, int scl);
+void oledBegin(int sda, int scl);
+/* Starts the display task if a panel answers at 0x3C or 0x3D. Idempotent;
+ * cheap to retry while no panel is fitted. */
+bool oledAttach();
 /* Address found, or 0. */
 uint8_t oledAddress();
 /* Hand the task a new snapshot; cheap, safe from the sampling loop. */

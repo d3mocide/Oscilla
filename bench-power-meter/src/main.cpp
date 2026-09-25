@@ -38,8 +38,9 @@ static constexpr uint32_t kI2cHz = 400000;
 
 static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr int64_t kDisplayWindowUs = 500000;
+static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.0";
+static constexpr const char *kMeterVer = "0.3.1";
 
 namespace {
 
@@ -66,6 +67,7 @@ uint32_t g_shunt_uohm = 20000;
 uint32_t g_sag_mv = 3150;
 uint32_t g_lost = 0;
 int64_t g_last_bus_us = 0;
+int64_t g_last_attach_us = 0;
 char g_label[33] = {};
 
 int64_t nowUs() { return esp_timer_get_time(); }
@@ -213,6 +215,17 @@ void closeWindow(int64_t now)
     meter::windowReset(g_win, now);
 }
 
+/* Boot and retry: lets the INA and panel be wired with the S3 powered. */
+void attachPeripherals()
+{
+    if (!g_ina) {
+        g_ina = detectSensor(g_bus);
+        if (g_ina && !g_ina->setSagAlert(g_sag_mv)) g_ina = nullptr;
+        if (g_ina) g_scale = {g_ina->shuntLsbPv(), g_ina->fullScale()};
+    }
+    oledAttach();
+}
+
 void publishDisplay(int64_t now)
 {
     meter::DisplaySnapshot s;
@@ -248,10 +261,8 @@ void setup()
     probeUart(false);
     Wire.begin(kSdaPin, kSclPin, kI2cHz);
     Wire.setTimeOut(5);   /* ms: a wedged bus faults, never hangs */
-    g_ina = detectSensor(g_bus);
-    if (g_ina && !g_ina->setSagAlert(g_sag_mv)) g_ina = nullptr;
-    if (g_ina) g_scale = {g_ina->shuntLsbPv(), g_ina->fullScale()};
-    oledBegin(kOledSdaPin, kOledSclPin);   /* optional: absent is fine */
+    oledBegin(kOledSdaPin, kOledSclPin);
+    attachPeripherals();   /* either may be absent; retried from loop() */
     meter::windowReset(g_win, nowUs());
     meter::windowReset(g_disp, nowUs());
 }
@@ -282,6 +293,10 @@ void loop()
         else meter::windowReset(g_win, now);
     }
 
+    if ((!g_ina || !oledAddress()) && now - g_last_attach_us >= kAttachRetryUs) {
+        g_last_attach_us = now;
+        attachPeripherals();
+    }
     if (oledAddress() && now - g_disp.t0_us >= kDisplayWindowUs) publishDisplay(now);
 
     g_down.service(nowUs(), g_host);
