@@ -15,12 +15,14 @@
 #include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 
 #include "ina_bus.h"
 #include "meter_cmd.h"
 #include "meter_mux.h"
 #include "meter_window.h"
 #include "ocp.h"
+#include "oled.h"
 #include "power_sensor.h"
 #include "probe_power.h"
 
@@ -30,11 +32,14 @@ static constexpr int kProbeTxPin = 2;   /* D1 -> C5 D7 */
 static constexpr int kProbeRxPin = 1;   /* D0 <- C5 D6 */
 static constexpr int kSdaPin = 5;       /* D4 */
 static constexpr int kSclPin = 6;       /* D5 */
+static constexpr int kOledSdaPin = 8;   /* D9, second I2C controller */
+static constexpr int kOledSclPin = 9;   /* D10 */
 static constexpr uint32_t kI2cHz = 400000;
 
 static constexpr int64_t kBusPeriodUs = 10000;
+static constexpr int64_t kDisplayWindowUs = 500000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.2.0";
+static constexpr const char *kMeterVer = "0.3.0";
 
 namespace {
 
@@ -50,6 +55,7 @@ meter::Downlink g_down;
 meter::Uplink g_up;
 meter::ProbePower g_power;
 meter::Window g_win;
+meter::Window g_disp;   /* the OLED's own window, independent of streaming */
 InaBus g_bus(Wire);
 PowerSensor *g_ina = nullptr;
 meter::ShuntScale g_scale{0, 0};
@@ -60,6 +66,7 @@ uint32_t g_shunt_uohm = 20000;
 uint32_t g_sag_mv = 3150;
 uint32_t g_lost = 0;
 int64_t g_last_bus_us = 0;
+char g_label[33] = {};
 
 int64_t nowUs() { return esp_timer_get_time(); }
 
@@ -85,10 +92,10 @@ void emitf(const char *fmt, ...)
 
 void emitInfo()
 {
-    emitf("#PWR info ver=%s ina=%s adc=%s probe=%s stream=%d window_ms=%" PRIu32
+    emitf("#PWR info ver=%s ina=%s adc=%s oled=0x%02X probe=%s stream=%d window_ms=%" PRIu32
           " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32,
           kMeterVer, g_ina ? g_ina->name() : "absent", g_ina ? g_ina->setup() : "none",
-          g_power.up() ? "up" : "down", g_stream ? 1 : 0, g_window_us / 1000,
+          oledAddress(), g_power.up() ? "up" : "down", g_stream ? 1 : 0, g_window_us / 1000,
           g_shunt_uohm, g_sag_mv);
 }
 
@@ -137,6 +144,7 @@ struct Commands : meter::CommandSink {
             }
             break;
         case meter::CmdKind::Mark:
+            std::memcpy(g_label, c.label, sizeof g_label);
             emitf("#PWR mark t_us=%" PRId64 " label=%s", nowUs(), c.label);
             return;
         }
@@ -167,7 +175,16 @@ void sampleBus(int64_t now)
 {
     int32_t mv = -1;
     if (!g_ina->readBusMv(mv)) mv = -1;
-    if (mv >= 0) meter::windowAddBus(g_win, mv);
+    if (mv >= 0) {
+        meter::windowAddBus(g_win, mv);
+        meter::windowAddBus(g_disp, mv);
+    }
+    /* The only reader of the latched alert: reading clears it. */
+    bool sag = false;
+    if (g_sag_mv > 0 && g_ina->readSag(sag)) {
+        meter::windowAddSag(g_win, sag);
+        meter::windowAddSag(g_disp, sag);
+    }
 
     switch (g_power.update(mv, now)) {
     case meter::ProbePower::Change::Up:
@@ -188,14 +205,35 @@ void closeWindow(int64_t now)
 {
     /* Previous line not yet out: keep accumulating; t0/t1 make it self-describing. */
     if (!g_down.pendingEmpty()) return;
-    bool sag = false;
-    if (g_ina && g_sag_mv > 0 && !g_ina->readSag(sag)) sag = false;
-    meter::WindowFlags f{sag, g_down.cuts(), g_up.dropped(), g_bus.errors(), g_lost};
+    meter::WindowFlags f{g_down.cuts(), g_up.dropped(), g_bus.errors(), g_lost};
     char line[320];
     if (meter::formatWindow(line, sizeof line, g_win, now, g_shunt_uohm, g_scale.lsb_pv, f) < 0)
         g_lost++;
     else emit(line);
     meter::windowReset(g_win, now);
+}
+
+void publishDisplay(int64_t now)
+{
+    meter::DisplaySnapshot s;
+    s.valid = g_ina && g_disp.n > 0;
+    s.chip = g_ina ? g_ina->name() : "none";
+    s.probe_up = g_power.up();
+    s.stream = g_stream;
+    if (s.valid) {
+        s.mean_ua = meter::rawToMicroamps(g_disp.sum, g_scale.lsb_pv, g_shunt_uohm) /
+                    static_cast<int64_t>(g_disp.n);
+        s.min_ua = meter::rawToMicroamps(g_disp.min, g_scale.lsb_pv, g_shunt_uohm);
+        s.max_ua = meter::rawToMicroamps(g_disp.max, g_scale.lsb_pv, g_shunt_uohm);
+    }
+    s.vbus_mv = g_disp.vbus_mv;
+    s.vbus_min_mv = g_disp.vbus_min_mv;
+    s.sag = g_disp.sag;
+    s.clip = g_disp.clip > 0;
+    s.i2c_err = g_bus.errors();
+    std::memcpy(s.label, g_label, sizeof s.label);
+    oledPublish(s);
+    meter::windowReset(g_disp, now);
 }
 
 }  // namespace
@@ -213,7 +251,9 @@ void setup()
     g_ina = detectSensor(g_bus);
     if (g_ina && !g_ina->setSagAlert(g_sag_mv)) g_ina = nullptr;
     if (g_ina) g_scale = {g_ina->shuntLsbPv(), g_ina->fullScale()};
+    oledBegin(kOledSdaPin, kOledSclPin);   /* optional: absent is fine */
     meter::windowReset(g_win, nowUs());
+    meter::windowReset(g_disp, nowUs());
 }
 
 /* loopTask runs on core 1 with no task-WDT subscription; USB is serviced
@@ -227,7 +267,10 @@ void loop()
 
     if (g_ina) {
         int32_t raw = 0;
-        if (g_ina->readShunt(raw)) meter::windowAddShunt(g_win, raw, g_scale);
+        if (g_ina->readShunt(raw)) {
+            meter::windowAddShunt(g_win, raw, g_scale);
+            meter::windowAddShunt(g_disp, raw, g_scale);
+        }
         if (now - g_last_bus_us >= kBusPeriodUs) {
             g_last_bus_us = now;
             sampleBus(now);
@@ -238,6 +281,8 @@ void loop()
         if (g_stream) closeWindow(now);
         else meter::windowReset(g_win, now);
     }
+
+    if (oledAddress() && now - g_disp.t0_us >= kDisplayWindowUs) publishDisplay(now);
 
     g_down.service(nowUs(), g_host);
 }

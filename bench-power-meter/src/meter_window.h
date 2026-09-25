@@ -25,17 +25,18 @@ struct Window {
     uint32_t clip = 0;        /* samples at the ADC's full scale */
     int32_t vbus_mv = -1;     /* latest; -1 = never read */
     int32_t vbus_min_mv = -1;
+    bool sag = false;         /* bus-under-voltage alert seen */
 };
 
 void windowReset(Window &w, int64_t t0_us);
 void windowAddShunt(Window &w, int32_t raw, const ShuntScale &sc);
 void windowAddBus(Window &w, int32_t mv);
+void windowAddSag(Window &w, bool sag);
 
 /* raw shunt counts -> µA through `shunt_uohm`. */
 int64_t rawToMicroamps(int64_t raw, int64_t lsb_pv, uint32_t shunt_uohm);
 
 struct WindowFlags {
-    bool sag;           /* INA226 bus-under-voltage alert latched */
     uint32_t cuts;      /* cumulative probe lines cut (meter_mux.h) */
     uint32_t txdrop;    /* cumulative host bytes dropped while probe down */
     uint32_t i2c_err;   /* cumulative */

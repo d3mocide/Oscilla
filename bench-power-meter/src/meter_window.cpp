@@ -34,6 +34,11 @@ void windowAddBus(Window &w, int32_t mv)
     if (w.vbus_min_mv < 0 || mv < w.vbus_min_mv) w.vbus_min_mv = mv;
 }
 
+void windowAddSag(Window &w, bool sag)
+{
+    w.sag = w.sag || sag;
+}
+
 int64_t rawToMicroamps(int64_t raw, int64_t lsb_pv, uint32_t shunt_uohm)
 {
     /* pV / µΩ = µA. */
@@ -55,7 +60,7 @@ int formatWindow(char *buf, size_t cap, const Window &w, int64_t t1_us,
         " i_ua=%" PRId64 " i_min_ua=%" PRId64 " i_max_ua=%" PRId64
         " vbus_mv=%" PRId32 " vbus_min_mv=%" PRId32 " sag=%d clip=%" PRIu32
         " cuts=%" PRIu32 " txdrop=%" PRIu32 " i2c_err=%" PRIu32 " lost=%" PRIu32,
-        w.t0_us, t1_us, w.n, mean, lo, hi, w.vbus_mv, w.vbus_min_mv, f.sag ? 1 : 0,
+        w.t0_us, t1_us, w.n, mean, lo, hi, w.vbus_mv, w.vbus_min_mv, w.sag ? 1 : 0,
         w.clip, f.cuts, f.txdrop, f.i2c_err, f.lost);
     if (len < 0 || static_cast<size_t>(len) >= cap) return -1;
     return len;

@@ -31,6 +31,8 @@ Laptop ──USB-C──► XIAO S3                       all GND common
 | D5 / GPIO6 | INA226 SCL | |
 | D1 / GPIO2 (TX) | 470 Ω → C5 **D7** / GPIO12 (RX) | Crossover (AGENTS.md gotcha 12) |
 | D0 / GPIO1 (RX) | 470 Ω ← C5 **D6** / GPIO11 (TX) | |
+| D9 / GPIO8 | SSD1306 SDA | Optional display, on its own I²C bus |
+| D10 / GPIO9 | SSD1306 SCL | SSD1306 VCC/GND to the S3's 3V3/GND |
 
 - **Don't use D6/D7 (GPIO43/44) on the S3.** The S3 ROM prints to GPIO43 on
   every reset, and that text would go into the probe's RX even while the
@@ -98,6 +100,42 @@ so the wrong resistor can't be assumed by accident. A DMM can't resolve
 
 A poorly wetted joint at either end of the shunt adds resistance and
 drifts, so check both fillets before calibrating.
+
+## Optional display
+
+A 128×64 SSD1306 (I²C, at 0x3C or 0x3D, found automatically) shows the chip,
+the rail voltage, the probe's power state, and the mean, low and peak current
+over each 0.5 s. It also shows rail minimum and sag/clip/I²C flags, and the
+current `#mark` label while a sequence runs. It works whether or not the host
+is streaming, so the meter is usable with no laptop attached.
+
+It sits on the S3's **second** I²C controller and is drawn by its own task on
+core 0. A full refresh is about 25 ms of bus traffic; on the INA's bus that
+would leave a hole in sampling on every refresh. `#info` reports `oled=0x3C`,
+or `0x00` if no panel answered.
+
+## Dry run (meter only, no probe)
+
+Wire the S3 to the INA226 (and the display, if fitted). Then, with a DMM in
+series, make a known load: **S3 3V3 → IN+ → shunt → IN− (and VBS) → 100 Ω →
+GND**. That's about 33 mA, and the S3's own regulator handles it easily.
+
+```sh
+python3 tools/power_sequence.py /dev/serial/by-id/<xiao-s3> --monitor --shunt-mohm 50
+```
+
+What to expect:
+
+1. The `#info` line should say `ina=ina226`. If it says `absent`, check
+   VCC/GND/SDA/SCL.
+2. With the load disconnected, about 0 mA and Vbus near 0. This is the
+   zero offset.
+3. With the load connected, a `rail up` line, Vbus about 3.3 V, and a mean
+   close to the DMM's reading.
+
+Any consistent ratio between the meter's figure and the DMM's is shunt error.
+The corrected value is `50 × meter mA ÷ DMM mA`. With nothing on D0/D1, the
+meter's UART comes up with no probe attached, which is harmless.
 
 ## Build and flash
 

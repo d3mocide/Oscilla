@@ -254,7 +254,8 @@ python3 tools/check_wardrive_kml.py "$out/wardrive_kml_test"
 "${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ibench-power-meter/src -o "$out/meter_test" bench-power-meter/test/host/meter_test.cpp \
     bench-power-meter/src/meter_mux.cpp bench-power-meter/src/meter_cmd.cpp \
-    bench-power-meter/src/meter_window.cpp bench-power-meter/src/probe_power.cpp
+    bench-power-meter/src/meter_window.cpp bench-power-meter/src/probe_power.cpp \
+    bench-power-meter/src/display_text.cpp
 "$out/meter_test" | tail -1 | sed 's/^/  /'
 python3 tools/power_sequence.py --selftest | tail -1 | sed 's/^/  /'
 

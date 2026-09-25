@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "display_text.h"
 #include "ina_decode.h"
 #include "meter_cmd.h"
 #include "meter_mux.h"
@@ -205,9 +206,11 @@ void testWindow()
     windowAddShunt(w, INT16_MAX, s226);
     windowAddBus(w, 3300);
     windowAddBus(w, 3120);
+    windowAddSag(w, true);
+    windowAddSag(w, false);
     check(w.clip == 1, "full-scale sample counted as clipped");
     char line[320];
-    WindowFlags f{true, 0, 0, 0, 0};
+    WindowFlags f{0, 0, 0, 0};
     int n = formatWindow(line, sizeof line, w, 51000, 20000, s226.lsb_pv, f);
     check(n > 0 && std::strstr(line, " i_min_ua=100000 ") && std::strstr(line, " vbus_min_mv=3120 ") &&
               std::strstr(line, " sag=1 "), "window line carries min, bus minimum and sag");
@@ -222,6 +225,7 @@ void testWindow()
 
     windowReset(w, 51000);
     check(w.n == 0 && w.vbus_min_mv == 3120, "reset keeps only the latest bus reading");
+    check(!w.sag, "reset clears sag");
 }
 
 void testDecode()
@@ -238,6 +242,43 @@ void testDecode()
     check(ina228Raw20(0xFFFFFF) == -1, "INA228: reserved low bits ignored when set");
     check(ina228BusMv(16896) == 3300, "INA228 bus: 16896 LSB is 3.3 V");
     check(ina228Buvl(3150) == 1008, "INA228 BUVL for 3.15 V");
+}
+
+void testDisplay()
+{
+    char b[16];
+    formatMa(b, sizeof b, 123456);
+    check(std::strcmp(b, "123.4") == 0, "display: >= 100 mA shows one decimal");
+    formatMa(b, sizeof b, 5678);
+    check(std::strcmp(b, "5.67") == 0, "display: < 100 mA shows two decimals");
+    formatMa(b, sizeof b, -250);
+    check(std::strcmp(b, "-0.25") == 0, "display: small negative keeps its sign");
+    formatMa(b, sizeof b, 1640000);
+    check(std::strcmp(b, "1640.0") == 0, "display: full scale at R050 fits");
+
+    DisplaySnapshot s;
+    DisplayLines l;
+    composeLines(s, l);
+    check(std::strcmp(l.big, "NO SENSOR") == 0, "display: no sensor is said plainly");
+
+    s.valid = true;
+    s.chip = "ina226";
+    s.probe_up = true;
+    s.mean_ua = 212300;
+    s.vbus_mv = 3291;
+    s.vbus_min_mv = 3120;
+    s.sag = true;
+    std::memset(s.label, 'x', 32);
+    composeLines(s, l);
+    check(std::strcmp(l.head, "ina226 3.29V UP") == 0, "display: head line");
+    check(std::strcmp(l.big, "212.3 mA") == 0, "display: mean in the big line");
+    check(std::strstr(l.flags, "Vmin 3.12 SAG") != nullptr, "display: sag is flagged");
+    check(std::strlen(l.label) == kLineCap - 1, "display: a long label is cut to the panel width");
+
+    s.label[0] = '\0';
+    s.stream = false;
+    composeLines(s, l);
+    check(std::strcmp(l.label, "idle") == 0, "display: no label, not streaming = idle");
 }
 
 void testProbePower()
@@ -266,6 +307,7 @@ int main()
     testCommands();
     testWindow();
     testDecode();
+    testDisplay();
     testProbePower();
     std::printf("meter: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
