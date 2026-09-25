@@ -19,9 +19,16 @@
   have silently mis-scaled the R050 by 2.5×.
 - **`power_sequence.py --monitor`**: meter only, 1 s windows, no probe
   needed. For the dry run and for calibration.
+- **Optional SSD1306 display** (Will's idea): chip, rail, probe state, and
+  0.5 s mean/low/peak, on the S3's *second* I²C bus, drawn from a core-0
+  task. A 25 ms refresh on the INA's bus would have left a hole in sampling
+  every time it drew. Adding it exposed a latent conflict: the latched sag
+  alert clears on read, so two windows reading it would clear it for each
+  other. It now has one reader every 10 ms, and `sag` lives in the window
+  struct.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
-- **Verified:** meter builds (0 warnings); host tests 58/58 and selftest
+- **Verified:** meter builds (0 warnings); host tests 69/69 and selftest
   13/13; `check_protocol.sh` green. **Not verified:** anything on hardware.
 
 ---
