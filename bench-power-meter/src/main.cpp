@@ -46,7 +46,7 @@ static constexpr int64_t kAttachSlowUs = 100000;
 static constexpr int64_t kAttachBackoffUs = 15000000;
 static constexpr int64_t kUsbKickUs = 20000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.13";
+static constexpr const char *kMeterVer = "0.3.14";
 
 namespace {
 
@@ -354,7 +354,10 @@ void setup()
     Serial.setRxBufferSize(kBufBytes);
     Serial.setTxBufferSize(kBufBytes);
     Serial.begin(OCP_BAUD_DEFAULT);
-    Serial.setTxTimeoutMs(0);   /* host not reading: drop, never block */
+    /* Not 0: core 2.0.17's HWCDC::write() decrements a retry count seeded
+     * from this, so 0 wraps to ~49 days of blocking once the host stops
+     * reading (bench: 224 s loop stall). 2 ms then gives up and drops. */
+    Serial.setTxTimeoutMs(2);
 
     probeUart(false);
     Wire.begin(kSdaPin, kSclPin, kI2cHz);

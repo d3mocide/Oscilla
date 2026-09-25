@@ -63,6 +63,19 @@
   write still left one reply stranded on the bench, so `loop()` also arms it
   every 20 ms. Measured after: 12/12 replies in about 50 ms across 4 port
   sessions.
+- **A 224 s loop stall: `setTxTimeoutMs(0)` wraps in the core.** With
+  streaming on and the host port closed, `loop_max_us` reached 224 s.
+  `HWCDC::write()` seeds a retry counter from the TX timeout and decrements
+  it before testing for zero, so 0 wraps to about 49 days of `delay(1)`
+  once the ring buffer fills. Set to 2 ms. Measured after: 20 s host-absent
+  while streaming at 20 lines/s gave a worst pass of 2.1 ms. **The deck's
+  `grove_bridge.cpp` also calls `setTxTimeoutMs(0)`**, so it would stall the
+  same way if the host stops reading. Flagged, not changed.
+- **Stock R100 module reads ~14% above Ohm's law.** A 100.2 Ω metal-film
+  load at ~3.25 V should draw ~32.4 mA; the meter reads 36.94–37.01 mA.
+  Unplugging the display changed it by only 0.07 mA, so the display is
+  upstream. Unresolved pending DMM readings of the load voltage and the
+  shunt millivolts.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
 - **Verified:** meter builds (0 warnings); host tests 69/69 and selftest
