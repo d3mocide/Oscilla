@@ -44,8 +44,9 @@ static constexpr int64_t kAttachRetryUs = 2000000;
 /* A device that half-answers costs 1 s per transfer (IDF alive interval). */
 static constexpr int64_t kAttachSlowUs = 100000;
 static constexpr int64_t kAttachBackoffUs = 15000000;
+static constexpr int64_t kUsbKickUs = 20000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.12";
+static constexpr const char *kMeterVer = "0.3.13";
 
 namespace {
 
@@ -90,6 +91,7 @@ uint32_t g_sag_mv = 3150;
 uint32_t g_lost = 0;
 int64_t g_last_bus_us = 0;
 int64_t g_last_attach_us = 0;
+int64_t g_last_kick_us = 0;
 bool g_ina_bus_stuck = false;   /* SDA or SCL read low while idle */
 int64_t g_attach_us = 0;        /* duration of the last attach attempt */
 int64_t g_loop_max_us = 0;      /* longest loop() pass since the last #info */
@@ -398,6 +400,11 @@ void loop()
     if (oledAddress() && now - g_disp.t0_us >= kDisplayWindowUs) publishDisplay(now);
 
     g_down.service(nowUs(), g_host);
+    /* Backstop for kickUsbTx(): a reply was still seen stranded on the bench. */
+    if (now - g_last_kick_us >= kUsbKickUs) {
+        g_last_kick_us = now;
+        kickUsbTx();
+    }
     int64_t pass = nowUs() - now;
     if (pass > g_loop_max_us) g_loop_max_us = pass;
 }

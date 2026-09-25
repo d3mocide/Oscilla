@@ -51,6 +51,18 @@
   `setTimeOut` asks for. `#info` now reports `ina_bus`, `attach_us`,
   `loop_max_us` and `i2c_err`, and a slow attempt backs off to 15 s so a sick
   sensor can't freeze the meter every 2 s.
+- **The first INA226 module is dead.** Powered (3.28 V at its pins),
+  continuity good on SDA/SCL/GND, yet `#scan` got a clean NACK (`rc40=2`) at
+  every address, either pin order. Moving the known-good display onto
+  D4/D5 found it at 0x3C, so the S3's bus works. Most likely cause: an
+  earlier bring-up step had its VCC connected without GND, and it
+  back-powered through its I²C pins (that same period showed 1 s stalls,
+  then later clean silence). **Connect VCC and GND before SDA/SCL** on the
+  replacement.
+- **The HWCDC fix needed a backstop.** Arming the TX interrupt after each
+  write still left one reply stranded on the bench, so `loop()` also arms it
+  every 20 ms. Measured after: 12/12 replies in about 50 ms across 4 port
+  sessions.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
 - **Verified:** meter builds (0 warnings); host tests 69/69 and selftest
