@@ -17,6 +17,7 @@ constexpr BaseType_t kCore = 0;   /* sampling loop owns core 1 */
 
 U8G2_SSD1306_128X64_NONAME_F_2ND_HW_I2C g_u8g2(U8G2_R0, U8X8_PIN_NONE);
 uint8_t g_addr = 0;
+int g_sda = -1, g_scl = -1;
 portMUX_TYPE g_lock = portMUX_INITIALIZER_UNLOCKED;
 meter::DisplaySnapshot g_snap;
 
@@ -59,6 +60,8 @@ void task(void *)
 
 void oledBegin(int sda, int scl)
 {
+    g_sda = sda;
+    g_scl = scl;
     Wire1.begin(sda, scl, kOledI2cHz);
     Wire1.setTimeOut(20);
 }
@@ -80,6 +83,36 @@ bool oledAttach()
         return false;
     }
     return xTaskCreatePinnedToCore(task, "oled", 4096, nullptr, 1, nullptr, kCore) == pdPASS;
+}
+
+static void scanInto(TwoWire &w, char *out, size_t cap)
+{
+    size_t len = 0;
+    out[0] = '\0';
+    for (uint8_t a = 0x08; a < 0x78; a++) {
+        w.beginTransmission(a);
+        if (w.endTransmission() != 0) continue;
+        int n = snprintf(out + len, cap - len, "%s0x%02X", len ? "," : "", a);
+        if (n < 0 || static_cast<size_t>(n) >= cap - len) break;
+        len += static_cast<size_t>(n);
+    }
+    if (!len) snprintf(out, cap, "none");
+}
+
+void oledScan(char *as_wired, char *swapped, size_t cap)
+{
+    if (g_addr) {   /* panel in use: its task owns the bus */
+        snprintf(as_wired, cap, "0x%02X(in_use)", g_addr);
+        snprintf(swapped, cap, "skipped");
+        return;
+    }
+    scanInto(Wire1, as_wired, cap);
+    Wire1.end();
+    Wire1.begin(g_scl, g_sda, kOledI2cHz);
+    scanInto(Wire1, swapped, cap);
+    Wire1.end();
+    Wire1.begin(g_sda, g_scl, kOledI2cHz);
+    Wire1.setTimeOut(20);
 }
 
 uint8_t oledAddress()

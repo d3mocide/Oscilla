@@ -40,7 +40,7 @@ static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr int64_t kDisplayWindowUs = 500000;
 static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.1";
+static constexpr const char *kMeterVer = "0.3.2";
 
 namespace {
 
@@ -101,6 +101,29 @@ void emitInfo()
           g_shunt_uohm, g_sag_mv);
 }
 
+void scanBus(TwoWire &w, char *out, size_t cap)
+{
+    size_t len = 0;
+    out[0] = '\0';
+    for (uint8_t a = 0x08; a < 0x78; a++) {
+        w.beginTransmission(a);
+        if (w.endTransmission() != 0) continue;
+        int n = snprintf(out + len, cap - len, "%s0x%02X", len ? "," : "", a);
+        if (n < 0 || static_cast<size_t>(n) >= cap - len) break;
+        len += static_cast<size_t>(n);
+    }
+    if (!len) snprintf(out, cap, "none");
+}
+
+/* Wiring diagnosis: who answers on each bus, and on the display pins swapped. */
+void emitScan()
+{
+    char ina_bus[64], oled_bus[64], oled_swapped[64];
+    scanBus(Wire, ina_bus, sizeof ina_bus);
+    oledScan(oled_bus, oled_swapped, sizeof oled_bus);
+    emitf("#PWR scan ina_bus=%s oled_bus=%s oled_swapped=%s", ina_bus, oled_bus, oled_swapped);
+}
+
 /* UART only while the probe is powered: never back-feed an unpowered C5 (Rev D §9). */
 void probeUart(bool on)
 {
@@ -124,6 +147,9 @@ struct Commands : meter::CommandSink {
             return;
         case meter::CmdKind::Info:
             emitInfo();
+            return;
+        case meter::CmdKind::Scan:
+            emitScan();
             return;
         case meter::CmdKind::StreamOn:
             g_stream = true;

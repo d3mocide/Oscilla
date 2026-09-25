@@ -163,6 +163,7 @@ forwarded to the probe. Every other byte passes straight through.
 | `#window <ms>` | Window length, 10–10000 ms (default 50) |
 | `#shunt <µΩ>` | Shunt value used for scaling. The firmware default is 20000; `power_sequence.py` always sets it |
 | `#sag <mV>` | Latching bus-undervoltage alert threshold; 0 turns it off (default 3150) |
+| `#scan` | Replies `#PWR scan ina_bus=… oled_bus=… oled_swapped=…`: every I²C address answering on the INA bus (D4/D5), the display bus (D9/D10), and the display pins swapped. For wiring faults. |
 | `#mark <label>` | Replies `#PWR mark t_us=… label=…`, timestamped when the meter receives it |
 
 Settings replies are `#PWR ok cmd="…"` or `#PWR err msg="…"`.

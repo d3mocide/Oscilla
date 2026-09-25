@@ -10,7 +10,7 @@
 
 namespace meter {
 
-enum class CmdKind { Invalid, StreamOn, StreamOff, Window, Shunt, Sag, Mark, Info };
+enum class CmdKind { Invalid, StreamOn, StreamOff, Window, Shunt, Sag, Mark, Info, Scan };
 
 struct Cmd {
     CmdKind kind = CmdKind::Invalid;

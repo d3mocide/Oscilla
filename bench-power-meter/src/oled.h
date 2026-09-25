@@ -7,12 +7,18 @@
  */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "display_text.h"
 
 void oledBegin(int sda, int scl);
 /* Starts the display task if a panel answers at 0x3C or 0x3D. Idempotent;
  * cheap to retry while no panel is fitted. */
 bool oledAttach();
+/* Comma-separated 7-bit addresses answering on the display bus, with its
+ * pins as wired and then swapped. Only while no panel is attached. */
+void oledScan(char *as_wired, char *swapped, size_t cap);
 /* Address found, or 0. */
 uint8_t oledAddress();
 /* Hand the task a new snapshot; cheap, safe from the sampling loop. */

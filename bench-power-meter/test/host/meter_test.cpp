@@ -170,6 +170,8 @@ void testUplink()
 void testCommands()
 {
     check(parseCommand("stream on", false).kind == CmdKind::StreamOn, "stream on");
+    check(parseCommand("scan", false).kind == CmdKind::Scan, "scan");
+    check(parseCommand("scan x", false).kind == CmdKind::Invalid, "scan takes no argument");
     check(parseCommand("window 50", false).value == 50, "window 50");
     check(parseCommand("window 5", false).kind == CmdKind::Invalid, "window below range rejected");
     check(parseCommand("shunt 20000", false).value == 20000, "shunt in µΩ");
