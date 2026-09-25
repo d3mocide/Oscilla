@@ -26,6 +26,14 @@
   alert clears on read, so two windows reading it would clear it for each
   other. It now has one reader every 10 ms, and `sag` lives in the window
   struct.
+- **Display bring-up: a silent library stub.** The panel (a 0.96" GME12864,
+  so an SSD1306) acknowledged at 0x3C, and `#info frames=` climbed at
+  4/s, but the screen stayed dark. U8g2 only compiles its `Wire1` byte
+  function when `WIRE_INTERFACES_COUNT > 1`, and the ESP32 Arduino core never
+  defines that macro. So the `_2ND_HW_I2C` constructors built fine and
+  dropped every byte. Fixed with `-DWIRE_INTERFACES_COUNT=2` in
+  platformio.ini. On the way there, added `#scan` (the first wiring had the
+  panel on D4/D5), `#panel ssd1306|sh1106`, and a frame counter.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
 - **Verified:** meter builds (0 warnings); host tests 69/69 and selftest

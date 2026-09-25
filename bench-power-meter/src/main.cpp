@@ -40,7 +40,7 @@ static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr int64_t kDisplayWindowUs = 500000;
 static constexpr int64_t kAttachRetryUs = 2000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.3";
+static constexpr const char *kMeterVer = "0.3.4";
 
 namespace {
 
