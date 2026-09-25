@@ -19,6 +19,6 @@ PowerSensor *detectSensor(InaBus &bus)
         bus.clearErrors();   /* the other chip's ID reads may have NACKed */
         return s->configure() ? s : nullptr;
     }
-    bus.clearErrors();
+    /* Failed probes stay counted: #info i2c_err shows a sick bus. */
     return nullptr;
 }

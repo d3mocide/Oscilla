@@ -34,6 +34,23 @@
   dropped every byte. Fixed with `-DWIRE_INTERFACES_COUNT=2` in
   platformio.ini. On the way there, added `#scan` (the first wiring had the
   panel on D4/D5), `#panel ssd1306|sh1106`, and a frame counter.
+- **"Hang" that wasn't: USB replies stranded by the core's HWCDC.** After
+  the INA226 went on, the meter answered once and then went silent. JTAG
+  showed the loop running, and a reopen of the port delivered the whole
+  backlog, so it was output, not a hang. In core 2.0.17, `HWCDC::write()`
+  queues bytes without arming the TX-empty interrupt whenever its
+  `connected` flag is stale, so each short reply left one reply late (timed:
+  every reply arrived with the *next* one). Fixed by arming
+  `USB_SERIAL_JTAG_INTR_SERIAL_IN_EMPTY` after each host write; the core's
+  ISR disarms it when the buffer drains. **Possibly also affects the deck's
+  `grove-bridge`** (same core, same HWCDC). There, continuous probe traffic
+  would mask it. Unverified.
+- **An unpowered INA226 stalls the bus for 1 s per transfer.** With INA VCC
+  unwired (only IN+ fed), each detection attempt took exactly 2.0 s: IDF 4.4
+  waits a 1 s alive interval per stuck transfer, whatever Arduino's
+  `setTimeOut` asks for. `#info` now reports `ina_bus`, `attach_us`,
+  `loop_max_us` and `i2c_err`, and a slow attempt backs off to 15 s so a sick
+  sensor can't freeze the meter every 2 s.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
 - **Verified:** meter builds (0 warnings); host tests 69/69 and selftest

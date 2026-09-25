@@ -11,6 +11,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <esp_timer.h>
+#include <driver/gpio.h>
+#include <hal/usb_serial_jtag_ll.h>
 
 #include <cinttypes>
 #include <cstdarg>
@@ -39,8 +41,11 @@ static constexpr uint32_t kI2cHz = 400000;
 static constexpr int64_t kBusPeriodUs = 10000;
 static constexpr int64_t kDisplayWindowUs = 500000;
 static constexpr int64_t kAttachRetryUs = 2000000;
+/* A device that half-answers costs 1 s per transfer (IDF alive interval). */
+static constexpr int64_t kAttachSlowUs = 100000;
+static constexpr int64_t kAttachBackoffUs = 15000000;
 static constexpr size_t kBufBytes = 1024;
-static constexpr const char *kMeterVer = "0.3.4";
+static constexpr const char *kMeterVer = "0.3.9";
 
 namespace {
 
@@ -50,7 +55,24 @@ struct StreamSink : meter::Sink {
     Stream &s_;
 };
 
-StreamSink g_host(Serial);
+/* Core 2.0.17's HWCDC parks writes in its ring buffer without arming the
+ * TX interrupt whenever its `connected` flag is stale, so each short reply
+ * left one reply late (bench, 2026-09-24). Arming it after every write is
+ * safe: the core's ISR disarms it once the buffer is empty. */
+void kickUsbTx()
+{
+    usb_serial_jtag_ll_ena_intr_mask(USB_SERIAL_JTAG_INTR_SERIAL_IN_EMPTY);
+}
+
+struct HostSink : meter::Sink {
+    void write(const uint8_t *p, size_t n) override
+    {
+        Serial.write(p, n);
+        kickUsbTx();
+    }
+};
+
+HostSink g_host;
 StreamSink g_probe(Serial1);
 meter::Downlink g_down;
 meter::Uplink g_up;
@@ -68,6 +90,9 @@ uint32_t g_sag_mv = 3150;
 uint32_t g_lost = 0;
 int64_t g_last_bus_us = 0;
 int64_t g_last_attach_us = 0;
+bool g_ina_bus_stuck = false;   /* SDA or SCL read low while idle */
+int64_t g_attach_us = 0;        /* duration of the last attach attempt */
+int64_t g_loop_max_us = 0;      /* longest loop() pass since the last #info */
 char g_label[33] = {};
 
 int64_t nowUs() { return esp_timer_get_time(); }
@@ -94,11 +119,14 @@ void emitf(const char *fmt, ...)
 
 void emitInfo()
 {
-    emitf("#PWR info ver=%s ina=%s adc=%s oled=0x%02X panel=%s frames=%" PRIu32
+    emitf("#PWR info ver=%s ina=%s ina_bus=%s attach_us=%" PRId64 " loop_max_us=%" PRId64
+          " i2c_err=%" PRIu32 " adc=%s oled=0x%02X panel=%s frames=%" PRIu32
           " probe=%s stream=%d window_ms=%" PRIu32 " shunt_uohm=%" PRIu32 " sag_mv=%" PRIu32,
-          kMeterVer, g_ina ? g_ina->name() : "absent", g_ina ? g_ina->setup() : "none",
+          kMeterVer, g_ina ? g_ina->name() : "absent", g_ina_bus_stuck ? "stuck_low" : "ok",
+          g_attach_us, g_loop_max_us, g_bus.errors(), g_ina ? g_ina->setup() : "none",
           oledAddress(), oledPanelName(), oledFrames(), g_power.up() ? "up" : "down",
           g_stream ? 1 : 0, g_window_us / 1000, g_shunt_uohm, g_sag_mv);
+    g_loop_max_us = 0;
 }
 
 void scanBus(TwoWire &w, char *out, size_t cap)
@@ -152,8 +180,16 @@ struct Commands : meter::CommandSink {
             emitScan();
             return;
         case meter::CmdKind::Panel:
-            oledSetPanel(c.value ? OledPanel::Sh1106 : OledPanel::Ssd1306);
-            break;
+            if (!oledSavePanel(c.value ? OledPanel::Sh1106 : OledPanel::Ssd1306)) {
+                emitf("#PWR err msg=\"nvs\"");
+                return;
+            }
+            emitf("#PWR ok cmd=\"%s\" restarting=1", line);
+            g_down.service(INT64_MAX, g_host);
+            Serial.flush();
+            delay(100);
+            ESP.restart();
+            return;
         case meter::CmdKind::StreamOn:
             g_stream = true;
             meter::windowReset(g_win, nowUs());
@@ -244,10 +280,20 @@ void closeWindow(int64_t now)
     meter::windowReset(g_win, now);
 }
 
+/* An idle I2C bus sits high. Low means an unpowered or miswired device, and
+ * IDF 4.4 then blocks each transfer for its 1 s alive interval — so check
+ * before touching it. */
+bool inaBusIdleHigh()
+{
+    return gpio_get_level(static_cast<gpio_num_t>(kSdaPin)) == 1 &&
+           gpio_get_level(static_cast<gpio_num_t>(kSclPin)) == 1;
+}
+
 /* Boot and retry: lets the INA and panel be wired with the S3 powered. */
 void attachPeripherals()
 {
-    if (!g_ina) {
+    g_ina_bus_stuck = !g_ina && !inaBusIdleHigh();
+    if (!g_ina && !g_ina_bus_stuck) {
         g_ina = detectSensor(g_bus);
         if (g_ina && !g_ina->setSagAlert(g_sag_mv)) g_ina = nullptr;
         if (g_ina) g_scale = {g_ina->shuntLsbPv(), g_ina->fullScale()};
@@ -322,11 +368,15 @@ void loop()
         else meter::windowReset(g_win, now);
     }
 
-    if ((!g_ina || !oledAddress()) && now - g_last_attach_us >= kAttachRetryUs) {
+    int64_t retry = g_attach_us > kAttachSlowUs ? kAttachBackoffUs : kAttachRetryUs;
+    if ((!g_ina || !oledAddress()) && now - g_last_attach_us >= retry) {
         g_last_attach_us = now;
         attachPeripherals();
+        g_attach_us = nowUs() - now;
     }
     if (oledAddress() && now - g_disp.t0_us >= kDisplayWindowUs) publishDisplay(now);
 
     g_down.service(nowUs(), g_host);
+    int64_t pass = nowUs() - now;
+    if (pass > g_loop_max_us) g_loop_max_us = pass;
 }

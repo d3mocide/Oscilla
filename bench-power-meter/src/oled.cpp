@@ -24,8 +24,7 @@ U8G2_SH1106_128X64_NONAME_F_2ND_HW_I2C g_sh1106(U8G2_R0, U8X8_PIN_NONE);
 
 uint8_t g_addr = 0;
 int g_sda = -1, g_scl = -1;
-std::atomic<int> g_panel{0};          /* OledPanel */
-std::atomic<int> g_panel_wanted{0};
+int g_panel = 0;                      /* OledPanel; fixed after boot */
 std::atomic<uint32_t> g_frames{0};
 portMUX_TYPE g_lock = portMUX_INITIALIZER_UNLOCKED;
 meter::DisplaySnapshot g_snap;
@@ -68,17 +67,12 @@ void task(void *)
 {
     meter::DisplayLines lines;
     for (;;) {
-        int want = g_panel_wanted.load();
-        if (want != g_panel.load()) {
-            start(panel(want));
-            g_panel = want;
-        }
         meter::DisplaySnapshot s;
         portENTER_CRITICAL(&g_lock);
         s = g_snap;
         portEXIT_CRITICAL(&g_lock);
         meter::composeLines(s, lines);
-        draw(panel(g_panel.load()), lines);
+        draw(panel(g_panel), lines);
         g_frames++;
         vTaskDelay(kRefresh);
     }
@@ -106,9 +100,7 @@ void oledBegin(int sda, int scl)
     g_scl = scl;
     Preferences prefs;
     if (prefs.begin("meter", true)) {
-        int p = prefs.getUChar("panel", 0) == 1 ? 1 : 0;
-        g_panel = p;
-        g_panel_wanted = p;
+        g_panel = prefs.getUChar("panel", 0) == 1 ? 1 : 0;
         prefs.end();
     }
     Wire1.begin(sda, scl, kOledI2cHz);
@@ -125,28 +117,25 @@ bool oledAttach()
         }
     }
     if (!g_addr) return false;
-    if (!start(panel(g_panel.load()))) {
+    if (!start(panel(g_panel))) {
         g_addr = 0;
         return false;
     }
     return xTaskCreatePinnedToCore(task, "oled", 4096, nullptr, 1, nullptr, kCore) == pdPASS;
 }
 
-void oledSetPanel(OledPanel p)
+bool oledSavePanel(OledPanel p)
 {
-    int v = static_cast<int>(p);
     Preferences prefs;
-    if (prefs.begin("meter", false)) {
-        prefs.putUChar("panel", static_cast<uint8_t>(v));
-        prefs.end();
-    }
-    g_panel_wanted = v;                 /* the task switches between frames */
-    if (!g_addr) g_panel = v;
+    if (!prefs.begin("meter", false)) return false;
+    bool ok = prefs.putUChar("panel", static_cast<uint8_t>(p)) == 1;
+    prefs.end();
+    return ok;
 }
 
 const char *oledPanelName()
 {
-    return g_panel.load() == static_cast<int>(OledPanel::Sh1106) ? "sh1106" : "ssd1306";
+    return g_panel == static_cast<int>(OledPanel::Sh1106) ? "sh1106" : "ssd1306";
 }
 
 uint32_t oledFrames()

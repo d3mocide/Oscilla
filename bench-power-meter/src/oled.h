@@ -19,8 +19,9 @@ void oledBegin(int sda, int scl);
 /* Starts the display task if a panel answers at 0x3C or 0x3D. Idempotent;
  * cheap to retry while no panel is fitted. */
 bool oledAttach();
-/* Saved to NVS; takes effect on the next frame. */
-void oledSetPanel(OledPanel p);
+/* Saved to NVS; used from the next boot. Switching live hung the meter
+ * on the bench, so the caller restarts instead. */
+bool oledSavePanel(OledPanel p);
 const char *oledPanelName();
 /* Frames sent since boot: proves the task is drawing. */
 uint32_t oledFrames();
