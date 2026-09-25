@@ -71,11 +71,16 @@
   while streaming at 20 lines/s gave a worst pass of 2.1 ms. **The deck's
   `grove_bridge.cpp` also calls `setTxTimeoutMs(0)`**, so it would stall the
   same way if the host stops reading. Flagged, not changed.
-- **Stock R100 module reads ~14% above Ohm's law.** A 100.2 Ω metal-film
-  load at ~3.25 V should draw ~32.4 mA; the meter reads 36.94–37.01 mA.
-  Unplugging the display changed it by only 0.07 mA, so the display is
-  upstream. Unresolved pending DMM readings of the load voltage and the
-  shunt millivolts.
+- **Shunt calibrated: the stock "R100" is effectively 113.1 mΩ.** Load:
+  100.2 Ω metal film (DMM), 3.28 V across it (DMM), so 32.73 mA true. The
+  meter read 37.03 mA assuming 100 mΩ, i.e. 3.703 mV across the shunt, so
+  the effective shunt is 3.703 / 32.73 = 113.1 mΩ. (I first said about
+  88 mΩ, the wrong direction: reading high means *more* resistance.)
+  Unplugging the display moved the reading 0.07 mA, so nothing else sits
+  after the shunt. With `--shunt-mohm 113.1` the meter reads 32.75 mA against
+  32.73 mA, 0.06%. Zero offset 0.04 mA. One-point calibration at 33 mA, for
+  this module only. `#shunt` is now saved to NVS, after a reset showed the
+  20 mΩ default as 5× on the display.
 - **Module note (HW-899):** its VBUS pin is labelled VBS and isn't tied to
   IN−, so it needs a jumper. Without it the meter never sees the rail.
 - **Verified:** meter builds (0 warnings); host tests 69/69 and selftest
