@@ -1,3 +1,62 @@
+## 2026-09-24 — P6 bench power meter: INA226 on a XIAO S3, nothing measured yet
+
+**Phase:** P6 prep · **By:** Will + Claude
+
+Will has an INA226 module, a spare XIAO ESP32-S3 and an AMS1117-3.3 module,
+and no bench supply or PPK2. We built the P6 instrument from those.
+
+- **[`bench-power-meter/`](bench-power-meter/README.md)** is bench
+  instrumentation, not Oscilla firmware. It reads an INA226 in series with
+  the probe's supply and also bridges the probe's OCP UART, on one USB port.
+  Readings and probe traffic therefore share the meter's clock, which solves
+  the alignment problem the 2026-09-15 entry left open.
+- **The meter's lines only go in at probe line boundaries**, so to an OCP
+  parser they're noise. A probe line that stays incomplete for more than 1 s
+  is ended with a newline and counted, so meter output can't be held up
+  forever. The adversarial host test feeds the probe stream a byte at a
+  time, with a meter line queued before every byte. Verified the test can
+  fail: letting meter lines into the middle of a probe line makes 5 of the
+  44 checks fail.
+- **The meter enables its UART only while the measured rail is up**
+  (≥ 3.0 V for 200 ms), and drops it below 2.7 V, so power order (Rev D §9)
+  is handled automatically.
+- **The S3 UART uses D0/D1 rather than D6/D7**, because the S3 ROM prints to
+  GPIO43 on every reset. These S3 pins are bench-only and Rev D doesn't
+  cover them; they're defined once, in `bench-power-meter/src/main.cpp`. The
+  probe end is Rev D §3.
+- **Shunt changed from the stock 100 mΩ to 20 mΩ.** The stock shunt clips at
+  819 mA, below Rev D's 910 mA planning figure; 20 mΩ gives 4.1 A full scale.
+  The INA226 reports mean current reliably. Peaks are coarse: 140 µs
+  integration and roughly half the time covered, so a reported peak is a
+  lower bound. The PPK2 is still the instrument for true peaks.
+- **[`tools/power_sequence.py`](tools/power_sequence.py)** runs the
+  power-budget.md §6 state table. Any state where the supply sagged, the ADC
+  clipped, the probe lost power, a counter rose or a command failed is
+  marked INVALID. Its output goes to git-ignored `power-runs/` and contains
+  only meter records and `owner`/`lora` status; probe frames are never
+  written, since scans carry real SSIDs. It's a separate tool rather than an
+  `ocp_repl.py` mode because that file is already past the size cap.
+  Selftest: 12 checks. Verified it can fail: an unweighted mean fails the
+  duration-weighting check. Both test suites are wired into
+  `check_protocol.sh`.
+- **Real finding: `set_band` has no probe handler.** Rows 3–4 of power-budget
+  §6 were written against it; `ocp_server.c` falls through to
+  `[ERR] code=unknown`. Replaced with single-channel `packet_monitor 6` /
+  `packet_monitor 36`, and the table grew to 10 rows.
+- **Supply decision:** an AMS1117 feeding the 3V3 pad. It's a 1 A-class
+  linear regulator, fine for the receive-only states, but it can't settle D-4
+  (the ~1 A ceiling itself). The meter's latched under-voltage alert means
+  a regulator that runs out produces INVALID states, not wrong numbers. The
+  MT3608 (boost) and TP4056 (charger) on hand can't make 3.3 V from 5 V.
+- **Verified:** the meter builds for `seeed_xiao_esp32s3` with zero warnings
+  (RAM 6.8%, flash 8.9%), and `check_protocol.sh` is green including both new
+  suites.
+- **Not verified:** everything on hardware. The meter has never run on the
+  S3, the INA226 hasn't been read, the shunt isn't fitted or calibrated, and
+  no current has been measured. power-budget.md *Results* stays empty.
+
+---
+
 ## 2026-09-23 — Full documentation sweep: 9 real staleness findings, fixed
 
 **Phase:** P3 follow-up · **By:** Claude (Sonnet) + operator

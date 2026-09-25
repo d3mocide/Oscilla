@@ -19,6 +19,9 @@ bench-zig-emitter/sdkconfig.old
 bench-zig-emitter/managed_components/
 bench-zig-emitter/dependencies.lock
 
+# P6 power-meter runs (tools/power_sequence.py): bench output, not source.
+power-runs/
+
 # PlatformIO
 .pio/
 firmware-cardputer/.pio/

@@ -249,4 +249,13 @@ python3 tools/check_wardrive_kml.py "$out/wardrive_kml_test"
     firmware-cardputer/test/host/wardrive_sessions_test.cpp firmware-cardputer/src/storage/wardrive_sessions.cpp
 "$out/wardrive_sessions_test" | tail -1 | sed 's/^/  /'
 
+# Bench power meter (P6): meter output never splits a probe line; the host
+# side demuxes the shared stream and weights windows by duration.
+"${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ibench-power-meter/src -o "$out/meter_test" bench-power-meter/test/host/meter_test.cpp \
+    bench-power-meter/src/meter_mux.cpp bench-power-meter/src/meter_cmd.cpp \
+    bench-power-meter/src/meter_window.cpp bench-power-meter/src/probe_power.cpp
+"$out/meter_test" | tail -1 | sed 's/^/  /'
+python3 tools/power_sequence.py --selftest | tail -1 | sed 's/^/  /'
+
 echo "protocol contract OK"

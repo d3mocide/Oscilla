@@ -66,7 +66,15 @@ That last requirement is what rules most cheap options out: Wi-Fi RX bursts and
 the SX1262's RX ramp are short, and a 1–2 Hz USB meter averages straight
 through them.
 
-**Recommended: Nordic Power Profiler Kit II (PPK2)**, roughly $100.
+**In use (2026-09-24): [`bench-power-meter/`](../../bench-power-meter/README.md)**,
+an INA226 with a 20 mΩ shunt read by a spare XIAO ESP32-S3. It measures at
+the right point and voltage, and reports mean, floor and peak for each short
+window, so it covers **idle and mean** per state. For **peaks** it falls short of the
+requirement above: each sample integrates over 140 µs and only about half
+the time is covered, so a peak it reports is a lower bound. The PPK2 below
+is still the instrument for true peaks.
+
+**Recommended for true peaks: Nordic Power Profiler Kit II (PPK2)**, roughly $100.
 
 - *Source meter* mode supplies 0.8–5.0 V **and** measures the current it is
   supplying — so it powers the probe at 3.3 V and measures at that same point.
@@ -119,6 +127,23 @@ host ──USB── Cardputer (grove-bridge firmware) ──Grove UART── pr
   signals disconnected before powering down only one side. The Cardputer's
   Grove pull-ups can inject current into an unpowered C5.
 
+**With `bench-power-meter` instead of a PPK2**, the XIAO S3 takes the
+Cardputer's place as the bridge. It also drops its UART by itself whenever
+the measured rail is down, which meets the power-order rule above without
+anyone having to remember it:
+
+```
+host ──USB── XIAO S3 (bench-power-meter) ──UART── probe
+                    │ I²C                            │
+             INA226 ─[20 mΩ]─────────────────────────┘ 3V3 pad (or 5V pin)
+                    ▲ supply (e.g. AMS1117-3.3 from a USB charger)
+```
+
+A 1 A-class linear regulator such as an AMS1117 is enough for the
+receive-only states. It can't settle D-4, whose question is the ~1 A
+ceiling itself. If the regulator runs out, `#sag` flags every affected
+state INVALID, so it can't quietly produce a wrong number.
+
 ## 6. State matrix to measure
 
 Each state is a dwell long enough to capture steady state plus several RX
@@ -129,20 +154,28 @@ set a threshold.
 |---|---|---|---|
 | 1 | Probe idle, radios down | `stop` | Floor. Everything else is a delta on this. |
 | 2 | Wi-Fi scan | `scan_networks` | Managed-scan draw, includes band switching |
-| 3 | Wi-Fi promiscuous, 2.4 GHz | `set_band 24`, `start_sniffer` | Continuous RX, hopping |
-| 4 | Wi-Fi promiscuous, 5 GHz | `set_band 5`, `start_sniffer` | DESIGN §6.2 uses a 5 GHz sweep as its worst case; no source states it actually costs more than 2.4 — measure, don't assume |
-| 5 | LoRa RX only | `lora_config …`, `lora_listen` | SX1262 lane alone, incl. TCXO |
-| 6 | **Both lanes concurrent** | 5, then `start_sniffer` | **The number the interlock exists for** |
-| 7 | Back to LoRa only | `stop phy` | Confirms the PHY delta in isolation |
-| 8 | Back to Wi-Fi only | from 6, `stop lora` | Confirms the LoRa delta in isolation |
+| 3 | Wi-Fi promiscuous, 2.4 GHz | `packet_monitor 6` | Continuous RX, one channel |
+| 4 | Wi-Fi promiscuous, 5 GHz | `stop phy`, `packet_monitor 36` | DESIGN §6.2 uses a 5 GHz sweep as its worst case; no source states it actually costs more than 2.4 — measure, don't assume |
+| 5 | Wi-Fi sniffer, both bands | `stop phy`, `start_sniffer` | Continuous RX with band hopping |
+| 6 | LoRa RX only | `stop`, `lora_config …`, `lora_listen` | SX1262 lane alone, incl. TCXO |
+| 7 | **Both lanes concurrent** | 6, then `start_sniffer` | **The number the interlock exists for** |
+| 8 | Back to LoRa only | `stop phy` | Confirms the PHY delta in isolation |
+| 9 | Back to Wi-Fi only | `start_sniffer`, `stop lora` | Confirms the LoRa delta in isolation |
+| 10 | Idle again | `stop` | Floor drift across the run |
 
-Rows 7–8 exist because the scoped `stop` from [D-16](../DECISIONS.md) makes
+An earlier draft of rows 3–4 used `set_band 24` / `set_band 5`. `set_band`
+is in `ocp.h` but has no probe handler (`ocp_server.c` answers
+`[ERR] code=unknown`), so single-channel `packet_monitor` stands in for it.
+[`tools/power_sequence.py`](../../tools/power_sequence.py) runs exactly this
+table and checks every verb against `ocp.h`.
+
+Rows 8–9 exist because the scoped `stop` from [D-16](../DECISIONS.md) makes
 them possible: one lane can be dropped without disturbing the other, so each
 lane's contribution can be isolated *within a single continuous trace* instead
 of reconstructed across separate runs with separate warm-ups.
 
-Row 6 is the one that matters. Rev D §10 notes the SX1262 "can operate
-alongside them subject to power and interference testing" — row 6 **is** that
+Row 7 is the one that matters. Rev D §10 notes the SX1262 "can operate
+alongside them subject to power and interference testing" — row 7 **is** that
 testing.
 
 ## 7. Aligning the trace to the states
@@ -156,16 +189,22 @@ intended method: a host script walks §6's sequence, dwelling on each state and
 recording `uptime_ms` at every transition, then that log is aligned against the
 meter's CSV to slice the trace by state.
 
-A `tools/ocp_repl.py --power-sequence` mode was sketched for this and
-**deliberately not written yet** — it should be built against the instrument
-actually purchased, since the alignment details depend on the meter's own log
-format and clock.
+With `bench-power-meter`, **alignment is solved at the source**: the probe's
+OCP link and the current windows share one USB stream on the meter's clock,
+and [`tools/power_sequence.py`](../../tools/power_sequence.py) marks each
+transition (`#mark`) on that same clock. It was written as a separate tool,
+not an `ocp_repl.py` mode as first sketched, because `ocp_repl.py` is
+already past the module size cap (AGENTS.md §7.2). It walks §6, skips a
+settle period after each transition, and writes per-state
+mean/floor/peak/min-rail figures to `power-runs/` (git-ignored). Any state
+where the supply sagged, the ADC clipped, the probe lost power or a command
+failed is marked **INVALID** rather than reported as a number.
 
 ## 8. What the numbers have to produce
 
 The pass condition is not a figure, it is three things the figure supports:
 
-1. **Interlock thresholds.** Measured headroom on the 3.3 V path against row 6,
+1. **Interlock thresholds.** Measured headroom on the 3.3 V path against row 7,
    turning `OCP_ERR_BUDGET` from a reserved code into a reachable refusal — or
    demonstrating the headroom is sufficient and the interlock can stay
    permissive, which is an equally valid documented outcome.
