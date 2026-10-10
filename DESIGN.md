@@ -360,6 +360,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ocp/ocp_item.h` | OCP client | Parsed item type |
 | `src/ui/link_view` | view | Link state, probe identity, counters; re-escapes probe text for display |
 | `src/storage/sd_storage` | services | Internal microSD mount + the single shared bus lock (§7.4) |
+| `src/storage/sd_activity.h` | services | Accepted file-write counters and recent-write/error indicator state, host-tested |
+| `src/storage/write_digest.h` | services | Incremental length/checksum for bounded diagnostic log readback; not cryptographic |
 | `src/storage/lora_log_format` | services | Pure CSV row shape for the LoRa session log (§9.2); no SD I/O, host-tested |
 | `src/storage/lora_logger` | services | Opens/writes/closes the LoRa session file on SD, under `sd_storage`'s lock |
 | `src/gnss/nmea_parser` | services | Checksum-verified, chunk-invariant NMEA sentence reader; host-tested |
@@ -367,13 +369,24 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/wardrive_csv` · `src/storage/wardrive_kml` | services | Pure WigleWifi-1.6 CSV / KML document shapes (§9.2); no SD I/O, host-tested |
 | `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
+| `src/model/drive_trail` | model | 64-point fresh-fix RAM breadcrumb, gap boundaries and logging-session duration/cache; no SD writes |
+| `src/model/system_status` | model | Plain snapshot of measured deck/probe diagnostics; framework independent |
+| `src/ui/external_system_view` | view | Lens Core startup viewport and Link/System measured diagnostics |
+| `src/ui/external_zig_view` | view | Passive PAN/node inventory, RSSI/LQI rails and selected MAC identity; no topology inference |
+| `src/ui/external_contacts_view` | view | Rendered-guide RSSI/index field of reported BSSID links or probe requests, snapshot age, row rail and measured inspector |
+| `src/ui/external_bt_view` | view | Rendered-guide BLE RSSI/index field, advertiser rail and measured selected-device inspector; no bearing/range inference |
+| `src/ui/external_drive_view` | view | Rendered-guide Drive ribbon, north-up relative track, fix state and actual wardrive counters |
+| `src/ui/external_lora_view` | view | Rendered-guide LoRa tuning/signal ribbon, received-frame cadence and bounded raw hex/ASCII inspector; framing remains a guess |
+| `src/model/lora_payload_view` | model | Eight-byte raw display rows with controls/non-ASCII replaced by dots |
+| `src/ui/external_spectrum_view` | view | Rendered-guide four-tile ribbon, 30-second measured packet history and count envelope; clipped strips, no fabricated RSSI/FFT/occupancy |
+| `src/ui/external_gps_display` | view/HAL | Landscape GPS status plus corner SD activity tile; 24-pixel strips under the shared bus lock, with pixel parking for the delivered no-CS panel (Rev D §5.3) |
 | `src/model/bt_model` | model | `scan_bt`/`start_ble_scan`'s shared device table + `scan_airtag`'s tracker log (OCP-SPEC §11). Named "Bt" not "Ble" — `tools/check_rx_only.py` bans any `ble_`/`NimBLE` identifier from deck source outright (DESIGN §3), so the deck side spells it differently on purpose even though this only ever parses text |
 | `src/model/anti_surveillance_model` | model | Deck-local, bounded correlation of repeated tracker sightings with fresh GNSS movement; position never crosses OCP or enters storage |
 | `src/ui/bt_view` | view | The BLE Scan card: device list, tracker count, and last tracker sighting |
 | `src/ui/anti_surveillance_view` | view | The Anti-Surveillance card: bounded tracker rows, GNSS-ready state, movement-leg progress, and conservative candidate state |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
 | `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
-| `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12) — separate envs, not the app |
+| `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12), `tft_no_cs` (isolated display/GPS), `sd_check` (Enter-armed SD write/read), `sd_display_check` (experimental locked SD/GPS/display interleaving) — separate envs, not the app; `dual-display-no-cs` runs the app with external GPS and SD disabled |
 
 ### 7.2 View set (v1)
 
@@ -403,6 +416,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 - Internal LCD (240×135) is the primary target; the external ILI9341 (240×320) is an **optional second panel**, detected at boot and used for expanded views.
 - Both the external TFT and the internal SD live on **one SPI bus**. All access goes through a single shared lock; SD is brought up before TFT traffic; the TFT is write-only at ~4 MHz with no readback. UI and logger tasks must not bypass the lock. This is the deck's main source of hard-to-debug failures — treat it with suspicion.
 
+The current `cardputer-adv` configuration enables the delivered no-CS panel (Rev D §5.3). It holds the panel in reset during SD startup, uses SD at 8 MHz and TFT at 4 MHz, and parks the TFT write window at the bottom-right pixel before releasing the bus. The GPS view reserves that corner for an SD activity tile. Its count records complete file-write acceptance; a short write displays a fault. This counter is not durable readback proof. Automatic panel detection and expanded application views remain pending.
+
 ### 7.5 Framework
 **M5Unified + M5GFX on PlatformIO** ([D-1](docs/DECISIONS.md) — decided). Keyboard, internal LCD and SD come mostly for free; M5GFX drives the external panel as a second device on the shared bus. Cardputer **ADV** support verified on hardware ([D-12](docs/DECISIONS.md)): M5Unified autodetects the board and M5Cardputer drives its TCA8418 keyboard. M5's "Port A" I²C uses the Grove UART pins, so the deck must never enable it.
 
@@ -415,6 +430,8 @@ An earlier design held `d` through boot instead. Dropped after hardware testing 
 Off by default; the Link card shows a `DEBUG` badge when it's on, so it's never silently active.
 
 Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `antisurv`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, anti-surveillance, GNSS, wardrive session) plus probe memory telemetry — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. The wiring-level `memory` command reports the deck's heap/PSRAM readings. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
+
+USB `debug on` / `debug off` provide a RAM-only console override. `display_status` is read-only and reports aggregate display/storage/session counters. With debug enabled, `verify_lora_log` compares live LoRa packet and health file lengths and incremental checksums with accepted writes, limited to 8 KiB per file; it reports no captured content.
 
 ---
 

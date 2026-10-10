@@ -306,9 +306,9 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_SNIFF) {
         log("sniffer started");
     } else if (it.tag == OCP_MARK_CLIENTS) {
-        contacts_.absorbClients(it);
+        contacts_.absorbClients(it, now_);
     } else if (it.tag == OCP_MARK_PROBES) {
-        contacts_.absorbProbes(it);
+        contacts_.absorbProbes(it, now_);
     } else if (it.tag == OCP_MARK_CHAN) {
         if (spectrum_start_pending_) {
             spectrum_start_pending_ = false;
@@ -388,8 +388,8 @@ void DeckApp::onEvent(const ocp::Item &it)
 {
     dirty_ = true;
     contacts_.absorbEvent(it);   /* ticker only: [CLIENTS]/[PROBES] stay the authority */
-    spectrum_.absorbEvent(it);   /* kind=chan is the only source of truth here, no dump verb */
-    if (const auto *p = lora_.absorbEvent(it)) {   /* kind=lora is the only source of truth here too */
+    spectrum_.absorbEvent(it, now_);   /* kind=chan is the only source of truth here, no dump verb */
+    if (const auto *p = lora_.absorbEvent(it, now_)) {   /* kind=lora is the only source of truth here too */
         storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
@@ -405,6 +405,7 @@ void DeckApp::requestScan(uint32_t now_ms)
         retrySoon([this](uint32_t t) { requestScan(t); }, now_ms);
         return;
     }
+    wardrive_logged_upto_ = 0;
     scan_.begin();
     scan_pending_ = true;
     next_page_ = 0;
@@ -729,8 +730,7 @@ void DeckApp::logScanRows()
     if (!storage::wardriveLogStats().open) return;
 
     const auto &rows = scan_.rows();
-    /* A fresh scan restarts the table, so a shrunken row count means the
-     * watermark is stale, not that rows vanished. */
+    /* Defensive for a replaced table; requestScan resets each scan boundary. */
     if (wardrive_logged_upto_ > rows.size()) wardrive_logged_upto_ = 0;
 
     for (size_t i = wardrive_logged_upto_; i < rows.size(); i++) {
@@ -1110,6 +1110,9 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 
 void DeckApp::tick(uint32_t now_ms)
 {
+    drive_trail_.observe(gnss_.fix(),gnss_.state(now_ms)==model::GnssState::Fixed && gnss_.fixAgeMs(now_ms)<3000,
+                         now_ms-gnss_.fixAgeMs(now_ms),now_ms,storage::wardriveLogStats().open);
+
     now_ = now_ms;
 
     if (!notice_.empty() && now_ms - notice_started_ms_ >= kNoticeDurationMs) {
@@ -1347,7 +1350,7 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Drive:
         ui::drawGnssView(gnss_, now_ms,
-                         makeChrome("WARDRIVE"));
+                         makeChrome("DRIVE / GNSS"));
         break;
     case Screen::Beacons:
         ui::drawBtView(bt_, bt_cursor_,

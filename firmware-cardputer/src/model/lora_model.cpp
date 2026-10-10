@@ -98,7 +98,7 @@ bool LoraModel::absorbStatus(const ocp::Item &reply)
     return true;
 }
 
-const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt)
+const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt, uint32_t now_ms)
 {
     const auto *kind = evt.get(OCP_K_KIND);
     if (!kind || *kind != OCP_EVT_KIND_LORA) return nullptr;
@@ -111,8 +111,15 @@ const LoraPacket *LoraModel::absorbEvent(const ocp::Item &evt)
         return nullptr;   /* malformed: never trust a partial event */
     }
 
+    const long rssi = kvLong(evt, OCP_K_RSSI, -200, 0, 1);
+    if (rssi > 0) return nullptr;
+    for (char c : *hex) {
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+              (c >= 'A' && c <= 'F'))) return nullptr;
+    }
     LoraPacket p;
-    p.rssi = static_cast<int>(kvLong(evt, OCP_K_RSSI, -200, 0, 0));
+    p.received_ms = now_ms;
+    p.rssi = static_cast<int>(rssi);
     p.snr = snr;
     p.len = static_cast<uint16_t>(len);
     p.hex = *hex;

@@ -52,8 +52,8 @@ public:
     void stopSniffing() { sniffing_ = false; }
 
     /* Absorb a [CLIENTS] / [PROBES] snapshot frame wholesale. */
-    void absorbClients(const ocp::Item &frame);
-    void absorbProbes(const ocp::Item &frame);
+    void absorbClients(const ocp::Item &frame, uint32_t now_ms = 0);
+    void absorbProbes(const ocp::Item &frame, uint32_t now_ms = 0);
 
     /* Absorb an [EVT] kind=sniff|client|probe: updates the ticker only. */
     void absorbEvent(const ocp::Item &evt);
@@ -63,6 +63,10 @@ public:
     const std::vector<ProbeRow> &probes() const { return probes_; }
     uint16_t malformedRows() const { return malformed_; }
 
+    bool hasClientSnapshot() const { return have_clients_; }
+    bool hasProbeSnapshot() const { return have_probes_; }
+    uint32_t clientSnapshotMs() const { return clients_ms_; }
+    uint32_t probeSnapshotMs() const { return probes_ms_; }
     uint32_t totalPkts() const { return total_pkts_; }
     uint8_t currentChannel() const { return current_ch_; }
     const std::string &lastSighting() const { return last_sighting_; }
@@ -72,6 +76,8 @@ private:
     std::vector<ProbeRow> probes_;
     uint16_t malformed_ = 0;
     bool sniffing_ = false;
+    bool have_clients_ = false, have_probes_ = false;
+    uint32_t clients_ms_ = 0, probes_ms_ = 0;
 
     uint32_t total_pkts_ = 0;
     uint8_t current_ch_ = 0;

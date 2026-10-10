@@ -1,9 +1,7 @@
 /*
  * sd_storage.h — owns the deck's internal microSD and the single shared bus
- * lock (DESIGN §7.4 / Rev D §5.2). The external TFT isn't wired yet, but it
- * will eventually share this same SPI bus — every access already goes
- * through the lock so nothing about this module needs to change when it
- * lands, only a new lock holder on the TFT side.
+ * lock (DESIGN §7.4 / Rev D §5.2). The no-CS display bench build initializes
+ * the bus and lock but disables all card mount/remount attempts.
  *
  * Not host-testable (real SD/SPI I/O); kept deliberately thin so the parts
  * that *are* worth testing (CSV row shape) live in lora_log_format.h

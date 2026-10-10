@@ -13,19 +13,22 @@
 
 namespace ui {
 
-/* RGB565 semantic colors. The deck's reference background is true TFT black. */
-constexpr uint16_t kVoidInk = 0x0000;             /* physical reference black */
-constexpr uint16_t kPaperPhosphor = 0xF75B;      /* #F4ECD9 */
-constexpr uint16_t kFieldGreen = 0xAEEC;          /* #A8DF65 */
-constexpr uint16_t kSignalPink = 0xF3D3;          /* #F05D9D */
-constexpr uint16_t kCalibrationYellow = 0xF54B;  /* #F5D658 */
-constexpr uint16_t kFaultRed = 0xEA89;            /* #EF514C */
-constexpr uint16_t kMutedSlate = 0xAD14;          /* #AAA0A5 */
-constexpr uint16_t kLineBorder = 0x49E9;          /* #4B3C49 */
-constexpr uint16_t kDimGreen = 0x53A7;            /* #51763D */
-constexpr uint16_t kTrackDark = 0x21A5;           /* #263528 */
-constexpr uint16_t kPanelDark = 0x1083;           /* #151018 */
-constexpr uint16_t kSelectionGlow = 0x20E1;       /* #241F0D */
+/* CSS colors from the rendered master guide, quantized once to RGB565. */
+constexpr uint16_t rgb565(uint32_t hex) {
+    return ((hex >> 8) & 0xF800) | ((hex >> 5) & 0x07E0) | ((hex >> 3) & 0x001F);
+}
+constexpr uint16_t kVoidInk = rgb565(0x0B090D);
+constexpr uint16_t kPaperPhosphor = rgb565(0xF4ECD9);
+constexpr uint16_t kFieldGreen = rgb565(0xA8DF65);
+constexpr uint16_t kSignalPink = rgb565(0xF05D9D);
+constexpr uint16_t kCalibrationYellow = rgb565(0xF5D658);
+constexpr uint16_t kFaultRed = rgb565(0xEF514C);
+constexpr uint16_t kMutedSlate = rgb565(0x9DAF96);
+constexpr uint16_t kLineBorder = rgb565(0x4B3C49);
+constexpr uint16_t kDimGreen = rgb565(0x51763D);
+constexpr uint16_t kTrackDark = rgb565(0x263528);
+constexpr uint16_t kPanelDark = rgb565(0x151018);
+constexpr uint16_t kSelectionGlow = rgb565(0x241F0D);
 
 constexpr int kHeaderTop = 0;
 constexpr int kHeaderHeight = 20;

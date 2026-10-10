@@ -5,7 +5,7 @@
 **Status:** Signal assignments selected 2026-09-12; bench-validated since —
 Grove UART link, LoRa RX harness, Cardputer ADV board support, and GNSS are
 all hardware-confirmed (see WORKLOG.md and ROADMAP.md P1–P4). P5 (external
-TFT) and P6 (combined power/soak) have not started.  
+TFT) is in bench integration; P6 (combined power/soak) has not started.
 **Scope:** Component ownership, physical connections, firmware pin configuration, and electrical constraints.
 
 This document supersedes the original architecture draft and PDF revisions A–C for pin assignments. Use the tables and configuration below as the implementation baseline; it remains the sole authority for pins/rails/bus-sharing (AGENTS.md §2) regardless of how much firmware has since been built against it.
@@ -17,8 +17,8 @@ This document supersedes the original architecture draft and PDF revisions A–C
 | M5Stack Cardputer ADV, ESP32-S3 | Host, keyboard, internal display, external display, GNSS parsing, SD logging | All host peripherals and Grove UART |
 | Seeed Studio XIAO ESP32-C5 | Radio coprocessor: Wi-Fi, BLE, IEEE 802.15.4, LoRa control | Cardputer through UART; Wio through SPI and GPIO |
 | Seeed Wio-SX1262 for XIAO | SX1262 LoRa transceiver; standard two-row header version, SKU 113010003 | XIAO through a custom wire harness |
-| MakerWorld "Cap TFT V2" display expansion: 2.8-inch SPI ILI9341 TFT, 240 × 320, 8-pin, no touch, with onboard step-down regulator | External display | Cardputer rear EXT header |
-| Onboard step-down regulator on the Cap TFT V2 board, identified by the user as AMS1117-3.3 (confirm marking/datasheet on bench) | Steps Cardputer 5 V OUT down to regulated 3.3 V for the display | Cap TFT V2 board; VIN from EXT6, VOUT feeds display VCC + BLK |
+| Delivered eight-pin ILI9341, no exposed CS; see §5.3 for the current bench variant | External display | Cardputer rear EXT header |
+| Separate regulator, user reports measured 3.3 V (§5.3) | Supplies delivered display VCC + BLK and GNSS VCC | Common ground with Cardputer; Cardputer 3.3 V rail not joined |
 | Standard five-pin ATGM336H GNSS breakout shown in the supplied photo | Position/time receiver; VCC, GND, TX, RX, PPS header | Cardputer rear EXT header |
 | Existing internal microSD | Host storage | Existing Cardputer wiring; shares SPI signals with external TFT |
 
@@ -117,6 +117,11 @@ Start SPI near **1 MHz** with leads under approximately 10 cm and adjacent groun
 
 ## 5. Cardputer ↔ Cap TFT V2 display (8-pin SPI, onboard step-down)
 
+**Delivered-panel update, 2026-10-09:** the purchased board differs from this
+Cap TFT V2 reference. Section 5.3 owns the currently tested no-CS panel's
+label/power disposition; §§5.1–5.2 retain the original cap reference and shared
+bus rules. Do not apply the cap's header numbers or onboard regulator to it.
+
 **Withdrawn:** the earlier "ordered 11-pin TFT" assumption below (its CLK/MOSI/RES/DC/BLK/MISO/CS1/CS2/PEN 11-pin header, the touch CS pull-up, and the separately-wired peripheral supply). The board actually selected is MakerWorld's "Cap TFT V2" display expansion: a 2.8-inch ILI9341, 240 × 320, **8-pin, no touch**, mounted on a cap PCB with its own onboard step-down regulator. It was transcribed from the MakerWorld listing on 2026-09-13; confirm against the physical board before soldering, same as every other component here.
 
 The confirmed display header is:
@@ -173,6 +178,46 @@ Firmware requirements:
 7. Preserve the existing internal display's pins and bus configuration. It is a separate display from the external ILI9341.
 
 If touch is added later, allocate a real touch CS GPIO, connect external MISO only after verifying deselected output behavior, and include touch in shared-bus arbitration. Polling could avoid a PEN GPIO, but touch is not part of the current pin assignment.
+
+### 5.3 Delivered no-CS ILI9341 bench configuration
+
+The user identifies the delivered 2.8-inch controller as ILI9341 and reports
+header labels, in order: `MISO BLK DC RES MOSI CLK VCC GRD`. No external CS pad
+has been identified; the board's internal CS topology has not been traced.
+Bench behavior establishes that it accepts shared SPI traffic continuously.
+
+| Delivered label | Connection |
+|---|---|
+| MISO | Unconnected; TFT stays write-only |
+| BLK, VCC | Separate regulator's verified 3.3 V output, as reported by user |
+| DC | EXT5 / GPIO6 |
+| RES | EXT1 / GPIO3; existing strap/cold-boot qualification still applies |
+| MOSI | EXT9 / GPIO14, shared with internal SD |
+| CLK | EXT7 / GPIO40, shared with internal SD |
+| GRD | EXT4 / GND, common with regulator/GPS/Cardputer |
+
+GPS shares the regulator's 3.3 V supply and common ground. No Cardputer 3.3 V
+rail is joined to the regulator output. EXT6/5VOUT does not directly power
+this panel or GPS. GPIO5/EXT13 has no connection to the delivered TFT.
+
+For this configuration, cap SD clock requests at **8 MHz** and external TFT
+transfers at **4 MHz**. ILI9341 datasheet §18.3.4 specifies a 100 ns minimum
+serial-write clock period (10 MHz); an always-selected panel also sees SD
+clocking. Both devices use the existing shared bus lock. Hold the TFT reset
+low through SD/settings startup, then initialize it write-only in landscape.
+
+Between redraw strips, park the TFT RAM-write window on bottom-right pixel
+`(319,239)` with DC high before releasing the bus lock. SD traffic may repaint
+that reserved pixel. This is a software containment workaround, not electrical
+deselection; put it inside the UI's SD-status tile. The tile's meaningful
+status must come from actual file-operation results, not the stray colour.
+
+The user confirmed clean external text with parking while a 32-cycle SD
+fixture verified 128 KiB and removed its test files. The first lower-clock
+cycle also passed; full normal-deck probe logging and longer qualification
+are separate gates. Signal timing/rise times have not been measured.
+
+Timing source: [ILI9341 datasheet, printed page 243](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf).
 
 ## 6. Cardputer ↔ ATGM336H GNSS
 

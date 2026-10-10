@@ -14,6 +14,7 @@
 #include <SD.h>
 
 #include "storage/sd_storage.h"
+#include "storage/sd_activity.h"
 #include "storage/wardrive_csv.h"
 #include "storage/wardrive_kml.h"
 #include "storage/wardrive_sessions.h"
@@ -40,7 +41,9 @@ void recoverKml(const char *path);
 
 bool appendVerified(File &file, const char *path, const std::string &text)
 {
-    if (file.print(text.c_str()) != text.size()) return false;
+    const size_t accepted = file.print(text.c_str());
+    sdActivity().record(text.size(), accepted, millis());
+    if (accepted != text.size()) return false;
     file.flush();
     /* Arduino File::flush() is void and can hide an fsync failure. A stat of
      * the still-open file is the available public API health check. */

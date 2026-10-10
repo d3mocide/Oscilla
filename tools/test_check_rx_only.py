@@ -18,7 +18,7 @@ def checkout() -> tempfile.TemporaryDirectory:
     tmp = tempfile.TemporaryDirectory(prefix="oscilla-rx-only-")
     base = Path(tmp.name)
     for rel in ("firmware-c5", "firmware-cardputer", "protocol"):
-        shutil.copytree(ROOT / rel, base / rel)
+        shutil.copytree(ROOT / rel, base / rel, ignore=shutil.ignore_patterns(".pio"))
     return tmp
 
 

@@ -2,9 +2,18 @@
 # check_protocol.sh — ocp.h compiles standalone and holds its invariants.
 # Host compiler only; no toolchain needed.
 set -euo pipefail
+
+python3 "$(dirname "$0")/check_no_cs_storage.py"
 cd "$(dirname "$0")/.."
 out=$(mktemp -d); trap 'rm -rf "$out"' EXIT
 warn=(-Wall -Wextra -pedantic -Werror)
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src \
+    firmware-cardputer/test/host/sd_activity_test.cpp -o "$out/sd_activity_test"
+"$out/sd_activity_test"
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src \
+    firmware-cardputer/test/host/write_digest_test.cpp -o "$out/write_digest_test"
+"$out/write_digest_test"
 
 # Clean in every standard either firmware might use.
 for std in c99 c11 c17; do
@@ -260,3 +269,13 @@ python3 tools/check_wardrive_kml.py "$out/wardrive_kml_test"
 python3 tools/power_sequence.py --selftest | tail -1 | sed 's/^/  /'
 
 echo "protocol contract OK"
+
+python3 tools/check_ui_palette.py
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/lora_payload_view_test" firmware-cardputer/test/host/lora_payload_view_test.cpp
+"$out/lora_payload_view_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/drive_trail_test" firmware-cardputer/test/host/drive_trail_test.cpp
+"$out/drive_trail_test"
+
+python3 tools/test_wardrive_scan_cursor.py

@@ -54,7 +54,7 @@ void SpectrumModel::clear()
     readings_.clear();
 }
 
-void SpectrumModel::absorbEvent(const ocp::Item &evt)
+void SpectrumModel::absorbEvent(const ocp::Item &evt, uint32_t now_ms)
 {
     const auto *kind = evt.get(OCP_K_KIND);
     if (!kind || *kind != OCP_EVT_KIND_CHAN) return;
@@ -63,17 +63,21 @@ void SpectrumModel::absorbEvent(const ocp::Item &evt)
     long pkts = kvLong(evt, OCP_K_PKTS, 0, 0x7fffffffL, -1);
     if (ch < 0 || pkts < 0) return;   /* malformed: never trust a partial event */
 
-    if (locked_) {
-        if (!readings_.empty()) readings_[0].pkts = static_cast<uint32_t>(pkts);
-        return;
-    }
+    if (locked_ && ch != locked_ch_) return;
+    auto record = [&](ChannelReading &r) {
+        r.pkts = static_cast<uint32_t>(pkts);
+        r.received_ms = now_ms;
+        r.valid = true;
+        r.history[r.history_next] = {r.pkts, now_ms};
+        r.history_next = (r.history_next + 1) % r.history.size();
+        if (r.history_size < r.history.size()) ++r.history_size;
+    };
     for (auto &r : readings_) {
-        if (r.ch == ch) {
-            r.pkts = static_cast<uint32_t>(pkts);
-            return;
-        }
+        if (r.ch == ch) { record(r); return; }
     }
-    readings_.push_back({ static_cast<uint8_t>(ch), ch > 14, static_cast<uint32_t>(pkts) });
+    if (locked_ || readings_.size() >= 40) return;
+    readings_.push_back({static_cast<uint8_t>(ch), ch > 14, 0});
+    record(readings_.back());
 }
 
 }  // namespace model

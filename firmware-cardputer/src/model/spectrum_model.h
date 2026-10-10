@@ -14,16 +14,27 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include <vector>
 
 #include "ocp/ocp_item.h"
 
 namespace model {
 
+struct PacketSample {
+    uint32_t pkts = 0;
+    uint32_t received_ms = 0;
+};
+
 struct ChannelReading {
     uint8_t ch = 0;
     bool band5 = false;
     uint32_t pkts = 0;
+    uint32_t received_ms = 0;
+    bool valid = false;
+    std::array<PacketSample, 32> history{};
+    size_t history_next = 0;
+    size_t history_size = 0;
 };
 
 class SpectrumModel {
@@ -41,7 +52,7 @@ public:
     void stop() { active_ = false; }
 
     /* Absorb an [EVT] kind=chan: updates (or, in broad mode, adds) one reading. */
-    void absorbEvent(const ocp::Item &evt);
+    void absorbEvent(const ocp::Item &evt, uint32_t now_ms = 0);
 
     bool active() const { return active_; }
     bool locked() const { return locked_; }

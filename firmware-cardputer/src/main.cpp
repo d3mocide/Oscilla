@@ -14,6 +14,12 @@
 #include "storage/settings.h"
 #include "ui/boot_screen.h"
 #include "ui/canvas.h"
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+#include "ui/external_gps_display.h"
+#endif
+#include "storage/sd_activity.h"
+#include "storage/lora_logger.h"
+#include "storage/wardrive_logger.h"
 
 namespace {
 
@@ -39,6 +45,9 @@ app::DeckApp g_app([](const char *data, size_t len) {
  * OCP/GNSS parsers stay out of it: byte-chunking is a wiring concern,
  * command semantics aren't. */
 debug::LineReader g_debug_reader;
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+uint32_t g_gnss_bytes;
+#endif
 
 void logDeckMemory(const char *tag, uint32_t uptime_ms);
 
@@ -48,16 +57,19 @@ void setup()
 {
     Serial.begin(115200);   /* USB: deck diagnostics only */
     M5Cardputer.begin(M5.config(), true);
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+    ui::holdExternalGpsDisplayReset();
+#endif
     M5Cardputer.Display.setRotation(1);
     ui::initCanvas();
     ui::drawBootScreen();
     delay(kBootScreenHoldMs);
 
-    /* Brought up before any TFT traffic exists to contend with it, per
-     * DESIGN §7.4 — the external TFT isn't wired yet, but when it is, SD
-     * still needs to win this race. A missing/unreadable card just means
-     * logging is unavailable this boot; never block startup on it. */
+    /* Shared bus first; no-CS bench disables SD mounting (Rev D §5.2). */
     if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
+#ifdef OSCILLA_NO_CS_DISPLAY_BENCH
+    Serial.println("deck bench: SD disabled for no-CS panel");
+#endif
 
     /* Brightness (DESIGN §7.6): read only now that SD is up (must follow
      * storage::begin() above), same "SD remembers it, not the firmware
@@ -99,6 +111,10 @@ void setup()
         Serial.printf("deck gnss uart error=%d\n", static_cast<int>(err));
     });
     Serial2.begin(kGnssBaudDefault, SERIAL_8N1, kGnssRxPin, kGnssTxPin);
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+    if (!ui::beginExternalGpsDisplay()) Serial.println("deck: external display init failed");
+    else Serial.println("deck: external GPS display ready; SD configured at 8 MHz");
+#endif
 
     g_app.onLog([](const std::string &line) { Serial.printf("deck %s\n", line.c_str()); });
     g_app.begin(millis());
@@ -155,6 +171,9 @@ void loop()
         size_t gn = 0;
         while (Serial2.available() && gn < sizeof gbuf) gbuf[gn++] = Serial2.read();
         g_app.feedGnss(gbuf, gn, now);
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+        g_gnss_bytes += gn;
+#endif
     }
 
     /* Debug console: drained unconditionally so stray bytes never pile up
@@ -165,7 +184,27 @@ void loop()
         size_t dn = 0;
         while (Serial.available() && dn < sizeof dbuf) dbuf[dn++] = Serial.read();
         g_debug_reader.feed(dbuf, dn, [&](const std::string &line) {
-            if (line == "memory") {
+            if (line == "debug on" || line == "debug off") {
+                g_app.setDebugMode(line == "debug on");
+                Serial.println(g_app.debugEnabled() ? "deck debug: enabled in RAM" : "deck debug: disabled in RAM");
+            } else if (line == "display_status") {
+                const auto &a = storage::sdActivity();
+                const auto &l = storage::loraLogStats();
+                const auto &w = storage::wardriveLogStats();
+                Serial.printf("deck display_status sd_ready=%u writes=%lu bytes=%llu write_errors=%lu lora_open=%u packet_rows=%lu packet_drops=%lu health_rows=%lu health_drops=%lu wardrive_open=%u ap_rows=%lu nofix=%lu gnss=%s\n",
+                              storage::ready(), (unsigned long)a.writes, (unsigned long long)a.bytes,
+                              (unsigned long)a.errors, l.open, (unsigned long)l.packet_rows,
+                              (unsigned long)l.packet_drops, (unsigned long)l.health_rows,
+                              (unsigned long)l.health_drops, w.open, (unsigned long)w.aps,
+                              (unsigned long)w.aps_no_fix, model::gnssStateName(g_app.gnssModel().state(now)));
+            } else if (line == "verify_lora_log" && g_app.debugEnabled()) {
+                const auto v = storage::verifyLoraLog();
+                const char *state = v.state == storage::LoraReadbackState::Match ? "match" :
+                                    v.state == storage::LoraReadbackState::Mismatch ? "mismatch" :
+                                    v.state == storage::LoraReadbackState::TooLarge ? "limit" : "unavailable";
+                Serial.printf("deck log_readback state=%s packet_bytes=%lu health_bytes=%lu\n",
+                              state, (unsigned long)v.packet_bytes, (unsigned long)v.health_bytes);
+            } else if (line == "memory") {
                 if (g_app.debugEnabled()) {
                     logDeckMemory("command", now);
                     Serial.println("deck debug: ok memory");
@@ -186,6 +225,29 @@ void loop()
     }
 
     if (g_app.dirty(now)) g_app.draw(now);
+#if defined(OSCILLA_NO_CS_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
+    static model::SystemStatus external_system;
+    static uint32_t last_system_sample=0;
+    if(g_app.showingSystem() && (now-last_system_sample>=1000 || external_system.info!=g_app.showingInfo())) {
+        external_system=g_app.externalSystemState();
+        external_system.deck_heap=ESP.getFreeHeap();external_system.deck_min=ESP.getMinFreeHeap();
+        last_system_sample=now;
+    }
+    ui::tickExternalGpsDisplay(g_app.gnssModel(), g_gnss_bytes,
+                               g_app.gnssChecksumFailures(), millis(),
+                               g_app.showingSpectrum() ? &g_app.spectrumModel() : nullptr,
+                               g_app.spectrumCursor(),
+                               g_app.showingLora() ? &g_app.loraModel() : nullptr,
+                               g_app.loraCursor(),
+                               g_app.showingDrive() ? &g_app.driveTrail() : nullptr,
+                               g_app.showingBt() ? &g_app.btModel() : nullptr,
+                               g_app.btCursor(),
+                               g_app.showingContacts() ? &g_app.contactsModel() : nullptr,
+                               g_app.contactsProbes(), g_app.contactsCursor(),
+                               g_app.showingZig() ? &g_app.zigModel() : nullptr,
+                               g_app.zigPans(), g_app.zigCursor(),
+                               g_app.showingSystem() ? &external_system : nullptr);
+#endif
 
     if (!total) delay(1);   /* yield when idle */
 }

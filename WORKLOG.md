@@ -1,3 +1,346 @@
+## 2026-10-09 — External 802.15.4, Link/System and startup views
+
+- User authorized continuing through the guide, explicitly including Link,
+  System and an external startup icon. Reviewed rendered 802.15.4 future concept
+  and current Lens Core SVG; added a two-second startup viewport, without a
+  blocking delay or bootloader change. Full green/cream/yellow mark, wordmark
+  and OBSERVE THE NOISE. use solid pixels with no pink or decorative effects.
+- Added display-only Link identity/capabilities/protocol and diagnostic counters,
+  plus System deck free/minimum heap and reported probe heap/uptime snapshots.
+  Diagnostic sampling is bounded to one second; status snapshots remain plain
+  framework-independent data. Deck navigation and controls are retained.
+- Added 802.15.4 PAN/node companion following existing tab/cursor: three-tile
+  ribbon, six inventory rows, measured RSSI/LQI bars and selected MAC inspector.
+  Current MAC data does not establish topology, routes, delivery health or a
+  Zigbee/Thread identity, so those future concepts are not rendered.
+- Actual renderer layouts for startup, Link, System and both inventory tabs
+  previewed in Playwright with synthetic fixtures. Existing shared SPI lock,
+  write-only transfers, corner parking and SD tile remain in place. Final host,
+  build and USB results follow below; physical review remains separate.
+
+## 2026-10-09 — Sniffer / Contacts external companion
+
+- Reviewed rendered Contacts and Sniffer mockups in Playwright and HTML. Added
+  the three-tile ribbon, circular RSSI field with reported BSSID relationship
+  links, six-row client/requester rail and selected-row dock. Companion follows
+  the deck's existing Clients/Probes tab and cursor; deck remains the controller.
+- Request fields do not imply AP association. Radius encodes clamped RSSI and
+  angle is explicitly an index, with no bearing/range claim. Selected inspector
+  uses actual MAC/BSSID, requested SSID, channel/band, RSSI and packet count.
+  No security verdict, rogue/anomaly classification or timing is fabricated.
+- Added independent client/probe snapshot receive times and presence flags;
+  waiting, snapshot age, aged and stopped/CACHED states remain distinct. Tests
+  were written first: absent/empty-at-zero, independent tables, wrong tags,
+  unsigned clock wrap, stop retention and reset invalidation. All 22 model checks
+  passed; a copy omitting reset invalidation fails the new assertion.
+- Full host suite passed. Actual renderer previewed for both tabs using synthetic
+  rows through the temporary SVG shim and Playwright. No field observations
+  entered the repository. Shared strip lock, corner parking and SD tile retained.
+  Normal, dual-display and SD/display coexistence builds passed after final label
+  corrections. Flashed the identified ESP32-S3 with verified application hash;
+  live passive USB test populated 14 client-link and 12 probe-request rows at
+  stop. Link remained ready, heap minimum 198268 bytes, SD ready with zero write
+  errors; logging sessions remained closed. Stopped the test PHY lane and disabled
+  RAM debug, leaving cached Contacts context. User confirmed both Clients and
+  Probes tabs readable and clean on hardware, including the SD tile.
+
+## 2026-10-09 — BLE external advertiser companion
+
+- User confirmed the Drive slice looks good and authorized continuing. Reviewed
+  the BLE reference in rendered Playwright and HTML; added its three-tile ribbon,
+  circular RSSI field, six-row advertiser rail and lower selected-device dock.
+  Retained the deck controls and four-row device list.
+- Field radius represents clamped measured RSSI; angular position is explicitly
+  device index, never bearing. No distance, RPA rotation, advertisement timing,
+  vendor-name inference or protocol identity is fabricated. Manufacturer IDs,
+  tracker-classified row counts and observation counts come from the existing
+  probe-fed model. Stopped scans explicitly show CACHED.
+- External frame snapshots the bounded model once, using the existing strip
+  transfers, shared SPI lock, SD tile and corner parking. Hostile device-name
+  bytes are replaced before rendering. No radio/protocol changes.
+- Full host suite passed. Actual renderer previewed with synthetic device rows
+  through the temporary SVG shim and Playwright; artifacts are layout evidence,
+  not field observations. Normal and dual-display firmware builds passed; normal
+  image flashed to identified ESP32-S3 with verified application hash.
+- Live USB passive reception accumulated 48 device rows / 10 tracker-classified
+  rows before stop. Link remained ready, heap minimum 185036 bytes, SD ready with
+  zero write errors and no logging session open. Stopped the test PHY lane and
+  disabled RAM debug, leaving cached BLE context visible. Physical legibility
+  and artifacts verified by the user: both screens readable and clean, including
+  the SD tile. SD/display coexistence build also passed.
+
+## 2026-10-09 — Drive/GPS and external Session Log UI slice
+
+- Reviewed rendered Drive deck/external mockups in Playwright and their HTML.
+  Added the four-tile session/track/fix/saved-AP ribbon, north-up RAM breadcrumb,
+  actual wardrive counters and SD tile. Deck uses four telemetry rows plus current
+  fresh position or explicit searching/lost/aged/silent state. No invented heading,
+  speed, meter accuracy, RF density or marker events are rendered.
+- Added framework-independent 64-point DriveTrail: fresh finite fixes only,
+  duplicate timestamp rejection, gaps across loss, per-session reset and duration,
+  closed-session cache and bounded retention. Geographic points remain RAM-only;
+  existing GPS-validity rules own SD observations. No wire/probe changes.
+- Host suite passed, including trail loss/duplicate/bounds/session/wrap tests.
+  A copy with gap handling removed fails the distance/gap assertion. Fixed a
+  receive-only mutation-test race by excluding generated .pio artifacts from its
+  temporary source checkout; source gates and mutation coverage remain intact.
+- Probe build and affected deck/display/coexistence environments passed. Actual
+  renderer layout previewed via temporary SVG shim with synthetic NMEA fixes;
+  output/playwright artifacts are explicitly fixture/layout evidence, not field
+  track or physical screen proof. Normal image flashed with verified hash.
+- Initial USB session test exposed a pre-existing row-cursor bug: four completed
+  scans contained 440 rows but only 231 no-fix observations were counted. The
+  watermark survived scan restarts and omitted repeated/similarly-sized tables.
+  Added a hostile fixture executing the actual requestScan/logScanRows methods:
+  smaller/equal/repeated tables, paging and busy-send cases. It fails before the
+  fix and after restoring the bug on a copy. Reset the cursor only after an
+  accepted new scan command, before clearing the scan table.
+- Final image rebuilt and flashed with verified hash. USB recheck completed four
+  scans with 91/94/103/102 rows: all 390 observations matched the no-fix counter,
+  with zero malformed rows. Session closed with five accepted SD writes / 1054
+  bytes and zero write errors; no geolocated AP or track rows were fabricated.
+  Stopped the test PHY lane, disabled RAM debug and left the Drive view ready.
+- Initial session correctly stored no geolocated AP/track rows without a fix,
+  accepted five header/closure writes without error and closed cleanly. Debug
+  override and the test PHY lane were stopped. Physical fresh-fix/moving-track
+  rendering remains unverified while the current receiver is searching.
+
+## 2026-10-09 — LoRa RX / Frame List companion and unlabelled status dots
+
+- Followed the user's current direction: removed B/G/S/R letters from deck
+  chrome while preserving ordered status dots and battery. Updated the brand
+  README and HTML mockups so the old labels do not reappear in future slices.
+- Reviewed the rendered LoRa deck and external Frame List in Playwright plus
+  HTML/CSS. Deck now uses four selected-frame rows with measured RSSI/SNR,
+  tuning/profile controls and preserved health/drop/fault counters. External
+  companion has the four-tile tuning/signal ribbon, received-frame cadence,
+  explicitly guessed framing and bounded raw hex/ASCII inspector. No invented
+  chirp/IQ waveform, CRC16 verdict or decoded application payload is displayed.
+- Timestamp accepted frames for age/cadence. Rejected malformed hex and missing
+  RSSI rather than rendering untrusted controls or a fabricated measurement.
+  New pure eight-byte display-row helper substitutes dots for controls and
+  non-ASCII, caps rows, rejects malformed input and handles hostile offsets.
+- External frames snapshot the existing model once per frame, transfer one
+  strip under the existing SD/TFT lock and retain SD activity/pixel parking.
+  Previewed actual renderer geometry via temporary SVG shim and synthetic
+  fixture bytes; artifacts in output/playwright are not captured field data.
+- Full host suite passed, including 21 LoRa model checks and payload display
+  checks. Restoring non-hex acceptance on a copy fails a model check; restoring
+  raw control-character rendering fails the ASCII assertion. One compiler was
+  killed during the full seven-environment build; retrying that environment
+  with two compiler jobs passed. Final normal/dual-display/coexistence images
+  rebuilt successfully, and the normal image was flashed to identified ESP32-S3
+  with verified hash. Live receive/logging results follow below when demonstrated;
+  User confirmed the deck rows and external signal ribbon, cadence, hex/ASCII
+  inspector and SD tile are readable and clean, with no B/G/S/R letters.
+- USB normal-app test received 10 real LoRa frames and 6 health rows at readback,
+  zero log drops/write errors: packet file 2170 bytes and health 260 bytes matched
+  accepted content. Switching to Packet Monitor received 22 channels while LoRa
+  logging continued; returned to the LoRa screen and stopped only test PHY/LoRa
+  lanes. Confirmed log closed, final 10 packet/8 health rows, 21 accepted writes
+  / 2610 bytes, no write errors. Disabled temporary RAM debug mode and left cached
+  received frames visible. No raw packet or location content added to the repo.
+
+## 2026-10-09 — Rendered-guide Packet Monitor correction
+
+- User identified that the first slice's colors/layout did not match the HTML.
+  Opened the actual master guide in headed Playwright using installed Chromium,
+  captured and inspected both Packet Monitor mockups, and read their CSS/SVG.
+  Confirmed four telemetry tiles, a time-history field above a lower envelope,
+  compact bottom strip, and four highlighted rows on the deck.
+- Corrected RGB565 conversion errors in cream, pink and yellow, and replaced
+  the old gray-purple muted token with HTML muted green. Semantic colors now
+  derive from explicit CSS hex values via one constexpr conversion. Added a
+  compiled comparison with 11 actual HTML CSS tokens to the host check suite;
+  restoring the incorrect pink on a temporary copy fails the assertion.
+- Rebuilt Packet Monitor around the rendered composition. Actual channel events
+  populate a bounded 32-sample ring per channel (maximum 40 channels); display
+  shows a 30-second count history and current count envelope, selected channel,
+  measured window count/peak and freshness. RSSI/FFT/occupancy are not fabricated.
+  Kept shared-bus strips and SD corner tile; added B/G/S/R labels to deck chrome.
+- Previewed the actual external renderer through a temporary SVG drawing shim
+  in Playwright, with explicitly synthetic fixture data and approximate browser
+  font rendering. Reference/preview artifacts are under output/playwright; they
+  are layout evidence, not physical display or radio measurements.
+- Full host checks and both firmware toolchains/all seven deck environments
+  passed. Expanded spectrum tests passed 22 checks including placeholder/real
+  zero, hostile channel growth, bounded history and timestamp behavior. Restored
+  wrong-channel acceptance on a copy fails two checks. Final normal image rebuilt,
+  flashed to the identified ESP32-S3 and hash verified. A full history window
+  received 22 channels; SD mounted, link ready, memory/status commands responsive
+  (197296 free heap, 167924 largest block). Temporary debug override disabled.
+  User compared the revised physical display with the HTML and confirmed:
+  "Much closer, readable and clean." This confirms the revised layout and
+  palette are acceptable on the bench, not an exact calibrated color match.
+- Revised history view also ran during passive LoRa logging: 4 packet rows and
+  2 health rows at readback, no drops/errors, packet 758 bytes and health 156
+  bytes matched expected accepted content. USB read interrupted during cleanup;
+  reconnected, stopped the LoRa test and confirmed files closed (7 packet / 5
+  health rows final, zero drops/errors). Disabled the RAM debug override; passive
+  channel overview remains for user inspection. No raw field data stored in repo.
+
+## 2026-10-09 — Mockup-based Packet Monitor UI, first slice
+
+- Implemented the brand HTML external Packet Monitor telemetry ribbon, relative
+  channel-count chart and focused inspector with solid palette tokens. Deck
+  locked-channel view now has a larger count, window units, freshness and release
+  hint. External companion appears only while viewing Packet Monitor; GPS remains
+  the fallback. SD activity tile and locked corner-pixel parking remain intact.
+- Snapshot the existing spectrum model once per external frame and render one
+  clipped 24-pixel strip per loop. No secondary controls or radio commands added.
+  RSSI, FFT, occupancy, threshold and waterfall mockup fields are intentionally
+  deferred until backed by appropriate measurements/history.
+- Timestamp accepted channel events; distinguish initial placeholder from a real
+  zero, reject wrong-channel events in locked mode, and preserve cached data on
+  stop. Adversarial host fixture verifies all three cases; restoring wrong-channel
+  acceptance on a temporary copy makes the test fail (16 pass / 1 fail).
+- Full host checks passed, including 17 spectrum checks, and both firmware
+  toolchains/all seven deck environments built; final normal image rebuilt and
+  flashed to identified ESP32-S3 with verified hash. USB confirmed 22 channel
+  readings, ready link, mounted SD and responsive memory/status commands.
+- With channel 6 locked and the new companion visible, a passive LoRa session
+  recorded 4 packet rows and 2 health rows: 9 accepted writes / 1136 bytes, zero
+  write errors/drops, matching packet (856 bytes) and health (156 bytes) readback.
+  Closed that logging session, restored the passive channel overview and disabled
+  the temporary RAM debug override. User confirmed the external channel bars,
+  telemetry, focused inspector and SD tile are readable and clean, without
+  artifacts. Broader navigation migration and cold/soak gates remain open.
+
+## 2026-10-09 — Normal dual-display firmware with no-CS SD coexistence
+
+- Enabled the delivered no-CS ILI9341 in the normal Cardputer ADV build.
+  SD starts with TFT held in reset; the common lock serializes 8 MHz SD and
+  4 MHz TFT traffic. Each external strip parks the TFT RAM window at (319,239).
+  The landscape GPS view reserves the bottom-right tile for SD write activity.
+- Activity reflects accepted file writes across LoRa, wardrive and brightness
+  settings; short writes count as faults. Added aggregate USB status and bounded
+  LoRa packet/health file length/checksum readback, without printing field data.
+- Added host activity/digest tests and storage configuration checks. Mutation
+  fixtures demonstrated detection of short-write, digest and unsafe-clock bugs.
+  Full host protocol/conformance checks and both firmware toolchains passed;
+  final normal ADV image rebuilt, flashed to identified ESP32-S3 and hash verified.
+- At 8 MHz, the coexistence fixture completed 32 cycles: 512 writes, 131072
+  written/readback-verified bytes, every disposable file removed, GPS checksum
+  failures zero. In normal firmware USB confirmed SD mounted and probe ready.
+- A 26-second passive LoRa test recorded 3 actual probe packet rows and 3 health
+  rows, zero packet/health drops, 9 successful writes / 903 bytes, no write errors.
+  SD readback matched accepted content: packet 597 bytes, health 182 bytes.
+  Stopped only the test LoRa lane and disabled the temporary RAM debug override.
+  User confirmed both screens look good. No captured content added to the repo.
+- GNSS was receiving but searching during this test; GPS-fix-dependent wardrive
+  logging was not demonstrated. Cold power sequencing and prolonged soak remain
+  hardware gates; automatic external-panel detection/expanded views remain pending.
+
+## 2026-10-09 — Experimental SD/GPS/display interleaving fixture
+
+- Added Enter-armed `sd-display-check`: mounts SD first, initializes external
+  GPS view, then writes/reopens/verifies a unique 4 KB file in 256-byte
+  operations every 250 ms while external GPS redraws continue between them.
+  Every SD operation and external strip uses the existing shared bus lock.
+- Internal screen shows write/read progress, PASS/FAIL, cleanup and aggregate
+  GPS diagnostics. External screen shows GPS status and coordinates when fixed.
+  No coordinates or raw NMEA are written to SD or USB.
+- Existing SD-disabled dual-display environment retains mount/remount guards;
+  this separate environment is experimental evidence gathering, not a change
+  to the normal SD/display contract. No probe engine is operated by this test.
+- Shared-lock readback and visual stability are separate gates: a passing file
+  check does not establish that the panel remains visually correct during SD
+  traffic. User must inspect corruption/flicker/blanking while the test runs.
+- ESP32-S3 fixture build, receive-only check, storage-isolation mutation
+  check, and diff whitespace check passed. Flashed identified ESP32-S3 with
+  verified application hash. Runtime Enter and hardware outcome remain pending.
+
+## 2026-10-09 — Enter-armed isolated SD write/read fixture
+
+- User requested SD validation after concurrent display/GPS testing.
+- Added `sd-check`, using the normal storage backend with SD enabled and
+  the internal display for instructions/results. No SD bus initialization or
+  access until a runtime Enter press; avoids a boot-hold gesture (AGENTS §5.17).
+- Requires power off, external display CLK/MOSI disconnected, then SD inserted
+  and power on before Enter. GPS wiring may stay, but this isolated fixture
+  does not parse GPS or operate the probe.
+- Creates a uniquely named disposable file only if absent, writes 4,096
+  deterministic bytes, closes/reopens, checks length and every byte, and
+  removes only its own file. Existing card contents are not modified.
+- ESP32-S3 fixture build, receive-only source check, storage guard/mutation
+  check, and diff whitespace check passed. Flash attempt could not open the
+  stable Cardputer port (device node absent). After the user reconnected it,
+  flashed the identified ESP32-S3 with verified application hash and reset.
+- User reported display wires were left connected, confirmed
+  `PASS: 4096 bytes verified`, and confirmed the test file was removed.
+  This proves this SD fixture's write/read/cleanup with the panel connected
+  but not being redrawn; it does not qualify active shared-bus coexistence.
+
+## 2026-10-09 — Normal deck UI plus external GPS bench display
+
+- Added opt-in `dual-display-no-cs` environment: normal deck UI, keyboard,
+  Grove link and GPS parsing, plus a landscape external GPS status display.
+  Both views consume DeckApp's existing GNSS model; no second parser.
+- External view uses a 320×24 strip (15,360 bytes) rather than a full-frame
+  153,600-byte sprite. One strip transfers per deck loop; each transfer uses
+  the existing shared SPI lock. Internal display uses its own existing bus.
+- SD mount and explicit remount are disabled at compile time in this bench
+  environment. Normal firmware retains SD behavior. Keep SD physically removed.
+- Wrote the storage isolation test first: it failed on the unguarded module.
+  It now verifies normal mount/remount, no bench SD calls, and rejects a copy
+  with both guards removed. Included it in the protocol check script.
+- Normal and dual-display ESP32-S3 builds passed; complete protocol/host
+  checks passed, including parser conformance and receive-only mutations.
+- Flashed identified Cardputer with verified application hash. Nine-second
+  USB capture showed `deck state=ready`, repeated GNSS `searching` with
+  `chkfail=0 overlong=0`, boot free heap 240,664 bytes and largest block
+  217,076 bytes, no populated PSRAM. No crash was observed in this sample.
+- User confirmed both displays updated during a scan and deck navigation
+  remained responsive. Subsequently ran Packet Monitor and reported all
+  systems responsive. This is an operator-observed concurrent-display smoke
+  test; elapsed duration was not recorded. No long-soak, SD coexistence,
+  outdoor GPS-fix, or combined power qualification is claimed.
+
+## 2026-10-09 — Landscape GPS bench screen
+
+- User confirmed external GPS status screen was visible, but portrait.
+- Rotated isolated ILI9341 fixture to 320×240 landscape (MADCTL 0x28),
+  matching RAM canvas, address windows, and pixel loops to the orientation.
+- ESP32-S3 fixture build passed; application flashed with verified hash.
+- SD remains removed. Physical landscape direction remains to be confirmed
+  against the user's mounting orientation.
+
+## 2026-10-09 — External display plus GPS bench test
+
+- User observed colour bars on the delivered panel in the isolated no-CS
+  fixture. This confirms isolated command/pixel operation, not safe SD sharing
+  or physical CS topology. SD remains removed.
+- Extended the same fixture with receive-only GPS UART at 9600 on GPIO15,
+  existing bounded NMEA parser and GNSS model, and a RAM-rendered status screen.
+  Shows bytes, checksum-valid sentences, checksum failures, data age, state,
+  and current position/HDOP/fix age only while fixed. No raw GPS or position
+  is logged over USB or stored; USB emits aggregate counters and state only.
+- GPS is drained between display rows; loop yields. No SD initialization,
+  probe commands, GPS configuration writes, or integrated release claims.
+- ESP32-S3 fixture build passed; parser tests 16/16 and GNSS model tests
+  59/59 passed. Flashed identified deck with explicit chip and verified hash.
+- Live USB evidence: valid NMEA count rose 83→153, byte count 2297→4230,
+  `state=searching`, checksum failures 0 during the five-second capture.
+  This establishes live GPS reception without a fix during the sample.
+- Combined visual result and outdoor reception remain pending.
+
+## 2026-10-09 — Isolated no-CS ILI9341 bench fixture
+
+- Added `tft-no-cs`, a display-only image using Rev D GPIO40/14/6/3 at
+  4 MHz, with no MISO, no SD access, and no probe or GPS commands.
+- Requires the SD card physically removed and a panel whose CS is internally
+  held active; the delivered board's CS arrangement remains unidentified.
+- `pio run -d firmware-cardputer -e tft-no-cs` passed (ESP32-S3).
+  OCP selftest passed 27/27; diff whitespace check passed.
+- Flashed the identified Cardputer `50:78:7D:CE:6D:64` with explicit
+  `--chip esp32s3`. Initial 460800-baud application transfer lost USB;
+  retry at 115200 completed with verified application hash and reset.
+  Bootloader, partitions, and boot-app hashes passed on the initial attempt.
+  User confirmed SD removed. Panel visual result remains pending.
+- Sends red/green/blue/white bands. Serial output proves commands were sent,
+  not panel operation. Physical display, cold-boot, and shared-bus gates remain
+  open; this is not integrated firmware or completion of P5.
+
 ## 2026-09-24 (later) — Power meter: INA228 detection, R050 shunt, monitor mode
 
 **Phase:** P6 prep · **By:** Will + Claude

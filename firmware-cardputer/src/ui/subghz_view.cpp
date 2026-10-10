@@ -1,149 +1,60 @@
-/*
- * subghz_view.cpp — see subghz_view.h.
- *
- * SPDX-License-Identifier: MIT
- */
-
+/* Rendered reference: master guide Observe / LoRa RX deck. */
 #include "ui/subghz_view.h"
-
-#include <cstdio>
-#include <cstring>
-
 #include <M5Cardputer.h>
-
+#include <cstring>
 #include "model/lora_profiles.h"
 #include "ui/canvas.h"
-#include "ui/link_view.h"
-#include "ui/list_row.h"
 #include "ui/theme.h"
+#include "ui/list_row.h"
 
 namespace ui {
-
 namespace {
-
-uint16_t snrColour(float snr)
-{
-    if (snr >= 7.0f) return kFieldGreen;
-    if (snr >= 0.0f) return kCalibrationYellow;
-    return kSignalPink;   /* decoded, but weak/marginal */
-}
-
-/* One-letter framing_guess tag (model/lora_framing.h): a guess, so kept
- * visually secondary to RSSI/SNR, not asserted as a decode. */
-char framingChar(model::Framing f)
-{
-    switch (f) {
-    case model::Framing::Meshtastic: return 'M';
-    case model::Framing::LoRaWAN: return 'L';
-    case model::Framing::MeshCore: return 'C';
-    default: return '-';
-    }
-}
-
-uint16_t framingColour(model::Framing f)
-{
-    switch (f) {
-    case model::Framing::Meshtastic: return kSignalPink;
-    case model::Framing::MeshCore: return kFieldGreen;
-    case model::Framing::LoRaWAN: return kPaperPhosphor;
-    default: return kMutedSlate;
-    }
-}
-
-/* Looks up the short on-screen label for a configured/manifest profile
- * token; anything not in the table (including the debug console's
- * lora_manual "manual" token) falls back to MANUAL — consistent with
- * LoraModel::configured()'s own "unknown token means manual" rule. */
-const char *profileLabel(const std::string &token)
-{
-    for (const auto &p : model::kLoraProfiles) {
-        if (token == p.token) return p.label;
-    }
+const char *profileLabel(const std::string &token) {
+    for (const auto &p:model::kLoraProfiles) if(token==p.token) return p.label;
     return "MANUAL";
 }
-
-}  // namespace
-
-void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeState &chrome,
-                    const char *pending_profile_label)
+}
+void drawSubGhzView(const model::LoraModel &m, size_t cursor, const ChromeState &chrome,
+                    const char *pending)
 {
-    auto &d = ui::canvas();
-    beginChrome(chrome);
-    d.setTextSize(1);
-
-    d.setCursor(4, kBodyTop + 2);
-    d.setTextColor(kMutedSlate, kVoidInk);
-    d.printf("PACKETS %u  %s", (unsigned)lora.totalCount(), lora.active() ? "LISTENING" : "IDLE");
-    if (lora.hasConfig()) {
-        d.setCursor(184, kBodyTop + 2);
-        d.printf("SF%d BW%d", lora.sf(), lora.bwKhz());
-    } else {
-        d.setCursor(164, kBodyTop + 2);
-        d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.print("UNCONFIGURED");
-    }
-
-    const auto &packets = lora.packets();
-    size_t first = listFirstVisible(cursor);
-
-    for (int i = 0; i < kListVisibleRows && first + static_cast<size_t>(i) < packets.size(); i++) {
-        const auto &p = packets[first + i];
-        bool sel = first + static_cast<size_t>(i) == cursor;
-        int y = kListTop + i * kListRowHeight;
-        uint16_t bg = sel ? kSelectionGlow : kVoidInk;
+    auto &d=canvas(); beginChrome(chrome); d.setTextSize(1);
+    d.setTextColor(kPaperPhosphor,kVoidInk); d.setCursor(5,kBodyTop+5);
+    if(m.hasConfig()) d.printf("%lu.%03lu MHz",(unsigned long)(m.freqHz()/1000000),(unsigned long)(m.freqHz()%1000000/1000));
+    else d.print("CONFIG REQUIRED");
+    d.setCursor(149,kBodyTop+5); d.setTextColor(kFieldGreen,kVoidInk);
+    if(m.hasConfig()) d.printf("BW%d SF%d",m.bwKhz(),m.sf());
+    d.drawFastHLine(5,kBodyTop+17,230,kDimGreen);
+    const auto &packets=m.packets(); const size_t start=(cursor/4)*4;
+    for(size_t row=0;row<4 && start+row<packets.size();++row) {
+        const size_t index=start+row; const auto &p=packets[index];
+        const int y=kBodyTop+25+row*15; const bool sel=index==cursor;
+        const uint16_t bg=sel ? kSelectionGlow : kVoidInk;
         drawRowHighlight(d, y, sel);
-
-        d.setCursor(6, y);
-        d.setTextColor(kPaperPhosphor, bg);
-        d.printf("%4d", p.rssi);
-        d.setTextColor(snrColour(p.snr), bg);
-        d.printf(" %5.1f", static_cast<double>(p.snr));
-        d.setTextColor(kMutedSlate, bg);
-        d.printf(" %3u ", p.len);
-        d.setTextColor(framingColour(p.framing), bg);
-        d.printf("%c ", framingChar(p.framing));
-        d.setTextColor(kDimGreen, bg);
-        d.print(printable(p.hex, 20).c_str());
+        if(sel) { d.fillRect(4,y-2,232,14,bg); d.drawRect(4,y-2,232,14,kCalibrationYellow); }
+        d.setTextColor(sel ? kCalibrationYellow : kPaperPhosphor,bg); d.setCursor(6, y);
+        if(p.framing==model::Framing::Unknown) d.printf("RAW %uB",p.len);
+        else d.printf("%.10s?",model::framingName(p.framing));
+        d.setCursor(116,y); d.printf("%d dBm",p.rssi);
+        d.setCursor(184,y); d.setTextColor(p.snr>=0 ? kFieldGreen : kSignalPink,bg);
+        d.printf("%+.1f",(double)p.snr);
     }
-
-    if (packets.empty()) {
-        d.setTextColor(kDimGreen, kVoidInk);
-        d.setCursor(0, kListTop);
-        d.print(lora.active() ? "LISTENING FOR LORA RX..." : lora.hasConfig() ? "PRESS s TO START" : "PRESS c TO CONFIGURE");
+    if(packets.empty()) {
+        d.setTextColor(kMutedSlate,kVoidInk); d.setCursor(8,kBodyTop+40);
+        d.print(m.active() ? "LISTENING FOR LORA FRAMES" : m.hasConfig() ? "s START / x PROFILE / c APPLY" : "x PROFILE / c CONFIGURE");
     }
-
-    d.setCursor(4, kDetailRowY);
-    if (lora.hasConfig()) {
-        char freq[16];
-        std::snprintf(freq, sizeof freq, "%lu.%03lu",
-                      (unsigned long)(lora.freqHz() / 1000000UL),
-                      (unsigned long)((lora.freqHz() % 1000000UL) / 1000UL));
-        d.setTextColor(lora.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.printf("%s SF%d BW%d %s", freq, lora.sf(), lora.bwKhz(), profileLabel(lora.profile()));
-        /* pending_profile_label used to be drawn only in the !hasConfig()
-         * branch below, so 'x' after a config existed had no feedback.
-         * Shown only when it differs from what's applied, to stay quiet
-         * in the common case. */
-        if (std::strcmp(pending_profile_label, profileLabel(lora.profile())) != 0) {
-            d.setTextColor(kCalibrationYellow, kVoidInk);
-            d.printf(" x=%s", pending_profile_label);
-        }
-        if (lora.health().valid) {
-            d.setCursor(4, kDetailRowY + 9);
-            d.setTextColor((lora.health().irq_drop || lora.health().radio_drop ||
-                            lora.health().ocp_drop || lora.health().hw_fault)
-                               ? kCalibrationYellow : kMutedSlate, kVoidInk);
-            d.printf("RX%u C%u H%u D%u/%u/%u F%u", (unsigned)lora.health().rx,
-                     (unsigned)lora.health().crc_err, (unsigned)lora.health().header_err,
-                     (unsigned)lora.health().irq_drop, (unsigned)lora.health().radio_drop,
-                     (unsigned)lora.health().ocp_drop, (unsigned)lora.health().hw_fault);
-        }
-    } else {
-        d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.printf("CFG REQUIRED - c=%s (x=next)", pending_profile_label);
-    }
-
+    d.drawFastHLine(5,kBodyTop+84,230,kDimGreen);
+    d.setCursor(5,kBodyTop+88); d.setTextColor(kMutedSlate,kVoidInk);
+    if(!m.hasConfig() || std::strcmp(pending,profileLabel(m.profile()))!=0) {
+        d.setTextColor(kCalibrationYellow,kVoidInk); d.printf("c APPLY %.20s / x NEXT",pending);
+    } else if(m.health().valid && m.health().hw_fault) {
+        d.setTextColor(kFaultRed,kVoidInk); d.print("RADIO FAULT / CHECK LINK STATUS");
+    } else if(m.health().valid) {
+        const auto &h=m.health();
+        d.setTextColor(h.irq_drop || h.radio_drop || h.ocp_drop ? kCalibrationYellow : kMutedSlate,kVoidInk);
+        d.printf("RX%u C%u H%u D%u/%u/%u F%u",(unsigned)h.rx,(unsigned)h.crc_err,
+                 (unsigned)h.header_err,(unsigned)h.irq_drop,(unsigned)h.radio_drop,
+                 (unsigned)h.ocp_drop,(unsigned)h.hw_fault);
+    } else d.printf("RX %lu / %s / GUESS ?",(unsigned long)m.totalCount(),m.active() ? "LISTENING" : "CACHED");
     endChrome(chrome);
 }
-
-}  // namespace ui
+}

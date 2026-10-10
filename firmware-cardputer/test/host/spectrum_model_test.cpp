@@ -33,6 +33,41 @@ ocp::Item eventOf(const std::string &wire)
 int main()
 {
     {
+        model::SpectrumModel m; m.begin();
+        for (int ch = 1; ch <= 60; ++ch)
+            m.absorbEvent(eventOf("[EVT] kind=chan ch="+std::to_string(ch)+" pkts=1\n"), 100);
+        check(m.readings().size() == 40, "hostile channel stream cannot grow history without bound");
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=1 pkts=7\n"), 200);
+        check(m.readings()[0].pkts == 7, "capacity limit still permits known-channel updates");
+    }
+    {
+        model::SpectrumModel m;
+        m.beginLocked(6);
+        for (uint32_t i = 0; i < 40; ++i)
+            m.absorbEvent(eventOf("[EVT] kind=chan ch=6 pkts=" + std::to_string(i) + "\n"), i * 1000);
+        const auto &r = m.readings()[0];
+        check(r.history_size == 32, "packet history remains bounded");
+        check(r.history[(r.history_next + 31) % 32].pkts == 39,
+              "history retains newest measured count");
+        const auto head = r.history_next;
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=11 pkts=999\n"), 50000);
+        check(m.readings()[0].history_next == head, "wrong channel cannot add waterfall history");
+    }
+    {
+        model::SpectrumModel m;
+        m.beginLocked(6);
+        check(!m.readings()[0].valid, "seed zero is not a received measurement");
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=11 pkts=999\n"), 100);
+        check(!m.readings()[0].valid, "wrong-channel event cannot populate locked inspector");
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=6 pkts=0\n"), 123);
+        check(m.readings()[0].valid && m.readings()[0].received_ms == 123,
+              "real zero is valid and timestamped");
+        m.absorbEvent(eventOf("[EVT] kind=chan ch=6 pkts=bad\n"), 456);
+        check(m.readings()[0].received_ms == 123, "malformed event cannot refresh age");
+        m.stop();
+        check(!m.active() && m.readings()[0].valid, "stop preserves cached measurement");
+    }
+    {
         model::SpectrumModel m;
         m.begin();
         check(m.active() && !m.locked() && m.readings().empty(), "begin() starts broad and empty");

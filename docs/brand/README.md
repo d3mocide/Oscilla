@@ -89,8 +89,8 @@ The deck is the sole control surface.
 | Transport strip | LIVE or CACHED, source freshness, and backpack ping/pong |
 | Footer | One concise keyboard hint line |
 
-Status-dot labels: B backpack, G GNSS, S SD, R RF activity. Preserve the dot
-order so operators learn the cluster spatially.
+Status dots are unlabelled (user direction, 2026-10-09). Preserve their order:
+backpack, GNSS, SD, RF activity, followed by the battery.
 
 ### Deck legibility budget
 

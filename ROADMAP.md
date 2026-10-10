@@ -5,7 +5,7 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P4 complete → **P5 — External TFT** (🔴 blocked on panel/regulator); P7 passive-suite work continues in parallel |
+| **Current phase** | P4 complete → **P5 — External TFT** (🟡 bench integration); P7 passive-suite work continues in parallel |
 | **Last updated** | 2026-09-22 |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
@@ -21,7 +21,7 @@
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
 | **P4** | GNSS on the deck | 🟢 Exit gate met | ✅ 2026-09-16 |
-| **P5** | External TFT | 🔴 Blocked — panel/regulator pending | — |
+| **P5** | External TFT | 🟡 Bench integration — cold boot/soak pending | — |
 | **P6** | Combined soak & power | ⚪ Not started | — |
 | **P7** | Passive suite completion | 🟡 In progress (out of sequence) | — |
 | **P8** | Polish | 🟡 In progress — deck UI foundation | — |
@@ -159,12 +159,18 @@ gate.
 **Entry gate:** panel in hand. P2 exit met.
 
 **Work:**
-- [ ] ILI9341 write-only init on the shared bus (CS1 5, DC 4, RES 6), MISO unconnected, ~4 MHz.
-- [ ] **Single shared-bus lock** covering SD + TFT; SD brought up first; no task bypasses it.
+- [x] ILI9341 write-only landscape init, MISO unconnected, 4 MHz; delivered no-CS variant uses Rev D §5.3 pins and corner-pixel parking. Colour/GPS screen observed on hardware 2026-10-09.
+- [x] **Single shared-bus lock** covering SD + TFT; SD brought up first. Interleaved fixture passed 32 cycles / 128 KiB readback; user confirmed clean display after parking. Delivered variant caps SD at 8 MHz.
 - [ ] Second-panel detection at boot; expanded views on the 240×320.
 - [ ] Touch stays disabled (Rev D baseline).
 
 **Exit gate:** sustained TFT redraw concurrent with SD read/write of a disposable file, cold-boot with SD inserted, no bus corruption over a soak.
+
+2026-10-09: disposable-file/display gate demonstrated in the bounded fixture.
+Normal-app probe packet/health logging and SD readback also demonstrated on
+2026-10-09. First mockup-based Packet Monitor companion implemented; physical
+layout review, lower-clock long soak, and controlled cold-boot/JTAG qualification
+remain open; P5 is not declared complete.
 
 ---
 

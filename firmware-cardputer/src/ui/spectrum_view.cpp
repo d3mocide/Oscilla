@@ -1,102 +1,50 @@
-/*
- * spectrum_view.cpp — see spectrum_view.h.
- *
- * SPDX-License-Identifier: MIT
- */
-
+/* Rendered reference: master brand guide, Analyze / Packet Monitor deck. */
 #include "ui/spectrum_view.h"
-
 #include <M5Cardputer.h>
-
+#include <algorithm>
 #include "ui/canvas.h"
-#include "ui/link_view.h"
 #include "ui/theme.h"
 
 namespace ui {
-
-namespace {
-
-uint16_t barColour(uint32_t pkts, uint32_t max_pkts)
+void drawSpectrumView(const model::SpectrumModel &s, size_t cursor, const ChromeState &chrome)
 {
-    if (max_pkts == 0) return kMutedSlate;
-    float frac = static_cast<float>(pkts) / static_cast<float>(max_pkts);
-    if (frac > 0.66f) return kSignalPink;
-    if (frac > 0.33f) return kCalibrationYellow;
-    return kFieldGreen;
-}
-
-void drawLocked(const model::SpectrumModel &spectrum)
-{
-    auto &d = ui::canvas();
-    uint32_t pkts = spectrum.readings().empty() ? 0 : spectrum.readings()[0].pkts;
-
-    d.setCursor(4, kBodyTop + 2);
-    d.setTextColor(kFieldGreen, kVoidInk);
-    d.printf("PACKET MONITOR LIVE  CH %u", spectrum.lockedChannel());
-    d.setTextSize(2);
-    d.setCursor(4, kBodyTop + 22);
-    d.setTextColor(kCalibrationYellow, kVoidInk);
-    d.printf("%u", (unsigned)pkts);
-    d.setTextSize(1);
-    d.setCursor(4, kBodyTop + 45);
-    d.setTextColor(kMutedSlate, kVoidInk);
-    d.print("PACKETS / SEC  ·  PRESS ` TO RELEASE");
-}
-
-void drawBroad(const model::SpectrumModel &spectrum, size_t cursor)
-{
-    auto &d = ui::canvas();
-    const auto &readings = spectrum.readings();
-
-    uint32_t max_pkts = 1;
-    for (const auto &r : readings) if (r.pkts > max_pkts) max_pkts = r.pkts;
-
-    constexpr int chart_top = kBodyTop + 4;
-    constexpr int chart_bottom = kBodyTop + 72;
-    int chart_h = chart_bottom - chart_top;
-    int bar_w = readings.empty() ? 1 : d.width() / static_cast<int>(readings.size());
-    if (bar_w > 14) bar_w = 14;
-    if (bar_w < 1) bar_w = 1;
-    int chart_w = bar_w * static_cast<int>(readings.size());
-    if (chart_w > d.width()) chart_w = d.width();
-    const int chart_left = (d.width() - chart_w) / 2;
-
-    for (size_t i = 0; i < readings.size(); i++) {
-        const auto &r = readings[i];
-        int x = chart_left + static_cast<int>(i) * bar_w;
-        if (x >= d.width()) break;
-        int h = static_cast<int>(static_cast<float>(r.pkts) / static_cast<float>(max_pkts) * chart_h);
-        if (h < 1 && r.pkts > 0) h = 1;
-        int w = bar_w > 1 ? bar_w - 1 : 1;
-        if (i == cursor) d.drawRect(x, chart_top, w, chart_h, kPaperPhosphor);
-        /* Keep quiet channels visibly distinct from the black canvas. The
-         * selected outline alone made an all-zero sweep look like one bar. */
-        if (h > 0) d.fillRect(x, chart_bottom - h, w, h, barColour(r.pkts, max_pkts));
-        else d.fillRect(x, chart_bottom - 2, w, 2, kDimGreen);
-    }
-
-    d.setTextColor(kMutedSlate, kVoidInk);
-    d.setCursor(4, kBodyTop + 78);
-    if (cursor < readings.size()) {
-        const auto &r = readings[cursor];
-        d.printf("CH %u %s  %u PKTS", r.ch, r.band5 ? "5G" : "2.4G", (unsigned)r.pkts);
-    } else if (readings.empty()) {
-        d.print(spectrum.active() ? "CHANNELS 0 · WAITING" : "NO CHANNEL READINGS");
-    }
-}
-
-}  // namespace
-
-void drawSpectrumView(const model::SpectrumModel &spectrum, size_t cursor, const ChromeState &chrome)
-{
-    auto &d = ui::canvas();
+    auto &d = canvas();
     beginChrome(chrome);
-    d.setTextSize(1);
-
-    if (spectrum.locked()) drawLocked(spectrum);
-    else drawBroad(spectrum, cursor);
-
+    const auto &readings = s.readings();
+    if (s.locked()) cursor = 0;
+    const uint32_t now = millis();
+    uint32_t scale = 1;
+    for (const auto &r : readings) scale = std::max(scale,r.pkts);
+    d.setTextSize(1); d.setTextColor(kPaperPhosphor,kVoidInk);
+    d.setCursor(5,kBodyTop+5);
+    d.print(s.locked() ? "LOCKED / 1s WINDOW" : "CHANNEL FIELD / DWELL");
+    d.drawFastHLine(5,kBodyTop+17,230,kDimGreen);
+    const size_t start = (cursor / 4)*4;
+    for (size_t row = 0; row < 4 && start+row < readings.size(); ++row) {
+        const size_t index = start+row; const auto &r = readings[index];
+        const int y = kBodyTop+25+row*17;
+        const bool selected = index == cursor;
+        const uint16_t bg = selected ? rgb565(0x39202C) : kVoidInk;
+        const uint16_t colour = selected ? kSignalPink : kPaperPhosphor;
+        if (selected) { d.fillRect(4,y-2,232,15,bg); d.drawRect(4,y-2,232,15,kSignalPink); }
+        d.setTextColor(colour,bg); d.setCursor(7,y);
+        if (r.valid) d.printf("%s CH %-3u %lu",selected ? ">" : " ",r.ch,(unsigned long)r.pkts);
+        else d.printf("%s CH %-3u --",selected ? ">" : " ",r.ch);
+        const uint32_t age = now-r.received_ms;
+        d.setCursor(165,y);
+        d.setTextColor(!s.active() || age >= 3000 ? kMutedSlate : colour,bg);
+        if (!r.valid) d.print("WAIT");
+        else d.printf("%lus",(unsigned long)(age/1000));
+        d.fillRect(201,y+2,28,4,kTrackDark);
+        if (r.valid && r.pkts) d.fillRect(201,y+2,static_cast<uint64_t>(r.pkts)*28/scale,4,selected ? kSignalPink : kFieldGreen);
+    }
+    if (readings.empty()) {
+        d.setCursor(8,kBodyTop+40); d.setTextColor(kMutedSlate,kVoidInk);
+        d.print(s.active() ? "WAITING FOR CHANNEL DATA" : "NO CHANNEL DATA / START s");
+    }
+    d.drawFastHLine(5,kBodyTop+89,230,kDimGreen);
+    d.setCursor(6,kBodyTop+93); d.setTextColor(kCalibrationYellow,kVoidInk);
+    d.print(s.locked() ? "` RELEASE / EXTERNAL HISTORY" : "ENTER LOCK / ; . FOCUS");
     endChrome(chrome);
 }
-
-}  // namespace ui
+}

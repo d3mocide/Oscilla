@@ -1,114 +1,36 @@
-/*
- * gnss_view.cpp — see gnss_view.h.
- *
- * SPDX-License-Identifier: MIT
- */
-
+/* Rendered reference: master guide Drive / Session deck. */
 #include "ui/gnss_view.h"
-
-#include <cstdio>
-
 #include <M5Cardputer.h>
-
+#include <cstdio>
 #include "storage/wardrive_logger.h"
 #include "ui/canvas.h"
-#include "ui/link_view.h"
-#include "ui/list_row.h"
 #include "ui/theme.h"
-
 namespace ui {
-
-namespace {
-
-void drawRow(M5Canvas &d, int y, const char *label, const char *value, uint16_t color)
+void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &chrome)
 {
-    d.setCursor(4, y);
-    d.setTextColor(kMutedSlate, kVoidInk);
-    d.print(label);
-    d.setCursor(94, y);
-    d.setTextColor(color, kVoidInk);
-    d.print(value);
-}
-
-/* One colour per state, so the antenna-unplug demo is readable across the
- * room rather than by reading the label. */
-uint16_t stateColor(model::GnssState s)
-{
-    switch (s) {
-        case model::GnssState::Fixed:      return kFieldGreen;
-        case model::GnssState::FixLost:    return kSignalPink;
-        case model::GnssState::Searching:  return kCalibrationYellow;
-        case model::GnssState::NoUartData: return kFaultRed;
+    auto &d=canvas();beginChrome(chrome);d.setTextSize(1);
+    const auto state=gps.state(now);const auto &fix=gps.fix();const auto &log=storage::wardriveLogStats();
+    const bool fresh=state==model::GnssState::Fixed && gps.fixAgeMs(now)<3000;
+    d.setCursor(5,kBodyTop+5);d.setTextColor(fresh ? kPaperPhosphor : kCalibrationYellow,kVoidInk);
+    if(fresh) d.printf("%.4f / %.4f",fix.lat_deg,fix.lon_deg);
+    else d.printf("GNSS %s",state==model::GnssState::Fixed ? "aged fix" : model::gnssStateName(state));
+    d.drawFastHLine(5,kBodyTop+17,230,kDimGreen);
+    const char *labels[]={"TARGETS SAVED","FIX QUALITY","TRACK / NOFIX","SD SESSION"};
+    char value[4][40];
+    snprintf(value[0],sizeof value[0],"%lu AP",(unsigned long)log.aps);
+    if(fresh) snprintf(value[1],sizeof value[1],"%.1f HDOP",(double)fix.hdop);
+    else snprintf(value[1],sizeof value[1],"%s",state==model::GnssState::FixLost ? "FIX LOST" : state==model::GnssState::Fixed ? "AGED FIX" : gps.hasUartData(now) ? "SEARCHING" : "UART SILENT");
+    snprintf(value[2],sizeof value[2],"%lu / %lu",(unsigned long)log.track_points,(unsigned long)log.aps_no_fix);
+    snprintf(value[3],sizeof value[3],"%s",log.open ? "RECORDING" : "CLOSED");
+    for(int i=0;i<4;++i) {
+        const int y=kBodyTop+25+i*15;const uint16_t bg=i==1 ? kSelectionGlow : kVoidInk;
+        if(i==1) {d.fillRect(4,y-2,232,14,bg);d.drawRect(4,y-2,232,14,kCalibrationYellow);}
+        d.setTextColor(i==1 ? kCalibrationYellow : kPaperPhosphor,bg);d.setCursor(7,y);d.print(labels[i]);
+        d.setCursor(125,y);d.print(value[i]);
     }
-    return kMutedSlate;
-}
-
-void formatAge(char *out, size_t size, uint32_t ms)
-{
-    if (ms < 1000) std::snprintf(out, size, "%lums", (unsigned long)ms);
-    else if (ms < 60000) std::snprintf(out, size, "%lus", (unsigned long)(ms / 1000));
-    else std::snprintf(out, size, "%lum %lus", (unsigned long)(ms / 60000),
-                       (unsigned long)((ms / 1000) % 60));
-}
-
-}  // namespace
-
-void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const ChromeState &chrome)
-{
-    auto &d = ui::canvas();
-    beginChrome(chrome);
-    d.setTextSize(1);
-
-    const model::GnssState st = gnss.state(now_ms);
-    const model::GnssFix &fix = gnss.fix();
-    const bool alive = gnss.hasUartData(now_ms);
-    const auto &lg = storage::wardriveLogStats();
-
-    d.setCursor(4, kBodyTop + 2);
-    d.setTextColor(stateColor(st), kVoidInk);
-    d.printf("GNSS %s", model::gnssStateName(st));
-    d.setCursor(154, kBodyTop + 2);
-    d.setTextColor(alive ? kFieldGreen : kFaultRed, kVoidInk);
-    d.print(alive ? "UART DATA" : "UART SILENT");
-
-    if (gnss.everFixed()) {
-        char position[32];
-        std::snprintf(position, sizeof position, "%.4f %.4f", fix.lat_deg, fix.lon_deg);
-        char quality[32];
-        std::snprintf(quality, sizeof quality, "%.0fm / %.1f HDOP", fix.alt_m, (double)fix.hdop);
-        char age[16];
-        formatAge(age, sizeof age, gnss.fixAgeMs(now_ms));
-        drawRow(d, kBodyTop + 16, "POSITION", position, kPaperPhosphor);
-        drawRow(d, kBodyTop + 29, "ALT / HDOP", quality, kPaperPhosphor);
-        drawRow(d, kBodyTop + 42, "FIX AGE", age,
-                st == model::GnssState::Fixed ? kFieldGreen : kSignalPink);
-    } else {
-        drawRow(d, kBodyTop + 16, "POSITION", "NO FIX THIS SESSION", kCalibrationYellow);
-        drawRow(d, kBodyTop + 29, "FIX AGE", "--", kMutedSlate);
-        drawRow(d, kBodyTop + 42, "UTC", fix.year > 0 ? fix.utc.c_str() : "--", kMutedSlate);
-    }
-
-    char session[32];
-    if (!lg.open) {
-        std::snprintf(session, sizeof session, "IDLE");
-    } else {
-        std::snprintf(session, sizeof session, "%lu AP / %lu TRK", (unsigned long)lg.aps,
-                      (unsigned long)lg.track_points);
-    }
-    drawRow(d, kBodyTop + 55, "WARDRIVE", session, lg.open ? kFieldGreen : kMutedSlate);
-
-    d.setCursor(4, kDetailRowY);
-    d.setTextColor(lg.open ? kFieldGreen : kMutedSlate, kVoidInk);
-    if (lg.open) {
-        d.printf("LOG %lu AP · %lu TRK", (unsigned long)lg.aps,
-                 (unsigned long)lg.track_points);
-    } else if (gnss.everFixed()) {
-        d.printf("FIX AGE %lu ms · LOG IDLE", (unsigned long)gnss.fixAgeMs(now_ms));
-    } else {
-        d.print("NO FIX · LOG IDLE");
-    }
-
+    d.drawFastHLine(5,kBodyTop+84,230,kDimGreen);
+    d.setCursor(5,kBodyTop+88);d.setTextColor(log.open ? kFieldGreen : kMutedSlate,kVoidInk);
+    d.print(log.open ? "l CLOSE LOG / FRESH FIX REQUIRED" : "l START LOG / EXTERNAL TRACK");
     endChrome(chrome);
 }
-
-}  // namespace ui
+}

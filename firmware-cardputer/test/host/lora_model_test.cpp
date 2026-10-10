@@ -33,6 +33,15 @@ ocp::Item eventOf(const std::string &wire)
 int main()
 {
     {
+        model::LoraModel m; m.begin();
+        check(!m.absorbEvent(eventOf("[EVT] kind=lora rssi=-67 snr=8 len=2 hex=ZZZZ\n"), 42),
+              "non-hex payload cannot reach a raw frame view");
+        check(!m.absorbEvent(eventOf("[EVT] kind=lora snr=8 len=2 hex=aabb\n"), 43),
+              "missing RSSI cannot render as measured zero");
+        const auto *p = m.absorbEvent(eventOf("[EVT] kind=lora rssi=-67 snr=8 len=2 hex=aAbB\n"), 123);
+        check(p && p->received_ms == 123 && p->hex == "aAbB", "accepted frame records arrival time and mixed-case hex");
+    }
+    {
         model::LoraModel m;
         check(!m.hasConfig() && !m.active(), "starts unconfigured and inactive");
         m.configured(910525000, 7, 62, 1, 0x12, "meshcore_us_ca");

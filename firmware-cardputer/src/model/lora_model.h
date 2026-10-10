@@ -27,6 +27,7 @@
 namespace model {
 
 struct LoraPacket {
+    uint32_t received_ms = 0;
     int rssi = 0;
     float snr = 0.0f;
     uint16_t len = 0;
@@ -66,7 +67,7 @@ public:
      * packets_[0]) on success, or nullptr if the event was a different kind
      * or malformed — unlike its siblings' void return, callers need this to
      * know when to write a log row without re-parsing the event themselves. */
-    const LoraPacket *absorbEvent(const ocp::Item &evt);
+    const LoraPacket *absorbEvent(const ocp::Item &evt, uint32_t now_ms = 0);
 
     /* Absorb a compact [LORA] status reply. Reject partial/corrupt counter
      * sets so a stale number never masquerades as current health. */

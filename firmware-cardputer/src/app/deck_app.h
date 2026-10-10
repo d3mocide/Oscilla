@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include "model/system_status.h"
 
 #include <cstdint>
 #include <functional>
@@ -28,6 +29,7 @@
 #include "model/deauth_model.h"
 #include "model/anti_surveillance_model.h"
 #include "model/gnss_model.h"
+#include "model/drive_trail.h"
 #include "model/lora_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
@@ -53,6 +55,36 @@ public:
     /* GNSS bytes from the deck's own UART. Never crosses OCP (DESIGN §9.1):
      * a separate wire, a separate parser, no framing in common. */
     void feedGnss(const uint8_t *data, size_t len, uint32_t now_ms);
+    const model::GnssModel &gnssModel() const { return gnss_; }
+    const model::SpectrumModel &spectrumModel() const { return spectrum_; }
+    size_t spectrumCursor() const { return spectrum_cursor_; }
+    bool showingSpectrum() const { return screen_ == Screen::Spectrum; }
+    const model::LoraModel &loraModel() const { return lora_; }
+    size_t loraCursor() const { return lora_cursor_; }
+    const model::DriveTrail &driveTrail() const { return drive_trail_; }
+    bool showingDrive() const { return screen_ == Screen::Drive; }
+    const model::ContactsModel &contactsModel() const { return contacts_; }
+    size_t contactsCursor() const { return contacts_cursor_; }
+    bool contactsProbes() const { return contacts_tab_ == ui::ContactsTab::Probes; }
+    bool showingContacts() const { return screen_ == Screen::Contacts; }
+    const model::ZigModel &zigModel() const { return zig_; }
+    size_t zigCursor() const { return zig_cursor_; }
+    bool zigPans() const { return zig_tab_ == ui::ZigTab::Pans; }
+    bool showingZig() const { return screen_ == Screen::Zig; }
+    bool showingSystem() const { return screen_ == Screen::Link || screen_ == Screen::Info; }
+    bool showingInfo() const { return screen_ == Screen::Info; }
+    model::SystemStatus externalSystemState() const {
+        model::SystemStatus s;
+        s.info=showingInfo();s.link=client_.state();s.probe=client_.probe();s.stats=client_.stats();
+        s.probe_valid=probe_status_valid_;s.probe_heap=probe_heap_;
+        s.probe_total=probe_heap_total_;s.probe_uptime=probe_uptime_ms_;
+        return s;
+    }
+    const model::BtModel &btModel() const { return bt_; }
+    size_t btCursor() const { return bt_cursor_; }
+    bool showingBt() const { return screen_ == Screen::Beacons; }
+    bool showingLora() const { return screen_ == Screen::SubGhz; }
+    uint32_t gnssChecksumFailures() const { return gnss_parser_.checksumFailures(); }
     void tick(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
 
@@ -153,6 +185,7 @@ private:
     model::ZigModel zig_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;
+    model::DriveTrail drive_trail_;
     /* Track vertices are sampled, not written per sentence: a 1 Hz fix for
      * an hour is 3600 points, and the track only needs enough to draw. */
     uint32_t last_track_point_ms_ = 0;

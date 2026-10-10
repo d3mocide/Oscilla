@@ -9,6 +9,7 @@
 #include <SD.h>
 
 #include "storage/sd_storage.h"
+#include "storage/sd_activity.h"
 
 namespace storage {
 
@@ -66,7 +67,7 @@ void saveBrightness(uint8_t value)
     SD.mkdir(kDir);
     File f = SD.open(kBrightnessFlag, FILE_WRITE);
     if (f) {
-        f.write(value);
+        sdActivity().record(1, f.write(value), millis());
         f.close();
     }
     unlock();

@@ -111,6 +111,23 @@ int main()
         check(!m.sniffing() && m.clients().empty() && m.totalPkts() == 0, "probe reset clears everything");
     }
 
+    {
+        model::ContactsModel m;
+        m.begin();
+        check(!m.hasClientSnapshot() && !m.hasProbeSnapshot(), "new session has no snapshot age");
+        m.absorbClients(frameOf("[CLIENTS] BEGIN n=0 total=0\n[CLIENTS] END\n"), 0);
+        check(m.hasClientSnapshot() && m.clientSnapshotMs() == 0, "empty snapshot at clock zero is real");
+        check(!m.hasProbeSnapshot(), "client snapshot does not freshen probes");
+        m.absorbProbes(frameOf("[PROBES] BEGIN n=0 total=0\n[PROBES] END\n"), 0xfffffff0u);
+        check(m.hasProbeSnapshot() && uint32_t(16-m.probeSnapshotMs()) == 32, "snapshot age wraps safely");
+        m.absorbClients(frameOf("[PROBES] BEGIN n=0 total=0\n[PROBES] END\n"), 99);
+        check(m.clientSnapshotMs() == 0, "wrong tag does not freshen snapshot");
+        m.stopSniffing();
+        check(m.hasClientSnapshot() && m.hasProbeSnapshot(), "stop preserves cached snapshot ages");
+        m.clear();
+        check(!m.hasClientSnapshot() && !m.hasProbeSnapshot(), "reset invalidates snapshot ages");
+    }
+
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "contacts model test FAILED" : "contacts model test OK",
                g_pass, g_fail);
     return g_fail ? 1 : 0;

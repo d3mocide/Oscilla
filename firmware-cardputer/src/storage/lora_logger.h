@@ -40,4 +40,12 @@ void loraLogEnd();
 
 const LoraLogStats &loraLogStats();
 
+enum class LoraReadbackState { Unavailable, TooLarge, Mismatch, Match };
+struct LoraLogReadback {
+    LoraReadbackState state = LoraReadbackState::Unavailable;
+    uint32_t packet_bytes = 0, health_bytes = 0;
+};
+/* Diagnostic only: compare open session files to accepted writes, <=8 KiB each. */
+LoraLogReadback verifyLoraLog();
+
 }  // namespace storage

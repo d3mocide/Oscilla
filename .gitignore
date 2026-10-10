@@ -29,6 +29,10 @@ firmware-cardputer/.pio/
 # IDE
 scratch/
 
+# Playwright browser-check output (screenshots, page snapshots, console logs)
+.playwright-cli/
+output/
+
 # ─── Local toolchain / editor state ──────────────────────────────────────────
 # Note the trailing /* rather than /: git cannot re-include a file whose
 # parent directory is excluded, so the negation below would not work.

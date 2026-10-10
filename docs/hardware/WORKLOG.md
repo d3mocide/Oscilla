@@ -6,6 +6,471 @@ respective bench records under this directory; this log records design changes
 and their validation status. See [Rev D](../../Research/c5-backpack-design.md)
 for electrical authority.
 
+## 2026-10-09 — Delivered no-CS ILI9341 bench variant
+
+Rev D §5.3 now identifies the actual eight-pin panel and separate user-verified
+3.3 V regulator, preserving GPIO assignments and common ground. TFT MISO remains
+unconnected. The normal firmware holds reset during SD startup and caps shared
+SD traffic at 8 MHz; external writes use 4 MHz and park one corner pixel.
+The repeated 128 KiB write/read/delete fixture passed and normal passive LoRa
+packet plus health file readback matched. User confirmed both screens readable.
+This documents empirical bench coexistence, not CS isolation or completed
+cold-power/current/long-soak qualification. See software WORKLOG for counters.
+
+## 2026-09-24 — Recheck current V1.1 resistor placement
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Re-ran the current V1.1 ERC and PCB DRC after the operator's latest resistor
+placement adjustment, and regenerated the assembly preview at
+`hardware/c5-wio-carrier/v1.1/renderings/assembly-current-review.png`. Refreshed
+the canonical `erc-v1.1.json` and `drc-v1.1.json` reports. The schematic and
+component values/nets remain unchanged.
+
+**Verified:** KiCad 10.0.6 ERC reports 0 violations. DRC with schematic parity
+reports 0 violations, 0 unconnected items, and 0 parity issues. The one
+documented `footprint_filters_mismatch` metadata check remains excluded. These
+are CAD checks only; physical fit, power margin, and bring-up remain open.
+
+## 2026-09-24 — Reroute moved V1.1 pull resistors
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Kept the operator's new R1–R3 placements and rerouted their NSS, RESET,
+RF_SW, +3V3, and GND connections around the 0805 pads. The previous +3V3
+trunk's final segment was detoured to clear the moved signal pads. Refreshed the
+assembly render and front/back soldermask previews; no schematic nets or
+resistor values changed.
+
+**Verified:** The saved pre-reroute board reported 10 DRC violations and 6
+unconnected items, with 0 schematic-parity issues. Final KiCad 10.0.6 DRC
+reports 0 violations, 0 unconnected items, and 0 parity issues
+(`hardware/c5-wio-carrier/v1.1/verification/drc-v1.1.json`). This is CAD
+verification, not physical qualification.
+
+## 2026-09-24 — Enlarge C1 for hand assembly
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Changed C1 from 0603 to the standard KiCad `Capacitor_SMD:C_0805_2012Metric`
+footprint, retaining its 100 nF value and nets. Updated the schematic footprint
+field and BOM to Samsung CL21B104KBCNNNC (100 nF, X7R, 50 V, ±10%). Shifted C1
+1.5 mm toward the board bottom to clear the nearby ground trace, moved its
+routed endpoints with the new pad centers, and refreshed the 3D assembly and
+front/back soldermask previews. No electrical values or nets changed.
+
+**Verified:** KiCad 10.0.6 ERC reports 0 violations. DRC with schematic parity
+reports 0 violations, 0 unconnected items, and 0 parity issues. These checks
+confirm CAD connectivity and clearances, not hand-assembly or physical fit.
+
+## 2026-09-24 — Enlarge V1.1 resistor packages for hand assembly
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Changed R1–R3 from 0603 to the standard KiCad `Resistor_SMD:R_0805_2012Metric`
+footprint, keeping the existing 10 kΩ values, net assignments, and component
+centers. Updated the schematic footprint fields and BOM to Yageo
+RC0805FR-0710KL (10 kΩ, 1%, 0.125 W). Updated the 3D assembly preview. No
+electrical values or nets changed. Regenerated the front/back soldermask
+review plots because the larger pads also enlarge the automatic mask openings.
+
+**Verified:** KiCad 10.0.6 ERC reports 0 violations. DRC with schematic parity
+reports 0 violations, 0 unconnected items, and 0 parity issues. These checks
+confirm CAD connectivity and clearances, not hand-assembly or physical fit.
+
+## 2026-09-24 — Refresh copper fill and soldermask review after J1 move
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Re-ran zone refill and DRC on the moved Grove footprint and adjusted fanouts,
+then regenerated front- and back-soldermask SVG/PNG review plots. The thru-hole
+connector and module pads retain their `*.Mask` layer openings; there are no
+manually drawn soldermask polygons to relocate. This refresh changes no net or
+pad mask-expansion settings. Plots are review images only, not fabrication
+exports.
+
+**Verified:** KiCad 10.0.6 DRC with zone refill and schematic parity reports 0
+violations, 0 unconnected items, and 0 parity issues. Mask plots are saved in
+`hardware/c5-wio-carrier/v1.1/renderings/masks/`.
+
+## 2026-09-24 — Raise Grove connector and H2 to improve top-edge fit
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Moved J1 (Grove) 1.5 mm toward the board's top edge, from `(106, 109.5)` to
+`(106, 108.0)`, leaving 1.5 mm between its F.Fab body outline and the board
+edge. Moved H2 0.5 mm in the same direction, to `(105.9, 116.3)`. This
+increases their relative separation because J1 moves farther; the two
+courtyards now have about 0.6 mm clearance. Reworked the three short Grove
+signal fanouts without changing nets, then refilled copper zones. Moved the
+standalone J1 silkscreen label clear of the connector outline. The pad grid and
+footprint model are unchanged.
+
+**Verified:** KiCad 10.0.6 DRC with zone refill and schematic parity reports 0
+violations, 0 unconnected items, and 0 parity issues. The rendered assembly
+shows the Grove body 1.5 mm from the top Edge.Cuts. This confirms CAD geometry
+only; cable insertion, printed-case clearance, and real connector fit still
+need physical validation.
+
+## 2026-09-24 — Add source-based Grove footprint layers and verify C5 socket grid
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Added an F.Fab body outline and F.CrtYd to the V1.1 project-local
+`GROVE-HW4-2.0-90D` footprint, adapted from the user's cloned Seeed OPL
+footprint. The four plated-hole centers and pad dimensions match that Seeed
+library entry within 0.002 mm. Kept electrical net assignments, pad numbering,
+placement, and the 3D model unchanged. Enabled the `missing_courtyard` DRC
+rule. Reviewed the socketed C5 carrier footprint against Seeed's C5 DIP
+footprint: the 14-hole grid is the same 2.54 mm pitch / 15.24 mm row-spacing
+pattern rotated into the carrier orientation, and the 17.8 × 20.975 mm body
+outline is translated from Seeed's published outline. Its 1.0 mm socket drill
+remains a prototype choice, not a manufacturer-mandated drill.
+
+**Found:** Fresh KiCad 10.0.6 DRC now flags one courtyard overlap between J1
+and H2; there are 0 unconnected items and 0 schematic-parity issues. The
+nominal edge-to-edge gap from the 10 × 9.8 mm Grove body outline to the 2.2 mm
+mounting hole is approximately 1.2 mm, but the courtyard spacing remains a
+mechanical review item. No mounting hole was moved and no overlap was
+suppressed. M5's published Cardputer-ADV docs identify a HY2.0-4P port and
+cable pin order, but do not provide the installed connector's exact land
+pattern. This footprint provides the matching Grove cable interface, not an
+exact Cardputer-PCB clone. See
+`hardware/c5-wio-carrier/v1.1/verification/README.md`.
+
+## 2026-09-24 — Audit V1.1 DRC rules, refresh verification, and complete BOM
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Reviewed all five DRC rule categories that had been ignored. Re-enabled
+`footprint_type_mismatch`, `track_not_centered_on_via`, and
+`tuning_profile_track_geometries`; none produced findings. Kept
+`missing_courtyard` excluded because the custom Seeed Grove connector envelope
+has not been established from a manufacturer drawing. Kept
+`footprint_filters_mismatch` excluded because J1 and U1 use custom footprints
+with generic connector symbols; editing the embedded standard symbols to add
+project-only filter names produced ERC library-mismatch warnings, so that
+attempt was reverted. No electrical or layout data was changed for this rule
+cleanup.
+
+Refreshed V1.1 ERC/DRC JSON from the current project, documenting the two
+exclusions in `hardware/c5-wio-carrier/v1.1/verification/README.md`. Created
+`BOM-v1.1.csv` from the schematic plus the two Seeed modules and four
+carrier-side female socket and module-side male header rails. Added exact
+candidate part numbers for the unspecified passives, connectors, and header
+strips. Case screws/supports are listed as enclosure-dependent rather than
+inventing screw lengths. The Grove current budget and connector keep-clear
+geometry remain unverified.
+
+**Verified:** KiCad 10.0.6 ERC: 0 violations. DRC with schematic parity and
+zone refill: 0 reported violations, 0 unconnected items, and 0 parity issues.
+Three reviewed categories are active; two remain explicitly ignored for the
+reasons above. These CAD checks do not qualify current margin, physical mating,
+case fit, or fabrication.
+
+## 2026-09-24 — Synchronize V1.1 PCB no-connect pad identities
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Updated the V1.1 PCB's five isolated pads (U1 pin 11, J2/J3 pins 1 and 7)
+from stale `NC_*` names to the corresponding KiCad-generated
+`unconnected-*` identities used by the schematic. These pads had no routed
+copper; board geometry, placement, routing, and silkscreen were unchanged.
+Refreshed `hardware/c5-wio-carrier/v1.1/verification/drc-v1.1.json`.
+
+**Verified:** KiCad 10.0.6 DRC reports zero violations, zero unconnected
+items, and zero schematic-parity issues. This is CAD verification only; it
+does not add physical qualification or fabrication approval.
+
+## 2026-09-24 — Mark verified unused V1.1 contacts as no-connect
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Checked the Rev D unused-contact assignment against the P3 bench record in
+`docs/hardware/lora-harness.md`. The real Wio harness was wired per Rev D and
+successfully completed reset/SPI/radio reception without those four Wio
+contacts; this is functional bench evidence, not individual continuity
+measurements. Replaced the five isolated `NC_*` global labels (U1 pin 11, J2
+pins 1/7, J3 pins 1/7) with explicit schematic no-connect markers. Kept the
+PCB pads unconnected, using KiCad's generated `unconnected-*` identities to
+preserve schematic parity. Recorded the selected prototype target as 2-layer
+FR-4, 1.6 mm, 1 oz outer copper, lead-free HASL, black soldermask, and white
+front silkscreen. No Gerber/drill files were exported.
+
+**Verified:** KiCad 10.0.6 ERC reports zero violations. DRC with schematic
+parity reports zero violations, zero unconnected items, and zero parity
+issues. The selected stackup is an order target; manufacturer-specific DFM,
+physical clearances, case fit, power margin, cold boot, and USB recovery remain
+open gates.
+
+## 2026-09-24 — Review V1.1 fabrication layers, ERC, and draft BOM
+
+**Phase:** Hardware tooling · **By:** Codex
+
+Generated black-and-white review plots for F.Cu, B.Cu, F.Mask, B.Mask,
+F.Silkscreen, B.Silkscreen, F.Paste, B.Paste, and Edge.Cuts, plus a labeled
+contact sheet and the schematic CSV BOM. Re-ran KiCad 10.0.6 ERC and DRC with
+schematic parity. Left the five ERC labels unchanged for operator disposition.
+Recorded that the schematic BOM is not purchase-complete: it has no supplier
+part numbers, omits the Wio module as a schematic BOM item, and represents the
+C5 socket strips only inside the custom U1 footprint/model.
+
+**Verified:** ERC reports five single-use `NC_*` label warnings and zero
+errors. Endpoints are U1 pin 11 and J2/J3 pins 1 and 7. Rev D confirms XIAO
+D3/GPIO7 is intentionally unused and the Wio design leaves VIN/D0/D6/D7
+unused; J2/J3 pin numbers alone are not Wio signal names. DRC reports zero
+violations, zero unconnected items, and zero schematic-parity issues. The
+review artifacts are under `hardware/c5-wio-carrier/v1.1/renderings/fabrication-review/`.
+No PCB source, nets, outline, or manufacturing outputs were changed. Proposed
+baseline for later approval: FR-4, 1.6 mm, 1 oz copper, lead-free HASL, black
+soldermask, and white silkscreen. Connector insertion clearance was not
+reviewed per operator direction; these checks do not qualify physical fit or
+make the design ready to order.
+
+## 2026-09-24 — Improve V1.1 connector-label readability
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Reoriented the left-side labels on the C5, Wio, and Grove connector symbols so
+their names read outward from the pin rows rather than over the pin numbers and
+symbol bodies. Kept the same named nets and pin endpoints; only label
+presentation changed.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. ERC still has five warnings
+for the intentional isolated `NC_*` labels. The exported schematic netlist
+still matches the slim-study source exactly: 17 components and 20 nets.
+
+## 2026-09-24 — Promote slim carrier and clean V1.1 schematic presentation
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Promoted the flush-fit slim layout into the standalone
+`hardware/c5-wio-carrier/v1.1/` project, with matching V1.1 project, board,
+schematic, local footprints, and STEP models. Reflowed the schematic into
+functional sections and moved the mechanical datums clear of the title block.
+Updated the project instance names and title-block revision. No PCB geometry,
+electrical symbols, component values, or net connections changed.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. ERC retains five intentional
+warnings for single-use `NC_*` labels on isolated contacts. Compared the
+exported source and V1.1 netlists: all 17 components and 20 nets match exactly.
+Generated the V1.1 assembly render and schematic PDF. These CAD checks do not
+confirm physical module/header fit, enclosure access, Grove power margin,
+cold-boot/USB-recovery behavior, or fabrication readiness.
+
+## 2026-09-24 — Add Lens Core V1.1 silkscreen lockup to flush-fit study
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Replaced the `OSCILLA V1` board title in the isolated flush-fit study with the
+repository's Lens Core mark from `docs/brand/assets/lens-core.svg`, the
+`OSCILLA` wordmark, and a `V1.1` version label in the open upper-right corner.
+The SVG's paths were traced as monochrome 0.15 mm F.SilkS vectors for
+manufacturing; its focal dot is a filled silk circle. The brand guide contains
+the wordmark as styled text rather than a separate wordmark SVG. No board
+geometry, footprint placement, pads, nets, or routing changed.
+
+**Verified:** The 3D top render shows the full mark and text clear of H1 and
+nearby components. KiCad 10.0.6 DRC with schematic parity reports zero
+violations, zero unconnected items, and zero parity issues. This is still a
+mechanical study; logo silk legibility on a fabricated board and all physical
+assembly tolerances remain unverified.
+
+## 2026-09-24 — Center the male-header models on the module pad grids
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Compared all four 1×7 header STEP placements with the carrier pad centers in
+the flush-fit study. The carrier arrays use 2.54 mm pitch. The C5 row pad 1
+centers are at local Y=-2.88 mm; the Wio seven-pad row spans 15.24 mm. Corrected
+the model offsets to C5 Y=2.88 mm on both rows and Wio Y=-15.24 mm on both rows.
+This removed the previous 0.26 mm C5 offset and normalized the Wio rows that
+had differed by 0.20 mm. PCB pad positions, nets, and routing were unchanged.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. The new orthographic 3D render
+shows the module STEP models centered over the matching carrier pad grids.
+STEP/render agreement does not qualify actual header tolerances, soldering,
+physical module fit, or case clearance.
+
+## 2026-09-24 — Add male-header spacer models to the flush-fit study
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Added standard KiCad 1×7, 2.54 mm vertical male-header STEP models to the two
+C5 rails and two Wio rails in the isolated flush-fit study. The module models
+are raised to show the spacer-body stand-off and the header pins passing through
+the carrier. No pad, net, routing, or source slim-study changes were made.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. The renders show the intended
+stacking concept, but exact header length, soldering method, physical module
+fit, and enclosure clearances are not qualified by this model.
+
+## 2026-09-24 — Create a flush-mount assembly study
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Copied the slim study to `hardware/c5-wio-carrier/flush-fit-study` so the
+production-style assembly check does not alter the source layout. Removed the
+carrier-side socket 3D bodies while retaining all pads and nets, lowered both
+manufacturer module models to the carrier surface, and suppressed the two
+female-header subassemblies included in the Wio STEP model in this copy only.
+The supplied STEP models do not represent the planned replacement male pins,
+so this first pass intentionally shows the bare module bodies and mounting
+holes rather than claiming a complete final assembly.
+
+**Verified:** The copied board's KiCad 10.0.6 DRC with schematic parity reports
+zero violations, zero unconnected items, and zero parity issues. This confirms
+the unchanged electrical layout only; the direct-mount stack-up, male-pin
+geometry, soldering method, case clearances, and real-module fit remain open.
+
+## 2026-09-24 — Move Grove connector toward the left edge
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Moved J1 2 mm left in the slim study, trimmed the local Grove footprint's
+silkscreen outline to stay inside the board edge, and moved its reference label
+clear of the connector pads. Added short pad connections and one layer-change
+via to preserve the routed Grove nets, then refilled copper zones. The connector
+housing model now sits about 1.05 mm inside the left board edge. C5 and Wio
+bottom-row mounting pads remain about 2.08 mm and 2.13 mm from the bottom edge,
+respectively; their modeled housing margins are tighter at about 1.80 mm and
+1.73 mm.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. Plug insertion, enclosure
+apertures, dimensional tolerances, and flush-mounted module fit still require
+physical/case validation.
+
+## 2026-09-24 — Slim-study connector and bottom-edge clearance review
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Reviewed the operator-adjusted STEP model placements in the slim study against
+its Edge.Cuts rectangle (`x=102..160 mm`, `y=101.5..139.7 mm`). The exported
+model envelopes put the C5 module's leftmost point about 1.18 mm inside the
+left edge and its bottommost point about 1.80 mm inside the bottom edge. The
+Grove connector envelope begins about 3.05 mm inside the left edge and has
+25.25 mm of bottom-edge margin. The Wio module envelope has about 1.73 mm of
+bottom-edge margin; the outer socket housing is about 1.71 mm from the edge.
+No board geometry or model placement was changed during this review.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. These are STEP-mesh envelope
+measurements only; the USB-C/Grove mating-plug insertion envelopes, case
+apertures, tolerance, and real-module fit remain unverified.
+
+## 2026-09-24 — Re-route the V1 carrier on two copper layers
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Preserved the prior manually routed V1 board as a rollback, then cleared tracks
+and vias on an isolated copy and routed it locally with FreeRouting 2.4.1 using
+KiCad's DSN/SES exchange. Kept the board outline, footprints, placement, and
+schematic unchanged. Retained one continuous B.Cu GND pour and removed the
+disconnected F.Cu GND pour; the router otherwise treated those front-side ground
+islands as connected, while KiCad correctly reported an isolated zone item.
+Added the Seeed XIAO symbol and footprint libraries and all 13 Seeed OPL
+component footprint libraries to KiCad's global tables, leaving the carrier's
+socketed-C5 and Grove footprints project-local.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. ERC remains at five intentional
+isolated `NC_*` warnings. The route has 87 track segments and 8 vias on F.Cu and
+B.Cu. Seeed's XIAO C5 DIP footprint and pinout reference match the carrier's
+socket row sequence; Seeed's Wio-SX1262 schematic likewise matches J2/J3. These
+are CAD/reference checks only. Smooth final channel grouping, physical socket
+fit, USB/Grove access, standoff fit, measured power margin, and hardware testing
+remain open. No fabrication data was exported.
+
+## 2026-09-24 — Align slim-study silkscreen with moved C5 socket rows
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Moved the slim study's two C5 socket-outline rectangles upward 1 mm with the
+socket rows, restoring their original clearance around the through-hole pads
+without changing the module placement, electrical routing, or V1. Refreshed
+the study's route and render artifacts.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity now reports zero
+violations, zero unconnected items, and zero parity issues. This is CAD
+verification only; module 3D models, actual assembly fit, screw-head clearance,
+and case fit remain open.
+
+## 2026-09-24 — Refill V1 copper and start a slim placement study
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Refilled and saved V1's B.Cu GND zone without changing its outline or the
+approved hole centers. Corrected the mechanical-review coordinates to match
+the board file: H1 `(59.0, 3.2) mm`, H2 `(3.9, 16.8) mm`, H3 `(59.0, 37.6) mm`
+relative to the upper-left. Exported both-side copper/mask and edge review
+artifacts for the mask/clearance check. Created a separate local-only slim
+study so experiments cannot move V1: its first candidate is 58.0 x 38.2 mm,
+about 12.2% less rectangular area, with the left-facing Grove/USB service
+edges and 15.24 mm module-row spacing retained. Shifted the module assembly
+up together and adjusted the top service cluster and right-side mounts to the
+new outline. Cleared only the study copy's old routes and rerouted it with
+FreeRouting 2.4.1.
+
+**Verified:** V1 KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues after the zone refill. The slim
+study routes all nets; KiCad reports zero unconnected items and zero parity
+issues, but 14 existing silk-over-copper clipping warnings remain. The slim
+study's M2 screw-head/module clearance, cables, module removal, and case fit
+are not physically verified. Neither board is cleared for ordering; no
+fabrication data was exported.
+
+## 2026-09-23 — Consolidate the two-layer carrier as V1
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Promoted the latest manual-routed two-layer candidate into the single active
+local KiCad project at `hardware/c5-wio-carrier/v1/`. Matched the board,
+schematic, project, and project-local footprints under one V1 name. Moved the
+previous compact POC and two-layer experiments into `hardware/c5-wio-carrier/archive/`
+without deleting their source files. Corrected the front/back GND-zone
+boundaries to stay 0.5 mm inside the unchanged board edge.
+
+**Verified:** KiCad 10.0.6 DRC with schematic parity reports zero violations,
+zero unconnected items, and zero parity issues. ERC reports five warnings for
+intentional isolated `NC_*` contacts. Generated the BOM, schematic PDF, 3D
+assembly view, and separate top/front-copper/back-copper review images from V1.
+These are CAD checks and review aids only. Module/socket fit, Grove and USB
+access, standoff fit, measured power margin, and cold-boot/USB-recovery checks
+remain open; no fabrication files were exported.
+
+## 2026-09-23 — Remove duplicate and dangling manual GND copper
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+On a new copy of the operator's manually routed board, removed one of two
+co-located GND vias at `(153.5, 112)` and a 0.4 mm GND stub ending at
+`(135.6, 119)`. The duplicate via was redundant at the same electrical
+location; the stub had no connected endpoint. Preserved all other copper and
+the C5 socket silkscreen boxes. KiCad 10.0.6 DRC reports zero PCB violations
+and zero unconnected items. Schematic-parity checking remains unavailable
+because the schematic is not fully annotated. The repaired result is a
+separate review copy; the operator's original manual study remains unchanged.
+
+## 2026-09-23 — Manual two-layer routing review and C5 socket silkscreen
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Reviewed the operator's saved `c5-wio-carrier-2layer-manual-study.kicad_pcb`.
+Created a separate review copy with two F.SilkS rectangles around the C5
+socket rows, matching the Wio socket-outline stroke and clearance; the
+operator's saved manual-routing file remains unchanged. The render preserves
+the manual copper and shows the paired outlines in place. KiCad DRC reports
+zero unconnected items and two warnings on the existing GND routing: two
+co-located vias and one 0.4 mm dangling track. Schematic-parity checking could
+not run because the project schematic is not fully annotated. Keep the review
+copy as a proposal until the operator accepts the appearance and we resolve the
+ground warnings together.
+
 ## 2026-09-23 — Two-layer SPI center-channel experiment
 
 **Phase:** Hardware tooling · **By:** Codex + operator
@@ -152,7 +617,20 @@ KiCad 10.0.6 DRC with schematic parity reports zero violations, zero
 unconnected items, and zero parity errors. This edit changed 3D/assembly
 graphics and silkscreen labels only; no electrical nets changed.
 
-## 2026-09-23 — C5/Wio carrier: add C5 socket models to assembly render
+## 2026-09-24 — C5/Wio carrier: add module STEP models to slim-study render
+
+**Phase:** Hardware tooling · **By:** Codex + operator
+
+Added the operator-supplied Seeed STEP references to the local slim study and
+linked the C5 model to U1 and the Wio-SX1262 model to J2 using project-relative
+`${KIPRJMOD}` paths. Refreshed the study's 3D render and ran KiCad DRC again.
+The model offsets are provisional; the operator will refine their placement in
+KiCad's footprint 3D Models tab. This visualization work does not move copper,
+pads, or module footprints, and the model placement is not physical-fit proof.
+
+**Verified:** KiCad 10.0.6 render completed; DRC reports zero violations and
+zero unconnected items. C5/Wio pin alignment, C5 USB-C orientation, antenna
+connector clearance, and standoff/case fit remain open for review.
 
 **Phase:** Hardware tooling · **By:** Codex + operator
 

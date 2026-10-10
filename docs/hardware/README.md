@@ -11,6 +11,9 @@ Expected contents as phases land:
 revision history. Firmware and project-wide history stays in the repository
 root [`WORKLOG.md`](../../WORKLOG.md).
 
+For an operator-led routing session, see the
+[two-layer routing walkthrough](two-layer-routing-walkthrough.md).
+
 | File | Phase | Contents |
 |---|---|---|
 | `link-bringup.md` | P1 | Grove UART bring-up: boot-noise capture, resync behaviour, reset recovery |

@@ -88,6 +88,8 @@ void ContactsModel::begin()
     probes_.shrink_to_fit();
     malformed_ = 0;
     sniffing_ = true;
+    have_clients_ = have_probes_ = false;
+    clients_ms_ = probes_ms_ = 0;
     total_pkts_ = 0;
     current_ch_ = 0;
     last_sighting_.clear();
@@ -99,7 +101,7 @@ void ContactsModel::clear()
     sniffing_ = false;
 }
 
-void ContactsModel::absorbClients(const ocp::Item &frame)
+void ContactsModel::absorbClients(const ocp::Item &frame, uint32_t now_ms)
 {
     if (frame.tag != OCP_MARK_CLIENTS) return;
 
@@ -112,10 +114,12 @@ void ContactsModel::absorbClients(const ocp::Item &frame)
         else bad++;
     }
     clients_ = std::move(rows);
+    have_clients_ = true;
+    clients_ms_ = now_ms;
     malformed_ = bad;   /* a fresh snapshot: last frame's count doesn't carry over */
 }
 
-void ContactsModel::absorbProbes(const ocp::Item &frame)
+void ContactsModel::absorbProbes(const ocp::Item &frame, uint32_t now_ms)
 {
     if (frame.tag != OCP_MARK_PROBES) return;
 
@@ -128,6 +132,8 @@ void ContactsModel::absorbProbes(const ocp::Item &frame)
         else bad++;
     }
     probes_ = std::move(rows);
+    have_probes_ = true;
+    probes_ms_ = now_ms;
     malformed_ = bad;
 }
 
