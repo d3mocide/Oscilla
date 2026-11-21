@@ -15,6 +15,7 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("probe_owner",probe_owner_);
     line.field("probe_lora",probe_lora_);
     line.field("probe_uptime_ms",probe_uptime_ms_);
+    line.field("probe_rst",client_.probe().rst);
     line.field("bt_live",bt_.continuousActive());
     line.field("bt_scanning",bt_.scanning());
     line.field("bt_tracker",bt_.airtagActive());

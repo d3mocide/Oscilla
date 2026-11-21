@@ -1,3 +1,22 @@
+## 2026-11-20 — Probe reports its reset reason (`rst=`); probe flash pending
+
+- Added `rst=` (OCP_K_RESET) to `[HELLO]` and `[STATUS]`: `poweron`, `sw`,
+  `panic`, `int_wdt`, `task_wdt`, `wdt`, `brownout`, `ext`, `usb`, `jtag`,
+  …, `unknown`. Additive key: OCP stays 1 and older decks ignore it. The
+  deck stores it, logs `probe rst=` on each `Ready`, and exposes
+  `probe_rst` in `dump`. OCP-SPEC §4 and the `status` description are
+  updated.
+- Why: a brownout, panic or watchdog restart was invisible from the deck,
+  which slowed the stuck-probe hunt and matters for Grove-powered
+  operation (D-4).
+- Checks: host gate (client test 57/57, including parse and absent-key
+  cases), both firmware builds, selftest 27/27, receive-only and stack
+  guards. Mutant (parse line removed) fails the client test.
+- Deck flashed and verified against the **unchanged** probe: link `ready`,
+  `probe_rst` empty as designed. **Probe not flashed:** it is
+  Grove-powered with USB disconnected. Pending: flash `build-uart`, then
+  confirm `rst=poweron` after a power cycle and `rst=sw` after `reboot`.
+
 ## 2026-11-20 — Stability hunt: probe-reboot desync fixed; four tests clean
 
 Live deck + Grove-powered probe, v0.3.0 plus the lane-reconcile fix.

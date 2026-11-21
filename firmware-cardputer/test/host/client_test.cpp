@@ -72,6 +72,7 @@ int main()
         check(r.c.probe().fw == "oscilla-c5" && r.c.probe().ver == "0.1.0" &&
               r.c.probe().caps == "wifi24,ble" && r.c.probe().proto == 1, "probe info parsed");
         check(r.resets == 0, "a solicited [HELLO] is not a reset");
+        check(r.c.probe().rst.empty(), "an older probe without rst= leaves it empty");
 
         check(r.c.send("ping", r.now) && r.takeWire() == "ping\n", "ping sent");
         check(!r.c.send("status", r.now), "one command at a time");
@@ -112,6 +113,12 @@ int main()
         check(!r.c.send("transmit_now", r.now) && r.wire.empty(), "a verb outside the contract never reaches the wire");
     }
 
+    {
+        Rig r;
+        r.c.connect(r.now);
+        r.probe("[HELLO] proto=1 fw=oscilla-c5 ver=0.3.0 caps=wifi24 rst=brownout END\n");
+        check(r.c.state() == S::Ready && r.c.probe().rst == "brownout", "reset reason parsed from [HELLO]");
+    }
     {
         Rig r;
         r.c.connect(r.now); r.probe(kHello); r.takeWire();

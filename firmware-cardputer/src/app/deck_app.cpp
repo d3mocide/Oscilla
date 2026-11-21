@@ -122,6 +122,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             client_.stop(now_, lane);
         }
         if (s == ocp::LinkState::Ready) {
+            if (!client_.probe().rst.empty()) log("probe rst=" + client_.probe().rst);
             /* The probe may have rebooted while we were away: its status wins. */
             reconcile_on_status_ = client_.send(OCP_V_STATUS, now_);
         }

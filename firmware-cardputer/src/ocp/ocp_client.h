@@ -27,7 +27,7 @@ const char *linkStateName(LinkState s);
 
 struct ProbeInfo {
     int proto = 0;
-    std::string fw, ver, caps;
+    std::string fw, ver, caps, rst;   /* rst: absent from probes before v0.3.x */
 };
 
 struct ClientStats {

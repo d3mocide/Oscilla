@@ -25,6 +25,7 @@
 #include "freertos/task.h"
 
 #include "esp_app_desc.h"
+#include "esp_system.h"
 #include "esp_idf_version.h"
 #include "esp_heap_caps.h"
 #include "esp_system.h"
@@ -73,13 +74,37 @@ const char *ocp_server_caps(void)
     return caps;
 }
 
+/* Makes a brownout or watchdog restart visible from the deck (OCP-SPEC §4). */
+static const char *reset_reason_name(void)
+{
+    switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:    return "poweron";
+    case ESP_RST_EXT:        return "ext";
+    case ESP_RST_SW:         return "sw";
+    case ESP_RST_PANIC:      return "panic";
+    case ESP_RST_INT_WDT:    return "int_wdt";
+    case ESP_RST_TASK_WDT:   return "task_wdt";
+    case ESP_RST_WDT:        return "wdt";
+    case ESP_RST_DEEPSLEEP:  return "deepsleep";
+    case ESP_RST_BROWNOUT:   return "brownout";
+    case ESP_RST_SDIO:       return "sdio";
+    case ESP_RST_USB:        return "usb";
+    case ESP_RST_JTAG:       return "jtag";
+    case ESP_RST_EFUSE:      return "efuse";
+    case ESP_RST_PWR_GLITCH: return "pwr_glitch";
+    case ESP_RST_CPU_LOCKUP: return "cpu_lockup";
+    default:                 return "unknown";
+    }
+}
+
 static void emit_hello(void)
 {
-    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s",
+    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s %s=%s",
                      OCP_K_PROTO, OCP_PROTO_VERSION,
                      OCP_K_FW, OCP_FW_NAME_PROBE,
                      OCP_K_VER, esp_app_get_description()->version,
-                     OCP_K_CAPS, ocp_server_caps());
+                     OCP_K_CAPS, ocp_server_caps(),
+                     OCP_K_RESET, reset_reason_name());
 }
 
 /* A capability class is satisfied only if the build advertises a cap in it.
@@ -120,10 +145,11 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
+                         "%s=%s lora=%s link=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
+                         OCP_K_RESET, reset_reason_name(),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          OCP_K_HEAP, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),

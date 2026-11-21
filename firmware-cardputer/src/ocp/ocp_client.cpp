@@ -178,6 +178,7 @@ void Client::handleHello(const Item &it)
     if (const auto *v = it.get(OCP_K_FW))    info.fw = *v;
     if (const auto *v = it.get(OCP_K_VER))   info.ver = *v;
     if (const auto *v = it.get(OCP_K_CAPS))  info.caps = *v;
+    if (const auto *v = it.get(OCP_K_RESET)) info.rst = *v;
     probe_ = info;
 
     /* Anything in flight will never be answered by a probe that rebooted. */
