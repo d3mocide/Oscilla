@@ -6,9 +6,12 @@
 
 #include "storage/lora_logger.h"
 
+#include <bitset>
 #include <cstdio>
 
 #include <SD.h>
+
+#include "model/session_review.h"
 
 #include "storage/lora_log_format.h"
 #include "storage/lora_session_format.h"
@@ -21,6 +24,8 @@ namespace storage {
 namespace {
 constexpr const char *kDir = "/oscilla/lora";
 constexpr int kMaxSessionIndex = 9999;
+/* Three files per session; leave room for strays. */
+constexpr int kMaxDirectoryEntries = 4 * kMaxSessionIndex;
 
 File g_packet_file, g_health_file;
 char g_packet_path[48] = "";
@@ -41,6 +46,38 @@ bool appendVerified(File &file, const std::string &text)
     file.flush();
     return true;
 }
+
+/* One directory pass. Probing for existence per candidate index is a FAT
+ * lookup each, O(sessions^2) overall, and stalled the deck loop for
+ * 6 s on the bench card (WORKLOG 2026-11-21). The File-returning iterator is no
+ * better: it stats and opens each entry by path, which is O(n^2) again.
+ * Returns 0 when no index is free or the walk can't be trusted. */
+int nextFreeSession()
+{
+    File dir = SD.open(kDir, FILE_READ);
+    if (!dir || !dir.isDirectory()) {
+        if (dir) dir.close();
+        return 0;
+    }
+    static std::bitset<kMaxSessionIndex + 1> used;
+    used.reset();
+    int inspected = 0;
+    bool truncated = false;
+    for (;;) {
+        /* readdir only; the File iterator would stat and open every entry. */
+        String path = dir.getNextFileName();
+        if (path.isEmpty()) break;
+        if (++inspected > kMaxDirectoryEntries) { truncated = true; break; }
+        const int slash = path.lastIndexOf('/');
+        model::SessionEntry e;
+        if (model::sessionName(path.c_str() + slash + 1, model::SessionKind::Lora, e)) used.set(e.index);
+    }
+    dir.close();
+    if (truncated) return 0;
+    for (int i = 1; i <= kMaxSessionIndex; i++)
+        if (!used.test(i)) return i;
+    return 0;
+}
 }  // namespace
 
 bool loraLogBegin(const model::LoraModel &lora)
@@ -55,18 +92,20 @@ bool loraLogBegin(const model::LoraModel &lora)
     g_packet_digest = WriteDigest{};
     g_health_digest = WriteDigest{};
 
+    const int index = nextFreeSession();
+    if (!index) { unlock(); return false; }
     char manifest_path[48];
-    bool found = false;
-    for (int i = 1; i <= kMaxSessionIndex; i++) {
-        std::snprintf(g_packet_path, sizeof g_packet_path, "%s/log_%04d.csv", kDir, i);
-        std::snprintf(manifest_path, sizeof manifest_path, "%s/log_%04d.meta", kDir, i);
-        std::snprintf(g_health_path, sizeof g_health_path, "%s/log_%04d.health.csv", kDir, i);
-        if (!SD.exists(g_packet_path) && !SD.exists(manifest_path) && !SD.exists(g_health_path)) {
-            found = true;
-            break;
-        }
+    std::snprintf(g_packet_path, sizeof g_packet_path, "%s/log_%04d.csv", kDir, index);
+    std::snprintf(manifest_path, sizeof manifest_path, "%s/log_%04d.meta", kDir, index);
+    std::snprintf(g_health_path, sizeof g_health_path, "%s/log_%04d.health.csv", kDir, index);
+    /* Three lookups for the one chosen index, never per candidate. A walk
+     * that ended early must not let FILE_WRITE truncate an old session. */
+    if (SD.exists(g_packet_path) || SD.exists(manifest_path) || SD.exists(g_health_path)) {
+        g_packet_path[0] = '\0';
+        g_health_path[0] = '\0';
+        unlock();
+        return false;
     }
-    if (!found) { unlock(); return false; }
 
     File manifest = SD.open(manifest_path, FILE_WRITE);
     g_packet_file = SD.open(g_packet_path, FILE_WRITE);

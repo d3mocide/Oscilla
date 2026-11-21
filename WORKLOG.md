@@ -1,3 +1,40 @@
+## 2026-11-21 — Probe `rst=` confirmed; LoRa start froze the deck for 6 s (fixed)
+
+- **Probe flashed** with the `b0a060c` `build-uart` image (probe and deck each
+  on their own USB). `rst=usb` after the flash's RTS reset, `rst=sw` after an
+  OCP `reboot` (probe console shows the restart). `rst=poweron` still needs a
+  physical power cycle.
+- **The "LoRa start under Wi-Fi live always times out once" issue (2026-11-20)
+  was a deck stall, not the probe.** With both consoles captured, `lora` →
+  `lora log: recording` took 6.3 s with Wi-Fi off too, and the deck's GNSS
+  UART2 overflowed meanwhile: the main loop was frozen. Cause:
+  `loraLogBegin()` picked the next session number by probing `SD.exists()`
+  on three paths per candidate index, from 1 up. Each probe is a FAT lookup,
+  O(sessions²) overall on the bench card's accumulated soak/mash sessions.
+  Any OCP reply pending across the freeze was counted as a timeout. My
+  2026-11-20 guess (synchronous SX1262 start in the probe dispatch task) was
+  wrong; the probe console shows RX up about 0.1 s after the verb.
+- **Fix:** one `readdir` pass (`getNextFileName()`, parsed with the existing
+  host-tested `model::sessionName`) marks used indices; then three lookups for
+  the chosen index only, refusing rather than letting `FILE_WRITE` truncate an
+  old session. First try used `openNextFile()` and was **worse** (~17 s): the
+  Arduino VFS stats and opens every entry by path. `check_protocol.sh` now
+  fails if per-index probing or `openNextFile(` returns to `lora_logger.cpp`;
+  both mutants (the old loop, an `openNextFile` walk) trip it.
+- **Hardware after:** `lora` → `recording` 1.60–1.61 s (the probe ack round
+  trip) ×3 with Wi-Fi off and 1.60–1.70 s ×5 under Wi-Fi live, zero GNSS
+  overflows, **0 link timeouts** (was one every time).
+- **Same class, not fixed yet:** Drive start (`wardriveLogBegin`) blocks the
+  loop ~1.7 s with 27 drive sessions on the card. `discoverSessions()` uses
+  `openNextFile()` and re-runs `recoverKml()` on every KML each start, so it
+  grows with the card.
+- **Also seen on the probe console:** every Wi-Fi hopper's
+  `esp_wifi_set_channel()` returns `ESP_ERR_INVALID_ARG` for ch 12 and 13
+  (in `wifi_channels.c` but rejected by the default country), so those two
+  channels are never covered by live discovery, sniffer, deauth or spectrum.
+  This also answers part of D-14's bench question: a disallowed channel is
+  rejected with a checkable error, not silently ignored.
+
 ## 2026-11-20 — Probe reports its reset reason (`rst=`); probe flash pending
 
 - Added `rst=` (OCP_K_RESET) to `[HELLO]` and `[STATUS]`: `poweron`, `sw`,

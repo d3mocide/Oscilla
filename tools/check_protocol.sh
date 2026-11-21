@@ -166,6 +166,13 @@ for wire in 'reconcileStopLane(phyToolActive()' 'reconcile_on_status_ = client_.
     grep -qF "$wire" firmware-cardputer/src/app/deck_app.cpp \
         || { echo "deck_app.cpp no longer reconciles with the probe on Ready: $wire" >&2; exit 1; }
 done
+# LoRa session numbering is one directory walk. Per-index SD.exists() probing
+# is O(sessions^2) FAT lookups and froze the deck loop for 6 s (WORKLOG 2026-11-21).
+if grep -qF '"%s/log_%04d.csv", kDir, i)' firmware-cardputer/src/storage/lora_logger.cpp \
+    || grep -qF 'openNextFile(' firmware-cardputer/src/storage/lora_logger.cpp \
+    || ! grep -qF 'const int index = nextFreeSession();' firmware-cardputer/src/storage/lora_logger.cpp; then
+    echo "lora_logger.cpp must number sessions with one readdir walk (getNextFileName), not per-index SD.exists probes or openNextFile" >&2; exit 1
+fi
 
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contact_inspection_test" \
     firmware-cardputer/test/host/contact_inspection_test.cpp firmware-cardputer/src/model/contacts_model.cpp \
