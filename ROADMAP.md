@@ -245,6 +245,13 @@ re-enumeration and `-71` errors. Periodic qualification remains incomplete and
 the new-image two-hour stage never started. Check USB stability and rerun from
 a fresh baseline; the separate first mode-switching pass remains valid.
 
+2026-11-20 (v0.3.0): **periodic use and two-hour soak PASSED** — 10,879 s,
+6/6 use/idle cycles then 7,200 s steady passive Wi-Fi + LoRa RX/SD logging,
+zero errors/resets/drops, no reset on either board, bounded heap on both. Probe
+was Grove-powered from the deck (operator choice, D-4 still open); deck on a
+direct USB port. Battery soak, measured current/supply dips and the interlock
+remain open. See WORKLOG.
+
 2026-11-20 (v0.3.0): entry gate now met with P5 closed. Next: check the USB
 cable/hub path, rerun periodic use from a fresh baseline, run the new-image
 two-hour soak, then a battery-powered soak and the measured current budget.

@@ -1,3 +1,48 @@
+## 2026-11-20 — v0.3.0 periodic use and two-hour soak PASSED
+
+- Run `/tmp/oscilla-periodic-long-v030-20261120-164039`, controller reused
+  unchanged from the interrupted 13:35 run with paths rewritten. Firmware:
+  v0.3.0 on both boards, deck ELF `b4f2daa87c4b8b066f850f13d598d0e941057d1310e5d41506bb1757da113038`
+  (`launch.json`). **Power:** deck on a direct host USB port
+  (no hub); probe **Grove-powered from the deck** with its own USB
+  disconnected — operator's choice, beyond the D-4 bench rule, recorded so
+  this run is not read as equivalent to the earlier USB-powered ones.
+- **Outcome `completed`, 10,879 s.** Preflight link/SD ready at 16 s; both
+  link transitions happened before preflight (the port-open deck reset and
+  reconnect), none afterwards. Deck uptime 10,878 s and probe uptime
+  10,923 s at the end: no reset on either board. Zero UART/write/link
+  errors, timeouts, link resets, probe resets, telemetry retries, deck
+  panics, packet or health drops, LoRa hardware faults. 25 config acks
+  (20-round regression + run). Minimum free loop stack 2,768 B (guard
+  2,048 B).
+- **Periodic use, 3,604 s, 6/6 cycles** (Wi-Fi live, BLE live, sniffer,
+  packet monitor, BLE snapshot, Wi-Fi snapshot; LoRa RX + SD logging and UI
+  activation each use period). Every recording closed. 31 UI review cycles.
+  End-of-idle deck free stepped down only as caches filled (136,928 →
+  119,588 → 103,528 B with 173 APs, 92 BLE, 77 clients), then held; flat
+  within each idle. Snapshot cycles dipped the deck largest block (61,428 /
+  59,380 B) and it recovered to 69,620 B each time. Deck heap low-water
+  56,100 B, set during the Wi-Fi snapshot. Probe recovered to 99,124–
+  99,384 B free after each cycle; its largest block fell 77,824 → 61,440 B
+  after the Wi-Fi snapshot and stayed there.
+- **Two-hour steady stage, 7,200 s** (passive Wi-Fi live + LoRa RX/SD
+  logging, GNSS fixed). Deck free fell 125,908 → ~108 KB in the first four
+  minutes as the AP cache refilled (102 → 172 APs), then held at
+  105.9–108.6 KB to the end with largest block fixed at 69,620 B. Probe free
+  constant at 94,684 B, low-water 59,344 B. 1,157 LoRa packets, 722 health
+  rows, 2,421 writes / 312,610 B, zero drops. Note: the controller's UI
+  review branch is inactive in this stage, so it covers steady receive and
+  logging without key input, not continuous UI use.
+- Worst single deck loop pass 1.21 s (`max_cycle_us` 1,214,657), set between
+  idle 1 and the cycle-2 BLE-live switch and never exceeded; the earlier run peaked at
+  0.95 s. Not a fault, but a UI-responsiveness lead worth a look.
+- Cleanup confirmed: receive lanes stopped, both recordings closed, debug
+  off. Earlier USB `-71` disconnect did not recur on a direct port, which
+  supports (does not prove) the host-path diagnosis.
+- Not covered: battery power, measured current/supply dips, BLE concurrent
+  with Wi-Fi in the long stage. P6 exit gate (current budget + interlock)
+  remains open.
+
 ## 2026-11-20 — v0.3.0 milestone cut; P5 closed
 
 - First tagged version. Committed the uncommitted work since 2026-10-09 in
