@@ -1,3 +1,1046 @@
+## 2026-11-20 — Periodic-use capture interrupted by USB disconnect; long soak unstarted
+
+- Run `/tmp/oscilla-periodic-long-20261120-133559` stopped on USB EOF/readiness
+  error, followed by write `EIO` during cleanup. One complete five-minute
+  use/five-minute idle cycle passed; cycle 2 completed BLE live use and closed
+  its recording, but the idle period was interrupted. Last sample 1,029.93 s
+  overall, 965.70 s after the periodic-ready sample. No periodic phase-complete
+  marker; the new-image two-hour steady stage never started. No duration from
+  this interrupted run is added to another run's qualification.
+- All valid timed samples before disconnect had zero UART/write/protocol
+  errors, timeouts/resets, LoRa hardware faults, drops, panic counts or telemetry
+  retries. Minimum free loop stack remained 2,768 B. No timed reset/panic banner
+  was received; this does not establish what happened while USB was absent.
+- Wi-Fi-use cycle 1 sampled deck free 130,612–147,892 B. Its idle samples
+  stayed within 135,568–135,720 B with largest block 94,196 B; probe recovered
+  to 99,172 B. BLE-use cycle 2 sampled deck free 118,816–131,456 B; partial
+  idle stayed within 120,088–120,168 B with largest block 92,148 B and probe
+  recovered to 99,184 B. Different cached inventories explain differing
+  workloads; these partial observations do not prove a leak or recovery gate.
+- Both use recordings had confirmed closure markers before the disconnect:
+  cycle 1 54 packet / 31 health rows, cycle 2 60 packet / 32 health rows.
+  Last telemetry: SD/link ready, both files closed, PHY owner none, LoRa idle,
+  196 accepted writes / 25,813 bytes including startup recording. Cleanup after
+  disconnect could not be confirmed. Eleven UI/session-review cycles completed.
+- Host kernel log corroborates USB transport loss: at 14:28:31 PST the deck
+  serial identity disconnected, then repeatedly re-enumerated with configuration
+  and descriptor errors `-71`; kernel attempted port power-cycle before it
+  reappeared at 14:28:34. A separate apple-mfi-fastcharge device disconnected
+  at 14:28:30. The deck was present again at inspection. This supports a USB
+  connection interruption but does not isolate cable, hub, host, power or deck
+  as the cause, and is not a confirmed firmware panic.
+- Preserved failed-run diagnostics/matching firmware, documented the boundary
+  and removed the follow-up after reporting the terminal outcome. No silent
+  restart, further flash, commit, radio operation or wiring/power change. USB
+  stability needs checking before a fresh uninterrupted attempt. The completed
+  mode-switching test remains passed; periodic use/new-image long soak and
+  P5/P6/power/cold-boot/field gates remain open.
+
+## 2026-11-20 — Remaining periodic-use and new-image long soak started
+
+- User authorized continuing the remaining tests after the separate first-test
+  pass. Reused the unchanged AP-block-storage firmware, ELF
+  `38d5783d80fc829f04e5b3b85d735830f8e98c2c6d9165cfeb07dcda73abd66a`;
+  no flash, wiring/power change or commit. Preflight confirmed ready link/SD,
+  no existing recording and zero UART/write errors; no collector held the port.
+- New detached run `/tmp/oscilla-periodic-long-20261120-133559` performs six
+  five-minute use/five-minute idle cycles (passive Wi-Fi, BLE, sniffer, packet
+  monitor and bounded snapshots, LoRa RX/SD logging and UI/session review), then
+  a fresh uninterrupted two-hour passive Wi-Fi plus LoRa receive/logging soak.
+  One exclusive connection remains open through both phases; final cleanup
+  stops both receive lanes and closes recording. Count-only diagnostics and
+  matching firmware artifacts stay under `/tmp`; no raw observations published.
+- Periodic-only controller dry run passed six cycles and recording closure,
+  without repeating the completed twelve-slot mode-switch test. Runtime guards
+  and automatic reports remain unchanged; half-hour follow-ups inspect phase
+  completions/faults without repeated polling. Setup is separate from timing.
+- Live startup acknowledged twenty configuration commands, closed its warm-up
+  recording and began periodic cycle 1. UART/write errors zero; minimum free
+  loop stack 2,768 B. Current run is in progress; no periodic-use or new-image
+  two-hour result is claimed yet. Prior first-test pass remains separate.
+
+## 2026-11-20 — First mode-switching test passed, including closure and idle recovery
+
+- First-test-only run `/tmp/oscilla-switch-only-20261120-123000` completed on
+  ELF `38d5783d80fc829f04e5b3b85d735830f8e98c2c6d9165cfeb07dcda73abd66a`.
+  All twelve 150-second mode slots completed in 1,800.43 s: passive Wi-Fi/BLE
+  live/snapshot modes, both sniffer and packet-monitor slots, deauth detection,
+  tracker watch, anti-surveillance and the previously failing final Wi-Fi slot.
+  Independent LoRa RX/SD logging continued through switching. No transmit mode.
+- Verified the JSONL records independently of the terminal outcome: all twelve
+  sequential completion markers, both switching/recovery stage markers, 154
+  timed samples, continuous deck/probe uptime and unchanged link-transition
+  count. All timed UART/write/protocol errors, timeouts/resets, radio hardware
+  faults, packet/health drops, deck panic counts and telemetry retries were zero.
+  Minimum free loop stack was 2,816 B throughout timed samples.
+- Sampled deck free heap across switching/closure/recovery ranged
+  56,172–145,352 B; largest blocks 39,924–106,484 B. Boot-lifetime heap minimum
+  ended at 46,784 B (a low watermark, not current free memory). Both sniffer
+  slots and final Wi-Fi passed without allocation abort. These are bounded
+  mixed-workload samples, not a zero-leak claim or full-capacity RF fixture.
+- Recording closed with 321 packet / 182 health rows, 506 accepted SD writes
+  / 67,149 bytes including setup. Confirmed LoRa/wardrive files closed, SD/link
+  ready, PHY owner none and LoRa idle in closure/recovery/final telemetry. This
+  confirms reported closure, not independent SD-file byte-integrity readback.
+- Idle recovery spanned 120.13 s between its first and last samples. Deck free
+  heap stayed within 99,376–99,464 B, largest block exactly 39,924 B. Probe free
+  heap recovered from 94,732 B to 99,172 B; largest block stayed 65,536 B.
+  Final free heap was deck 99,412 B / probe 99,172 B with cached inventories
+  retained. No heap fit across different radio modes was treated as a leak trend.
+- Collector completed cleanup, disabled RAM debug and closed its connection.
+  Follow-up automation removed after verification/reporting. No commit, further
+  flash, power/wiring change or automatic periodic/long test. The requested
+  first-test finish line is demonstrated; periodic use and the new-image long
+  soak remain unrun. P5/P6, measured-power, cold-boot and field gates stay open.
+
+## 2026-11-20 — AP inventory growth in small blocks; first-test qualification only
+
+- User narrowed the immediate finish line to getting the first mode-switch
+  test through cleanly. Periodic use and the long soak will not automatically
+  follow this run. Keep all previous failed-run evidence and start timing anew.
+- The matching-ELF failure was contiguous AP-vector growth, not contact-snapshot
+  refresh. Replaced AP row storage with `std::deque`: additions and frozen
+  display copies allocate small blocks rather than a replacement table-sized
+  block. Row order/indexing, the 512-row cap, paged continuation, full-table
+  upserts, cached Stop behavior and frozen display semantics are unchanged.
+- New constrained-allocation test fills all 512 AP rows, copies at growth
+  boundaries and saturation, updates while frozen, stops/clears/restarts four
+  times and fills all pages. Every allocation must fit within 4 KiB; largest
+  observed host allocation is 2,544 B. The original contiguous implementation
+  fails this test, including when reintroduced on an isolated header copy.
+  Integrated into the full host suite. This bounds tested allocation sizes,
+  not total memory use or physical end-to-end endurance.
+- Prepared a first-test-only collector: twelve 150-second passive mode slots,
+  clean recording closure, then two minutes of idle recovery. Its mocked
+  controller passes all slots/closure/recovery and confirms no periodic-use
+  phase starts. Diagnostic panic counts now include `abort()` before aborting
+  collection. Full host/protocol/RX-only checks passed with the documented
+  `ASAN_OPTIONS=detect_leaks=0`; both normal firmware builds passed. Compiled
+  dispatcher 192 B, System renderer 256 B, main loop 960 B; all stack budgets
+  pass (debug dispatcher now 384 B).
+- Preflash console writes/replies initially failed with a partial command/raw
+  framing mismatch. Retried without toggling modem controls using raw mode,
+  a leading newline and per-reply deadlines. Confirmed link/SD ready, both
+  recording files closed, UART/write errors zero. Missing/incomplete telemetry
+  was not treated as proof of SD absence or a board reset.
+- Flashed normal ESP32-S3 deck application only; stable MAC
+  `50:78:7D:CE:6D:64` and flash hash verified. New ELF SHA256
+  `38d5783d80fc829f04e5b3b85d735830f8e98c2c6d9165cfeb07dcda73abd66a`.
+  Matching ELF/bin, count-only telemetry and launch metadata are saved under
+  `/tmp/oscilla-switch-only-20261120-123000`; `/tmp/oscilla-soak-current` points
+  there. Probe firmware/power/wiring unchanged. No commit made.
+- First-test-only collector is running on one exclusive USB connection. The
+  first Wi-Fi slot completed; BLE snapshot slot samples report zero UART/write
+  errors and 2,816 B minimum free loop stack. Automated follow-up checks run
+  sparsely. No full first-test pass, periodic-use or new long-soak result is
+  claimed while the run remains active.
+
+## 2026-11-20 — Memory-fix retest: sniffer slots passed, final Wi-Fi allocation abort
+
+- Run `/tmp/oscilla-mode-memory-retest-20261120-073435` ended in a detected
+  allocation abort at 1,712.19 s overall. Eleven 150-second switching slots
+  completed; the final Wi-Fi live slot began but did not finish. Thus the
+  30-minute switching gate still fails. Periodic use and the new-firmware
+  two-hour steady phase never started; no idle-recovery or steady-fit result
+  exists for this image. The previous image's two-hour pass remains separate.
+- Both sniffer slots completed without the earlier contact-vector abort.
+  Last deck free heap was 93,228 B after the first and 85,500 B after the
+  second. Across both sniffer slots sampled free heap never fell below 84,972 B
+  and largest blocks stayed at least 45,044 B, versus the earlier failure's
+  38,476 B free / 7,796 B largest. Ambient inventory differs, so this is useful
+  partial hardware evidence, not proof that every saturated table fits.
+- Final sample at 1,704.30 s: deck free 78,884 B, largest block 33,780 B,
+  minimum free loop stack 2,800 B, 44 APs, 57 clients / 31 requests and 96 BLE
+  devices retained. Before the abort all sampled UART/write/protocol faults,
+  timeouts/resets, LoRa hardware faults and packet/health drops remained zero,
+  and telemetry needed no retry. LoRa had 331 packet / 165 health rows and SD
+  499 accepted writes / 65,648 bytes including setup. GNSS was fixed at the
+  final sample. These counters do not imply clean recording closure.
+- Captured ELF prefix `94836493e2817026` matches the current full ELF SHA256.
+  The decoded abort is now `operator new` / vector reallocation of `ApRow`
+  in `ScanModel::absorbEvent` (`scan_model.cpp:199`), through the Wi-Fi event
+  dispatch path. The remaining failure is live AP-vector growth under retained
+  mixed-mode inventories/fragmentation, not the old contact refresh allocation.
+  Last-sample free bytes cannot establish allocation-time headroom or the exact
+  requested block size. The preceding BLE-live slot had a largest-block minimum
+  of 18,420 B, and Wi-Fi snapshot held 26,612 B largest blocks.
+- Collector stopped on the abort and captured reboot diagnostics; cleanup and
+  recording closure could not be confirmed. It did not automatically restart.
+  No further flash, radio operation, power/wiring change or commit performed.
+  Removed the retest follow-up after documenting/reporting this terminal result.
+  Next work must bound AP/event-table growth and mixed-mode allocation peaks,
+  then repeat switching before periodic-use qualification. Power, cold-boot,
+  P5/P6 and physical/field gates remain open.
+
+## 2026-11-20 — Mode-switch memory pressure: snapshot overlap and inactive display copies
+
+- Read overnight telemetry with `os.open` and no DTR/RTS changes; HUPCL was
+  already disabled. No reset banner appeared. Deck uptime 36,705 s and probe
+  uptime 44,397,263 ms, link/SD ready, no recording open, no reported UART/write
+  errors, deck free 182,704 B / largest 159,732 B. This is post-crash idle uptime,
+  not periodic-use or overnight active-load qualification.
+- Matching-ELF diagnosis from the failed run remains allocation failure in
+  `ContactsModel::absorbClients`. Source review found two contributing peaks:
+  contact/BLE refresh constructed a new growing vector while retaining the old
+  table, and the strip renderer retained full copies of models from screens
+  already left. Wi-Fi → BLE → sniffer therefore accumulated display-owned copies
+  in addition to the authoritative app caches and incoming wire frame.
+- Contact/request/advertiser snapshot replacement now reuses existing slots.
+  When storage must grow, it releases the old table first and reserves only the
+  bounded incoming row count. Validation, row caps, selection remapping, snapshot
+  ages and Stop's cached-result semantics are preserved.
+- On external-view changes, discard the previous display-owned copies before
+  sampling the next view. Placement construction avoids large stack temporaries;
+  authoritative receiver/cache models are untouched. In-progress strips still
+  render a frozen model, and physical-row invalidation remains in place.
+- Added constrained-allocation refresh/growth tests and an actual-dispatcher
+  host test covering mid-frame Wi-Fi/BLE/sniffer transitions, frame coherence,
+  released vector capacity and preserved source caches. Both regressions failed
+  before the corresponding fix, passed afterward, and failed again with the
+  old allocation/lifetime behavior reintroduced on disposable copies. Integrated
+  both into `tools/check_protocol.sh`. Full host/protocol/RX-only suite passed
+  with the documented `ASAN_OPTIONS=detect_leaks=0`; standalone OCP conformance
+  passed 27/27. Compiled dispatcher remains 192 B, System renderer 256 B,
+  main loop 960 B; all stack guards passed.
+- Saved matching pre-fix ELF/bin under `/tmp/oscilla-before-mode-memory-fix.*`.
+  No raw observations added to the repository. The earlier periodic-use phase
+  never started; it has no prior failure/result independent of the switch abort.
+- Initial broad build also tried every diagnostic environment: both normal deck
+  targets and probe passed, but `sd-display-check` / its ST7789 alias have stale
+  source filters missing session/dossier renderer definitions and failed linking.
+  These diagnostic filters remain unresolved. Scoped the standard dual-firmware
+  builder to `pio run -e cardputer-adv`; its real-board builds and stack guard
+  now pass end to end. No benchmark binary was flashed.
+- Flashed normal deck application only at `0x10000`, explicit ESP32-S3 and
+  stable serial identity; esptool confirmed MAC `50:78:7D:CE:6D:64` and data hash.
+  New ELF SHA256 `94836493e2817026ec2ee92e59d4869f23ab1ab70b364a1d8133429af4e93514`.
+  Probe firmware was not flashed. No recording was open before the update.
+- Detached retest under `/tmp/oscilla-mode-memory-retest-20261120-073435` runs
+  30-minute passive switching first, then six five-minute use/five-minute idle
+  cycles, then a fresh two-hour steady soak. Same held USB connection, bounded
+  telemetry deadlines, automatic count-only reports and half-hour follow-ups.
+  Live preflight: link/SD ready, UART/write errors zero. Timed qualification is
+  in progress; new-firmware phase completion is not yet claimed.
+
+## 2026-11-19 — Two-hour steady soak completed; mode switching exposed allocation abort
+
+- The scripted steady workload completed 7,200.50 s uninterrupted, with passive
+  Wi-Fi discovery, independent LoRa receive/SD logging and paired displays.
+  Deck/probe uptime stayed continuous. All sampled UART/write/protocol errors,
+  link timeouts/resets, radio hardware faults and packet/health drops remained
+  zero; no telemetry retry. GNSS acquired a fix after the initial no-fix baseline.
+  The steady endpoint had 1,444 packet rows / 723 health rows and 2,170 SD writes
+  / 296,462 bytes including setup. Recording stayed open for mode switching.
+- Excluding the first ten minutes, deck free heap ranged 107,676–111,272 B,
+  ended 109,520 B and fitted -14.185 B/min. Largest block ranged
+  92,148–96,244 B and ended 96,244 B. Probe current free heap was exactly
+  94,944 B and largest block exactly 77,824 B at every steady sample. Minimum
+  free loop stack stayed 2,800 B. This demonstrates bounded memory under this
+  steady workload; the small fitted deck decline is not a zero-leak proof.
+- Mode-switching completed the first Wi-Fi and BLE-snapshot slots, then the
+  deck aborted in the third (sniffer) slot at 7,686.87 s overall, 437.52 s
+  (7 min 17.52 s) after the steady phase completed. Last sample: 38,476 B free,
+  largest block 7,796 B, 62 clients / 22 probes with 96 BLE devices retained.
+  Probe free heap stayed 94,944 B; reported transport/storage faults were still
+  zero. The 30-minute switching phase failed and periodic use never started.
+- Panic ELF prefix `661de21777b2f0f0` matches the local ELF SHA256. Decoded
+  trace reaches `operator new` / `__cxa_throw` / `std::terminate` through
+  `std::vector<ClientRow>` reallocation in `ContactsModel::absorbClients`
+  (`contacts_model.cpp:113`), then contact snapshot / OCP receive dispatch.
+  This identifies allocation failure during snapshot replacement, distinct
+  from the earlier fixed debug-command stack panic. Retained inventories and
+  overlapping snapshot allocations need a memory-budget fix; these samples
+  alone do not establish an unbounded leak.
+- Collector detected the abort and stopped; reboot diagnostics were captured
+  on the same connection. Cleanup/recording closure could not be confirmed.
+  No automatic restart, firmware change/flash or commit. Count-only evidence
+  remains under `/tmp/oscilla-soak-20261119-185748`; follow-up automation removed
+  after reporting the terminal outcome. P5/P6, measured-power, cold-boot and
+  physical/field gates remain open. Next qualification must address this
+  allocation failure and repeat switching before periodic-use evidence exists.
+
+## 2026-11-19 — Scripted endurance continuation and sparse follow-up
+
+- Recovered the November 17 collector outcome: USB read disconnected after
+  the last sample at 1,040.70 s overall (990.38 s after loaded baseline).
+  Cleanup could not be confirmed. None of the two-hour, scan-switching or
+  periodic-use phase gates completed; the earlier in-progress entry is not
+  a completed endurance result.
+- Resumed the authorized plan: two hours passive Wi-Fi plus independent LoRa
+  receive/SD logging, 30 minutes passive scan switching, then six five-minute
+  use/five-minute idle cycles. The collector owns one exclusive USB connection,
+  saves counts only under `/tmp`, and stops on reset, stale probe telemetry,
+  protocol/storage faults, unexpected workload changes or low stack margin.
+  Separate 802.15.4 stop/reboot qualification remains outside this sequence.
+- Initial preflight found no probe link; user restored the probe. Live
+  preflight then confirmed ready link, SD ready, no existing recording, zero
+  UART/write errors. No firmware flash, power/wiring change or commit performed
+  by the agent. Twenty configuration acknowledgments passed; the new steady
+  timer started after setup at 48.85 s overall. Baseline: deck free 120,804 B,
+  probe free 94,944 B, largest blocks 98,292 / 77,824 B, free loop stack minimum
+  2,800 B. Wi-Fi and LoRa/SD recording active, UART/write errors zero. GNSS
+  had no fix at baseline; GNSS/moving-route qualification is not implied.
+  Timed phases are still in progress at this entry.
+- Added `tools/soak_report.py` for atomic count-only reports: explicit terminal
+  outcome and completed stages, latest telemetry, largest blocks, minimum free
+  stack and steady-workload heap fits excluding ten minutes of warm-up. Four
+  synthetic tests pass; deliberately including warm-up on a disposable copy
+  fails the regression. Existing follow-up controller dry run confirms twelve
+  mode slots and six use/idle cycles with recording closure.
+- Detached collector and half-hour thread follow-ups replace repeated polling.
+  `/tmp/oscilla-soak-current` identifies the run directory containing
+  `suite.py`, `phases.py`, `pid`, `progress.log`, `samples.jsonl`, `report.json`
+  and optional `stop` request file. Reports are observations, not automatic
+  leak verdicts. No endurance or P5/P6 exit gate is claimed yet.
+
+## 2026-11-17 — Endurance setup exposed a debug-command stack panic
+
+- User authorized an uninterrupted two-hour run, 30 minutes switching passive
+  scan modes, then powered-on periodic use. Periodic plan is six cycles of
+  five minutes use / five minutes idle; 802.15.4 stop/reboot qualification stays
+  separate because of the documented C5 coexistence recovery behavior.
+- First long-run setup detected deck uptime falling from 4,089 s to 16 s and
+  stopped; no endurance duration is claimed. User confirmed no physical reset
+  and suggested the serial monitor as a possible cause.
+- Held-open exclusive serial capture distinguished two events: opening the
+  native USB port produced ROM `rst:0x15 (USB_UART_CHIP_RESET)`, then the LoRa
+  configuration debug command produced a separate Core 1 unhandled-debug panic
+  and `rst:0xc (RTC_SW_CPU_RST)` while the connection remained open. No other
+  serial-monitor process held the port during inspection. The precise cause of
+  the initial uncontrolled attempt cannot be reconstructed from uptime alone.
+- Panic ELF SHA 80d4eb9ecd3c70c6 matched the embedded SHA in the saved pre-fix
+  image. Symbolication reaches vsnprintf / to_string -> sendLoraConfig ->
+  startLoraConfig -> runDebugCommand -> console LineReader -> loopTask. The
+  dispatcher reserved a 4,912-byte frame, largely from the long diagnostic
+  concatenation, even when handling a small command.
+- Moved the unchanged 63-field count/state snapshot into its own small-frame
+  member and serialized fields sequentially with a framework-neutral builder.
+  Number bounds and single-line text sanitization are host-tested. No captured
+  names/identities/payloads added, no protocol or radio-capability change.
+- Compiled frame regression rejects the saved old ELF, then passes the fix:
+  dispatcher 368 bytes, snapshot 224, LoRa sender 448 and main loop 960. Guard
+  runs from the normal dual-firmware build script. Per-frame budgets complement
+  rather than prove full call-chain stack safety. Added `stack_free_min` bytes
+  to RAM debug memory telemetry; installed ESP-IDF FreeRTOS defines that unit.
+- Initial fixed-device regression acknowledged 20 configuration commands with
+  no panic. New stack telemetry exposed a separate low-margin path: System
+  rendering left only 1,168 bytes on the default loop stack. Compiled frames
+  were 2,192 bytes in external dispatch and 2,176 in System rendering.
+- Removed the large fallback snapshot temporary and streamed heap plot points
+  from the frozen history rather than materializing two 61-point arrays on
+  stack. Preserved all scaling/gap/restart/wrap behavior. New host visitor test
+  failed before implementation, then passed. Active/cached/empty System source
+  renders are byte-identical; all 130 paired fixtures render and highlight
+  regression passes. Compiled dispatch is now 192 bytes; System renderer 256.
+  Extended the stack guard to both renderer frames. No loop-stack size increase.
+- Added numeric transport counters, receiver ownership/state and probe uptime
+  to the same count-only snapshot for precise mode/idle qualification. Final
+  snapshot frame is 240 bytes; other guarded frames remain as above. Full host
+  checks pass; System fixture pixels remain identical, and Cardputer builds.
+- Final device regression acknowledged 20 LoRa configuration commands mixed
+  with dumps on one held-open connection with no panic or uptime discontinuity.
+  Minimum free loop stack was 3,648 bytes after that regression, 2,768 after
+  saved-session warm-up. The new two-hour timer began after setup; subsequent
+  scan-switch and powered-on periodic phases use the same connection. This
+  sequence remains in progress; no long-duration qualification is claimed yet.
+
+## 2026-11-17 — Targeted heap soak: bounded after warm-up
+
+- Ran the unchanged flashed firmware on the attached USB bench: continuous
+  passive Wi-Fi discovery, independent MCORE LoRa receive/SD packet and health
+  logging, GNSS and both displays. Exercised saved-session summary/record paging
+  and System detours 24 times, including two warm-up cycles. No transmit mode,
+  firmware flash or wiring/power change. Only count/state telemetry saved on host.
+- Collected 123 active-load samples covering 1,817.10 s (30 min 17 s) across two
+  recording segments: 616.67 s then 1,200.43 s. The first collector's fixed USB
+  read windows missed a complete telemetry batch during review and cleanly
+  stopped its recording. Cause not isolated; this is a measurement interruption,
+  not evidence of a board reset. Resumed with per-reply five-second deadlines
+  and one bounded retry; the second segment completed with zero retries.
+  The chart marks the interruption; this is not an uninterrupted 30-minute run.
+- Deck free heap initially fell while AP inventory and the bounded packet cache
+  filled. Reopening LoRa after the sampler interruption clears/repopulates that
+  packet cache. After review cycling ended, all 41 recovery samples were within
+  118,968–120,112 bytes, ending at 119,996; last-five-minute median 119,654.
+  Recovery endpoint rose 1,028 bytes from its first sample. The last-five-minute
+  straight-line fit was -44.52 bytes/min amid the bounded variation; this pass
+  cannot bound smaller leaks over hours. No clear sustained loss from the
+  repeated session reviews was demonstrated.
+- Probe free heap was exactly 94,788 bytes at every active sample. Largest free
+  blocks were unchanged at every active sample: deck 102,388, probe 65,536.
+  Final lifetime minimums were deck 111,484, probe 65,028; those are boot-lifetime
+  low watermarks, not present free memory or proof of a leak.
+- Two recordings saved 326 LoRa packets and 191 health rows. SD accepted 523
+  writes / 70,253 bytes. Zero packet/health log drops, write errors, UART errors,
+  reported radio hardware faults, observed probe resets or link-state changes.
+  GNSS fixed in all 123 active samples; final cumulative checksum/overlong counts
+  both zero. Session external-frame high 313,826 us, final cycle 40,342 us; no
+  sustained frame-rate qualification is inferred from those cycle counters.
+- Both test recordings closed cleanly. Final free heap after close: deck 120,828,
+  probe 99,228. System left open with Wi-Fi receiving; RAM debug disabled. Raw
+  records remain on the device SD only; host diagnostics/chart are in /tmp.
+- Result: useful heap/regression evidence for this workload, no clear ongoing
+  leak found. Multi-hour uninterrupted soak, BLE/mode-switch stress, reset/
+  reconnect recovery, measured current budget and final-harness/battery/field
+  qualification remain open; P5/P6 exit gates are not rounded up.
+
+## 2026-11-17 — External session highlight background corrected
+
+- Operator photo showed black glyph-cell rectangles interrupting the filled
+  green selected-session row. The shared instrument text helper always supplied
+  the void background, overriding the row fill under both name and type labels.
+- Added an explicit optional text background and supplied the row color to both
+  labels. Other instrument labels keep their existing default. Physical-row
+  tile hashing, frame sampling and SPI locking are unchanged.
+- Pixel regression failed on the original source-rendered catalog, then passed
+  with continuous highlight fill under both labels and normal unselected text.
+  Integrated the check into the source-render tool. All 130 paired fixtures
+  rendered; corrected catalog visually reviewed. Cardputer ADV build passed.
+- Preflash attached deck: SD ready, no recording files open, zero write/UART
+  errors. ESP32-S3 upload verified deck MAC and flash hashes. LOGS reopened
+  with 64 entries and Wi-Fi receiving; SD still reports zero writes and
+  write/UART errors, RAM debug disabled. Operator confirmation of the physical
+  highlight was subsequently confirmed fixed by the operator.
+- Follow-up source audit covered the remaining external instruments, dossiers,
+  meters and shared drawing helpers. No other text-over-filled-highlight
+  mismatch found: other colored selection shapes keep labels outside their
+  fills. Core onboard Wi-Fi/BLE/Sniffer/LoRa/802.15.4/Link list rows already
+  supply the matching selected background. No further firmware edit required.
+
+## 2026-11-17 — On-device saved-session review
+
+- User prioritized offline session review while the display/probe harness is
+  assembled. Added LOGS after Drive and `o` from live tools, preserving the
+  receiver and nested System return. Enter drills into summaries, six-record
+  pages and saved LoRa raw hex/ASCII; Back reverses one level. `x` filters
+  All/Drive/LoRa; `r` refreshes inventory.
+- Grouped writer-generated CSV/KML/manifest/health names only, at most 64
+  sessions with explicit inventory limits. Type filters expose each family
+  independently. Sidecar availability is shown; KML track rendering and
+  metadata/health content parsing are deferred.
+- Read-only SD service uses the existing SPI lock, one directory entry or at
+  most 512 bytes per turn, parsing after unlock. It freezes CSV length on
+  open and ignores later append activity. Shrinking/unavailable files,
+  unrecognized headers, malformed rows and incomplete tails are explicit.
+  No archive action writes/deletes/repairs a recording or starts a radio.
+- Pure parser retains at most six rows and 32 signal samples; summary count
+  excludes invalid/unfinished records. The graph is by record order, and
+  observed span is first-to-last valid record time, not recording lifetime.
+  Saved payload bytes stay raw and classification stays labelled a guess.
+- Test-first parser initially failed for the missing header; then passed
+  strict-name, grouped-inventory, hostile/chunked CSV, truncated tail, paging
+  and Back cases. The mock filesystem enforces lock ownership, read-only
+  mode and per-turn budgets; growth, shrink, contention, timeout, cancellation
+  and missing-card checks pass. Hex-length and read-budget copy mutations fail.
+- Offline controller test exposed missing redraw invalidation on Enter with
+  no receiver running. Fixed explicit dirty state; controller test and a
+  reverted-copy mutation prove it catches the bug. Navigation route test was
+  updated for LOGS as the new final home card. Paired source previews reviewed.
+- Before firmware upload, attached deck reported SD ready, no open LoRa or
+  wardrive files, zero UART/write errors. Existing recording files preserved.
+  First live test read 778 wardrive records with zero malformed rows, verified
+  next/previous pages and System return while Wi-Fi kept receiving. It exposed
+  an incorrect parser assumption: the writer stores LoRa CR as 1..4, not a
+  5..8 denominator. Rejected rows were surfaced instead of silently shown.
+  Corrected the range and added actual LoRa-writer round trips for all four
+  CR values, plus a wardrive-writer escape round trip. These pass. Also cleared
+  the error row background so text never overlays the summary status line.
+- Corrected final build passed: static RAM 65,336 bytes, flash 804,973 bytes.
+  Explicit ESP32-S3 upload verified deck MAC 50:78:7D:CE:6D:64 and flash hashes.
+  Full host protocol/RX-only suite passed, including parser/reader/controller
+  tests, actual writer round trips and all 27 OCP checks. 130 synthetic paired
+  source-render fixtures generated; populated, loading, empty and error views
+  reviewed, including clear error text and saved-hex Back labels.
+- Final live test loaded 778 wardrive records and 46 LoRa records with zero
+  malformed rows. Cross-page forward/back selection, saved LoRa hex/ASCII,
+  nested Back, System detour/return and return to the live tool all passed.
+  Wi-Fi remained active through review. Initial final-test setup had no deck
+  live flag after the deck-only reset; a scoped PHY stop before starting the
+  test receiver established the intended precondition. Reset recovery remains
+  its own qualification gate, not claimed by this browser test.
+- Read-only review reported zero SD writes and write/UART errors, GNSS fixed,
+  no open recording files. Heap free 118,228, minimum 98,156, largest block
+  94,196 bytes. Last external cycle 40,480 us, session maximum 275,855 us.
+  This bounded navigation/read test does not establish a multi-hour soak gate.
+  LOGS left open on LoRa sessions with Wi-Fi receiving and RAM debug disabled;
+  operator physical readability/animation review remains pending.
+
+
+## 2026-11-17 — Paired Wi-Fi AP and BLE advertiser dossiers
+
+- Enter opens a pinned BSSID/MAC on both screens without stopping continuous
+  reception. Back restores the same identity when present; missing rows retain
+  their explicitly marked last observation. System detours preserve the receiver.
+- AP radio details retain full identity, security, beacon/MFP provenance and
+  age. `x` opens the observed-client radar from the aged Sniffer cache; `;`/`.`
+  focus peers. No background Sniffer start or inferred bearing/association.
+  `r` explicitly requests a passive survey, then beacon capture if the AP is
+  still in the completed survey. Replies must match BSSID, not reused row index.
+- BLE shows name, MAC, raw company identifier, tracker classification and source
+  count. Its 16-point/120-second RSSI plot appends actual accepted observations
+  only; first-sighting discovery, redraws and other devices cannot invent samples.
+  `r` rescans, cached history freezes, and long gaps stay disconnected.
+- New framework-independent inspection/history models and paired dossier views
+  replace the old AP trace renderer. External frames retain the 200 ms model
+  sampling boundary and the shared SPI/tile-diff renderer.
+- Adversarial test initially failed for the absent inspection header. Identity
+  reorder, foreign reply, missing row, deduplication, client selection, malformed
+  RSSI, ring bounds, gaps and clock-wrap tests now pass. Copy-only mutations of
+  the BSSID guard and sample deduplication both fail the test as required.
+- Rendered actual C++ paired previews checked with synthetic identities. Initial
+  build missed the new inspection include; initial host integration missed the
+  ContactsModel link dependency. Both were corrected.
+- Complete host protocol/RX-only suite passed, including all 27 OCP checks,
+  plus the new dossier tests and two rejected mutations. Cardputer ADV build
+  passed: static RAM 64,224 bytes, flash 779,733 bytes. Explicit ESP32-S3
+  upload verified deck MAC 50:78:7D:CE:6D:64 and all flash hashes.
+- Live receive-only input checks passed: AP Enter/Back kept continuous reception,
+  System return preserved both dossiers, AP survey/capture returned valid beacon
+  data, and BLE rescan retained its identity and grew history from one to two
+  real samples. Other-device discoveries/redraws left history at one sample.
+  BLE pause/Back passed. AP dossier left receiving; RAM debug disabled, no
+  recording files open, SD mounted, no write/UART errors reported.
+- 102 synthetic source-render fixtures generated. Both display layouts reviewed
+  in source renders; user subsequently accepted the normal paired appearance.
+  Remaining populated/empty/error states still need broader physical review.
+  Latest external cycle 41,094 us, session maximum 245,093 us; this short input
+  run does not establish a sustained frame-rate or combined-soak gate.
+
+
+## 2026-11-17 — Stationary GNSS/wardrive comparison passed with test antenna
+
+- User swapped to a larger active antenna for indoor testing, explicitly
+  not the eventual case antenna. Receiver acquired a fresh fix with clean
+  UART/NMEA counters. User confirmed antenna would remain stationary.
+- Idle baseline: 64.03 s, 65 distinct fix epochs, all 12 status polls fresh;
+  3.80 m horizontal RMS scatter around the sample mean, 29.86 m accumulated
+  raw path (27.98 m/min) and 8.80 m first-to-last offset. HDOP polls ranged
+  2.3–5.3. No recording/file writes during the baseline.
+- Normal wardrive logging: 121.15 s, 122 distinct epochs, all 24 status
+  polls fresh; 3.01 m RMS scatter, 39.94 m accumulated raw path (19.78 m/min)
+  and 9.95 m first-to-last offset. HDOP ranged 2.3–5.5, so the difference in
+  scatter is not evidence that logging improves positioning. These metrics
+  measure repeatability/wander, not absolute positioning accuracy.
+- Saved 778 AP observations, zero no-fix skips, zero new UART errors in
+  either interval, zero checksum/overlong failures and zero reported write
+  errors. Deferred close completed and files are closed; relative sampler
+  and RAM debug mode are off. No coordinates, AP identities or payloads
+  were copied into repository artifacts.
+- Longest observed external cycle was 1,885,497 us across session startup/
+  logging/closure, versus the earlier 14,134,041 us session high. This is
+  bounded-run evidence, not a sustained animation-rate guarantee. Final
+  heap free 154,120 bytes, minimum 116,596, largest block 102,388.
+- Cooperative writer fix passed this stationary, fix-valid loaded test.
+  Raw path accumulates substantial distance while physically stationary,
+  including with logging disabled; it remains explicitly labelled RAW GNSS
+  PATH, not travel distance. Outdoor/final-antenna qualification, moving
+  route behavior and longer combined soak remain open.
+
+## 2026-11-17 — Wardrive stall found; stationary drift measurement parked
+
+- User accepted the Sniffer visuals, then requested stationary wardrive/GNSS
+  testing. Antenna placement was beside a window. Baseline live recording
+  showed GNSS UART errors 2 and 3 (Arduino buffer-full/FIFO-overflow), a
+  14,134,041 us maximum external frame cycle, and a 13,899 ms fix age/no-data
+  report. A later fix report does not erase that loss. This establishes a
+  software service/latency problem alongside possible receiver position noise.
+- Cleanly closed the existing recording before flashing; files preserved.
+  Source showed a whole scan page synchronously appended/flushed from the
+  OCP callback, with immediate next-page/rescan scheduling. Changed to one
+  AP record per main-loop iteration, with page-receipt fix/time provenance
+  captured before deferral. Page fetch/rescan waits for the drain. Protocol
+  timeout timing excludes deliberate queued-write waits, with a fresh wait
+  deadline when each page request is sent. No raw fix smoothing was added.
+- A stop request drains queued rows before file closure; both displays show
+  CLOSING. GNSS input is serviced before Grove/tick/AP-write work, track points require
+  a fresh fix, and stale page fixes cannot be written as valid observations.
+  Display distance is labelled RAW GNSS PATH, since summing raw fix segments
+  also accumulates stationary wander. AP/track file formats are unchanged.
+- Added RAM-only `gnss_test start|status|stop` repeatability diagnostics:
+  relative offsets, RMS scatter, raw path, largest step, HDOP/fix age and
+  parser counters; no absolute-coordinate output. UTC epoch deduplication
+  avoids counting GGA/RMC reports of the same epoch twice. UART error counts
+  are atomic and available in display_status.
+- Test-first drain check rejected the original all-rows-per-call behavior.
+  Actual extracted request/drain methods now pass one-row-per-tick, repeated
+  tables, paging, rejected sends, deferred rescan and drain-before-close;
+  cursor and premature-rescan mutations are rejected. GNSS diagnostic tests
+  cover duplicate epochs, stationary return/path inflation, gaps, reset,
+  invalid positions and dateline wrap; a dedup-removal mutation is rejected.
+  Full host/protocol/RX-only checks and the Cardputer build passed. Flash
+  hash verified on ESP32-S3 MAC 50:78:7d:ce:6d:64 (63,560 bytes static RAM,
+  765,521 bytes flash). Shared SD/TFT lock/clock and receive-only limits remain.
+- Receiver reported fix lost before the flash and searching afterward.
+  A 90-second attempt yielded no usable position epochs, with zero checksum
+  or overlong failures. Those zero-sample offsets/scatter are NOT a measured
+  zero drift. User repositioned the antenna but it still did not acquire a
+  fix, then explicitly chose to return to the test later. No stationary
+  baseline or fix-valid heavy logging comparison is claimed. Writer-fix
+  physical qualification, drift quantification and moving-route checks remain
+  open. Cleanup confirmed: sampler inactive with zero samples, no recording
+  open, debug disabled, SD ready, zero write/UART errors since this flash.
+  The idle/no-fix counters do not qualify the fix-valid logging load.
+
+## 2026-11-17 — Paired Sniffer clusters and live client dossier
+
+- User approved Sniffer as the next polish pass. Reworked the companion
+  into a selected AP/request cluster with prominent pink edge, selected
+  client halo, full AP identifier, channel/band, exact RSSI/packet/age dock
+  and explicit drawn/total counts. Root radii show RSSI measured at the
+  probe; client-centred dossier AP/SSID nodes use identity-only orbit layout.
+- Enter opens a paired client/request dossier without stopping reception.
+  Composite MAC+BSSID or MAC+SSID identity pins both list selection and
+  dossier updates across reordered snapshots. Missing rows retain their
+  last observation/time, show ROW MISSING and use a dashed retained link;
+  Back restores the selected row when present, otherwise clamps safely.
+  Restart/pause, System inspection/return and probe-reset cleanup remain
+  explicit. Graphs cap at 12 nodes and always retain the selected row.
+- Onboard lists now fit the full 17-character MAC before their fixed
+  channel/band/RSSI columns. Kept LAST ticker and added Enter/tab hints.
+  The dossier shows full target identity, optional labelled cached AP scan
+  name, channel/band, RSSI, packets and snapshot age. Unknown hop channel is
+  -- rather than a fabricated channel 0. Extracted the existing safe ASCII
+  display helper so real onboard source/chrome can share preview wiring.
+- Added test-first identity/reordering/removal/wildcard/cap fixtures. Copied
+  identity-following and overlapping-column regressions were rejected.
+  The first full check caught removal of the LAST label; restored the ticker
+  alongside the action hint and strengthened actual column-width checks.
+  Tight graph scans compare referenced strings without per-row heap copies.
+- Source-render QA now includes actual 240x135 onboard contacts/dossier and
+  chrome, alongside the external renderer, plus crowded, multi-link,
+  missing-row and cached-name cases. These are synthetic fixtures, not
+  framebuffer captures. Added a RAM-debug-only single-key bench route
+  through the existing onKeys handler and count-only dossier diagnostics.
+- Full host/protocol/RX-only checks passed; focused freshness, column-width
+  and identity checks also pass after the final view changes. Inspected
+  paired active/cached/missing/crowded/multi-link/cached-name previews.
+  Preview tooling converted 85 source fixtures, including actual onboard
+  views/chrome; no device screenshot claim is made.
+- Final Cardputer image flashed with verified hashes to ESP32-S3 MAC
+  `50:78:7d:ce:6d:64`: static RAM 63,360 bytes (19.3%), flash 761,469
+  bytes (22.8%). No probe firmware or protocol literal changed.
+- Live client-key-handler test passed: dossier stayed active while both
+  authoritative snapshot timestamps advanced; Enter/Back, System detour/
+  return and pause/restart preserved the intended inspection/receiver
+  state. A second live test exercised request-tab Enter/Back on the final
+  image. These inject input through the real onKeys path, not keyboard
+  hardware edges; physical layout/control acceptance remains with user.
+- Final diagnostics: ST7789 at 8 MHz, SD ready, zero write errors, heap
+  free 179,100 bytes, minimum 173,756, largest block 159,732. Last external
+  cycle 44,174 us, not a sustained frame-rate qualification. Sniffer client
+  list is left receiving, with RAM debug mode confirmed off. No field
+  identities or payload rows were copied into repo artifacts.
+
+## 2026-11-17 — Automatic heap chart scale for device comparison
+
+- User confirmed the resource monitor is visually successful and physical
+  Back/`i` controls work, then requested trying an automatic vertical scale.
+- Retained free heap and exact KB values. Both traces share one 60-second
+  axis labelled AUTO, with a minimum 10-percentage-point span, 1-point
+  padding where possible and outward-rounded 5-point bounds. Tick labels
+  update to the actual range; an empty chart defaults to 0–100%.
+- Preserved 0.01-percentage-point samples for plotting: the old whole-percent
+  rounding could hide genuine small changes even after axis zoom. Values
+  still clamp to valid 0–100%; zero totals, missing updates and restart
+  gaps keep their existing semantics. No synthetic samples or interpolation
+  were introduced.
+- Added test-first cases for fractional changes, zoom, empty data, full-range
+  and near-100% values, then a broad pairwise bounds/range check. A copied
+  mutation removing the minimum span was rejected. Verification and the
+  physical review build are recorded below.
+- Full host/protocol/RX-only suite and focused scale tests passed. Inspected
+  active/stale source previews with the new axis. Cardputer build/upload
+  passed with hash verification (62,960 bytes static RAM, 749,637 flash).
+- Live chart test passed: channel samples 4 -> 10 -> 16 while System was
+  open, probe status sequence 11 -> 14, then 20 samples after returning to
+  the monitor. ST7789 remains at 8 MHz, SD ready, zero write errors, free
+  heap 184,216 bytes and largest block 159,732. System is left open with
+  channel 6 receiving; RAM debug mode confirmed off. Visual preference for
+  the new zoom was subsequently confirmed by the user as easier to read
+  without being too jumpy. Physical System Back/`i` navigation was also
+  confirmed; other cards and the P5 cold-boot/soak gates remain open.
+
+## 2026-11-17 — Resource monitor flashed; live receive continuity passed
+
+- User reconnected the Cardputer and authorized flashing/testing. Upload
+  identified ESP32-S3 MAC `50:78:7d:ce:6d:64`; flash hashes verified. Added
+  count-only `dump` fields for scope activity/sample count, System view and
+  probe status sequence so continuity is measurable without field identifiers.
+  Final static RAM 62,960 bytes (19.2%), flash 748,961 bytes (22.4%).
+- Passive channel-6 monitor: 4 measured windows before entering System,
+  then 10 and 16 while System remained open. Probe status sequence advanced
+  19 -> 22 during that interval. Returning through the same card-navigation
+  path retained reception and reached 20 windows. System was then reopened;
+  the receiver remains running for user review. No synthetic RF data was
+  injected; no LoRa configuration or capture session was started.
+- End-of-test diagnostics: ST7789 initialized at 8 MHz, SD ready, zero write
+  errors, free heap 184,536 bytes, minimum 182,716, largest block 159,732.
+  Last observed external frame cycle 38,277 us; not a sustained frame-rate
+  qualification. Debug mode was confirmed disabled in RAM afterward.
+- USB exercised card navigation, not physical keyboard edges. On-device
+  visual review and physical `i`/Back gestures remain user checkpoints.
+  No new SD readback/soak claim is made from the idle write counters.
+
+## 2026-11-16 — External System resource monitor
+
+- User requested a Task Manager-inspired external System card instead of
+  repeating the onboard summary, and explicitly chose to keep receivers
+  running while viewing System. The onboard Info layout and external Link
+  health view stay intact.
+- Added a 60-second, fixed 0–100% free-heap chart: green deck, pink probe,
+  exact free KB legend, and activity rows for reported PHY mode, reported
+  LoRa lane, GNSS and actual Drive/LoRa capture files. This shows resource
+  history and engine state, not invented CPU or per-task memory metrics.
+- Deck samples at 1 Hz across all cards. Probe STATUS polling runs at most
+  every two seconds after foreground/health work, never during an in-flight
+  command, paging/retry/handoff or snapshot scan. A bounded 61-sample ring
+  per board deduplicates probe replies; old values are not plotted as new
+  measurements. Gaps, invalid totals and probe restart/link epochs break
+  trace connections; stale probe traces turn slate and show status age.
+- Added `i` to open System without stopping the originating receiver, with
+  Back/`i` returning to that tool (including a locked scope or raw packet
+  inspector). Navigating to a different receiver still stops the saved
+  PHY origin through the existing acknowledgement-gated handoff. System
+  snapshot/navigation logic lives in `app/deck_system_state`, with pure
+  navigation policy in `app/system_navigation`.
+- Test-first resource fixture initially failed to compile before the model
+  existed. Host fixtures now cover cadence, duplicate replies, absent data,
+  zero totals, stale expiry, ring bounds, clock wrap, reboot/link epochs
+  and System origin/exit ownership. Copied stale-expiry and navigation
+  regressions were rejected. Synthetic active/stale/absent previews use
+  the actual renderer, including a deliberate missed-update gap.
+- Full host/protocol/RX-only checks passed with `ASAN_OPTIONS=detect_leaks=0`,
+  as did native TFT lock/bounds and SD mount/clock mutation checks.
+- Final `cardputer-adv` build passed: static RAM 62,960 bytes (19.2%),
+  flash 747,937 bytes (22.4%). USB upload/device navigation review remain
+  pending: the deck is absent from both sandbox and host USB device lists.
+  No physical redraw-rate or scan-continuity claim is made yet.
+
+## 2026-11-16 — Paired-screen inspection and restored constellation context
+
+- User review liked the Packet Monitor scope but rejected the loss of
+  relationship graphics and packet depth. Kept that scope and the onboard
+  System/Link layouts; promoted both health hierarchies to the companion:
+  paired DECK HEAP / PROBE HEAP panels, uptime, Link/GNSS/SD and OCP health.
+- Wi-Fi/BLE now use phosphor RSSI constellations with selected identity
+  dossiers. Angle is a stable hash of identity, not bearing; radius is
+  strength, not distance. Sniffer edges represent reported AP/client or
+  SSID-request rows. Wi-Fi can reuse matching client edges from an explicitly
+  cached sniffer snapshot. BLE shows manufacturer ID, tracker flag and
+  strength relative to the strongest observed advertiser, without invented
+  association edges. AP inspection restores beacon interval/count context.
+- Enter on a LoRa packet opens a frozen, validated hex/ASCII payload on both
+  displays, 64 bytes per page, semicolon/period paging and Back to the list.
+  RX can continue; new arrivals cannot move the inspected bytes. Controls
+  and non-ASCII render as dots. Framing is a guess; no MeshCore decoder added.
+- Back from a locked Packet Monitor waits for scoped PHY STOP acknowledgement
+  before restoring the cached survey and cursor. Stop/resume retains the
+  locked channel instead of silently starting the broad survey. Leaving an
+  inspection level no longer leaves its whole tool. Updated onboard hints.
+- Test-first inspection fixture failed before implementation, then passed
+  malformed hex, immutable payload, page bounds and cached-parent restore
+  with real channel values/timestamps. A temporary corrupted-copy mutation
+  was rejected. Full host/protocol/RX-only checks, native TFT lock/bounds
+  checks and SD 8 MHz/mount checks passed. Final Cardputer build: 58,728 bytes
+  static RAM, 743,633 bytes flash. Source-rendered synthetic active/empty/
+  cached previews and first/last hex pages inspected; original guide compared
+  in Chromium via the Playwright skill. These are not framebuffer captures.
+- First upload failed during USB reset before any flash write. Retry
+  identified ESP32-S3 MAC `50:78:7d:ce:6d:64`, flashed and hash-verified.
+  Normal boot reports ST7789 initialized at 8 MHz, SD ready, zero write
+  errors, 188,676 bytes free heap and 167,924-byte largest allocation.
+  One quiet-view cycle was 58,866 us, not a sustained animation benchmark.
+  Device visual/navigation qualification and a new animation-rate
+  measurement remain unverified; no synthetic radio data was injected.
+
+## 2026-11-16 — Graphical companion overhaul, ready for device review
+
+- User authorized overhauling every external view while retaining the
+  graphical 80s observatory/cyberpunk character and smooth animation,
+  prioritizing Packet Monitor. The Cardputer retains navigation/actions;
+  no radio command, protocol or pin assignment changed.
+- Added a shared instrument vocabulary: phosphor palette, calibration grid,
+  clipped corners, segmented meters, larger selected identity, and two or
+  three supporting readings. Reworked Wi-Fi/BLE signal fields, observed
+  AP/client and SSID-request diagrams, LoRa receive cadence, 802.15.4 LQI,
+  Drive breadcrumb, GNSS fix reticle, Link/Info, AP Detail, detectors and
+  Settings. Removed directional index-radar fiction, duplicated dense
+  lists, persistent hex dump, competing graphs and redundant diagnostics.
+  Logo/startup and normal deck controls remain intact.
+- Packet Monitor now uses one measured 30-second scope of 1-second windows
+  when locked, or indexed dwell-count bars during channel survey. Missing
+  windows remain gaps, cached history freezes, aged data stays explicit,
+  and no observation renders as a measured zero before reception. Exact
+  large counts reduce type size to fit their inspector column.
+- Added `external_instrument`, `external_plot`, `external_gnss_view` and
+  physical 40-pixel dirty spans; adjacent spans merge and cache entries
+  commit only after successful locked sends. Active frame admission is
+  50 ms; quiet views 250 ms. Wi-Fi/BLE/contact snapshot copies are bounded
+  to 200 ms unless focus changes. Direct reads of the fixed RGB565 strip
+  buffer avoid per-pixel pixelcopy setup; initialization checks byte order.
+  Static RAM is 58,504 bytes (17.9%); no full-frame framebuffer is added.
+- Added real-source previews using a small host raster stub and the
+  installed M5GFX font (included, not copied). Python output uses only the
+  standard library. Inspected 51 populated/empty/cached synthetic states;
+  fixed footer collisions, selected-peer visibility, expired-history peak
+  display and a Contacts signature mismatch. Preview output is synthetic,
+  not a captured device framebuffer: `/tmp/oscilla-viewport-review/`.
+- Host checks passed with leak detection disabled for the ptrace sandbox.
+  Added scope tests for empty data, ring order, real gaps, cached freeze,
+  overflow and clock wrap; a gap-bridging mutation on a temporary header
+  was rejected. Transport tests cover span bounds/locking; cache tests
+  exhaust all 256 dirty-span masks plus physical row/tile ownership.
+  The final adjacent-only span planner passed focused checks after the
+  full host suite. Normal and animation/readback fixture builds passed.
+- Hardware evidence: the new partial-span path completed 32 disposable-file
+  cycles (128 KiB written/read back; cleanup complete) during a labelled
+  synthetic scope. Initial animation was 6.4 FPS, with median cycle 150 ms.
+  Direct buffer access raised a short SD-cycle sample to 14.6 FPS, median
+  62 ms, maximum SPI span 801 us; its 4 KiB readback/cleanup passed. Merging
+  across one clean tile was slightly slower (14.1 FPS, median 68 ms,
+  maximum span 822 us), so that experiment was reverted. These are bounded
+  synthetic measurements, not a 20 FPS or sustained-soak guarantee.
+- Restored the normal review image on the confirmed ESP32-S3 deck. USB
+  verified driver initialization, ongoing render frames, 8 MHz clock,
+  `sd_ready=1`, zero write errors and 177,572 bytes free heap (155,636-byte
+  largest block) after boot. It is not left in the synthetic bench fixture.
+  Updated brand instructions/module map. Full on-device visual acceptance
+  across cards, physical cold boot and sustained soak remain open.
+
+## 2026-11-16 — ST7789 8 MHz redraw/SD readback passed
+
+- User confirmed the corrected native-driver colours, reinserted SD, and
+  reported slow updates at the conservative 1 MHz clock. Tested the same
+  native transport at 8 MHz while SD stayed at 8 MHz; the user confirmed
+  clean colours/output without streaks or flicker as the counter advanced.
+- The existing armed coexistence fixture completed all 32 cycles:
+  512 accepted 256-byte writes, 131,072 bytes written, 131,072 bytes read
+  back and verified, final `phase=passed`, `cleanup=removed`. Every cycle
+  removes its unique disposable file before advancing. The fixture ran
+  for roughly four minutes with TFT redraw interleaved under the shared
+  storage lock. This is bounded coexistence evidence, not a sustained soak.
+- Set the normal ST7789 clock to 8 MHz (1 MHz remains available as a bench
+  override). A full RGB565 frame's wire-time floor falls from 1.23 s to
+  154 ms; the renderer's 330 ms data cadence remains a schedule, not a
+  measured refresh-rate guarantee. USB diagnostics now report configured
+  clock alongside initialization and row counts.
+- Rebuilt and restored the normal `cardputer-adv` image to the confirmed
+  ESP32-S3 deck. Post-flash USB confirmed `clock_hz=8000000`, native row
+  sends increasing 584→622, `sd_ready=1`, and zero write errors. The
+  normal app is restored; the device is not left in the bench fixture.
+- Final full host checks passed with `ASAN_OPTIONS=detect_leaks=0`,
+  including lock-bypass and overclock rejection. Normal, standalone colour
+  and coexistence builds passed. `git diff --check` passed. Updated current
+  architecture/pin guidance, the P5 bounded-readback gate and hardware log.
+  Physical power-cycle/cold-boot qualification and sustained soak remain open.
+
+## 2026-11-16 — Native ST7789-only transport and polarity correction
+
+- The user reported the command-adapter normal image still produced only
+  backlight, despite the standalone native-driver colour fixture working,
+  and authorized retiring the old display support. The failed command
+  adapter is not counted as physical integration success.
+- Replaced raw SPI initialization and pixel writes with `external_tft`,
+  a full M5GFX ST7789 device. It uses the SD's same SPI2 controller/global
+  Arduino SPI backend, retains GPIO39 MISO for SD, initializes after storage,
+  and takes the existing bounded storage lock for setup and each row.
+  Native CS, RGB565/byte order and rotation replace manual command parsing.
+  TFT remains write-only, 1 MHz; SD remains 8 MHz.
+- Made ST7789 the default `cardputer-adv` configuration; kept the
+  `cardputer-adv-st7789` alias and the standalone reference fixture. Retired
+  selectable ILI9341/no-CS profiles and removed their normal-app branches,
+  parking and corner reservation. Historical fixture files and bench
+  records remain. The companion renderer shrank to 300 lines, retaining
+  all views and physical-row caching; internal deck controls are preserved.
+- Added `display_status` driver initialization/row counters. After flashing
+  the native-driver image to the confirmed ESP32-S3 deck, USB reported
+  initialization and row sends increasing from 592 to 625. User confirmed
+  the interface was visible, but reported white background/blue logo.
+  Changed `panel.invert` from true to false in the normal driver and the
+  standalone reference, rebuilt and flashed the correction. Final colour
+  confirmation and SD reinsertion are pending.
+- Native-driver host tests cover shared-controller configuration, bounds,
+  failed initialization/locking, and absence of unlocked sends; a
+  temporary lock-bypass mutation is rejected. The polarity expectation
+  failed against the prior true flag and passed with false. Renamed the
+  storage check to `check_sd_storage.py`, retaining mount/remount and
+  overclock rejection. Full host checks passed before the one-flag polarity
+  correction; the focused native-driver check passed after it. Normal and
+  coexistence builds passed, and the corrected normal image was flashed.
+  Updated module map, current hardware/profile guidance and README.
+- SD/display readback, cold boot with SD and sustained soak remain open.
+
+## 2026-11-16 — Normal-deck ST7789 integration
+
+- User confirmed colour output from the isolated ST7789 fixture and
+  authorized normal-firmware integration and SD coexistence checks.
+  Added `cardputer-adv-st7789` with the same 1 MHz TFT clock, landscape,
+  RGB565, BGR and inversion settings. SD is capped at 8 MHz for this
+  profile. The original no-CS and ILI9341 CS profiles remain selectable.
+- Added `external_st7789_init` to consume the pinned M5GFX ST7789 command
+  sequence through the existing Arduino SPI transaction; it never creates
+  another bus. Storage still initializes before TFT traffic and the same
+  storage lock covers transactions. CS remains high during SD access;
+  CS-equipped fixtures skip no-CS window parking. Startup diagnostics now
+  describe commands sent instead of claiming display acknowledgement.
+- Host regression records initialization commands, delays, RGB565,
+  rotation and inversion; a deliberately wrong inversion on a temporary
+  source copy is rejected. Storage tests cover the ST7789 clock cap on
+  mount/remount and reject an overclock mutation. Full host checks passed
+  with `ASAN_OPTIONS=detect_leaks=0`; the updated storage checks passed
+  separately after the cap change. Initial builds passed for normal
+  ST7789, ILI9341 CS, and no-CS profiles; the final ST7789 image built and
+  flashed successfully to the confirmed ESP32-S3 deck. Final regression
+  rebuilds of both ILI9341 profiles also passed after the shared-bus changes.
+- USB `display_status` confirmed the integrated app is running, SD absent
+  as expected, zero write errors, and GNSS searching. User visual
+  confirmation of the normal interface and SD reinsertion are pending.
+  Added and built `sd-st7789-check`, using the existing armed disposable
+  file fixture (32×4096-byte write/read/cleanup cycles) at TFT 1/SD 8 MHz.
+  It has not yet run on this panel. Cold-boot/soak qualification remains
+  open; the 1 MHz clock implies at least 1.23 s of wire time per full frame.
+- Updated Rev D §5.4, the module map, README profile guidance and roadmap
+  without declaring the replacement-panel qualification gate complete.
+
+## 2026-11-16 — Isolated ST7789 test for replacement TFT
+
+- The user observed a white external screen after the ILI9341 CS-profile
+  flash. Goldenmorning's catalogue lists GMT028-05 as ST7789:
+  <https://goldenmorninglcd.com/tft-display/>. Treat this as a controller
+  candidate until the physical panel renders; the earlier app's ready
+  message was not a display acknowledgement.
+- Added `tft-cs-check` / `bench/tft_cs_check.cpp`: existing M5GFX ST7789
+  driver, 240×320 geometry rotated to landscape, write-only at 1 MHz,
+  GPIO5 CS and Rev D signal mapping. The internal LCD labels the test;
+  external bars and solid red/green/blue/white frames cycle every three
+  seconds. No SD driver, GNSS, or probe traffic runs in this fixture.
+  Updated the module map and Rev D replacement-panel record.
+- User confirmed power off, microSD removal, and USB reconnection before
+  flashing. The initial compile needed an explicit ST7789 panel header;
+  the corrected build passed. Flashed all boot images and app to the
+  confirmed ESP32-S3 deck `50:78:7D:CE:6D:64`; flash verification passed.
+  USB then reported consecutive `pattern=1` and `pattern=2` sends, proving
+  the test booted and its loop runs. Physical colour output remains pending.
+- `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed, including
+  conformance and mutation checks; the receive-only guard was rerun after
+  the header correction and passed. `git diff --check` passed. The normal
+  deck firmware has not yet been converted to ST7789; SD coexistence and
+  cold-boot/soak qualification remain open.
+
+## 2026-11-16 — Replacement CS TFT firmware flashed
+
+- User reports the GMT028-05 V1.1 2.8-inch 240×320 SPI display powered at
+  3.3 V with its backlight on, and CS connected to Cardputer EXT13/GPIO5.
+- Built and flashed the existing `cardputer-adv-cs` profile to the confirmed
+  ESP32-S3 deck, USB serial `50:78:7D:CE:6D:64`. PlatformIO wrote and verified
+  the bootloader, partition table, boot application stub, and application.
+  USB diagnostics then reported `deck state=ready` and `sd_ready=1`, with
+  zero write errors. This confirms app boot, not physical TFT output or
+  sustained SD/display coexistence; visual confirmation remains pending.
+- The CS-profile build and all 27 OCP selftests passed. The first host-check
+  run encountered LeakSanitizer's ptrace restriction; reran with leak
+  detection disabled (`ASAN_OPTIONS=detect_leaks=0`), and the full host-check
+  suite passed. No firmware source
+  changes were needed for this flash.
+
+## 2026-10-11 — Paired deck and external-display UI lab
+
+- Updated `docs/deck-ui-state.html` into an interactive, source-based preview of
+  the 240×135 Cardputer and 320×240 external ILI9341 together. The gallery now
+  includes the current deck cards, AP Detail, Settings, Help, startup, and all
+  external companion views, including the GPS/status fallback.
+- Added synthetic live, cached, empty, and probe-offline fixtures; independent
+  link, GNSS, SD, battery, LoRa configuration, Anti-Surveillance, and panel
+  profile controls; and navigation controls for selection, tabs, capture,
+  monitoring, and Drive logging. No captured observations are used.
+- The Canvas preview repaints full frames and approximates M5GFX text. Embedded
+  JavaScript parsing and `git diff --check` pass. Browser rendering could not be
+  inspected because the in-app browser blocked local `file://` access; no
+  device framebuffer or physical-panel visual check was performed.
+
+## 2026-10-10 — Fixed external redraw cache row ownership
+
+- Wi-Fi and spectrum selection artifacts came from comparing each rendered
+  strip against pixels cached from the previous strip position. The 24-pixel
+  scratch sprite moves down the panel, so that cache could suppress rows whose
+  on-screen contents were different. The renderer now tracks a compact hash
+  per physical LCD row and still sends only rows that changed. All external
+  pages use the shared clear-and-diff path. Link/System, Contacts, and 802.15.4
+  tab changes now have distinct view keys and force a full repaint; AP Detail
+  remains on the faster data cadence even before a row is selected.
+- Added a host regression test for clearing the prior selector row, painting
+  the new row, retaining lazy skips, and repainting on page invalidation.
+  `ASAN_OPTIONS=detect_leaks=0 ./tools/check_protocol.sh` passed, and
+  `./tools/build_firmware.sh` passed for all nine environments. No image was
+  flashed during this correction; visual inspection on the panel remains open.
+
+## 2026-10-10 — External companion displays and TFT/SD clock bench fixture
+
+- Completed the requested four card-specific external views, including Wi-Fi,
+  and the related display animation/information-density updates. The full
+  `./tools/build_firmware.sh` completed successfully across all eight
+  configured environments; `git diff --check` passed.
+- Added `tft-sd-clock-check`, a USB-serial-controlled, no-CS-panel bench image.
+  It accepts `clock 4`, `clock 6`, `clock 8`, or `clock 10`; each run sends 32
+  full-screen color frames, reports mean/max frame-transfer time, then checks
+  and removes a disposable 4 KiB SD file after each frame. SD stays at 8 MHz;
+  TFT transfers stay inside the shared lock, and the write window is parked
+  before SD access. This measures transfer time and exercises shared-bus
+  coexistence; it cannot automatically detect visual corruption on this
+  write-only panel.
+- The fixture built and was flashed to the Cardputer. At 4, 6, 8, and 10 MHz,
+  32 full-color frames each completed with 32/32 interleaved 4 KiB SD writes,
+  reads, and cleanup checks passing. Mean frame times were 313, 220, 158, and
+  128 ms respectively; the user confirmed clean images at every rate. Restored
+  the normal application image after the bench run. This is not a current-draw
+  measurement or a sustained soak.
+- Promoted the existing no-CS panel to 8 MHz TFT with 8 MHz SD; retained 4 MHz
+  for the replacement CS profile until that panel is physically qualified.
+  The tested setup is the existing no-CS display only.
+- Fixed targeted redraw transitions by forcing all ten strips to the panel on
+  each page change, while retaining scanline updates during normal frames.
+  Centered the external startup wordmark and both status lines using measured
+  font widths. Full firmware build passed across all nine environments; the
+  regular Cardputer image flashed at 115200 with esptool hash verification.
+  Screen transitions and typography still need the user's visual check.
+
+## 2026-10-10 — Selectable ILI9341 CS wiring profiles
+
+- The user confirmed the replacement remains an ILI9341 and exposes CS. Added
+  `cardputer-adv-cs` alongside the default `cardputer-adv` no-CS profile; the
+  panel cannot be autodetected because display transfers are write-only.
+- The CS profile uses GPIO5 / EXT13 per Rev D §5.1, asserts CS only inside the
+  shared SD/TFT lock and SPI transaction, then deselects it before releasing
+  the bus. It omits no-CS RAM-window parking and the SD corner overlay. The
+  original profile retains its existing parking and SD tile behavior.
+- The CS profile also keeps CS high while SD initializes, enables the existing
+  external-display main-loop gates, and uses the standard 25 MHz SD setting;
+  the no-CS profile retains its 8 MHz cap. Both profile builds pass, and both
+  compiled objects contain the display init/reset/tick entry points.
+- Both profiles retain the existing ILI9341 initialization, clock rates, and
+  renderer. The new physical module's exact supply/regulator details and live
+  pinout still need bench verification against the listing and the actual board.
+
+## 2026-10-09 — External viewport motion and information density
+
+- Applied the master brand guide's chrome-free external viewport rule: removed
+  repeated controls-on-deck and passive-mode footers, retained RX-only on the
+  System/Info page, and replaced duplicated copy with useful snapshot,
+  correlation, channel-history, or geometry context. Removed Wi-Fi's always-true
+  `RX` suffix; the selected row now reports its BSSID and detail availability.
+- Added short data-triggered accents for Wi-Fi inventory growth and deauth event
+  count increases, plus a one-second pulse on recently observed tracker rows.
+  The SD corner now uses a disk glyph and distinct ready, recent accepted write,
+  unavailable, and short-write fault states; its write pulse is bounded by the
+  existing 1.5-second activity window and the accepted-write counter remains
+  visible. This is write-acceptance status, not durability/readback proof.
+- Motion redraws remain in the existing 24-pixel strip schedule and pixel-diff
+  path. No SPI ownership, bus rate, radio behavior, or external command surface
+  changed. `./tools/build_firmware.sh` passes for both firmware targets and all
+  seven PlatformIO environments after removing a duplicate Settings brightness
+  accessor that the first compile exposed. No hardware/display preview was run
+  for this visual iteration; the physical color/layout check remains open.
+
 ## 2026-10-09 — External 802.15.4, Link/System and startup views
 
 - User authorized continuing through the guide, explicitly including Link,
@@ -5304,3 +6347,78 @@ the channel bars by splitting unused chart width across both sides, and used
 the recovered vertical space to give the chart a taller top region.
 
 ## 2026-09-17 — Made Beacons PHY conflicts explicit and restored its pink accent
+## 2026-10-09 — Increased external companion display frame cadence
+
+**Phase:** P5 external TFT · **By:** Codex
+
+External data views now schedule a new ten-strip frame every 330 ms;
+GPS/status remains at one frame per second. Each main-loop
+call still transfers at most one 24-pixel strip under the shared SD/TFT lock,
+and the rendered view stays pinned to the snapshot sampled at frame start.
+This improves frame cadence without lengthening a bus-lock interval. The
+write-only no-CS panel cannot report presence with MISO disconnected, so init
+continues to follow the selected board configuration rather than claiming
+runtime detection.
+
+The 330 ms interval is a scheduling target, not a measured rate. A full frame
+is 153,600 RGB565 bytes; at 4 MHz the pixel-only transfer floor is about
+307 ms. Physical cadence and sustained SD/TFT qualification remain hardware
+gates.
+
+## 2026-10-09 — Added external Wi-Fi Scan companion
+
+**Phase:** P5 external TFT · **By:** Codex
+
+Added a display-only Wi-Fi Scan viewport for the selected list page, with
+passive AP rows, safely printable SSIDs, channel/band/RSSI, selected BSSID,
+AP count and live/scanning/cached/truncated state. It consumes the same
+frame-sampled `ScanModel` as the deck and preserves one-strip-per-call shared
+bus access. The UI/build source maps now include the new module.
+
+All seven `tools/build_firmware.sh` environments passed and `git diff --check`
+passed. Physical page/layout inspection remains pending.
+
+## 2026-10-09 — Skip unchanged external display scanlines
+
+**Phase:** P5 external TFT · **By:** Codex
+
+The strip renderer now caches the last 320-pixel-wide strip in deck RAM and
+compares rendered scanlines before taking the shared bus lock. It transmits
+only changed scanlines, and skips pixel data for an unchanged strip; the
+no-CS panel write window is still parked before the lock is released. The
+cache is invalidated on external-page changes so every new page gets a full
+initial paint. This reduces bus traffic for static regions while retaining
+the existing one-strip-per-loop scheduling. Full-screen animation still has
+the 4 MHz transfer floor.
+
+All seven firmware build environments passed and `git diff --check` passed.
+Physical cadence, panel artifacts, and the SD-interleave hardware soak remain
+unverified for this implementation.
+
+## 2026-10-09 — Align the internal and external boot marks
+
+**Phase:** P5 external TFT · **By:** Codex
+
+Changed both startup wordmarks to lowercase `oscilla`. Setup now initializes
+SD before beginning the existing three-second internal boot hold, then
+initializes and paints the external startup view before drawing the internal
+boot screen. Both logos therefore remain visible together during the hold;
+the external logo is sent in ten short strip transactions with the normal
+no-CS panel parking behavior.
+
+All seven firmware build environments passed. Physical simultaneous boot
+appearance and cold-boot behavior remain to be checked on the device.
+## 2026-10-09 — Added the remaining external card companions
+
+**Phase:** P5 external TFT · **By:** Codex
+
+Added display-only AP Detail, Deauth Detect, Anti-Surveillance, and Settings
+renderers and wired them to the currently selected deck page. Their content
+uses the same AP inspection, deauth event, deck-local tracker-correlation,
+and brightness state as the internal cards. The external dispatch already
+had Wardrive state available; confirmed and retained its page routing.
+
+The build was attempted but PlatformIO stopped before compilation because
+`/home/d3mo/.platformio/.cache` is not owned by the current user. Source
+format validation passed with `git diff --check`. Physical layout, SD/TFT
+concurrency, and live page transitions remain hardware checks.

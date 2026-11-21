@@ -97,7 +97,7 @@ Reproduce with two scripts — `tools/check_protocol.sh` (host, no toolchain) an
 - [x] `wifi_recon.c` / `wifi_inspect.c` — **passive** `scan_networks` ✅, `show_scan_results` with paging ✅, passive `inspect_network <i>` (MFP + uptime) ✅.
 - [x] Frame emission: `[SCAN]` CSV rows, `[INSPECT]`.
 - [x] *(added)* `beacon_parse.c` — fuzzed under ASan/UBSan; `tools/check_rx_only.py` — transmit-API denylist; `ocp_repl.py --gate-wifi` — 41 live checks + 1 skip (no WPA3-only AP in range).
-- [x] Deck: **Wi-Fi Scan** + **AP Detail** views over real frames — `app/deck_app`, `model/scan_model`, `ui/sweep_view`, `ui/trace_view`; auto-paging; 16 KB drained RX buffer.
+- [x] Deck: **Wi-Fi Scan** + **AP Detail** views over real frames — `app/deck_app`, `model/scan_model`, `ui/sweep_view`, `ui/wifi_detail_view`; auto-paging; 16 KB drained RX buffer.
 
 **Exit gate:** `scan_networks` and `inspect_network` verified via `ocp_repl.py` against a live AP, then the same data rendered in Wi-Fi Scan/AP Detail on the deck. `stop` always returns to idle.
 
@@ -144,6 +144,7 @@ gate.
 - [x] Model: current-fix service feeding the logger. `GnssModel` exists with the exact fields DESIGN §9.1's struct calls for (`lat/lon/alt/hdop/utc/valid` + derived `age_ms`), plus a full calendar date (`year/month/day`, parsed from RMC — GGA carries none) added 2026-09-14 for the wardrive CSV's FirstSeen column.
 - [x] **Drive view + wardrive logging wired (2026-09-15), hardware-confirmed (2026-09-16).** `GnssModel` moved into `DeckApp` and now feeds `src/ui/gnss_view` — a home card showing fix state, position, HDOP, fix age, UTC date and the session's counters. The model's `GnssState` (`NoUartData`/`Searching`/`FixLost`/`Fixed`) means "no fix", "lost the fix" and "the receiver stopped talking" are one decision made once. `src/storage/wardrive_logger` opens a numbered session writing **both** a WigleWifi-1.6 CSV and a KML track+placemarks; `l` on the Drive card toggles it (also reachable via the debug console's `wardrive` command). 49 host tests on the model, including the antenna-unplug transition and a proof the checks go red when the states are collapsed — all since matched by the real transition on hardware.
 - [x] **GNSS wire-corruption diagnostics (2026-09-16).** A card review found sessions producing far fewer distinct fixes than a steady lock should. Root-caused to `Serial2`'s RX buffer sitting at the Arduino core's 256 B default against a shared-SPI-bus SD flush on every AP row (Rev D §5.2) — fixed with `setRxBufferSize(2048)`, a real `onReceiveError()` hardware overflow callback, and checksum/overlong drop counters in `NmeaParser`. Confirmed fixed on a 21-minute outdoor session: 5254/5254 AP rows had a fix (zero `nofix`), 252/252 track points landed (vs. 3 before the fix), 251 of them distinct positions.
+- [ ] Stationary/moving wardrive follow-up (2026-11-17): cooperative row draining/fresh-fix guards address whole-page SD stalls. Stationary comparison passed with a larger indoor test antenna: 64 s idle + 121 s logging, 778 AP observations, zero UART/NMEA/write errors; RMS wander 3.8 m idle / 3.0 m logging. Final-case antenna, outdoor/moving route and longer soak checks remain open.
 - [ ] Runtime baud setting. Still a compile-time constant (`kGnssBaudDefault` in `main.cpp`). The bench confirmed the delivered unit is 9600 as shipped, so a settings UI for a value that's never needed changing stays speculative work — revisit only if a different unit ever requires it.
 
 **Exit gate: MET — 2026-09-16.** All three requirements demonstrated on real hardware in one session: a live fix acquired outdoors and held continuously for 21+ minutes with age shown (`age_ms` fresh every ~5s, zero drops); unplugging the antenna produced `fix lost` — not `no data` — while NMEA sentences kept arriving over UART (`chkfail`/`overlong` stayed at 0 through the drop, confirming the link itself never broke); reconnecting recovered cleanly back to `fix`. The wardrive session logged through the same window confirms the CSV/KML side of the gate too: every fixed observation was written, an earlier all-no-fix session (`drive_0003`) confirmed the `nofix` counter and empty CSV path both work when there's never a fix at all. Full detail in WORKLOG 2026-09-16.
@@ -160,6 +161,11 @@ gate.
 
 **Work:**
 - [x] ILI9341 write-only landscape init, MISO unconnected, 4 MHz; delivered no-CS variant uses Rev D §5.3 pins and corner-pixel parking. Colour/GPS screen observed on hardware 2026-10-09.
+- [x] Replacement GMT028-05/ST7789 colour fixture: user confirmed colours on 2026-11-16; normal-app profile uses TFT 8 MHz / SD 8 MHz (Rev D §5.4).
+- [x] Native ST7789-only normal-app output and corrected colour polarity confirmed by user, 2026-11-16.
+- [x] Replacement ST7789 native output/colours confirmed; 8 MHz TFT/SD passed 32 write/read/cleanup cycles (128 KiB), with clean redraw confirmed by user, 2026-11-16.
+- [ ] Qualify physical cold boot with SD and sustained soak on the replacement ST7789.
+- [ ] Review the graphical companion overhaul on-device: Packet Monitor scope first, then populated/empty/cached states across the other cards. Source previews and bounded animation/SD checks pass. Operator accepted Sniffer visuals, the Packet Monitor redesign and System resource monitor, including automatic heap scaling and physical Back/`i` navigation (2026-11-17); remaining card states still need review.
 - [x] **Single shared-bus lock** covering SD + TFT; SD brought up first. Interleaved fixture passed 32 cycles / 128 KiB readback; user confirmed clean display after parking. Delivered variant caps SD at 8 MHz.
 - [ ] Second-panel detection at boot; expanded views on the 240×320.
 - [ ] Touch stays disabled (Rev D baseline).
@@ -186,6 +192,52 @@ remain open; P5 is not declared complete.
 - [ ] Record resets, timeouts, serial overruns, storage errors; measure supply dips.
 - [ ] Set the real power-interlock thresholds in the arbiter from measured headroom.
 - [ ] Cold-start / independent-reset recovery; native-USB flashing with the backpack attached.
+
+2026-11-17: targeted heap regression sampled 30 min 17 s across two recording
+segments (USB sampler interruption explicitly recorded). Passive Wi-Fi + LoRa
+SD logging + GNSS + paired session/System UI completed 24 review cycles.
+Probe free heap and both largest blocks stayed constant; deck recovery heap
+remained bounded. Zero observed reset/UART/write/log-drop faults. This does
+not close the uninterrupted multi-hour soak or measured-power gates; see WORKLOG.
+
+2026-11-19: recovered the earlier endurance attempt's USB-disconnect outcome
+(last sample 990.38 s after loaded baseline; no phase completed). Restarted
+the two-hour steady, 30-minute passive mode-switching and one-hour powered-on
+use/idle sequence with count-only automatic reports and sparse follow-up.
+The steady phase completed 7,200.50 s without observed reset/error/drop faults;
+probe current heap stayed constant and deck post-warm-up heap remained bounded.
+Mode switching then failed after 7 min 17.52 s: deck allocation abort in contact
+snapshot vector growth, with only 7,796 B in the largest free block at the last
+sample. Periodic use never started; recording closure was unconfirmed. GNSS
+acquired a fix after baseline. Fix/retest mode-switch memory pressure before
+claiming combined endurance; measured power and P5/P6 exit gates remain open.
+
+2026-11-20: removed overlapping contact/BLE snapshot table allocations and
+released inactive external-display model copies while retaining app caches.
+Host/mutation checks, both normal firmware builds and stack guards passed;
+updated deck flash verified. Retest completed eleven mode slots, including both
+sniffer slots, then aborted on AP-vector growth in the final Wi-Fi live slot
+(1,712.19 s overall). Switching still fails; periodic use and the new steady
+soak never started. Bound remaining AP/mixed-mode allocation peaks and retest.
+No new-firmware endurance gate is claimed; recording closure was unconfirmed.
+
+Follow-up: AP inventory now grows in small blocks instead of reallocating a
+contiguous array. Host full-capacity/live/paged/frozen-copy tests reject blocks
+over 4 KiB; mutation restores the failure. Normal firmware builds and stack
+guards pass, deck flash verified. First-test-only run PASSED all twelve mode
+slots in 1,800.43 s, reported clean recording closure and 120.13 s idle recovery.
+Zero timed errors/resets/panics/drops/retries; minimum free loop stack 2,816 B.
+Idle deck heap stayed within 99,376–99,464 B; probe recovered to 99,172 B.
+Periodic use and the new-image long soak remain unrun and did not automatically
+start. This first-test pass does not close measured-power or P5/P6 gates.
+
+Subsequently authorized periodic/long attempt was interrupted by USB loss:
+one full cycle completed, then disconnect during cycle 2 idle (last sample
+1,029.93 s overall). Both use recordings had closed before loss; no sampled
+firmware/protocol/storage fault preceded it. Host kernel logged repeated USB
+re-enumeration and `-71` errors. Periodic qualification remains incomplete and
+the new-image two-hour stage never started. Check USB stability and rerun from
+a fresh baseline; the separate first mode-switching pass remains valid.
 
 **Exit gate:** a documented current budget in `docs/hardware/`; the arbiter's interlock reflects it; a clean multi-hour soak. Only after this does Grove-powered operation ([D-4](docs/DECISIONS.md)) get evaluated.
 
@@ -249,6 +301,8 @@ C5 + Wio-SX1262 backpack only.
 
 - [x] *(started 2026-09-17)* Deck UI foundation: brand semantic theme, shared deck chrome, grouped route metadata, and the SYSTEM/LINK → OBSERVE/WIFI SCAN → AP DETAIL first slice. See [`docs/brand/README.md`](docs/brand/README.md) and [`WORKLOG.md`](WORKLOG.md).
 - [x] Migrate the remaining view renderers onto the shared shell with grouped titles and common controls.
+- [ ] Paired AP/BLE dossiers: identity-pinned inspection, cached client relationships and real-observation RSSI history implemented; rendered previews and host checks available, operator accepted normal paired dossier appearance; remaining error-state review pending.
+- [ ] Saved-session browser implemented: bounded read-only SD snapshots, summaries, paged wardrive/LoRa records and saved packet hex. Host/source-render and real-SD bench checks passed (778 wardrive rows, 46 LoRa packets, paging/hex/Back, reception preserved); operator layout review pending.
 - [ ] Validate the rendered result and keyboard behavior on the Cardputer hardware.
 
 **Exit gate:** a field session start-to-finish on battery without a bench.

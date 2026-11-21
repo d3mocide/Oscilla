@@ -144,7 +144,7 @@ flowchart LR
 | M5Stack Cardputer ADV (ESP32-S3) | Deck: keyboard, internal LCD, external LCD, GNSS, SD | — |
 | Seeed XIAO ESP32-C5 | Probe: Wi-Fi 2.4/5, BLE, 802.15.4, LoRa control | Deck, via Grove UART |
 | Seeed Wio-SX1262 for XIAO (SKU 113010003) | LoRa transceiver, 862–930 MHz | C5, via **custom wire harness** — *not* a stacked shield |
-| 2.8" ILI9341 TFT, 240×320, 11-pin w/ touch | External display (touch disabled in baseline) | Deck rear EXT header, **shared SPI with internal SD** |
+| ST7789 GMT028-05 TFT, 2.8-inch 240×320, seven-pin SPI | External display (no touch) | Deck rear EXT header, **shared SPI with internal SD** |
 | ATGM336H GNSS breakout (5-pin) | Position/time | Deck rear EXT header, own UART |
 | Internal microSD | All logging | Existing deck wiring |
 
@@ -346,11 +346,20 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 |---|---|---|
 | `src/main.cpp` | wiring | M5 + Grove UART (16 KB, drained before drawing) + keyboard + app |
 | `src/app/deck_app` | app | Home-card flow including Wi-Fi Scan, Wi-Fi Scan → AP Detail drill-down, command orchestration, auto-paging, reconnect/keepalive |
-| `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels; AP Detail alone is a drill-down |
+| `src/app/deck_sessions` | app | Receiver-preserving saved-session entry, record/hex drill-down and paged cursor control |
+| `src/app/deck_wardrive` | app | One AP row per loop, page-fix provenance, deferred rescan and queued-row drain before close |
+| `src/app/deck_debug_snapshot` | app | Sequential count/state serialization with a bounded command-stack frame |
+| `src/app/deck_gnss_diagnostics` | app | RAM-debug relative stationary-fix diagnostics without absolute-coordinate output |
+| `src/app/deck_device_inspection` | app | Identity-pinned AP/advertiser entry, snapshot remapping and explicit passive refresh |
+| `src/app/deck_contact_inspection` | app | Sniffer selection remapping and identity-pinned client/request dossier orchestration |
+| `src/app/deck_system_state` | app | Measured resource/activity snapshot and receiver-preserving System navigation |
+| `src/app/system_navigation` | app | Pure System inspection origin/return policy |
+| `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels; AP Detail and raw packet inspection are drill-downs |
 | `src/app/phy_handoff` | app | Acknowledgement-gated `stop phy` handoff before a successor claims the shared PHY lane |
-| `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap, inspect result |
+| `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap in small allocation blocks, inspect result |
+| `src/model/snapshot_rows` | model | Contact/advertiser snapshot replacement with reused storage and no overlapping table allocations |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
-| `src/ui/sweep_view` · `src/ui/trace_view` · `src/ui/dwell_animation` | view | AP list; one AP in depth; shared bounded-listen progress |
+| `src/ui/sweep_view` · `src/ui/dwell_animation` | view | AP list and shared bounded-listen progress |
 | `src/ui/chrome` | view | Shared deck header, transport strip, expanded body budget, status/battery indicators, and transient notices |
 | `src/ui/theme` | view | Brand semantic palette and fixed 240×135 layout budget |
 | `src/ui/boot_screen` | view | Short branded startup identity using the Lens Core mark and deck wordmark |
@@ -370,23 +379,50 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/storage/wardrive_logger` | services | Opens/writes/closes a wardrive session's CSV **and** KML on SD, under `sd_storage`'s lock |
 | `src/ui/gnss_view` | view | The Drive card: fix state, session counts. P4's exit-gate instrument |
 | `src/model/drive_trail` | model | 64-point fresh-fix RAM breadcrumb, gap boundaries and logging-session duration/cache; no SD writes |
+| `src/model/gnss_noise` | model | Epoch-deduplicated relative scatter/raw path statistics; gaps never add distance |
+| `src/model/session_review` | model | Strict session names, grouped bounded inventory, hostile CSV validation and six-record snapshot pages |
+| `src/storage/session_reader` | services | Read-only inventory and fixed-length file snapshots, one directory entry or 512 bytes per shared-bus turn |
+| `src/ui/session_view` | view | Paired LOGS inventory, observed-span/signal summary, saved records and raw packet inspection |
+| `src/model/device_inspection` | model | Pinned AP/BLE identities, retained missing rows and observed client selection |
+| `src/model/signal_history` | model | Bounded real-observation RSSI ring, 120-second plots, gap and wrap handling |
+| `src/ui/wifi_detail_view` | view | Paired AP radio/client dossier with explicit capture and cached-link provenance |
+| `src/ui/bt_detail_view` | view | Paired advertiser identity and measured RSSI history with source and age labels |
+| `src/model/contact_inspection` | model | Composite client/AP or client/SSID identity, live dossier retention and bounded relationship groups |
+| `src/ui/contact_detail_view` | view | Onboard full identities, channel, RSSI, packets, snapshot age and missing-row state |
+| `src/ui/external_contact_detail_view` | view | Selected-client ego graph of reported AP or SSID-request links; no distance/bearing inference |
+| `src/ui/display_text` | view | Shared safe ASCII labels for deck renderers |
+| `src/model/system_resources` | model | Fixed 61-sample heap rings; 60-second percent plots, deduplicated probe replies, gaps and restart boundaries |
 | `src/model/system_status` | model | Plain snapshot of measured deck/probe diagnostics; framework independent |
-| `src/ui/external_system_view` | view | Lens Core startup viewport and Link/System measured diagnostics |
+| `src/ui/external_system_view` | view | Lens Core startup, Link health and live heap/resource monitor with reported activity |
 | `src/ui/external_zig_view` | view | Passive PAN/node inventory, RSSI/LQI rails and selected MAC identity; no topology inference |
-| `src/ui/external_contacts_view` | view | Rendered-guide RSSI/index field of reported BSSID links or probe requests, snapshot age, row rail and measured inspector |
-| `src/ui/external_bt_view` | view | Rendered-guide BLE RSSI/index field, advertiser rail and measured selected-device inspector; no bearing/range inference |
+| `src/ui/external_contacts_view` | view | AP/request clusters with selected-edge emphasis, exact signal/packet/snapshot readings, and a 12-node bound |
+| `src/ui/external_bt_view` | view | BLE RSSI constellation and selected-device dossier; no bearing, distance or association inference |
 | `src/ui/external_drive_view` | view | Rendered-guide Drive ribbon, north-up relative track, fix state and actual wardrive counters |
 | `src/ui/external_lora_view` | view | Rendered-guide LoRa tuning/signal ribbon, received-frame cadence and bounded raw hex/ASCII inspector; framing remains a guess |
+| `src/model/inspection_state` | model | Frozen, validated raw-packet pages and cached channel-list return state |
+| `src/ui/lora_detail_view` | view | Onboard eight-row raw hex/ASCII page, paired with the external packet inspector |
+| `src/ui/external_radar` | view geometry | RSSI radius, deterministic identity angle and selected-node/association drawing |
 | `src/model/lora_payload_view` | model | Eight-byte raw display rows with controls/non-ASCII replaced by dots |
 | `src/ui/external_spectrum_view` | view | Rendered-guide four-tile ribbon, 30-second measured packet history and count envelope; clipped strips, no fabricated RSSI/FFT/occupancy |
-| `src/ui/external_gps_display` | view/HAL | Landscape GPS status plus corner SD activity tile; 24-pixel strips under the shared bus lock, with pixel parking for the delivered no-CS panel (Rev D §5.3) |
+| `src/ui/external_wifi_view` | view | Passive Wi-Fi AP inventory, selected row, band/channel/RSSI, and live/cached/truncated state |
+| `src/ui/external_card_views` | view | Read-only AP Detail, Deauth Detect, Anti-Surveillance, and Settings companion cards |
+| `src/ui/external_row_cache` | view | Physical row/tile diff cache; eight 40-pixel spans per row, without comparing different LCD positions |
+| `src/ui/external_instrument` | view | Shared clipped frame, safe labels, signal columns and segmented meters for graphical companion cards |
+| `src/ui/observatory_fonts` | view | 1-bit flash bitmap fonts (Chakra Petch Bold + IBM Plex Mono Medium) generated by `tools/gen_observatory_fonts.py` |
+| `src/ui/observatory_chrome` | view | Observatory v2 shared external chrome: chamfered aperture, truth pills, `#151018` reading dock, dossier cards and vector primitives |
+| `src/ui/external_plot` | view model | Measured packet-window scope geometry; chronological ring order, cached freeze and explicit missing-window gaps |
+| `src/ui/external_gnss_view` | view | Fix-quality reticle and fresh position, without invented satellite positions or diagnostic text dumps |
+| `src/ui/external_tft` | HAL | Native M5GFX ST7789 device on the shared SPI2 controller; bounded storage lock, row transfers and driver diagnostics |
+| `src/ui/external_gps_display` | view/HAL | Landscape companion renderer; 24-pixel strips with physical-row caching, sent through `external_tft` (Rev D §5.4) |
+| `src/ui/frame_snapshot` | view model | Releases inactive display-owned model copies in place without resetting authoritative cached data |
 | `src/model/bt_model` | model | `scan_bt`/`start_ble_scan`'s shared device table + `scan_airtag`'s tracker log (OCP-SPEC §11). Named "Bt" not "Ble" — `tools/check_rx_only.py` bans any `ble_`/`NimBLE` identifier from deck source outright (DESIGN §3), so the deck side spells it differently on purpose even though this only ever parses text |
 | `src/model/anti_surveillance_model` | model | Deck-local, bounded correlation of repeated tracker sightings with fresh GNSS movement; position never crosses OCP or enters storage |
 | `src/ui/bt_view` | view | The BLE Scan card: device list, tracker count, and last tracker sighting |
 | `src/ui/anti_surveillance_view` | view | The Anti-Surveillance card: bounded tracker rows, GNSS-ready state, movement-leg progress, and conservative candidate state |
+| `src/debug/diagnostic_line` | services | Small-frame single-line diagnostic builder; numeric bounds and control sanitization host-tested |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
 | `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
-| `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12), `tft_no_cs` (isolated display/GPS), `sd_check` (Enter-armed SD write/read), `sd_display_check` (experimental locked SD/GPS/display interleaving) — separate envs, not the app; `dual-display-no-cs` runs the app with external GPS and SD disabled |
+| `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12), `tft_cs_check` (standalone ST7789 colour reference, SD removed), `sd_check` (armed SD write/read), `sd_display_check` (armed locked ST7789/SD interleaving). Old no-CS fixture sources remain historical evidence and have no selectable build profile. |
 
 ### 7.2 View set (v1)
 
@@ -401,22 +437,38 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **BLE Scan** | `scan_bt` / `start_ble_scan` / `scan_airtag` | BLE device list — a bounded scan (`s`), continuous live discovery (`c`), or tracker-only stream (`a`); all share the passive BLE PHY owner. |
 | **802.15.4** | `start_zig_recon` + `zig_*` | PAN → node inventory, protocol guess, signal quality. Receive-only. |
 | **LoRa RX** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
-| **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — logging each AP row against the local fix and re-triggering on completion; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
-| **Log** | local SD browse | Browse/preview sessions recorded on the deck. |
+| **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — draining one AP row per main loop against its page-receipt fix snapshot before fetching another page or repeating the survey; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
+| **Log** | local SD browse | `o` opens saved wardrive/LoRa sessions without stopping reception; grouped inventory, observed record span/counts, six-record pages and saved raw packet hex/ASCII. `x` filters All/Drive/LoRa, `r` refreshes inventory, Enter drills down and Back steps out. |
 
 ### 7.3 Interaction & state
 - **Non-blocking:** a view issues a command, shows a spinner, and renders when the frame completes or updates live from `[EVT]`. The keyboard is always responsive; `` ` `` maps to a global **`stop` + back**, except from the Link card, where it opens **Settings** instead (there's nothing to stop or back out of on the home route). The ADV's compact keyboard has no physical ESC key — `Keyboard.h`'s `KeysState` doesn't expose one — so `` ` `` alone carries this, not an ESC alias.
 - **Grouped navigation:** home cards are presented as SYSTEM, OBSERVE, ANALYZE, DRIVE, and LOGS routes. `,`/`/` cycles home cards and stops the departing PHY tool; `;`/`.` moves within a view; Enter follows the selected action or drills from Wi-Fi Scan into AP Detail; `h` opens help and `` ` `` closes it. A new PHY tool waits for its predecessor's `[STOP] lane=phy` acknowledgement before it starts, preserving a concurrent LoRa RX session. The route metadata lives in `src/app/deck_navigation`, so labels and ordering do not drift between screens.
+
+System resource inspection: `i` opens Info without stopping the originating
+receiver; Back/`i` returns to it. Entering Link/Info also preserves the receiver.
+Leaving System for a different receiver keeps the scoped-stop policy, using
+the saved origin. `app/deck_system_state` owns this integration.
+
+Heap history samples deck memory every second and deduplicates background
+probe STATUS replies, polled at most every two seconds after foreground and
+health work. The plot uses a shared automatic free-heap percentage axis, labelled AUTO,
+with at least a 10-percentage-point range and 5-point boundaries. Fractional
+percentages retain 0.01-point precision; exact current KB values remain visible;
+missing replies and probe restart/link epochs break the probe trace. Activity
+is reported lane state plus local capture/GNSS state.
+
 - **Settings:** a Link-only drill-down (same shape as AP Detail off Wi-Fi Scan) for on-device flags persisted to the SD card via `storage::settings` — display brightness today, more later, same one-flag-file-per-setting pattern as debug mode (§7.6). `;`/`.` adjust the selected value; `` ` `` returns to Link.
 - **Shared deck chrome:** the 240×135 views reserve a fixed header, expanded body, and compact transport footer. The header carries a compact activity-dot cluster, a fixed-width battery percentage aligned to its icon, and debug state; the footer carries live/cached state and the OCP link. Persistent controls are intentionally not rendered; transient notices temporarily replace the transport footer and clear after roughly two seconds, while `h` opens the shared help card. The first slice was SYSTEM/LINK → OBSERVE/WIFI SCAN → AP DETAIL; all current view renderers now use the same shell, with physical display inspection still pending.
 - **Connection state machine:** `Disconnected → HelloSent → Ready(caps) → Busy(mode)`. An unsolicited `[HELLO]` drops straight back to `Ready` with state invalidated.
 - **Offline review:** cached scan/session data is browsable with the probe idle or unplugged. GNSS and logging keep working with no backpack attached.
 
 ### 7.4 Display & bus discipline
-- Internal LCD (240×135) is the primary target; the external ILI9341 (240×320) is an **optional second panel**, detected at boot and used for expanded views.
-- Both the external TFT and the internal SD live on **one SPI bus**. All access goes through a single shared lock; SD is brought up before TFT traffic; the TFT is write-only at ~4 MHz with no readback. UI and logger tasks must not bypass the lock. This is the deck's main source of hard-to-debug failures — treat it with suspicion.
+- Internal LCD (240×135) is the primary target; the external ST7789 (240×320) is an **optional second panel**, configured explicitly and used for expanded views; write-only initialization cannot detect a physical panel.
+- Both the external TFT and the internal SD live on **one SPI bus**. All access goes through a single shared lock; SD is brought up before TFT traffic; the TFT is write-only with no readback. UI and logger tasks must not bypass the lock. This is the deck's main source of hard-to-debug failures — treat it with suspicion.
 
-The current `cardputer-adv` configuration enables the delivered no-CS panel (Rev D §5.3). It holds the panel in reset during SD startup, uses SD at 8 MHz and TFT at 4 MHz, and parks the TFT write window at the bottom-right pixel before releasing the bus. The GPS view reserves that corner for an SD activity tile. Its count records complete file-write acceptance; a short write displays a fault. This counter is not durable readback proof. Automatic panel detection and expanded application views remain pending.
+The normal `cardputer-adv` profile supports only the GMT028-05 V1.1 ST7789 replacement (Rev D §5.4); `cardputer-adv-st7789` is an alias. The native M5GFX driver handles initialization and all pixels, matching the standalone colour fixture. `external_tft` attaches to the same SPI2 hardware controller used by Arduino FSPI/SD, preserves the SD MISO route, initializes after storage, and takes the existing storage lock for initialization and each row. It deselects the panel between transactions. There is no manual command-list interpreter, no-CS parking or ILI9341 runtime path.
+
+TFT and SD are configured at 8 MHz after the replacement passed 32 disposable-file write/read/cleanup cycles (128 KiB) during redraw, with clean output confirmed by the user. A full RGB565 frame needs at least 154 ms of wire time before software overhead, so the 330 ms data schedule remains a target rather than a guaranteed refresh rate. The confirmed panel uses `invert=false`. Companion views use one dominant graphic and a quiet inspector, with 24-pixel strip rendering and eight physical 40-pixel dirty spans per row. Adjacent dirty spans are merged; only successful sends update cache entries. The extra 15 KiB hash cache avoids a full-frame buffer. Pixel comparison reads the pinned library’s unrotated RGB565 strip buffer directly, with a byte-order check during initialization; it does not build a pixelcopy object per pixel. Active views admit coherent frames every 50 ms, quiet states every 250 ms, while expensive Wi-Fi/BLE/contact model copies are bounded to 200 ms unless focus changes. These are targets, not achieved frame-rate claims. Packet Monitor scrolls actual time and keeps sample gaps; cached traces freeze. See the brand README for each view contract. Internal deck controls and views remain the primary interface. `display_status` reports native-driver initialization, spans/pixels sent, maximum span time and completed render-cycle timing, which are software evidence rather than panel acknowledgement. `sd-display-check` (also named `sd-st7789-check`) exercises disposable-file readback between redraw strips; cold-boot and sustained soak gates remain physical checks. Historical no-CS clock/SD evidence remains in WORKLOG and Rev D §5.3 and does not qualify this replacement.
 
 ### 7.5 Framework
 **M5Unified + M5GFX on PlatformIO** ([D-1](docs/DECISIONS.md) — decided). Keyboard, internal LCD and SD come mostly for free; M5GFX drives the external panel as a second device on the shared bus. Cardputer **ADV** support verified on hardware ([D-12](docs/DECISIONS.md)): M5Unified autodetects the board and M5Cardputer drives its TCA8418 keyboard. M5's "Port A" I²C uses the Grove UART pins, so the deck must never enable it.
@@ -429,7 +481,7 @@ An earlier design held `d` through boot instead. Dropped after hardware testing 
 
 Off by default; the Link card shows a `DEBUG` badge when it's on, so it's never silently active.
 
-Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `antisurv`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, anti-surveillance, GNSS, wardrive session) plus probe memory telemetry — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. The wiring-level `memory` command reports the deck's heap/PSRAM readings. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
+Commands (`DeckApp::runDebugCommand`) reach every engine `onKeys()` can start — `scan`, `wifiscan`, `wardrive`, `sniff`, `spectrum`/`channel <n>`, `lora`/`lora config`, `deauth`, `inspect [idx]`, `antisurv`, `stop [lane]`, `card <name>` — but skip the screen/cursor state a human has to navigate first, since a bench script shouldn't need to track which card is showing or toggle state an engine is already in. `dump` reports a one-line counts/state snapshot across every subsystem (link, scan, contacts, spectrum, LoRa, deauth, anti-surveillance, GNSS, wardrive session) plus probe memory telemetry — same "counts and states only, never SSIDs/BSSIDs" rule as the rest of `log()` (`deck_app.h`), so it's a stability check, not a capture path. `gnss_test start|status|stop` runs a RAM-only relative fix-repeatability test (offsets, scatter, raw path, freshness and NMEA counters), never absolute coordinates. GNSS UART error counts are available in `display_status`. GNSS input is serviced before Grove/application/AP-write work. Recording closure drains queued observations and shows CLOSING on both displays; track writes require a fresh fix. The wiring-level `memory` command reports the deck's heap/PSRAM readings. `debug::LineReader` reassembles the byte-at-a-time input a human typing (or a host script) produces, same chunk-boundary discipline as `gnss::NmeaParser`. Exists for hardware bring-up and the UAT/soak testing ahead (WORKLOG 2026-09-16) — pulling diagnostic counters and driving the deck end to end without physically typing on the Cardputer keyboard.
 
 USB `debug on` / `debug off` provide a RAM-only console override. `display_status` is read-only and reports aggregate display/storage/session counters. With debug enabled, `verify_lora_log` compares live LoRa packet and health file lengths and incremental checksums with accepted writes, limited to 8 KiB per file; it reports no captured content.
 
@@ -499,6 +551,7 @@ oscilla/
 ├── README.md · LICENSE · NOTICE
 ├── docs/
 │   ├── DECISIONS.md              ← D-numbered decision register
+│   ├── deck-ui-state.html        ← paired, interactive deck / external UI lab
 │   └── hardware/                 ← bench notes, measurements, photos
 ├── Research/
 │   └── c5-backpack-design.md     ← Rev D — HARDWARE AUTHORITY
@@ -619,3 +672,22 @@ Defined in `protocol/ocp.h`. Every frame is `[TAG] BEGIN … / [TAG] END`; `[EVT
 ---
 
 *Oscilla — trace the spectrum, inspect don't intrude. This document is the founding contract; when code and doc disagree, fix one of them on purpose.*
+
+Saved-session review reads only writer-generated paths under `/oscilla/wardrive/`
+and `/oscilla/lora/`, grouping KML/manifest/health sidecars by session number.
+Inventory holds at most 64 sessions; type filters expose either family when
+the combined inventory is limited. Directory traversal stops at 4096 entries
+with a visible limit label. Each read step holds the shared bus for at most
+one entry or 512 bytes, then parses after unlock. File length is frozen on
+open; growing recordings require a new open to review later rows. Missing
+CSV, unknown headers, I/O errors and partial final rows are explicit; record
+counts exclude malformed/incomplete rows. Observed span is first-to-last
+valid record time, not the recorder lifetime. KML tracks and metadata/health
+contents are not parsed by this first browser; their availability is shown.
+
+USB diagnostic commands must retain small compiled stack frames. The Xtensa
+frame regression in `tools/check_deck_stack.py` runs from the normal firmware
+build script; it bounds the debug dispatcher, snapshot formatter, LoRa command
+sender, main loop and external/System renderers separately. It does not replace call-chain/hardware tests.
+`memory` includes `stack_free_min`, the calling loop task's lifetime minimum
+free stack in bytes for the installed ESP-IDF FreeRTOS port.

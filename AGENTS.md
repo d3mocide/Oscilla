@@ -25,6 +25,7 @@ cannot silently drift.
 |---|---|---|
 | Pins, rails, bus sharing, electrical limits | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) **Rev D** | Write a pin constant from any other document, including DESIGN.md |
 | Software architecture, module structure, feature scope | [`DESIGN.md`](DESIGN.md) | — |
+| Visual language, palette, typography, Observatory v2 UI | [`docs/brand/README.md`](docs/brand/README.md) & [`docs/deck-ui-state.html`](docs/deck-ui-state.html) | Invent ad-hoc chrome, use `2×`/`3×` `glcdfont`, or fabricate telemetry |
 | Protocol literals — verbs, markers, caps, error codes, limits | [`protocol/ocp.h`](protocol/ocp.h) | Hardcode a verb or marker string anywhere else |
 | Protocol wire behaviour — framing, escaping, parser duties | [`protocol/OCP-SPEC.md`](protocol/OCP-SPEC.md) | — |
 | Anything contested or deferred | [`docs/DECISIONS.md`](docs/DECISIONS.md) (`D-n`) | Resolve a `⛔` decision by guessing |
@@ -64,6 +65,7 @@ that's still true; a new `⛔` row means stop and ask (§8).
 source tools/env.sh            # both toolchains onto PATH (see §5, gotcha 1)
 ./tools/check_protocol.sh      # host-only: header compiles, invariants, no TX verb
 python3 tools/ocp_repl.py --selftest    # OCP-SPEC §9 conformance (21 checks)
+python3 tools/render_external_views.py  # host 320x240 PNG renders of all external views
 ./tools/build_firmware.sh      # real board builds: esp32c5 + esp32s3
 ```
 
@@ -194,6 +196,7 @@ result; this repo's culture is that a claim without evidence is a defect.
 |---|---|
 | `firmware-c5/` | C, ESP-IDF style. App layer in `main/`, lifted components in `components/`. |
 | `firmware-cardputer/` | C++. Everything from the OCP client **down** is framework-agnostic plain C++ so a future LVGL move touches only views (DESIGN §7.1). Testable on the host via `tools/hoststub/`. |
+| `firmware-cardputer/src/ui/` | Both 240×135 deck and 320×240 external views follow **Observatory v2** ([`docs/brand/README.md`](docs/brand/README.md) / [`docs/deck-ui-state.html`](docs/deck-ui-state.html)): build from `observatory_chrome.h` + `observatory_fonts.h`, solid RGB565 tokens from `theme.h` only, no `2×`/`3×` `glcdfont`, and refresh/verify PNGs via `tools/render_external_views.py --sync-guide-assets`. |
 | `protocol/` | C99/C++11-clean, data only, no allocation, no includes. |
 | `tools/` | Python 3, standard library only. `pyserial` is required *only* for live serial; `--selftest` and `--replay` must keep working without it and without hardware. |
 

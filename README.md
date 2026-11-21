@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="docs/brand/oscilla-master-brand-ui-guide.html">
+<a href="docs/deck-ui-state.html">
   <img src="docs/brand/assets/lens-core.svg" alt="Oscilla Lens Core Logo" width="128" height="128" />
 </a>
 
@@ -12,7 +12,7 @@
 [![Architecture](https://img.shields.io/badge/CONTRACT-TWO_MACHINES_%C2%B7_ONE_WIRE-F5D658?style=flat-square&labelColor=060806)](protocol/OCP-SPEC.md)
 [![Status](https://img.shields.io/badge/ROADMAP-P4_COMPLETE_%C2%B7_P5_NEXT-87D5CB?style=flat-square&labelColor=060806)](ROADMAP.md)
 [![Radios](https://img.shields.io/badge/RADIOS-WI--FI_%C2%B7_BLE_%C2%B7_802.15.4_%C2%B7_SX1262-6C8A67?style=flat-square&labelColor=060806)](Research/c5-backpack-design.md)
-[![External Viewports](https://img.shields.io/badge/UI_SYSTEM-320%C3%97240_ILI9341-FAF4D3?style=flat-square&labelColor=060806)](docs/brand/oscilla-master-brand-ui-guide.html#external-display-cards)
+[![External Viewports](https://img.shields.io/badge/UI_SYSTEM-320%C3%97240_ST7789-FAF4D3?style=flat-square&labelColor=060806)](docs/deck-ui-state.html#external)
 [![License](https://img.shields.io/badge/LICENSE-MIT-1D2A1F?style=flat-square&labelColor=060806)](LICENSE)
 
 <br/>
@@ -20,7 +20,7 @@
 **Wireless discovery, packet dissection, and field telemetry instrument for the M5Stack Cardputer ADV.**  
 *An open-source RF instrumentation initiative by **d3FRAG Networks**.*
 
-[Interactive Brand & UI Guide](docs/brand/oscilla-master-brand-ui-guide.html) · [Deck UI State (as-built)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
+[Brand, UI System & Lab (deck-ui-state.html)](docs/deck-ui-state.html) · [Software Design (DESIGN.md)](DESIGN.md) · [Hardware Authority (Rev D)](Research/c5-backpack-design.md) · [Protocol Spec (OCP-SPEC.md)](protocol/OCP-SPEC.md) · [Decisions](docs/DECISIONS.md)
 
 </div>
 
@@ -45,7 +45,7 @@ Oscilla splits physical responsibilities cleanly between two microcontrollers jo
 │  • ESP32-S3 Dual-Core (UI, Storage, GNSS)    │                                         │  • ESP32-C5 RISC-V (2.4 / 5 GHz Wi-Fi 6)     │
 │  • 56-Key Matrix Keyboard + Navigation D-Pad │           OSCILLA CONTROL PROTOCOL      │  • Bluetooth 5.0 LE (Coded PHY / 1M / 2M)    │
 │  • ST7789 240×135 Built-in Screen (Primary)  │           `protocol/ocp.h` Contract     │  • IEEE 802.15.4 MAC observer                 │
-│  • ILI9341 320×240 External Panel (P5 plan)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
+│  • ST7789 320×240 External Panel (P5 plan)  │                                         │  • Wio-SX1262 LoRa (862–930 MHz / Meshtastic)│
 │  • MicroSD FAT32 Geotagged Storage Logs      │    Framed ASCII Verbs · Escaped Octets  │  • One external sub-GHz receiver (SX1262)     │
 │  • ATGM336H GNSS Fix & Timestamping Engine   │    `[HELLO]` `[LORA]` `[SCAN]` `[BLE]`  │  • Shared Hardware SPI Bus (D8/D9/D10)       │
 └──────────────────────────────────────────────┘                                         └──────────────────────────────────────────────┘
@@ -73,11 +73,21 @@ mode.
 Oscilla's interface architecture pairs a built-in interactive console with a pure-data external instrument panel:
 
 1. **Primary Screen (ST7789 240×135 @ 16:9):** Integrated Cardputer deck screen. Carries the top system bar (battery, radio status dots, transport status), live navigable lists, interactive menus, and tactical footers.
-2. **External Instrument Panel (ILI9341 320×240 @ 4:3):** Secondary SPI DMA landscape panel. Pure data viewport with zero control redundancy, zero buttons, and high-contrast tactical visualizations.
+2. **External Instrument Panel (ST7789 320×240 @ 4:3):** Secondary write-only SPI landscape panel. Pure data viewport with zero control redundancy, zero buttons, and high-contrast tactical visualizations.
 
-Explore the complete master design system in [`docs/brand/oscilla-master-brand-ui-guide.html`](docs/brand/oscilla-master-brand-ui-guide.html).
+Explore the consolidated brand system, Observatory v2 renders, and interactive UI lab in [`docs/deck-ui-state.html`](docs/deck-ui-state.html).
 
 ### External Viewports (Section 05)
+
+The replacement **GMT028-05 V1.1** panel uses the ST7789 driver. Build or upload
+the normal deck with `pio run -e cardputer-adv` (`cardputer-adv-st7789` is an alias) (add `-t upload` and
+the deck's stable `--upload-port`). Wiring and qualification status are in
+[Rev D §5.4](Research/c5-backpack-design.md#54-replacement-gmt028-05-v11-2026-11-16-bench).
+`tools/render_external_views.py` renders populated, empty and cached synthetic
+fixtures directly from the companion C++ at panel resolution.
+
+`tft-cs-check` is the SD-removed colour fixture; `sd-st7789-check` is the
+Enter/USB-armed disposable-file coexistence fixture.
 
 | Viewport          | Instrument Visualization                                             | Purpose & Metrics                                                        | Status        |
 | ----------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------- |
@@ -117,8 +127,8 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | [`firmware-c5/`](firmware-c5/)                                                   | **The Probe**: ESP-IDF v5.5.1 firmware for XIAO ESP32-C5.                           | Spin in tasks without explicit `vTaskDelay`.    |
 | [`firmware-cardputer/`](firmware-cardputer/)                                     | **The Deck**: PlatformIO / Arduino C++ firmware for Cardputer ADV.                  | Bypass the shared SD/TFT SPI bus lock.          |
 | [`tools/`](tools/)                                                               | **Host Client & Verification**: CLI parser, REPL, and compliance test suites.       | Require hardware for protocol verification.     |
-| [`docs/brand/`](docs/brand/)                                                     | **Visual System**: Master Brand & UI Guide for primary and external displays.       | Deviate from brand color and font tokens.       |
-| [`docs/deck-ui-state.html`](docs/deck-ui-state.html)                             | **As-Built UI Reference**: what the deck actually renders today, read from `ui/*.cpp`. | Treat as design authority — that's `docs/brand/`. |
+| [`docs/brand/README.md`](docs/brand/README.md)                                   | **Visual Authority (Markdown)**: Observatory v2 contract, palette, and font handoff for coding agents. | Deviate from brand color and font tokens.       |
+| [`docs/deck-ui-state.html`](docs/deck-ui-state.html)                             | **Brand, UI System & Lab (Single HTML Source of Truth)**: Lens Core mark, compiled Observatory v2 320×240 & 240×135 renders, and interactive dual-display simulator. | Keep synced via `--sync-guide-assets`; not hardware timing proof. |
 
 ---
 
