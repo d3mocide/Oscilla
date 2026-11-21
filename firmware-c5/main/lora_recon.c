@@ -22,6 +22,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "config.h"
 #include "lora_radio.h"
 #include "ocp.h"
 #include "ocp_frame.h"
@@ -55,10 +56,8 @@ bool lora_recon_ready(void) { return s_ready; }
 /* kHz -> SX1262 bandwidth code (datasheet Table 13-48; not sequential with
  * kHz, so this is a real lookup, not arithmetic). Accepts the conventional
  * integer kHz values LoRa tooling uses (7 stands in for 7.8, etc). */
-static bool parse_bw(const char *s, lora_bw_t *out)
+static bool khz_to_bw(uint32_t khz, lora_bw_t *out)
 {
-    uint32_t khz = 0;
-    if (!ocp_parse_u32(s, &khz)) return false;
     switch (khz) {
         case 7:   *out = LORA_BW_7_8;   return true;
         case 10:  *out = LORA_BW_10_4;  return true;
@@ -72,6 +71,29 @@ static bool parse_bw(const char *s, lora_bw_t *out)
         case 500: *out = LORA_BW_500;   return true;
         default:  return false;
     }
+}
+
+static bool parse_bw(const char *s, lora_bw_t *out)
+{
+    uint32_t khz = 0;
+    if (!ocp_parse_u32(s, &khz)) return false;
+    return khz_to_bw(khz, out);
+}
+
+bool lora_recon_apply_saved(uint32_t freq_hz, uint8_t sf, uint16_t bw_khz,
+                            uint8_t cr, uint8_t sync_word)
+{
+    lora_bw_t bw;
+    if (lora_radio_is_running()) return false;
+    if (freq_hz < 150000000UL || freq_hz > 960000000UL) return false;
+    if (sf < 5 || sf > 12 || cr < 1 || cr > 4 || !khz_to_bw(bw_khz, &bw)) return false;
+    s_params.freq_hz = freq_hz;
+    s_params.sf = sf;
+    s_params.bw = bw;
+    s_params.cr = cr;
+    s_params.sync_word = sync_word;
+    s_configured = true;
+    return true;
 }
 
 static int bw_to_khz(lora_bw_t bw)
@@ -145,6 +167,8 @@ void lora_cmd_config(int argc, char **argv)
     s_params.cr = (uint8_t)cr;
     s_params.sync_word = (uint8_t)sync;
     s_configured = true;
+    (void)probe_config_save_lora(freq, (uint8_t)sf, (uint16_t)bw_to_khz(bw),
+                                 (uint8_t)cr, (uint8_t)sync);
 
     ocp_emit_compact(OCP_MARK_CFG, "%s=%lu %s=%lu %s=%d %s=%lu %s=%lu",
                      OCP_K_FREQ, (unsigned long)freq, OCP_K_SF, (unsigned long)sf,

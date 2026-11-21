@@ -8,6 +8,7 @@
 #include "ocp_frame.h"
 #include "ocp_transport.h"
 #include "ble_recon.h"
+#include "config.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
 #include "probe_restart.h"
@@ -135,6 +136,7 @@ static void cmd_set_region(const char *code)
         return;
     }
     wifi_region_select(r);
+    (void)probe_config_save_wifi();
     char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
     wifi_channels_format_list(chans, sizeof chans);
     ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s %s=%s",
@@ -159,6 +161,7 @@ static void cmd_set_band(const char *arg)
         return;
     }
     wifi_band_select(scope);
+    (void)probe_config_save_wifi();
     char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
     wifi_channels_format_list(chans, sizeof chans);
     ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s",
@@ -175,6 +178,7 @@ static void cmd_set_channels(const char *arg)
         ocp_emit_error(OCP_ERR_BADARG, "channels must be all or comma-separated active-region/band channels");
         return;
     }
+    (void)probe_config_save_wifi();
     char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
     wifi_channels_format_list(chans, sizeof chans);
     ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s",

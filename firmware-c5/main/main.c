@@ -8,6 +8,7 @@
  */
 
 #include "ble_recon.h"
+#include "config.h"
 #include "lora_recon.h"
 #include "ocp_frame.h"
 #include "ocp_server.h"
@@ -35,6 +36,7 @@ void app_main(void)
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
+    probe_config_load();
 
     ESP_ERROR_CHECK(status_led_start());    /* first, so boot is visible */
     ESP_ERROR_CHECK(arbiter_init());
@@ -49,7 +51,16 @@ void app_main(void)
     if (err == ESP_OK) err = wifi_spectrum_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
-    if (lora_recon_init() != ESP_OK) ESP_LOGE(TAG, "lora unavailable");
+    if (lora_recon_init() != ESP_OK) {
+        ESP_LOGE(TAG, "lora unavailable");
+    } else {
+        const probe_config_t *pcfg = probe_config_get();
+        if (pcfg->lora_valid) {
+            (void)lora_recon_apply_saved(pcfg->lora_freq_hz, pcfg->lora_sf,
+                                         pcfg->lora_bw_khz, pcfg->lora_cr,
+                                         pcfg->lora_sync_word);
+        }
+    }
 
     /* BLE is async (ble_recon_ready() flips true once the NimBLE host
      * actually syncs, not merely when this call returns) — cap_available()

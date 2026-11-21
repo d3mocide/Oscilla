@@ -287,7 +287,8 @@ isolated third-party dependencies.
 | `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
 | `lora_hex.c` | Bounded, allocation-free LoRa payload-to-hex encoder; pure C, host-tested |
 | `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
-| `config.c` | NVS-backed settings (band, channel set, LoRa RX params) |
+| `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
+| `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |
 
 Gone from v0.1: `gps.c` and the SD half of `store.c` — both now deck-side. `capture/` (PCAP/HCCAPX) stays deferred; with no probe SD it would require streaming frames to the deck over the Grove link, which is a P6+ conversation.
 

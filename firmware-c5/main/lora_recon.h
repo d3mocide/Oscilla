@@ -9,9 +9,14 @@
 #define OSCILLA_LORA_RECON_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
 
 esp_err_t lora_recon_init(void);
+
+/* Seed RX parameters restored from NVS before OCP starts (never starts RX). */
+bool lora_recon_apply_saved(uint32_t freq_hz, uint8_t sf, uint16_t bw_khz,
+                            uint8_t cr, uint8_t sync_word);
 
 /* Caps are a promise (OCP-SPEC §4): only true once lora_radio_init() has
  * actually succeeded. */

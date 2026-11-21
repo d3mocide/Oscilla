@@ -1,3 +1,23 @@
+## 2026-11-21 — Probe NVS configuration persistence (WP-5)
+
+- Added pure-C `firmware-c5/main/config_codec.{h,c}` implementing a fixed
+  128-byte versioned, little-endian, IEEE-CRC32-protected configuration blob
+  (`"OCFG"` v1) with strict bounds validation for Wi-Fi region, band scope,
+  region/band-constrained custom channel lists (DFS-free), and SX1262 LoRa RX
+  parameters. Any corrupt/truncated/invalid blob falls back cleanly to safe
+  compile-time defaults (`US`, `auto`, all channels, LoRa unset so D-9 still
+  holds on a fresh probe).
+- Added ESP-IDF NVS wrapper `firmware-c5/main/config.{h,c}` (`oscilla`/`cfg_v1`),
+  loaded in `app_main()` before `wifi_recon_init()` (so Wi-Fi boots directly
+  into the saved country/band/channels), restoring saved LoRa RX params via
+  `lora_recon_apply_saved()` after `lora_recon_init()`, and committing on
+  successful `set_region`, `set_band`, `set_channels`, and `lora_config`.
+- **Checks:** `check_protocol.sh` (ASan/UBSan `config_codec_test` +
+  `check_rx_only.py`), two mutation proofs (disabling CRC32 check and disabling
+  region channel check both fail `config_codec_test`), and `build_firmware.sh`
+  (both `esp32c5` + `cardputer-adv` clean).
+- **Not yet verified on hardware:** live probe NVS persistence across power-cycle/reboot.
+
 ## 2026-11-21 — Passive baseline & evil-twin / anomaly watch (WP-11)
 
 - Added pure-C++ `model/baseline_watch.{h,cpp}` (`BaselineWatch`, capped at 256

@@ -79,6 +79,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/wifi_channels_test.c firmware-c5/main/wifi_channels.c
 "$out/wifi_channels_test" | sed 's/^/  /'
 
+# Probe NVS configuration codec and validation (DESIGN §6.1).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-c5/main -o "$out/config_codec_test" \
+    firmware-c5/test/host/config_codec_test.c firmware-c5/main/config_codec.c
+"$out/config_codec_test" | sed 's/^/  /'
+
 # D-UCB adaptive Wi-Fi channel picker (D-6).
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Iprotocol -Ifirmware-c5/main -o "$out/wifi_channel_picker_test" \
