@@ -23,8 +23,11 @@
   calls it a standard fitment. Touch: no touch hardware or code.
 - Added P8 item for idle power saving (display timeout on no key press, then
   a deeper sleep that keeps receive/logging alive), per operator.
-- Not done in this cut: neither board was re-flashed with the 0.3.0 image,
-  so on-device `[HELLO]` still reports 0.2.0 until the next flash. P6
+- Flashed after the cut: deck `50:78:7d:ce:6d:64` (`cardputer-adv`, four
+  hashes verified, clean boot at 182,232 B free heap, link cycling with
+  probe unpowered) and probe `38:44:be:bf:d2:94` (`build-uart`, three
+  hashes verified, boot log `App version: 0.3.0`, `probe up on uart0`).
+  Paired-link `Ready` after reconnect not yet observed. P6
   periodic use, the two-hour new-image soak, battery soak and current budget
   remain open.
 
