@@ -1,3 +1,39 @@
+## 2026-11-21 — Flash & live bench verification of WP-5 & WP-10 (+ lazy LoRa KML fix)
+
+- Flashed updated deck firmware (`cardputer-adv`, `50:78:7D:CE:6D:64`, 4/4 hashes
+  verified; probe `38:44:BE:BF:D2:94` unchanged from `7687ef1`).
+- **Hardware-discovered latency fix (`firmware-cardputer/src/storage/lora_logger.cpp`):**
+  - On the first bench run against the 64-session SD card, eagerly opening
+    `log_NNNN.kml` + 4 redundant `SD.exists()` probes inside `loraLogBegin()`
+    pushed `max_cycle_us` to **2,122,736 µs (2.12 s)**, tripping one 2 s OCP
+    timeout (`link_timeouts=1`).
+  - Fix: open `log_NNNN.kml` **lazily** on the first geotagged packet or
+    waypoint (`ensureLoraKmlOpen()`), keep one `SD.exists(g_packet_path)` guard
+    (since `nextFreeSession()` already scanned all extensions in one `readdir`
+    pass), and skip redundant pre-`close()` flush on `.meta`.
+  - Reflashed and retested: `max_cycle_us` dropped to **1.67 s** with
+    **`link_timeouts=0`**, **`link_errors=0`**, **`write_errors=0`**.
+- **Live bench results (both boards connected, live GNSS fix `age_ms=46..283`, `chkfail=0`):**
+  - **WP-5 idle display sleep:** `idle 30` entered `display_sleeping=1` and
+    `tft_status initialized=1 sleeping=1` at 30 s while `wifiscan` kept
+    receiving (`wifi_live=1`, `scan_rows=161`, `gnss=fix`, `link_timeouts=0`);
+    pressing `` ` `` logged `display wake (key swallowed)`, restored
+    `display_sleeping=0` / `tft_status sleeping=0`, and left `wifi_live=1`
+    untouched. Restored `idle 0`.
+  - **WP-10 geotagged LoRa + KML + waypoint:** live MeshCore packet received
+    with GNSS fix → `packet_rows=1`, `lora_geotagged=1`, `mark` → `waypoint
+    drive=0 lora=1`, `verify_lora_log` → `state=match packet_bytes=344
+    health_bytes=130`, `health_rows=2`, `write_errors=0`.
+  - **WP-10 LOGS sidecar inspection:** opened the newly recorded LoRa session
+    in LOGS → `session_kind=1`, `session_parts=15` (`CSV|KML|META|HEALTH`),
+    `session_meta=1`, `session_health=1`, `session_geotagged=1`,
+    `session_valid=1`, `session_bad=0`, `session_error=0`, `link_timeouts=0`.
+  - **Memory & final state:** deck `heap_free=174,872 B`, `heap_min=163,268 B`,
+    `stack_free_min=2,608 B`; probe `heap=98,148 B`; returned to Link card with
+    `debug off`, `idle_timeout_s=0`.
+- **Checks after fix:** `check_protocol.sh` (all green), `build_firmware.sh`
+  (both boards + stack guards), reflashed and bench-verified.
+
 ## 2026-11-21 — Geotagged LoRa KML, session waypoints & LOGS sidecar inspection (WP-10)
 
 - **Geotagged LoRa CSV + incremental SNR-colored KML (`storage/lora_log_format.{h,cpp}`,
