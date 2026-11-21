@@ -34,8 +34,9 @@ void panel(M5Canvas &d, int y, int h)
 
 }  // namespace
 
-void drawSettingsView(uint8_t brightness, const char *region_code, const char *region_channels,
-                      const char *region_status, bool region_ok, const ChromeState &chrome)
+void drawSettingsView(uint8_t brightness, const char *region_code, const char *band_label,
+                      bool band_ok, const char *region_channels, const char *region_status,
+                      bool region_ok, const ChromeState &chrome)
 {
     auto &d = canvas();
     beginChrome(chrome);
@@ -58,12 +59,12 @@ void drawSettingsView(uint8_t brightness, const char *region_code, const char *r
     drawSegmentedBar(d, 92, top + 24, kBarSegmentCount, kBarSegmentWidth, 9, kBarSegmentGap,
                      filled, kFieldGreen);
 
-    /* Wi-Fi region: label and probe state, then code and hop channels. */
+    /* Wi-Fi region + band: label and probe state, then code, band, and channels. */
     const int rtop = top + 48;
     panel(d, rtop, 32);
     d.setCursor(10, rtop + 6);
     d.setTextColor(kMutedSlate, kPanelDark);
-    d.print("WI-FI REGION");
+    d.print("WI-FI REGION / BAND");
     const int status_w = static_cast<int>(std::strlen(region_status)) * kCharW;
     d.setCursor(kPanelX + kPanelW - 6 - status_w, rtop + 6);
     d.setTextColor(region_ok ? kFieldGreen : kCalibrationYellow, kPanelDark);
@@ -73,12 +74,16 @@ void drawSettingsView(uint8_t brightness, const char *region_code, const char *r
     d.setTextColor(kCalibrationYellow, kPanelDark);
     d.print(region_code);
     d.setTextColor(kMutedSlate, kPanelDark);
-    d.print("  CH ");
+    d.print(" ");
+    d.setTextColor(band_ok ? kFieldGreen : kCalibrationYellow, kPanelDark);
+    d.print(band_label);
+    d.setTextColor(kMutedSlate, kPanelDark);
+    d.print("  ");
     d.print(region_channels);
 
     d.setCursor(6, rtop + 37);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.print("; . BRIGHT  , / REGION  ` LINK");
+    d.print("; . BRT  , / REG  b BAND  ` LINK");
 
     endChrome(chrome);
 }

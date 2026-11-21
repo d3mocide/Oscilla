@@ -74,6 +74,7 @@ int main()
         check(r.resets == 0, "a solicited [HELLO] is not a reset");
         check(r.c.probe().rst.empty(), "an older probe without rst= leaves it empty");
         check(r.c.probe().region.empty(), "an older probe without region= leaves it empty");
+        check(r.c.probe().band.empty(), "an older probe without band= leaves it empty");
 
         check(r.c.send("ping", r.now) && r.takeWire() == "ping\n", "ping sent");
         check(!r.c.send("status", r.now), "one command at a time");
@@ -117,12 +118,19 @@ int main()
     {
         Rig r;
         r.c.connect(r.now);
-        r.probe("[HELLO] proto=1 fw=oscilla-c5 ver=0.3.0 caps=wifi24 rst=brownout region=JP END\n");
+        r.probe("[HELLO] proto=1 fw=oscilla-c5 ver=0.3.0 caps=wifi24 rst=brownout region=JP band=24 END\n");
         check(r.c.state() == S::Ready && r.c.probe().rst == "brownout", "reset reason parsed from [HELLO]");
         check(r.c.probe().region == "JP", "Wi-Fi region parsed from [HELLO]");
+        check(r.c.probe().band == "24", "Wi-Fi band parsed from [HELLO]");
         r.takeWire();   /* drop the handshake's hello */
         check(r.c.send("set_region CA", r.now) && r.takeWire() == "set_region CA\n",
               "set_region is in the contract and goes on the wire");
+        r.probe("[CFG] region=CA band=24 chans=1,2,3,4,5,6,7,8,9,10,11 END\n");
+        check(r.c.send("set_band 5", r.now) && r.takeWire() == "set_band 5\n",
+              "set_band is in the contract and goes on the wire");
+        r.probe("[CFG] band=5 chans=36,40,44,48,149,153,157,161,165 END\n");
+        check(r.c.send("set_channels 36,149", r.now) && r.takeWire() == "set_channels 36,149\n",
+              "set_channels is in the contract and goes on the wire");
     }
     {
         Rig r;

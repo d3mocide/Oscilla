@@ -53,13 +53,20 @@ def main() -> int:
         return 1
 
     recovery = function_body(recon_source, "wifi_recon_restore_shared_phy")
+    band_setter = function_body(recon_source, "wifi_recon_set_band_scope")
     recovery_required = (
         "esp_wifi_stop()",
         "esp_wifi_start()",
-        "esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO)",
+        "wifi_recon_set_band_scope(wifi_band_scope())",
+        "wifi_recon_set_country(wifi_region()->country)",
         "esp_wifi_set_ps(WIFI_PS_NONE)",
     )
-    if recovery is None or any(call not in recovery for call in recovery_required):
+    if (
+        recovery is None
+        or any(call not in recovery for call in recovery_required)
+        or band_setter is None
+        or "esp_wifi_set_band_mode(" not in band_setter
+    ):
         print("FAIL: Wi-Fi recovery does not rebuild the passive STA baseline", file=sys.stderr)
         return 1
 

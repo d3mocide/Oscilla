@@ -304,7 +304,7 @@ complete until its remaining real-frame and view checks are demonstrated.
   **Still open:** a controlled moving-tracker run with two qualifying movement
   legs, final physical view inspection, and the external TFT rendering once P5
   is available.
-- [ ] **Band & channel filtering (`set_band` / `set_channels`).** Wire up the already-declared `OCP_V_SET_BAND` and `OCP_V_SET_CHANNELS` handlers in `ocp_server.c` behind `wifi_channels.c` (2.4 GHz, 5 GHz, auto, or custom channel list), expose band/channel scope controls on the deck, and run the 5-minute bench check for 5 GHz passive DFS channels (`52–144`) to settle [D-14](docs/DECISIONS.md).
+- [ ] **Band & channel filtering (`set_band` / `set_channels`).** Implemented on probe (`wifi_channels.{h,c}`, `wifi_recon.{h,c}`, `ocp_server.c`) and deck (`wifi_band_sync.h`, SD `settings`, Settings `b` key, `band`/`channels` debug commands, OCP-SPEC §10.9); host/ASan tests, mutation proof, and both firmware builds pass (2026-11-21). **Still open:** hardware verification on probe+deck and the 5-minute bench check for 5 GHz passive DFS channels (`52–144`) to settle [D-14](docs/DECISIONS.md).
 - [ ] **Probe-driven multi-band wardrive (`start_wardrive`).** Implement the already-declared `OCP_V_START_WARDRIVE` verb so the probe streams passive Wi-Fi discovery (`kind=network`) interleaved with duty-cycled passive BLE sightings, allowing the deck's Drive logger to write both Wi-Fi and BLE rows into WigleWifi-1.6 CSV with tighter position timestamps (alongside optional concurrent LoRa RX).
 
 **Archived:** The CC1101 experiment was removed from `main` under D-15. Its

@@ -14,10 +14,11 @@
 
 namespace ui {
 
-/* `region_code` e.g. "US"; `region_channels` its hop summary
- * ("1-11,36-48,149-165"); `region_status` short caps text, `region_ok`
- * true when the probe runs that region. */
-void drawSettingsView(uint8_t brightness, const char *region_code, const char *region_channels,
-                      const char *region_status, bool region_ok, const ChromeState &chrome);
+/* `region_code` e.g. "US"; `band_label` e.g. "AUTO"/"2.4G"/"5G";
+ * `region_channels` its hop summary ("1-11,36-48,149-165"); `region_status`
+ * short caps text, `region_ok` true when probe matches region & band. */
+void drawSettingsView(uint8_t brightness, const char *region_code, const char *band_label,
+                      bool band_ok, const char *region_channels, const char *region_status,
+                      bool region_ok, const ChromeState &chrome);
 
 }  // namespace ui

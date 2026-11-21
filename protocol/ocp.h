@@ -339,6 +339,7 @@ typedef enum {
 #define OCP_BAND_24             "24"
 #define OCP_BAND_5              "5"
 #define OCP_BAND_AUTO           "auto"
+#define OCP_CHANNELS_ALL        "all"
 
 /* PHY-lane owners, as reported by [STATUS] and [ERR] owner=. */
 #define OCP_OWNER_NONE          "none"

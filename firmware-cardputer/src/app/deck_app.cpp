@@ -111,6 +111,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             probe_status_valid_ = false;
             probe_region_.clear();
             region_push_pending_ = false;
+            probe_band_.clear();
+            band_push_pending_ = false;
             probe_heap_ = 0;
             probe_heap_total_ = 0;
             probe_uptime_ms_ = 0;
@@ -127,6 +129,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             if (!client_.probe().rst.empty()) log("probe rst=" + client_.probe().rst);
             probe_region_ = client_.probe().region;
             region_push_attempted_ = false;
+            probe_band_ = client_.probe().band;
+            band_push_attempted_ = false;
             /* The probe may have rebooted while we were away: its status wins. */
             reconcile_on_status_ = client_.send(OCP_V_STATUS, now_);
         }
@@ -203,6 +207,12 @@ void DeckApp::onReply(const ocp::Item &it)
         log(std::string("set_region refused code=") + (code ? *code : "?"));
         return;
     }
+    if (it.kind == ocp::ItemKind::Error && band_push_pending_) {
+        band_push_pending_ = false;
+        const auto *code = it.get(OCP_K_CODE);
+        log(std::string("set_band refused code=") + (code ? *code : "?"));
+        return;
+    }
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         lora_config_pending_ = false;   /* rejected: probe and model both keep the previous config */
@@ -252,12 +262,25 @@ void DeckApp::onReply(const ocp::Item &it)
         region_push_attempted_ = false;   /* landed: a newer pick may go at once */
         const auto *region = it.get(OCP_K_REGION);
         if (region) probe_region_ = *region;
+        const auto *band = it.get(OCP_K_BAND);
+        if (band) probe_band_ = *band;
         log("wifi region applied " + probe_region_);
         if (region_notice_pending_ && probe_region_ == wifi_region_) {
             region_notice_pending_ = false;
             char summary[64];
             ocp_wifi_region_summary(&app::regionOrDefault(wifi_region_), summary, sizeof summary);
             notice("wifi region " + wifi_region_ + ": ch " + summary);
+        }
+    }
+    if (it.tag == OCP_MARK_CFG && band_push_pending_) {
+        band_push_pending_ = false;
+        band_push_attempted_ = false;
+        const auto *band = it.get(OCP_K_BAND);
+        if (band) probe_band_ = *band;
+        log("wifi band applied " + probe_band_);
+        if (band_notice_pending_ && probe_band_ == wifi_band_) {
+            band_notice_pending_ = false;
+            notice(std::string("wifi band ") + app::bandDisplayLabel(wifi_band_));
         }
     }
     if (it.tag == OCP_MARK_CFG && lora_config_pending_) {
@@ -318,6 +341,8 @@ void DeckApp::onReply(const ocp::Item &it)
                 probe_lora_=lora?*lora:std::string{};
                 const auto *region=it.get(OCP_K_REGION);
                 probe_region_=region?*region:std::string{};
+                const auto *band=it.get(OCP_K_BAND);
+                probe_band_=band?*band:std::string{};
                 ++probe_status_sequence_;
                 probe_status_valid_ = true;
                 last_status_reply_ms_ = now_;
@@ -923,6 +948,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == '.') adjustBrightness(-1);
             else if (c == ',') changeWifiRegion(app::cycleRegion(wifi_region_, -1).code);
             else if (c == '/') changeWifiRegion(app::cycleRegion(wifi_region_, 1).code);
+            else if (c == 'b') changeWifiBand(app::cycleBand(wifi_band_, 1));
             break;
         case Screen::Sweep:
             if (c == ';' && cursor_ > 0) cursor_--;
@@ -1126,6 +1152,54 @@ void DeckApp::pushWifiRegionIfDue(uint32_t now_ms)
     }
 }
 
+void DeckApp::changeWifiBand(const std::string &code)
+{
+    if (!app::isValidWifiBand(code)) {
+        notice("unknown band " + code);
+        return;
+    }
+    wifi_band_ = code;
+    storage::saveWifiBand(wifi_band_);
+    band_push_attempted_ = false;
+    band_notice_pending_ = true;
+    log("wifi band set " + wifi_band_);
+    if (client_.state() == ocp::LinkState::Ready && !probe_band_.empty() &&
+        probe_band_ != wifi_band_ && phyToolActive()) {
+        notice(std::string("band ") + app::bandDisplayLabel(wifi_band_) + " - applies when idle");
+    }
+    dirty_ = true;
+}
+
+void DeckApp::pushWifiBandIfDue(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready || client_.pending() || client_.stopPending() ||
+        next_page_ || pending_retry_ || phy_handoff_.queued()) return;
+    const bool idle = !phyToolActive() && (probe_owner_.empty() || probe_owner_ == "none");
+    if (!app::bandPushDue(wifi_band_, probe_band_, idle, band_push_attempted_,
+                          now_ms - band_push_ms_)) return;
+    if (client_.send(std::string(OCP_V_SET_BAND) + " " + wifi_band_, now_ms)) {
+        band_push_pending_ = true;
+        band_push_attempted_ = true;
+        band_push_ms_ = now_ms;
+        log("set_band " + wifi_band_);
+    }
+}
+
+void DeckApp::sendWifiChannels(const std::string &arg, uint32_t now_ms)
+{
+    if (arg.empty()) {
+        notice("usage: channels <all|c1,c2,...>");
+        return;
+    }
+    if (client_.state() != ocp::LinkState::Ready || client_.pending()) {
+        notice("link busy");
+        return;
+    }
+    if (client_.send(std::string(OCP_V_SET_CHANNELS) + " " + arg, now_ms)) {
+        log("set_channels " + arg);
+    }
+}
+
 void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 {
     if (!debug_mode_) return;
@@ -1152,6 +1226,8 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);
     else if (cmd == "reboot") client_.send(OCP_V_REBOOT, now_ms);
     else if (cmd == "region") changeWifiRegion(arg);
+    else if (cmd == "band") changeWifiBand(arg);
+    else if (cmd == "channels") sendWifiChannels(arg, now_ms);
     else if (cmd == "stop") {
         if (arg.empty() || arg == OCP_LANE_PHY) phy_handoff_.clear();
         client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
@@ -1348,6 +1424,7 @@ void DeckApp::tick(uint32_t now_ms)
         client_.send(OCP_V_LORA_STATUS, now_ms);
     }
     pushWifiRegionIfDue(now_ms);
+    pushWifiBandIfDue(now_ms);
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
         !pending_retry_ && !phy_handoff_.queued() && !scan_.scanning() && !bt_.scanning() &&
         now_ms-last_status_poll_ms_>=kInfoPollMs) {
@@ -1440,10 +1517,17 @@ void DeckApp::draw(uint32_t now_ms)
         const auto &region = app::regionOrDefault(wifi_region_);
         char channels[64];
         ocp_wifi_region_summary(&region, channels, sizeof channels);
-        const auto state = app::regionState(client_.state() == ocp::LinkState::Ready,
-                                            wifi_region_, probe_region_);
-        ui::drawSettingsView(brightness_, region.code, channels, app::regionStateLabel(state),
-                             state == app::RegionState::Applied, makeChrome("SETTINGS"));
+        const bool link_ok = client_.state() == ocp::LinkState::Ready;
+        const auto state = app::regionState(link_ok, wifi_region_, probe_region_);
+        const auto bstate = app::bandState(link_ok, wifi_band_, probe_band_);
+        const bool synced = state == app::RegionState::Applied &&
+                            (bstate == app::BandState::Applied || bstate == app::BandState::Unsupported);
+        const char *status = state != app::RegionState::Applied ? app::regionStateLabel(state)
+                           : bstate == app::BandState::Pending ? "PENDING"
+                           : app::regionStateLabel(state);
+        ui::drawSettingsView(brightness_, region.code, app::bandDisplayLabel(wifi_band_),
+                             bstate == app::BandState::Applied, channels, status,
+                             synced, makeChrome("SETTINGS"));
     }
         break;
     case Screen::Sweep:

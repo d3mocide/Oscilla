@@ -356,6 +356,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/app/system_navigation` | app | Pure System inspection origin/return policy |
 | `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels; AP Detail and raw packet inspection are drill-downs |
 | `src/app/phy_handoff` | app | Acknowledgement-gated `stop phy` handoff before a successor claims the shared PHY lane |
+| `src/app/wifi_region_sync` · `src/app/wifi_band_sync` | app | Deck-owned Wi-Fi region and band-scope sync policy (`set_region`, `set_band`) |
 | `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap in small allocation blocks, inspect result |
 | `src/model/snapshot_rows` | model | Contact/advertiser snapshot replacement with reused storage and no overlapping table allocations |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |

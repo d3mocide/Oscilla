@@ -73,6 +73,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/wifi_regions_test.c
 "$out/wifi_regions_test_cxx" > /dev/null
 
+# Wi-Fi band and custom channel filtering (set_band / set_channels, §10.9).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-c5/main -o "$out/wifi_channels_test" \
+    firmware-c5/test/host/wifi_channels_test.c firmware-c5/main/wifi_channels.c
+"$out/wifi_channels_test" | sed 's/^/  /'
+
 # LoRa event hex encoding: zero-length packets must still produce an empty,
 # terminated field, and undersized output must fail without partial writes.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -172,6 +178,9 @@ python3 tools/check_deck_parser.py --count 150
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wifi_region_sync_test" \
     firmware-cardputer/test/host/wifi_region_sync_test.cpp
 "$out/wifi_region_sync_test"
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wifi_band_sync_test" \
+    firmware-cardputer/test/host/wifi_band_sync_test.cpp
+"$out/wifi_band_sync_test"
 # The table only helps if the deck runs it when the link comes up.
 for wire in 'reconcileStopLane(phyToolActive()' 'reconcile_on_status_ = client_.send(OCP_V_STATUS' \
             'reconcileFromStatus(phyEngineActive()'; do

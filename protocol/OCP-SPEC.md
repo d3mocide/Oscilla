@@ -195,7 +195,7 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, the last reset reason (`rst`, as in `[HELLO]`), the Wi-Fi region (`region`, §10.8), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, the last reset reason (`rst`, as in `[HELLO]`), the Wi-Fi region (`region`, §10.8), the Wi-Fi band scope (`band`, §10.9), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
 
 **The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
 
@@ -553,10 +553,46 @@ channels ESP-IDF's regulatory database allows for that country (D-19).
 
 An unknown code is `code=badarg`. While any tool holds the PHY lane the
 probe answers `code=busy` and keeps its region; engines read the list only
-when they start. The probe does not store the region: it boots as `US` and
-reports it as `region=` in `[HELLO]` and `[STATUS]`, so the deck, which keeps
-the setting, resends it whenever the two differ and the PHY lane is idle.
-Receive-only (§7): a region only decides which channels are listened to.
+when they start. Changing the region clears any custom channel list (§10.9)
+and reapplies the active band scope, echoing the resulting `chans=`. The probe
+does not store the region: it boots as `US` and reports it as `region=` in
+`[HELLO]` and `[STATUS]`, so the deck, which keeps the setting, resends it
+whenever the two differ and the PHY lane is idle. Receive-only (§7): a region
+only decides which channels are listened to.
+
+### 10.9 `set_band <24|5|auto>` and `set_channels <list|all>`
+
+Filter the Wi-Fi channel set within the active region (§10.8). Both verbs
+refuse with `code=busy` while any tool holds the PHY lane, and leave state
+untouched on `code=badarg`.
+
+- `set_band <24|5|auto>` selects 2.4 GHz only (`ch <= 14`), 5 GHz only
+  (`ch > 14`), or both (`auto`, boot default). It sets ESP-IDF's Wi-Fi band
+  mode so `scan_networks` follows it too, clears any custom channel list to
+  `all`, and replies with the resulting hop list:
+
+```
+> set_band 24
+[CFG] band=24 chans=1,2,3,4,5,6,7,8,9,10,11 END
+```
+
+- `set_channels all` resets to the active region filtered by the active band.
+  `set_channels <c1,c2,...>` takes a comma-separated list of distinct channels
+  that are all in the active region **and** match the active band; malformed
+  tokens, duplicates, or channels outside the active region/band return
+  `code=badarg`. When a custom list is active, `scan_networks` passes it via
+  `wifi_scan_config_t.channel_bitmap` and every hopping engine hops only those
+  channels:
+
+```
+> set_channels 1,6,11
+[CFG] band=24 chans=1,6,11 END
+```
+
+The probe does not persist the band scope; it boots as `auto` and reports
+`band=` in `[HELLO]` and `[STATUS]`, so the deck can keep the setting on SD
+and resend it when the two disagree and the PHY lane is idle. Receive-only
+(§7): band and channel filters only restrict which channels are listened to.
 
 ## 11. BLE frames
 

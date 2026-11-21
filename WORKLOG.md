@@ -1,3 +1,31 @@
+## 2026-11-21 — Wi-Fi band & custom channel filtering (`set_band` / `set_channels`, WP-2)
+
+- Implemented the already-declared `set_band <24|5|auto>` and
+  `set_channels <list|all>` verbs (OCP-SPEC §10.9) cleanly on top of the
+  `set_region` channel table (`protocol/ocp_wifi_regions.h`):
+  - **Protocol:** added `OCP_CHANNELS_ALL` to `protocol/ocp.h` and documented
+    §10.9 plus additive `band=` on `[HELLO]`/`[STATUS]` in `protocol/OCP-SPEC.md`.
+  - **Probe (`firmware-c5`):** extended pure-C `wifi_channels.{h,c}` with
+    band scope (`auto`/`24`/`5`) and validated custom channel subsets
+    (distinct channels strictly within active region and band; atomic rollback
+    on invalid input; reset to `all` on region or band change). Wired
+    `wifi_recon_set_band_scope()` and `channel_bitmap` passive-scan filtering
+    in `wifi_recon.c`, preserved band scope across `wifi_recon_restore_shared_phy()`,
+    and dispatched `OCP_VID_SET_BAND` / `OCP_VID_SET_CHANNELS` in `ocp_server.c`
+    (refused with `code=busy` while any PHY tool runs).
+  - **Deck (`firmware-cardputer`):** added `app/wifi_band_sync.h`, SD
+    persistence (`loadWifiBand`/`saveWifiBand` in `storage/settings`),
+    `ProbeInfo::band` parsing in `ocp_client`, Settings `b` key + band
+    display in `settings_view`, `band` / `channels` debug commands, and
+    `wifi_band`/`probe_band` fields in `dump`. Updated `DESIGN.md` §7.1.
+- **Checks:** `check_protocol.sh` (including new ASan/UBSan `wifi_channels_test`,
+  `wifi_band_sync_test`, `client_test` 64/64, updated `test_wifi_spectrum_teardown.py`,
+  and `check_rx_only.py`), mutation proof (dropping the band check trips
+  `wifi_channels_test`), and `build_firmware.sh` (both `esp32c5` and
+  `esp32s3` + `check_deck_stack.py`, `runDebugCommand` 384/2048 B).
+- **Not yet verified on hardware:** live `set_band`/`set_channels` round-trip
+  on flashed probe + deck and the D-14 5 GHz DFS channel bench check.
+
 ## 2026-11-21 — Drive rows: one cheap card check per record (~8-10x faster)
 
 - **Why the check exists:** on 2026-09-17 a card pulled mid-drive left

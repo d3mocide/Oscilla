@@ -30,6 +30,7 @@
 #include "app/system_navigation.h"
 #include "app/link_reconcile.h"
 #include "app/wifi_region_sync.h"
+#include "app/wifi_band_sync.h"
 #include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
@@ -134,9 +135,10 @@ public:
      * storage::saveBrightness() the same way toggleDebugMode() does. */
     uint8_t brightness() const { return brightness_; }
     void setBrightness(uint8_t value) { brightness_ = value; }
-    /* Wi-Fi region (OCP-SPEC §10.8). main.cpp passes the saved code at boot;
-     * an unknown or empty one becomes the default. */
+    /* Wi-Fi region (OCP-SPEC §10.8) and band scope (§10.9). main.cpp passes
+     * saved values at boot; unknown/empty becomes the default. */
     void setWifiRegion(const std::string &code) { wifi_region_ = app::regionOrDefault(code).code; }
+    void setWifiBand(const std::string &code) { wifi_band_ = app::bandOrDefault(code); }
 
     /* True when the screen should be redrawn. */
     bool dirty(uint32_t now_ms) const;
@@ -226,6 +228,11 @@ private:
      * probe once its PHY lane is idle (pushWifiRegionIfDue). */
     void changeWifiRegion(const std::string &code);
     void pushWifiRegionIfDue(uint32_t now_ms);
+    /* Settings `b`: cycle Wi-Fi band scope (auto/24/5), saved to SD and pushed
+     * once the PHY lane is idle. `channels` debug command forwards directly. */
+    void changeWifiBand(const std::string &code);
+    void pushWifiBandIfDue(uint32_t now_ms);
+    void sendWifiChannels(const std::string &arg, uint32_t now_ms);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -320,6 +327,12 @@ private:
     bool region_push_attempted_ = false;
     bool region_notice_pending_ = false;   /* user changed it: say when it lands */
     uint32_t region_push_ms_ = 0;
+    std::string wifi_band_ = OCP_BAND_AUTO;
+    std::string probe_band_;       /* empty when probe predates set_band */
+    bool band_push_pending_ = false;
+    bool band_push_attempted_ = false;
+    bool band_notice_pending_ = false;
+    uint32_t band_push_ms_ = 0;
     uint32_t probe_status_sequence_ = 0, probe_status_epoch_ = 0;
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;

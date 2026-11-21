@@ -43,11 +43,21 @@ static uint16_t s_total;
 
 static wifi_scan_config_t wifi_passive_scan_config(void)
 {
-    return (wifi_scan_config_t){
+    wifi_scan_config_t cfg = {
         .show_hidden = true,
         .scan_type = WIFI_SCAN_TYPE_PASSIVE,   /* receive-only: no probe requests (D-8) */
         .scan_time.passive = WIFI_SCAN_DWELL_MS,
     };
+    if (wifi_channels_is_custom()) {
+        size_t n = 0;
+        const uint8_t *chs = wifi_channels(&n);
+        for (size_t i = 0; i < n; i++) {
+            uint8_t ch = chs[i];
+            if (ch <= 14) cfg.channel_bitmap.ghz_2_channels |= (uint16_t)CHANNEL_TO_BIT(ch);
+            else          cfg.channel_bitmap.ghz_5_channels |= (uint32_t)CHANNEL_TO_BIT(ch);
+        }
+    }
+    return cfg;
 }
 
 static const char *auth_label(wifi_auth_mode_t a)
@@ -214,7 +224,7 @@ esp_err_t wifi_recon_init(void)
     STEP(esp_wifi_set_mode(WIFI_MODE_STA));                  /* never associates */
     STEP(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, on_scan_done, NULL));
     STEP(esp_wifi_start());
-    STEP(esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO));        /* only valid once started */
+    STEP(wifi_recon_set_band_scope(wifi_band_scope()));        /* only valid once started */
     STEP(wifi_recon_set_country(wifi_region()->country));     /* hop list and country agree */
     esp_wifi_set_ps(WIFI_PS_NONE);
 
@@ -234,7 +244,7 @@ esp_err_t wifi_recon_restore_shared_phy(void)
     if (err != ESP_OK) return err;
     err = esp_wifi_start();
     if (err != ESP_OK) return err;
-    err = esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);
+    err = wifi_recon_set_band_scope(wifi_band_scope());
     if (err != ESP_OK) return err;
     err = wifi_recon_set_country(wifi_region()->country);
     if (err != ESP_OK) return err;
@@ -246,6 +256,14 @@ esp_err_t wifi_recon_set_country(const char *country)
     /* 802.11d off: a beacon's country IE never overrides the region the
      * deck chose. Storage is RAM (above), so this never writes flash. */
     return esp_wifi_set_country_code(country, false);
+}
+
+esp_err_t wifi_recon_set_band_scope(wifi_band_scope_t scope)
+{
+    wifi_band_mode_t mode = WIFI_BAND_MODE_AUTO;
+    if (scope == WIFI_BAND_SCOPE_24)     mode = WIFI_BAND_MODE_2G_ONLY;
+    else if (scope == WIFI_BAND_SCOPE_5) mode = WIFI_BAND_MODE_5G_ONLY;
+    return esp_wifi_set_band_mode(mode);
 }
 
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel)

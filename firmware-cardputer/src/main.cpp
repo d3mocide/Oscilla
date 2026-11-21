@@ -81,6 +81,7 @@ void setup()
         M5Cardputer.Display.setBrightness(brightness);
         g_app.setBrightness(brightness);
         g_app.setWifiRegion(storage::loadWifiRegion());
+        g_app.setWifiBand(storage::loadWifiBand());
     }
 
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not

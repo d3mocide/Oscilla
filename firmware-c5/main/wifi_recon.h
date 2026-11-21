@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "wifi_channels.h"
 
 #define WIFI_SCAN_DWELL_MS   250    /* per channel; beacons arrive every ~102 ms */
 #define WIFI_STORE_MAX       256    /* deck persists larger field captures */
@@ -32,6 +33,10 @@ esp_err_t wifi_recon_restore_shared_phy(void);
 /* Set the ESP-IDF Wi-Fi country (an ocp_wifi_region_t's `country`). Call
  * only while no PHY tool runs; 802.11d stays off. */
 esp_err_t wifi_recon_set_country(const char *country);
+
+/* Set the ESP-IDF Wi-Fi band mode to match `set_band` (OCP-SPEC §10.9).
+ * Call only while no PHY tool runs. */
+esp_err_t wifi_recon_set_band_scope(wifi_band_scope_t scope);
 
 /* Copy stored result `idx` (1-based). False if absent or a scan is running. */
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel);

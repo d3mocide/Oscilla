@@ -100,13 +100,23 @@ static const char *reset_reason_name(void)
 
 static void emit_hello(void)
 {
-    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s %s=%s %s=%s",
+    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s %s=%s %s=%s %s=%s",
                      OCP_K_PROTO, OCP_PROTO_VERSION,
                      OCP_K_FW, OCP_FW_NAME_PROBE,
                      OCP_K_VER, esp_app_get_description()->version,
                      OCP_K_CAPS, ocp_server_caps(),
                      OCP_K_RESET, reset_reason_name(),
-                     OCP_K_REGION, wifi_region()->code);
+                     OCP_K_REGION, wifi_region()->code,
+                     OCP_K_BAND, wifi_band_scope_name(wifi_band_scope()));
+}
+
+static bool reject_if_phy_busy(void)
+{
+    if (arbiter_owner() == PHY_OWNER_NONE) return false;
+    char msg[48];
+    snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
+    ocp_emit_error(OCP_ERR_BUSY, msg);
+    return true;
 }
 
 /* OCP-SPEC §10.8. The region changes the hop list engines read at start
@@ -118,12 +128,7 @@ static void cmd_set_region(const char *code)
         ocp_emit_error(OCP_ERR_BADARG, "unknown region");
         return;
     }
-    if (arbiter_owner() != PHY_OWNER_NONE) {
-        char msg[48];
-        snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
-        ocp_emit_error(OCP_ERR_BUSY, msg);
-        return;
-    }
+    if (reject_if_phy_busy()) return;
     esp_err_t err = wifi_recon_set_country(r->country);
     if (err != ESP_OK) {
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
@@ -131,8 +136,50 @@ static void cmd_set_region(const char *code)
     }
     wifi_region_select(r);
     char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
-    ocp_wifi_region_list(r, chans, sizeof chans);
-    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s", OCP_K_REGION, r->code, OCP_K_CHANS, chans);
+    wifi_channels_format_list(chans, sizeof chans);
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s %s=%s",
+                     OCP_K_REGION, r->code,
+                     OCP_K_BAND, wifi_band_scope_name(wifi_band_scope()),
+                     OCP_K_CHANS, chans);
+}
+
+/* OCP-SPEC §10.9. Restricts the active region to 2.4 GHz, 5 GHz, or auto. */
+static void cmd_set_band(const char *arg)
+{
+    wifi_band_scope_t scope = WIFI_BAND_SCOPE_AUTO;
+    if (!wifi_band_scope_parse(arg, &scope)) {
+        ocp_emit_error(OCP_ERR_BADARG, "band must be " OCP_BAND_24 ", "
+                                       OCP_BAND_5 " or " OCP_BAND_AUTO);
+        return;
+    }
+    if (reject_if_phy_busy()) return;
+    esp_err_t err = wifi_recon_set_band_scope(scope);
+    if (err != ESP_OK) {
+        ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
+        return;
+    }
+    wifi_band_select(scope);
+    char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
+    wifi_channels_format_list(chans, sizeof chans);
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s",
+                     OCP_K_BAND, wifi_band_scope_name(scope),
+                     OCP_K_CHANS, chans);
+}
+
+/* OCP-SPEC §10.9. Restricts the hop/scan list to a validated subset of the
+ * active region and band, or "all" to restore the full set. */
+static void cmd_set_channels(const char *arg)
+{
+    if (reject_if_phy_busy()) return;
+    if (!wifi_channels_set(arg)) {
+        ocp_emit_error(OCP_ERR_BADARG, "channels must be all or comma-separated active-region/band channels");
+        return;
+    }
+    char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
+    wifi_channels_format_list(chans, sizeof chans);
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s",
+                     OCP_K_BAND, wifi_band_scope_name(wifi_band_scope()),
+                     OCP_K_CHANS, chans);
 }
 
 /* A capability class is satisfied only if the build advertises a cap in it.
@@ -173,12 +220,13 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
+                         "%s=%s lora=%s link=%s %s=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
                          OCP_K_RESET, reset_reason_name(),
                          OCP_K_REGION, wifi_region()->code,
+                         OCP_K_BAND, wifi_band_scope_name(wifi_band_scope()),
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          OCP_K_HEAP, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
@@ -306,6 +354,14 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SET_REGION:
         cmd_set_region(argv[1]);
+        break;
+
+    case OCP_VID_SET_BAND:
+        cmd_set_band(argv[1]);
+        break;
+
+    case OCP_VID_SET_CHANNELS:
+        cmd_set_channels(argv[1]);
         break;
 
     case OCP_VID_REBOOT:

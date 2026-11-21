@@ -18,6 +18,8 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("probe_rst",client_.probe().rst);
     line.field("wifi_region",wifi_region_);
     line.field("probe_region",probe_region_);
+    line.field("wifi_band",wifi_band_);
+    line.field("probe_band",probe_band_);
     line.field("bt_live",bt_.continuousActive());
     line.field("bt_scanning",bt_.scanning());
     line.field("bt_tracker",bt_.airtagActive());

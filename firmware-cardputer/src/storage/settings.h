@@ -33,4 +33,9 @@ void saveBrightness(uint8_t value);
 std::string loadWifiRegion();
 void saveWifiRegion(const std::string &code);
 
+/* Wi-Fi band scope ("auto" / "24" / "5", OCP-SPEC §10.9), pushed as
+ * `set_band`. Caller validates with app::bandOrDefault(). */
+std::string loadWifiBand();
+void saveWifiBand(const std::string &code);
+
 }  // namespace storage
