@@ -15,7 +15,9 @@ void drawBtDetailView(const model::BtInspection &p,const model::BtModel &bt,uint
     d.drawFastHLine(0,kBodyTop+20,d.width(),kLineBorder);
     observatory::obsText(c,6,kBodyTop+4,r.name.empty()?"UNNAMED DEVICE":r.name,observatory::FontId::Title,kPaperPhosphor,230);
     d.setTextSize(1);d.setCursor(4,kBodyTop+24);d.setTextColor(kCalibrationYellow,kVoidInk);d.print(printable(r.mac,17).c_str());
-    d.setCursor(4,kBodyTop+37);d.setTextColor(kPaperPhosphor,kVoidInk);d.printf("COMPANY ID %s",printable(r.mfr.empty()?"UNKNOWN":r.mfr,12).c_str());
+    d.setCursor(4,kBodyTop+37);d.setTextColor(kPaperPhosphor,kVoidInk);
+    if(!p.vendor().empty())d.printf("MFR %s (%s)",printable(r.mfr,6).c_str(),printable(p.vendor(),22).c_str());
+    else d.printf("COMPANY ID %s",printable(r.mfr.empty()?"UNKNOWN":r.mfr,12).c_str());
     d.setCursor(4,kBodyTop+51);d.printf("%ddBm / LAST OBS %lus",r.rssi,(unsigned long)((now-r.observed_ms)/1000));
     d.setCursor(4,kBodyTop+65);d.printf("%s / %u SAMPLES",r.tracker?"TRACKER FLAG":"ADVERTISER",(unsigned)p.history().size());
     d.setCursor(4,kBodyTop+79);d.setTextColor(kMutedSlate,kVoidInk);d.print(p.stateLabel(bt,now));
@@ -103,7 +105,10 @@ void drawExternalBtDetailStrip(lgfx::LGFX_Sprite &d, int top, const model::BtIns
     /* Lower Reading Dock. */
     obsText(c, 12, 164, r.name.empty() ? "UNNAMED DEVICE" : r.name, FontId::Title, kPaperPhosphor, 296);
     obsText(c, 12, 184, r.mac, FontId::Mono, kMutedSlate, 180);
-    obsMicro(c, 308, 186, "RAW ID / NO VENDOR", kMutedSlate, kPanelDark, Align::Right);
+    obsMicro(c, 308, 186,
+             !p.vendor().empty() ? obsUpper(safe(p.vendor(), 20)) : "RAW ID / NO VENDOR",
+             !p.vendor().empty() ? kFieldGreen : kMutedSlate,
+             kPanelDark, Align::Right);
 
     obsBay(c, 12, 94, "RSSI / dBm", std::to_string(r.rssi), kCalibrationYellow);
     obsBay(c, 122, 86, "AGE / s", std::to_string((now - r.observed_ms) / 1000), kMutedSlate, "s");

@@ -367,6 +367,10 @@ PY
     firmware-cardputer/test/host/lora_profile_catalog_test.cpp \
     firmware-cardputer/src/model/lora_profile_catalog.cpp
 "$out/lora_profile_catalog_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/vendor_table_test" \
+    firmware-cardputer/test/host/vendor_table_test.cpp
+"$out/vendor_table_test" | tail -1 | sed 's/^/  /'
+python3 tools/build_vendor_tables.py --selftest --cpp-bin "$out/vendor_table_test" | sed 's/^/  /'
 
 # The deck's NMEA reader: checksum, chunking, bounds - no OCP link involved.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/nmea_parser_test" \

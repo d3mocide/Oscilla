@@ -25,6 +25,7 @@ class WifiInspection {
     ApRow row_;Inspect inspect_;
     bool active_=false,present_=false,clients_=false;
     std::string peer_;
+    std::string vendor_;
     int signal_=0;uint32_t observed_ms_=0,capture_ms_=0;
 public:
     bool open(const ScanModel &m,size_t cursor){
@@ -42,7 +43,9 @@ public:
         inspect_=in;capture_ms_=now;
         if(in.beacons){signal_=in.rssi;observed_ms_=now;}return true;
     }
-    void close(){active_=present_=clients_=false;inspect_={};peer_.clear();}
+    void close(){active_=present_=clients_=false;inspect_={};peer_.clear();vendor_.clear();}
+    void setVendor(std::string v){vendor_=std::move(v);}
+    const std::string &vendor()const{return vendor_;}
     bool active()const{return active_;}bool present()const{return present_;}
     const ApRow &row()const{return row_;}const Inspect &inspect()const{return inspect_;}
     int signal()const{return signal_;}uint32_t observedMs()const{return observed_ms_;}uint32_t captureMs()const{return capture_ms_;}
@@ -66,7 +69,7 @@ public:
     }
 };
 class BtInspection {
-    BtDevice row_;SignalHistory history_;bool active_=false,present_=false;
+    BtDevice row_;SignalHistory history_;std::string vendor_;bool active_=false,present_=false;
 public:
     bool open(const BtModel &m,size_t cursor){
         close();if(cursor>=m.devices().size())return false;
@@ -78,7 +81,9 @@ public:
         if(row_.observation_id!=m.devices()[i].observation_id)history_.push(m.devices()[i].observed_ms,m.devices()[i].rssi);
         row_=m.devices()[i];
     }
-    void close(){active_=present_=false;history_={};}
+    void close(){active_=present_=false;history_={};vendor_.clear();}
+    void setVendor(std::string v){vendor_=std::move(v);}
+    const std::string &vendor()const{return vendor_;}
     bool active()const{return active_;}bool present()const{return present_;}
     const BtDevice &row()const{return row_;}const SignalHistory &history()const{return history_;}
     const char *stateLabel(const BtModel &m,uint32_t now)const{

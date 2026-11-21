@@ -1,3 +1,25 @@
+## 2026-11-21 — Offline SD OUI & Bluetooth Company-ID vendor lookup tables (WP-12a)
+
+- Added pure-C++ `model/vendor_table.h` (sorted 24-byte binary record reader,
+  16-byte header/truncation validator, MAC OUI + LAA parser, Bluetooth SIG
+  16-bit Company-ID parser, ASCII sanitizer, bounded <=24-step binary search,
+  and fixed 32-slot RAM LRU cache caching both hits and misses).
+- Added SD service `storage/vendor_lookup.{h,cpp}` querying `/oscilla/oui.bin`
+  and `/oscilla/bt_mfr.bin` under `storage::lock(2)` with absent-table
+  memoization so cards without vendor files pay zero SPI overhead.
+- Added stdlib-only `tools/build_vendor_tables.py` converting IEEE OUI CSVs
+  and Bluetooth SIG company identifier YAML/CSVs into Oscilla's binary tables
+  (`--selftest` cross-checks generated binaries against the compiled C++ lookup).
+- Wired once on dossier open (`DeckApp::openWifiDossier()` / `openBtDossier()`)
+  into `model::WifiInspection` / `model::BtInspection` and rendered in both
+  onboard and external `wifi_detail_view.cpp` & `bt_detail_view.cpp` (zero SPI
+  I/O during strip redraws, clean fallback when absent).
+- **Checks:** `check_protocol.sh` (new `vendor_table_test` +
+  `build_vendor_tables.py --selftest --cpp-bin` + `check_rx_only.py`), mutation
+  proof (relaxing truncation guard fails `vendor_table_test`), and
+  `build_firmware.sh` (both boards + stack guards).
+- **Not yet verified on hardware:** live SD card lookup with real IEEE/BT-SIG tables.
+
 ## 2026-11-21 — Settings menu overhaul (paired 320×240 inspector) & SD-loaded LoRa profiles (WP-9a)
 
 - **Settings menu overhaul (`ui/settings_state.h`, `ui/settings_view.{h,cpp}`,

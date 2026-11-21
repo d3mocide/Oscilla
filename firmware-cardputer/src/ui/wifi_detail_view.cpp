@@ -26,6 +26,7 @@ void drawWifiDetailView(const model::WifiInspection &p,const model::SurveyState 
     d.drawFastHLine(0,kBodyTop+20,d.width(),kLineBorder);
     observatory::obsText(c,6,kBodyTop+4,r.ssid.empty()?"<HIDDEN>":r.ssid,observatory::FontId::Title,kCalibrationYellow,230);
     d.setTextSize(1);d.setTextColor(kPaperPhosphor,kVoidInk);d.setCursor(4,kBodyTop+24);d.print(printable(r.bssid,17).c_str());
+    if(!p.vendor().empty()){d.setTextColor(kFieldGreen,kVoidInk);d.printf(" %s",printable(p.vendor(),20).c_str());d.setTextColor(kPaperPhosphor,kVoidInk);}
     if(p.clientsPage()){
         d.setCursor(4,kBodyTop+37);d.setTextColor(kMutedSlate,kVoidInk);
         if(contacts.hasClientSnapshot())d.printf("CLIENT CACHE / %lus OLD",(unsigned long)((now-contacts.clientSnapshotMs())/1000));
@@ -139,7 +140,10 @@ void drawExternalWifiDetailStrip(lgfx::LGFX_Sprite &d, int top, const model::Wif
                             : (r.ssid.empty() ? "<HIDDEN>" : r.ssid),
             FontId::Title, kPaperPhosphor, 296);
     obsText(c, 12, 184, p.clientsPage() ? ("AP " + r.bssid) : r.bssid, FontId::Mono, kMutedSlate, 188);
-    obsMicro(c, 308, 186, "NO BEARING", kMutedSlate, kPanelDark, Align::Right);
+    obsMicro(c, 308, 186,
+             (!p.clientsPage() && !p.vendor().empty()) ? obsUpper(safe(p.vendor(), 18)) : "NO BEARING",
+             (!p.clientsPage() && !p.vendor().empty()) ? kFieldGreen : kMutedSlate,
+             kPanelDark, Align::Right);
 
     obsBay(c, 12, 94, "RSSI / dBm",
            p.clientsPage() ? (peer ? std::to_string(peer->rssi) : "--") : std::to_string(p.signal()),

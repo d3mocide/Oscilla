@@ -1,14 +1,17 @@
 /* AP/advertiser inspection entry, identity remapping and explicit refresh. */
 #include "app/deck_app.h"
+#include "storage/vendor_lookup.h"
 namespace app {
 void DeckApp::openWifiDossier()
 {
     if(!wifi_inspection_.open(scan_,cursor_)){notice("no AP selected");return;}
+    wifi_inspection_.setVendor(storage::lookupOuiVendor(wifi_inspection_.row().bssid));
     screen_=Screen::Trace;dirty_=true;
 }
 void DeckApp::openBtDossier()
 {
     if(!bt_inspection_.open(bt_,bt_cursor_)){notice("no advertiser selected");return;}
+    bt_inspection_.setVendor(storage::lookupBtCompany(bt_inspection_.row().mfr));
     dirty_=true;
 }
 uint16_t DeckApp::absorbWifiPage(const ocp::Item &item)
