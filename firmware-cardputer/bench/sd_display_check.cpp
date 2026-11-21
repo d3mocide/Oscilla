@@ -6,12 +6,17 @@
 #include "model/gnss_model.h"
 #include "storage/sd_storage.h"
 #include "ui/external_gps_display.h"
+#include "ui/external_tft.h"
+#include "model/spectrum_model.h"
+#include "ocp.h"
 
 namespace {
 enum class Phase { Waiting, Writing, Reading, Passed, Failed };
 Phase phase = Phase::Waiting;
 gnss::NmeaParser parser;
 model::GnssModel gps;
+model::SpectrumModel test_scope;
+uint32_t last_scope_sample, scope_sequence;
 File file;
 char path[48];
 uint8_t block[256];
@@ -24,6 +29,7 @@ unsigned chunk;
 bool created, external_ready, cleaned;
 const char *failure = "";
 constexpr unsigned kCycles = 32;
+unsigned cycle_limit=kCycles;
 unsigned cycles_passed, write_ops;
 uint32_t written_bytes, verified_bytes, settle_at;
 bool settling;
@@ -43,8 +49,13 @@ const char *phaseName()
 
 void status()
 {
+    const auto &tft = ui::externalTftStatus();
+    const auto &render=ui::externalRenderStats();
+    Serial.printf("SD/display frames=%lu cycle_us=%lu pixels=%lu max_span_us=%lu\n",(unsigned long)render.frames,(unsigned long)render.last_frame_us,(unsigned long)tft.pixels_sent,(unsigned long)tft.max_span_us);
+    Serial.printf("SD/display tft_hz=%lu rows_sent=%lu\n", (unsigned long)tft.clock_hz,
+                  (unsigned long)tft.rows_sent);
     Serial.printf("SD/display status phase=%s block=%u/16 cycles=%u/%u write_ops=%u written_bytes=%lu verified_bytes=%lu cleanup=%s external=%s gps=%s rx_bytes=%lu checksum_fail=%lu reason=%s\n",
-                  phaseName(), chunk, cycles_passed, kCycles, write_ops,
+                  phaseName(), chunk, cycles_passed, cycle_limit, write_ops,
                   (unsigned long)written_bytes, (unsigned long)verified_bytes,
                   cleaned ? "removed" : created ? "pending" : "none",
                   external_ready ? "initialized" : "not initialized",
@@ -97,6 +108,7 @@ void openCycle()
 
 void start()
 {
+    ui::holdExternalGpsDisplayReset();
     if (!storage::begin()) {
         phase = Phase::Failed;
         failure = "SD mount";
@@ -108,6 +120,13 @@ void start()
         failure = "external init";
         return;
     }
+    test_scope.beginLocked(6);
+    for(unsigned i=0;i<30;++i) {
+        ocp::Item item;item.kind=ocp::ItemKind::Event;
+        item.kv={{OCP_K_KIND,OCP_EVT_KIND_CHAN},{OCP_K_CH,"6"},{OCP_K_PKTS,std::to_string(4+(i*13)%44)}};
+        test_scope.absorbEvent(item,millis()-(29-i)*1000);
+    }
+    last_scope_sample=millis();
     phase = Phase::Writing;
     settle_at = millis();
     settling = true; /* First full GPS redraw precedes SD traffic. */
@@ -122,6 +141,7 @@ void pollUsb()
             usb_line[usb_length] = '\0';
             if (!usb_overlong) {
                 if (!strcmp(usb_line, "start") && phase == Phase::Waiting) start();
+                if (!strcmp(usb_line, "start_short") && phase == Phase::Waiting) {cycle_limit=1;start();}
                 if (!strcmp(usb_line, "status")) status();
             }
             usb_length = 0;
@@ -141,7 +161,7 @@ void step(uint32_t now)
         openCycle();
         return;
     }
-    if (phase == Phase::Passed && cycles_passed < kCycles) {
+    if (phase == Phase::Passed && cycles_passed < cycle_limit) {
         openCycle();
         return;
     }
@@ -184,7 +204,7 @@ void draw()
     d.setTextColor(phase == Phase::Failed ? TFT_RED : TFT_WHITE, TFT_BLACK);
     d.setTextSize(2);
     d.setCursor(8, 4);
-    d.println("SD WRITE OPS");
+    d.println("SD / TFT BENCH");
     d.setTextSize(5);
     d.setCursor(8, 24);
     d.printf("%u", write_ops);
@@ -192,17 +212,17 @@ void draw()
     d.setCursor(8, 70);
     d.printf("Written %lu B / verified %lu B\n", (unsigned long)written_bytes, (unsigned long)verified_bytes);
     d.setCursor(8, 82);
-    d.printf("Cycles %u/%u / %s %u/16\n", cycles_passed, kCycles, phaseName(), chunk);
+    d.printf("Cycles %u/%u / %s %u/16\n", cycles_passed, cycle_limit, phaseName(), chunk);
     d.setCursor(8, 94);
     if (phase == Phase::Waiting) d.print("ENTER once or USB start");
     else if (phase == Phase::Failed) d.printf("FAIL: %s", failure);
-    else if (phase == Phase::Passed && cycles_passed == kCycles) d.print("PASS / all test files removed");
+    else if (phase == Phase::Passed && cycles_passed == cycle_limit) d.print("PASS / all test files removed");
     else if (settling) d.print("Preparing GPS display...");
     else d.print("256-byte writes, then readback");
     d.setCursor(8, 106);
     d.printf("GPS %s / RX %lu", model::gnssStateName(gps.state(millis())), (unsigned long)received);
     d.setCursor(8, 118);
-    d.printf("Checksum errors %lu", (unsigned long)parser.checksumFailures());
+    d.print("SYNTHETIC SCOPE / SHARED SPI");
     d.pushSprite(0, 0);
 }
 }
@@ -236,7 +256,15 @@ void loop()
     if (phase == Phase::Waiting && M5Cardputer.Keyboard.isChange() &&
         M5Cardputer.Keyboard.isPressed() && M5Cardputer.Keyboard.keysState().enter) start();
     step(millis());
-    if (external_ready) ui::tickExternalGpsDisplay(gps, received, parser.checksumFailures(), millis());
+    if(external_ready) {
+        if(millis()-last_scope_sample>=1000) {
+            last_scope_sample=millis();
+            ocp::Item item;item.kind=ocp::ItemKind::Event;
+            item.kv={{OCP_K_KIND,OCP_EVT_KIND_CHAN},{OCP_K_CH,"6"},{OCP_K_PKTS,std::to_string(4+(++scope_sequence*13)%44)}};
+            test_scope.absorbEvent(item,last_scope_sample);
+        }
+        ui::tickExternalGpsDisplay(gps,received,parser.checksumFailures(),millis(),nullptr,0,&test_scope,0);
+    }
     if (millis() - last_draw >= 500) { last_draw = millis(); draw(); }
     if (millis() - last_status >= 1000) { last_status = millis(); status(); }
     delay(1);

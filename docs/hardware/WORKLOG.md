@@ -6,6 +6,237 @@ respective bench records under this directory; this log records design changes
 and their validation status. See [Rev D](../../Research/c5-backpack-design.md)
 for electrical authority.
 
+## 2026-11-16 — GMT028-05 V1.1 replacement display selected
+
+- User photos establish the seven-pin header: GND, VCC, SCK, SDA, RST,
+  DC, CS. This differs from the old eight-pin no-CS ILI9341. Rev D §5.4
+  owns the label-to-EXT/GPIO mapping; CS is wired to GPIO5/EXT13.
+- User reports 3.3 V supply operation. The ST7789 standalone fixture
+  produced colours, and the native-driver normal firmware now renders
+  the interface. User confirmed correct colours after `invert=false`.
+- Firmware supports only this replacement panel going forward. Shared-SPI
+  testing at 8 MHz passed 32 write/read/cleanup cycles (128 KiB), with clean
+  output confirmed by the user. Details are in the software WORKLOG;
+  physical cold-boot/soak and combined power-budget gates remain open.
+
+## 2026-11-16 — Second test print: the hinge bar cover could not be closed
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+The operator reprinted bar and cover: the antenna now seats, but the cover does not go on. Two faults, both in the cover (C1), both mine:
+
+- **Cover drawn 1.4 mm off along the bar.** `hinge_bar.py` placed the original cover file by eye (x + 0). Its screw boss is at
+  x 23.1 in the file, the bar's screw hole at x 21.7; the true place is x - 1.4, which also puts the cover exactly between the
+  hinge blocks (8.6 to 67.9; L1 ends 8.5, R1 starts 68) and its lip and hook in the bar's channel and slot. So on the printed
+  cover the new plate and rims sat 1.4 mm off the original boss, lip and hook. `C1_AT` is now (-1.4, 7.67, 15).
+- **The cover could no longer be put on at all.** The original cover tilts in about its hook (a barb under a ledge of the bar at
+  x 54.4 to 62.9, pointing toward the Cardputer). The deeper plate reaches 4.8 mm past that hook and lands on the new outer wall
+  before the barb is under the ledge. The new cover goes **straight down 1.1 mm outward of its place, then slides in** until the
+  hook is under the ledge, then the screw (`slide`). For that: barb cut back from z -7.6 to -8.0 (0.5 to 0.9 mm under the ledge),
+  a flat on the screw boss (1.1 mm of wall left at the hole), rims set 1.3 mm back from the outer wall (the narrow one over the
+  coax hollow is now a solid strip).
+
+The bar (S1) is unchanged: same mesh as the second print. Only C1 is to be reprinted. Second-print files are kept in
+`enclosure/screen-gnss/out/print2-2026-11-16/`.
+
+**Verified:** the script now steps the cover along that path (down at z - 1.1, then in) against the new bar: no overlap beyond
+the seated pair's 0.25 mm3 (the original pair, correctly placed, has 0.17); lifted 0.5 mm when seated it collides (the hook
+holds); no overlap with L1, R1 or the antenna envelope. Sections in `out/preview-cover-fit.png` (`python3 coverfit.py`).
+Sliced in OrcaSlicer 2.5.0, no supports, 1.3 g, about 10 min.
+
+**Not verified:** not printed. What the operator saw ("the lid is upside down") was not confirmed against these two faults by
+photo. Against sliding back out the cover is held only by the screw and by friction; if it creeps, it needs a detent.
+
+## 2026-11-15 — First test print: coax throat in the hinge bar, GNSS spot moved to the hinge edge, raised mark
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+The operator printed the hinge bar, cover and the finned screen tub, and keeps the finned tub as the design. Three findings:
+
+- **Antenna in the bar:** it has to lie ceramic face toward the cover, which puts its board, shield can and coax on the pocket
+  floor; the only way out of the pocket was a notch at the top, so it could not seat. `hinge_bar.py`: the notch is now a throat
+  open from floor to top (`throat`, 5.0 mm from the outer wall; 3.5 mm where it meets the coax hollow). The 1.6 mm left of the
+  pocket's end wall still stops the antenna. The cover rim is opened to match.
+- **GNSS board position:** the coax did not reach the middle of the back. The pocket moves toward the hinge edge, same x:
+  `gps_fins.py` z 27 -> 12 (block from the fin at z 3 to the fin at z 21, pocket 3.6 mm above the tub's inner bottom wall); `gps_pocket.py` z 27 -> 13 (brim 1.6 mm from the bottom lip).
+- **Oscilla mark:** sunk 0.6 mm with 0.8 mm lines it printed muddy. It moves to the top centre (z 39) and is raised like the
+  fins: a hexagon ring one fin wide, and inside it the two ellipses (1.4 mm lines) and a centre ring (5.2 mm across, 3.0 mm eye) standing full fin height
+  from the back plate. The ring covers the whole crossing so no slivers are left; a first try with a solid hub lost the circle (operator). Same 6 mm grid: the hexagon's bottom corner is
+  on the centre fin, its top corner on the top border, gaps end square on its flats or on a slant.
+
+- **Outer grooves:** the three square grooves round the bar (0.6 x 0.5 mm) printed soft: three layers and an overhang each.
+  Bar and backpack tray now have two V-grooves instead, 1.4 mm wide and 0.6 mm deep (about 40 degree sides, no overhang),
+  1.4 mm apart (bar y 3.1 and 5.9, tray Z 5.3 and 8.1). The bar wall is 0.6 mm at the tip of each V. Tray 17.0 g, about 126 min.
+- **Screen tub walls (finned version only):** the original Cap TFT tub has four V-grooves 0.8 mm wide and 0.4 mm deep round its
+  outer walls (y 1.8, 3.4, 5.0, 6.6), too fine to print well. `gps_fins.py` now fills them and cuts three V-grooves of the bar's
+  size (1.4 x 0.6 mm) at y 3.0, 5.8 and 8.6, the third in the new thicker back. The side wall is 0.7 mm at the tip of a V.
+  The V is built in eight steps, finer than a print layer. A first build ran them round the whole outline, hinge legs included; the operator wanted them where the original's are, so they are clipped to z >= 18 (up both sides and across the top, measured on the original). `gps_pocket.py`, D2, D3, L1 and R1 are unchanged.
+- **Bar right end (operator, in the slicer):** the end wall of the deeper section came out as loose pieces. The original
+  bar's outer face is chamfered from x = 66 to 68, so the new end wall (x 66 to 67.2) met it along one line only; the first
+  print held by its floor and outer wall, the deeper V-grooves cut it free. A wedge now fills the space under the chamfer and
+  the grooves stop where the old face begins (z = -10.07). Checked in sections at x 65 to 67 and y 0.2 to 7.
+- **Mark, second pass:** the operator wanted the centre circle whole; the solid hub became the ring described above.
+
+**Verified:** all solids valid, no overlap with the antenna or GNSS board envelopes; sliced in OrcaSlicer 2.5.0 without supports
+(bar 4.7 g, cover 1.3 g, finned tub 19.6 g, about 153 min; two-part tub 11.6 g + cap 0.9 g). Mark checked in a close-up section.
+
+**Not verified:** not reprinted. Where the coax leaves the antenna across its width was read from a photo, not measured. The
+"GNSS" label is still sunk 0.4 mm and may print as poorly as the old mark. Files of the first print are kept in
+`enclosure/screen-gnss/out/print1-2026-11-15/`.
+
+## 2026-11-15 — Carrier v1.5 (slimmer), finned one-piece screen back as an alternative
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+- **Carrier v1.5** (`hardware/c5-wio-carrier/v1.5/`, from v1.4 by `make_v15.py`): the operator marked up the v1.4 render: logo
+  to the right and smaller, Grove jack up, less height. Board 79.0 x 35.0 -> 79.0 x 30.1 mm; logo at 80 % under the Grove jack;
+  J1 3.7 mm higher; plain rectangular outline. v1.5 is now current and the backpack shell is refitted to it.
+- **Screen tub, second option** (`enclosure/screen-gnss/gps_fins.py`): the operator asked whether the raised GNSS pocket needs
+  supports and whether fins or a thicker back would print more easily. Neither option needs supports. The new one-piece
+  version grows the whole back by 3.2 mm as nine fins (1.6 mm, 3.6 mm gaps) with a solid block for the pocket; the fins touch
+  the bed and the original back plate bridges the gaps. Display screws keep their length through counterbores. The two-part
+  version (`gps_pocket.py`: window plus hat-shaped cap) stays as the lighter option.
+- The operator reports standard SMA bulkheads, and that the Wio takes the same space as the C5.
+
+**Verified:** v1.5 ERC 0 violations; DRC (all severities, zone refill, schematic parity) 0 violations, 0 unconnected, 0 parity
+issues. Both tub versions: solids valid, no overlap with the GNSS board envelope, slice in OrcaSlicer 2.5.0 without supports
+(two-part: tub 11.6 g + cap 0.9 g, about 97 min; finned: 19.2 g, about 149 min, generic profile).
+
+**Not verified:** nothing fabricated, printed or fitted. Hinge behaviour with the heavier finned back is not assessed.
+
+**Later the same day:** the operator keeps both tub versions and asked for the Oscilla mark in the fin pattern and a larger
+board logo. The finned back now has a solid hexagon (12 mm corner radius) in the middle with the mark sunk 0.6 mm; the fins run
+into it. Its new layer is built from the tub's full outline: the first build followed the panel lines and left the two top
+corners without a layer, which would have printed in mid-air. Finned tub now 19.9 g, about 155 min, no supports; nothing but
+the fin gaps is bridged. Carrier v1.5 regenerated with the logo at 92 % (was 80 %), same outline; DRC still 0 / 0 / 0.
+
+**Symmetry pass (operator markup + harness photo):** the fin grid, hexagon and GNSS block had been placed independently, which
+left stub slots and uneven fin ends. The finned back is now laid out from the centre of the back plate (x 142, z 27): a solid
+nameplate band 24 mm tall with the mark in the middle and two identical 16.8 x 14.8 pockets 20 mm either side (GNSS on the
+wire-entry side, a spare marked PWR on the other), and three equal gaps above and below (1.4 mm fins, 2.6 mm gaps, 3.0 mm
+border top and bottom). The operator's photo shows the harness running across the top third and down the wire-entry edge; the
+GNSS board was about 1 mm from it, so in both tub versions it moved 1 mm inboard (2.6 mm clear on paper). Finned tub 19.8 g,
+about 154 min, no supports.
+
+**Grid pass:** the operator preferred fins that cut round the shapes, with a single GNSS spot and no twin pocket. The
+nameplate band is dropped. Fins, hexagon and block now share one grid centred on the back plate: 6.0 mm pitch (1.8 mm fins,
+4.2 mm gaps) with a fin on the centre line and four gaps above and below; the solid hexagon's corner radius is two pitches
+(12 mm), so each gap clears it, ends square on a flat or ends on a slant, and its top and bottom corners land on fins; the
+GNSS block is as tall as the hexagon, starts behind it at the centre line and runs to the end of the gaps. No stub slots or
+slivers remain. 19.6 g, about 152 min, no supports.
+
+**Mark fix:** in that build the vertical ellipse of the mark was missing inside the horizontal one (operator spotted it). The
+cause was the 2D ring construction (rotating an ellipse, then a 2D offset). The rings are now drawn directly as an outer
+ellipse minus an inner one, joined as solids and cut once. Checked in a close-up section: both ellipses are whole.
+The backpack lid had the same fault (operator spotted it; an earlier note here-abouts that it was fine was wrong) and its
+hexagon was turned 90 degrees from the brand mark. Both fixed the same way and checked in a close-up section.
+
+**Before the first test print:** operator measured the Wio at 6 mm; on 2.5 mm header spacers that is the 8.5 mm the backpack
+allows (0.5 mm to the lid). He reports the Cardputer model matches his unit and the antenna coax reaches. Hinge bar styled
+to match the backpack: three fin grooves round its outer face (0.6 x 0.5 mm at 1.4 mm pitch, as on the tray) and a 0.5 mm
+chamfer on the cover's outer edges. Bar and cover still slice without supports (4.8 g + 1.3 g, about 50 min). First test
+print planned: hinge bar, cover and screen tub.
+
+## 2026-11-15 — Carrier v1.4 (four corner screws, visible logo), GNSS pocket on the screen tub
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+Operator decisions: the GNSS board stays with the screen (all its wiring there), on the back plate, raised if needed; the
+6 mm thickness is the bare board. The carrier may grow for an even screw pattern, a visible logo, and nothing under the Wio.
+
+- **Carrier v1.4** (`hardware/c5-wio-carrier/v1.4/`, from v1.3 by `make_v14.py`): 79.0 x 35.0 mm; four M2 holes on a
+  72.8 x 29.0 rectangle (H4 new, board-only); logo and name in a bottom strip; C1/C2 above the Wio on its supply pins; test
+  points in one column; two top-edge notches over the Cardputer's back-cover screws. See its README. v1.4 is now current.
+- **Screen tub** (`enclosure/screen-gnss/gps_pocket.py`): D1 gets a 19.6 x 17.6 window in its back plate, in the middle band
+  on the wire-entry side. A separate cap G1, shaped like a hat with its brim inside the tub, fills it and stands 3.2 mm proud.
+  Measured on the D1 file: display board back at y = 4.0, back plate inner face at 7.4, so 3.4 mm free without the cap and
+  6.6 mm with it.
+- **Backpack** refitted to v1.4: four corner standoffs, no post or lips.
+
+**Verified:** v1.4 ERC 0 violations; DRC (all severities, zone refill, schematic parity) 0 violations, 0 unconnected, 0 parity
+issues. Tub, cap and GNSS board envelope do not overlap; tray, lid and board envelope do not overlap; all printable parts
+slice in OrcaSlicer 2.5.0 without supports.
+
+**Not verified:** nothing fabricated, printed or fitted; v1.4 routing not reviewed by eye in KiCad. Whether the coax reaches
+from the hinge bar to the cap (about 60 mm of its 95 mm is used getting into the tub) is a paper estimate.
+
+## 2026-11-15 — Carrier v1.3 (compact strip), measured antenna, shell refit
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+Operator measurements (calipers, rounded up to the mm): GNSS antenna 18 x 6 x 6, GNSS board 16 x 14 x 6, XIAO 23 x 18 x 5.
+
+- **Carrier v1.3** (`hardware/c5-wio-carrier/v1.3/`, from v1.2 by `make_v13.py`): the operator wanted the wasted space out.
+  The top strip is removed, board 79.0 x 38.2 -> 79.0 x 21.7 mm; J1, F1, D1, test points, C1, C2 and the mounting holes
+  moved beside and between the modules; 5 V, 3V3 and UART re-routed; LoRa routes untouched. See its README.
+- **Hinge bar:** antenna size is now measured; the bar comes out 14.8 mm deep (was 16.8 with the guess, original 10.07).
+- **Backpack:** refitted to v1.3. The board lies along the bottom wall; the upper half of the tray is empty apart from the SMA
+  pigtails, and both Cardputer back screws stay reachable with the board in. USB end held by a post and two wall lips.
+
+**Finding:** the GNSS board at 6 mm does not fit behind the display in the Cap TFT tub (about 3.7 mm free there). Its place is
+an open decision.
+
+**Verified:** v1.3 ERC 0 violations; DRC (all severities, zone refill, schematic parity) 0 violations, 0 unconnected, 0 parity
+issues. Enclosure solids valid, no overlaps, all printable parts slice without supports.
+
+**Not verified:** nothing fabricated, printed or fitted; v1.3 routing has not been reviewed by eye in KiCad. Wio height on the
+carrier, USB-C plug height, SMA bulkhead dimensions and the Cardputer back-screw length are still guesses.
+
+## 2026-11-15 — Carrier v1.2 (Grove to the right edge), enclosure draft 2
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+**Carrier v1.2** (`hardware/c5-wio-carrier/v1.2/`, a copy of v1.1 changed by `make_v12.py`): the operator found the Grove
+jack on the wrong side. Board widened from 58.0 to 79.0 mm so it spans the backpack shell; J1 moved to the right edge top
+corner facing right; H1 moved from (55.0, 3.2) to (75.0, 15.5) under it; the three Grove nets re-routed on F.Cu along the
+top strip (5 V at 0.5 mm, was 0.2 mm) to vias onto the existing B.Cu runs. Schematic unchanged apart from the revision
+field. USB-C stays on the left edge. v1.1 is untouched.
+
+**Enclosure draft 2** (`hardware/enclosure/`):
+
+- Hinge bar: the antenna pod is gone. The bar is uniformly deeper (16.8 mm with the guessed antenna size, original 10.07)
+  with the antenna inside the left half and the spare coax in the hollow right half; the original cover screw and hook stay.
+- Backpack: redrawn for v1.2. Lid with a 2.6 mm edge chamfer, panel lines after the Cap TFT lid, debossed mark and name,
+  two countersunk screws in the top corners and two tongues into the bottom wall; raised SMA seats at Y = +/-24; three fin
+  grooves round the sides and bottom; Grove mouth in a scallop on the Cardputer's Grove side; USB-C on the other side with a
+  seat for a TPU cap. 16.9 mm thick with both modules soldered flat.
+
+**Verified:** v1.2: KiCad 10.0.7 ERC 0 violations; DRC with zone refill and schematic parity 0 violations, 0 unconnected,
+0 parity issues (`v1.2/verification/`). Enclosure: all solids valid, no volume overlap between tray, lid and the board
+envelope, nor between bar, cover and antenna envelope beyond the original pair's 32.7 mm3; every printable part slices in
+OrcaSlicer 2.5.0 without supports.
+
+**Not verified:** nothing fabricated, printed or fitted. v1.2 has no Gerbers and no physical review; the Grove footprint is
+still the planning drawing v1.1 used. Antenna size, module height, USB-C plug height, SMA bulkhead dimensions and the
+Cardputer back-screw length are still guesses (GUESS in the scripts).
+
+## 2026-11-15 — Enclosure drafts: GNSS hinge bar and full-width backpack shell
+
+**Phase:** Hardware tooling · **By:** Claude + operator
+
+Started `hardware/enclosure/` (local-only, see its README). Two parametric FreeCAD drafts, built headless with `freecadcmd`:
+
+- **`screen-gnss/`** — the Cap TFT V2 hinge bar (S1) and cover (C1) with a pod on the bar's outer face, beside the wire
+  channel, for the ATGM336H kit's ceramic bar antenna. The original STLs are converted to solids and modified; the other
+  five Cap TFT V2 parts are unchanged. The coax enters the existing wire channel through a notch. The GNSS board itself is
+  meant to sit behind the display in the tub (about 3.7 mm free there).
+- **`backpack/`** — an 84 x 54 mm tray, flat lid and four pegs for the v1.1 carrier on the Cardputer's back: two M2
+  through the tray floor into the back-cover screw positions, pegs in the four 4.85 mm holes along the top edge, two SMA
+  D-holes in the top wall 9 mm behind the back face (clear of the hinge bar and pod), USB-C and Grove openings in one side
+  wall. 16.7 mm thick with both modules soldered flat.
+
+Findings on the references: the Cap TFT V2 bar is about 8 x 10 mm in section and has no room inside for the antenna; the
+Lab5 MonsterC5 tray pocket is about 56.5 mm wide (v1.1 is 58.0 mm) and the two-piece back shell is drawn for another board.
+
+**Verified:** solids valid; no volume overlap between the new bar, cover and antenna envelope beyond the 32.7 mm3 the
+original S1/C1 pair already has; no overlap between tray, lid and the board envelope; all five printable parts slice in
+OrcaSlicer 2.5.0 without supports (generic 0.2 mm profile). Positions on the Cardputer come from M5Stack's published
+`Cardputer-Adv.stl`.
+
+**Not verified:** nothing printed or fitted. Antenna size, module height, USB-C plug height, SMA bulkhead hole and the
+Cardputer back-screw length are guesses marked GUESS in the scripts. The carrier's Grove/USB-C edge ends up on the
+audio-jack side of the Cardputer, opposite its Grove port: open question for the next carrier revision.
+
 ## 2026-10-09 — Delivered no-CS ILI9341 bench variant
 
 Rev D §5.3 now identifies the actual eight-pin panel and separate user-verified

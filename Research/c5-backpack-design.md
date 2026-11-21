@@ -17,7 +17,7 @@ This document supersedes the original architecture draft and PDF revisions A–C
 | M5Stack Cardputer ADV, ESP32-S3 | Host, keyboard, internal display, external display, GNSS parsing, SD logging | All host peripherals and Grove UART |
 | Seeed Studio XIAO ESP32-C5 | Radio coprocessor: Wi-Fi, BLE, IEEE 802.15.4, LoRa control | Cardputer through UART; Wio through SPI and GPIO |
 | Seeed Wio-SX1262 for XIAO | SX1262 LoRa transceiver; standard two-row header version, SKU 113010003 | XIAO through a custom wire harness |
-| Delivered eight-pin ILI9341, no exposed CS; see §5.3 for the current bench variant | External display | Cardputer rear EXT header |
+| GMT028-05 V1.1 seven-pin ST7789 with CS; see §5.4 (old panel evidence in §5.3) | External display | Cardputer rear EXT header |
 | Separate regulator, user reports measured 3.3 V (§5.3) | Supplies delivered display VCC + BLK and GNSS VCC | Common ground with Cardputer; Cardputer 3.3 V rail not joined |
 | Standard five-pin ATGM336H GNSS breakout shown in the supplied photo | Position/time receiver; VCC, GND, TX, RX, PPS header | Cardputer rear EXT header |
 | Existing internal microSD | Host storage | Existing Cardputer wiring; shares SPI signals with external TFT |
@@ -173,7 +173,7 @@ Firmware requirements:
 2. Initialize the SD card into SPI mode before other traffic on this shared bus when a card is present.
 3. Reuse the existing SD SPI bus object/controller. Inspect the board library before choosing a framework-specific SPI host identifier; do not initialize a second independent bus on these same pins.
 4. Coordinate SD and TFT transactions with one shared bus lock/transaction mechanism. Separate UI/storage tasks must not bypass it.
-5. Set each device's clock/mode for its transaction; start external TFT transfers around 4 MHz.
+5. Set each device's clock/mode for its transaction. Start external TFT transfers around 4 MHz and increase only after qualifying the exact panel and shared-bus behavior. The delivered no-CS panel was bench-qualified at 8 MHz; the replacement CS panel remains at 4 MHz until physically tested.
 6. Configure the TFT as write-only. Do not require display ID/readback operations through its disconnected MISO pin.
 7. Preserve the existing internal display's pins and bus configuration. It is a separate display from the external ILI9341.
 
@@ -200,8 +200,8 @@ GPS shares the regulator's 3.3 V supply and common ground. No Cardputer 3.3 V
 rail is joined to the regulator output. EXT6/5VOUT does not directly power
 this panel or GPS. GPIO5/EXT13 has no connection to the delivered TFT.
 
-For this configuration, cap SD clock requests at **8 MHz** and external TFT
-transfers at **4 MHz**. ILI9341 datasheet §18.3.4 specifies a 100 ns minimum
+For this configuration, cap SD clock requests at **8 MHz** and run external TFT
+transfers at **8 MHz**. ILI9341 datasheet §18.3.4 specifies a 100 ns minimum
 serial-write clock period (10 MHz); an always-selected panel also sees SD
 clocking. Both devices use the existing shared bus lock. Hold the TFT reset
 low through SD/settings startup, then initialize it write-only in landscape.
@@ -217,7 +217,47 @@ fixture verified 128 KiB and removed its test files. The first lower-clock
 cycle also passed; full normal-deck probe logging and longer qualification
 are separate gates. Signal timing/rise times have not been measured.
 
+**Clock qualification, 2026-10-10:** a dedicated clock sweep ran 32 full-screen
+transfers at each of 4, 6, 8, and 10 MHz while doing one 4 KiB SD write,
+readback, and cleanup per frame at 8 MHz. All SD checks passed (32 per clock),
+and the user observed clean colors at every step. Mean full-frame transfer
+times were 313, 220, 158, and 128 ms respectively. The production no-CS
+profile therefore uses 8 MHz, with 10 MHz retained as the controller limit;
+this short run is not a long-duration soak.
+
 Timing source: [ILI9341 datasheet, printed page 243](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf).
+
+### 5.4 Replacement GMT028-05 V1.1 (2026-11-16 bench)
+
+The user's replacement is labelled `2.8" TFT SPI 240X320 GMT028-05 V1.1`.
+Its seven-pin header, confirmed in photos, is `1 GND, 2 VCC, 3 SCK,
+4 SDA, 5 RST, 6 DC, 7 CS`. Match these labels, not the earlier panels'
+physical pin order. Use the §5.1 signal assignments: SCK→GPIO40/EXT7,
+SDA (SPI MOSI)→GPIO14/EXT9, RST→GPIO3/EXT1, DC→GPIO6/EXT5,
+CS→GPIO5/EXT13, GND→EXT4. No MISO or separate backlight pin is exposed.
+The user reports 3.3 V supply operation with a lit backlight; do not infer
+the cap reference's regulator or a 5 V input from this.
+
+[Goldenmorning's catalogue](https://goldenmorninglcd.com/tft-display/)
+lists GMT028-05 as ST7789. The user confirmed colour output from the
+`tft-cs-check` fixture using M5GFX's ST7789 driver at 1 MHz, SD physically
+removed. The ILI9341 `cardputer-adv-cs` image booted but produced a white
+external screen. The subsequent hand-written ST7789 command adapter also
+booted without visible output; that failed integration is recorded in WORKLOG.
+The default `cardputer-adv` build now supports only ST7789; the
+`cardputer-adv-st7789` alias selects the same configuration. Native M5GFX
+handles both initialization and pixels, matching the working colour fixture.
+It uses the SD's same SPI2 controller, including the GPIO39 SD MISO route,
+with SD initialized first and the existing storage lock covering every
+TFT transaction. The TFT remains write-only. TFT and SD are configured
+at 8 MHz after the 2026-11-16 bounded coexistence test passed. The user confirmed visible normal-app output with the native
+driver; its initial white-background/blue-logo polarity prompted setting
+`invert=false`, and the user confirmed correct colours. `sd-display-check`
+/ `sd-st7789-check` passed 32 disposable-file write/read/cleanup cycles
+(131,072 bytes written and verified; all test files removed), with clean
+8 MHz output confirmed by the user. This closes the bounded readback check;
+physical cold-boot and sustained soak qualification remain pending. Old ILI9341/no-CS build profiles are retired;
+§5.3 retains their historical bench evidence.
 
 ## 6. Cardputer ↔ ATGM336H GNSS
 
