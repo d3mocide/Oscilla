@@ -371,6 +371,15 @@ PY
     firmware-cardputer/test/host/vendor_table_test.cpp
 "$out/vendor_table_test" | tail -1 | sed 's/^/  /'
 python3 tools/build_vendor_tables.py --selftest --cpp-bin "$out/vendor_table_test" | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-cardputer/src -o "$out/baseline_watch_test" \
+    firmware-cardputer/test/host/baseline_watch_test.cpp \
+    firmware-cardputer/src/model/baseline_watch.cpp \
+    firmware-cardputer/src/model/scan_model.cpp \
+    firmware-cardputer/src/model/zig_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/baseline_watch_test" | tail -1 | sed 's/^/  /'
 
 # The deck's NMEA reader: checksum, chunking, bounds - no OCP link involved.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/nmea_parser_test" \

@@ -8,12 +8,13 @@
 
 #include <cstdint>
 
+#include "model/baseline_watch.h"
 #include "model/scan_model.h"
 #include "ui/chrome.h"
 
 namespace ui {
 
 void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scanning_ms,
-                   const ChromeState &chrome);
+                   const ChromeState &chrome, const model::BaselineWatch *baseline = nullptr);
 
 }  // namespace ui

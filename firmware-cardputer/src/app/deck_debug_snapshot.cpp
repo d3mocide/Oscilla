@@ -105,6 +105,10 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("session_meta", session_review_.summary.lora_sidecar.has_meta);
     line.field("session_health", session_review_.summary.lora_sidecar.has_health);
     line.field("session_geotagged", session_review_.summary.geotagged);
+    line.field("baseline_aps", baseline_.apCount());
+    line.field("baseline_pans", baseline_.panCount());
+    line.field("baseline_alerts", baseline_.anomalies().size());
+    line.field("baseline_high", baseline_.highSeverityCount());
     return line.take();
 }
 } // namespace app

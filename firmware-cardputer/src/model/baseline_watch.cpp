@@ -1,0 +1,317 @@
+/*
+ * baseline_watch.cpp — see baseline_watch.h.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include "model/baseline_watch.h"
+
+#include <cstdio>
+#include <cstdlib>
+
+namespace model {
+
+namespace {
+
+int hexVal(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return -1;
+}
+
+bool validMac(const std::string &s)
+{
+    if (s.size() != 17) return false;
+    for (size_t i = 0; i < 17; ++i) {
+        if (i % 3 == 2 ? s[i] != ':' : hexVal(s[i]) < 0) return false;
+    }
+    return true;
+}
+
+std::string escapeField(const std::string &raw)
+{
+    std::string out;
+    out.reserve(raw.size() + 4);
+    static const char hex[] = "0123456789abcdef";
+    for (unsigned char c : raw) {
+        if (c < 0x20 || c >= 0x7F || c == ',' || c == '\\' || c == '"') {
+            out += "\\x";
+            out.push_back(hex[c >> 4]);
+            out.push_back(hex[c & 0x0F]);
+        } else {
+            out.push_back(static_cast<char>(c));
+        }
+    }
+    return out;
+}
+
+std::string unescapeField(const std::string &s)
+{
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '\\' && i + 3 < s.size() && s[i + 1] == 'x') {
+            const int hi = hexVal(s[i + 2]);
+            const int lo = hexVal(s[i + 3]);
+            if (hi >= 0 && lo >= 0) {
+                out.push_back(static_cast<char>((hi << 4) | lo));
+                i += 3;
+                continue;
+            }
+        }
+        out.push_back(s[i]);
+    }
+    return out;
+}
+
+std::vector<std::string> splitCsv(const std::string &line)
+{
+    std::vector<std::string> cols;
+    size_t start = 0;
+    for (size_t i = 0; i <= line.size(); ++i) {
+        if (i == line.size() || line[i] == ',') {
+            cols.push_back(line.substr(start, i - start));
+            start = i + 1;
+            if (cols.size() > 8) return {};
+        }
+    }
+    return cols;
+}
+
+bool parseU8(const std::string &s, uint8_t max_val, uint8_t *out)
+{
+    if (s.empty() || s.size() > 3) return false;
+    for (char c : s) if (c < '0' || c > '9') return false;
+    unsigned long v = std::strtoul(s.c_str(), nullptr, 10);
+    if (v > max_val) return false;
+    *out = static_cast<uint8_t>(v);
+    return true;
+}
+
+}  // namespace
+
+int BaselineWatch::authRank(const std::string &auth)
+{
+    if (auth.empty() || auth == "OPEN") return 0;
+    if (auth == "WEP") return 1;
+    if (auth == "WPA" || auth == "WPA/WPA2") return 2;
+    if (auth == "WPA2" || auth == "RSN" || auth == "OWE") return 3;
+    if (auth == "WPA2/WPA3" || auth == "WPA3" ||
+        auth == "WPA-EAP" || auth == "WPA2-EAP" || auth == "WPA3-EAP" ||
+        auth == "WPA2/WPA3-EAP" || auth == "WPA3-EAP192") return 4;
+    return -1;
+}
+
+const char *BaselineWatch::kindShort(AnomalyKind kind)
+{
+    switch (kind) {
+    case AnomalyKind::NewAp:         return "NEW";
+    case AnomalyKind::NewPan:        return "PAN+";
+    case AnomalyKind::MfpDropped:    return "MFP!";
+    case AnomalyKind::AuthDowngrade: return "DOWN";
+    case AnomalyKind::EvilTwin:      return "TWIN";
+    }
+    return "?";
+}
+
+const char *BaselineWatch::kindLabel(AnomalyKind kind)
+{
+    switch (kind) {
+    case AnomalyKind::NewAp:         return "NEW AP";
+    case AnomalyKind::NewPan:        return "NEW 802.15.4 PAN";
+    case AnomalyKind::MfpDropped:    return "MFP DROPPED";
+    case AnomalyKind::AuthDowngrade: return "AUTH DOWNGRADE";
+    case AnomalyKind::EvilTwin:      return "EVIL TWIN?";
+    }
+    return "DELTA";
+}
+
+bool BaselineWatch::isHighSeverity(AnomalyKind kind)
+{
+    return kind == AnomalyKind::EvilTwin ||
+           kind == AnomalyKind::AuthDowngrade ||
+           kind == AnomalyKind::MfpDropped;
+}
+
+void BaselineWatch::clear()
+{
+    aps_.clear();
+    pans_.clear();
+    anomalies_.clear();
+}
+
+void BaselineWatch::captureFrom(const ScanModel &scan, const ZigModel &zig)
+{
+    clear();
+    for (const auto &r : scan.rows()) {
+        if (aps_.size() >= kMaxBaselineAps) break;
+        if (!validMac(r.bssid) || findAp(r.bssid)) continue;
+        aps_.push_back({r.bssid, r.ssid, r.auth, r.ch, r.beacon_info && r.mfp_required});
+    }
+    for (const auto &p : zig.pans()) {
+        if (pans_.size() >= kMaxBaselinePans) break;
+        if (p.pan.empty() || hasPanInBaseline(p.pan)) continue;
+        pans_.push_back({p.pan, p.channels});
+    }
+}
+
+std::string BaselineWatch::serializeCsv() const
+{
+    std::string out = "schema=oscilla-baseline-v1\n";
+    for (const auto &a : aps_) {
+        char tail[24];
+        std::snprintf(tail, sizeof tail, ",%u,%u\n",
+                      static_cast<unsigned>(a.ch), a.mfp_required ? 1U : 0U);
+        out += "AP," + a.bssid + "," + escapeField(a.ssid) + "," + escapeField(a.auth) + tail;
+    }
+    for (const auto &p : pans_) {
+        out += "PAN," + escapeField(p.pan_id) + "," + escapeField(p.channels) + "\n";
+    }
+    return out;
+}
+
+bool BaselineWatch::parseCsv(const std::string &csv)
+{
+    clear();
+    size_t pos = 0;
+    bool header_ok = false;
+    while (pos < csv.size()) {
+        size_t nl = csv.find('\n', pos);
+        if (nl == std::string::npos) nl = csv.size();
+        const size_t raw_len = nl - pos;
+        std::string line = raw_len <= 256 ? csv.substr(pos, raw_len) : std::string();
+        pos = nl + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+
+        if (!header_ok) {
+            if (line != "schema=oscilla-baseline-v1") return false;
+            header_ok = true;
+            continue;
+        }
+        auto f = splitCsv(line);
+        if (f.size() == 6 && f[0] == "AP" && aps_.size() < kMaxBaselineAps) {
+            uint8_t ch = 0, mfp = 0;
+            if (!validMac(f[1]) || !parseU8(f[4], 196, &ch) || !parseU8(f[5], 1, &mfp)) continue;
+            if (findAp(f[1])) continue;
+            aps_.push_back({f[1], unescapeField(f[2]), unescapeField(f[3]), ch, mfp != 0});
+        } else if (f.size() == 3 && f[0] == "PAN" && pans_.size() < kMaxBaselinePans) {
+            std::string pan = unescapeField(f[1]);
+            std::string channels = unescapeField(f[2]);
+            if (pan.empty() || pan.size() > 16 || channels.size() > 32) continue;
+            if (hasPanInBaseline(pan)) continue;
+            pans_.push_back({pan, channels});
+        }
+    }
+    return header_ok;
+}
+
+const BaselineAp *BaselineWatch::findAp(const std::string &bssid) const
+{
+    for (const auto &a : aps_) if (a.bssid == bssid) return &a;
+    return nullptr;
+}
+
+bool BaselineWatch::hasSsidInBaseline(const std::string &ssid) const
+{
+    if (ssid.empty()) return false;
+    for (const auto &a : aps_) if (a.ssid == ssid) return true;
+    return false;
+}
+
+bool BaselineWatch::hasPanInBaseline(const std::string &pan_id) const
+{
+    for (const auto &p : pans_) if (p.pan_id == pan_id) return true;
+    return false;
+}
+
+void BaselineWatch::upsertAnomaly(AnomalyKind kind, const std::string &id,
+                                  const std::string &detail, uint32_t now_ms)
+{
+    for (auto &a : anomalies_) {
+        if (a.id == id) {
+            /* Keep higher-severity anomaly when one BSSID triggers multiple deltas. */
+            if (static_cast<uint8_t>(kind) >= static_cast<uint8_t>(a.kind)) {
+                a.kind = kind;
+                a.detail = detail;
+            }
+            a.seen_ms = now_ms;
+            return;
+        }
+    }
+    if (anomalies_.size() < kMaxAnomalies) {
+        anomalies_.push_back({kind, id, detail, now_ms});
+    } else if (isHighSeverity(kind)) {
+        /* Evict the first low-severity entry so a high-severity alert is never lost. */
+        for (auto &a : anomalies_) {
+            if (!isHighSeverity(a.kind)) {
+                a = {kind, id, detail, now_ms};
+                return;
+            }
+        }
+    }
+}
+
+void BaselineWatch::evaluate(const ScanModel &scan, const ZigModel &zig, uint32_t now_ms)
+{
+    if (!active()) return;
+    for (const auto &r : scan.rows()) {
+        if (const auto *base = findAp(r.bssid)) {
+            const int base_rank = authRank(base->auth);
+            const int live_rank = authRank(r.auth);
+            if (base_rank >= 0 && live_rank >= 0 && live_rank < base_rank) {
+                upsertAnomaly(AnomalyKind::AuthDowngrade, r.bssid, base->auth + "->" + r.auth, now_ms);
+            }
+            if (base->mfp_required && r.beacon_info && !r.mfp_required) {
+                upsertAnomaly(AnomalyKind::MfpDropped, r.bssid, r.ssid, now_ms);
+            }
+        } else {
+            if (hasSsidInBaseline(r.ssid)) {
+                upsertAnomaly(AnomalyKind::EvilTwin, r.bssid, r.ssid, now_ms);
+            } else {
+                upsertAnomaly(AnomalyKind::NewAp, r.bssid, r.ssid, now_ms);
+            }
+        }
+    }
+    for (const auto &p : zig.pans()) {
+        if (!p.pan.empty() && !hasPanInBaseline(p.pan)) {
+            upsertAnomaly(AnomalyKind::NewPan, p.pan, p.channels.empty() ? "pan" : ("ch" + p.channels), now_ms);
+        }
+    }
+}
+
+void BaselineWatch::evaluateInspect(const Inspect &in, uint32_t now_ms)
+{
+    if (!active() || !in.valid || !in.beacons) return;
+    const auto *base = findAp(in.bssid);
+    if (!base) return;
+    if (base->mfp_required && !in.mfp_required) {
+        upsertAnomaly(AnomalyKind::MfpDropped, in.bssid, base->ssid, now_ms);
+    }
+}
+
+const BaselineAnomaly *BaselineWatch::anomalyForBssid(const std::string &bssid) const
+{
+    for (const auto &a : anomalies_) {
+        if (a.id == bssid) return &a;
+    }
+    return nullptr;
+}
+
+size_t BaselineWatch::highSeverityCount() const
+{
+    size_t n = 0;
+    for (const auto &a : anomalies_) if (isHighSeverity(a.kind)) ++n;
+    return n;
+}
+
+size_t BaselineWatch::countOf(AnomalyKind kind) const
+{
+    size_t n = 0;
+    for (const auto &a : anomalies_) if (a.kind == kind) ++n;
+    return n;
+}
+
+}  // namespace model

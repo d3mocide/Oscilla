@@ -19,6 +19,7 @@
 #include "ui/contacts_view.h"
 #include "ui/deauth_view.h"
 #include "ui/help_view.h"
+#include "storage/baseline_store.h"
 #include "storage/lora_logger.h"
 #include "storage/sd_storage.h"
 #include "storage/settings.h"
@@ -437,6 +438,7 @@ void DeckApp::onReply(const ocp::Item &it)
         scan_.absorbInspect(it);
         wifi_inspection_.accept(scan_.inspect(),now_);
         const auto &in = scan_.inspect();
+        baseline_.evaluateInspect(in, now_);
         if (in.aborted) notice("inspect stopped");
         log("inspect idx=" + std::to_string(in.idx) + " beacons=" + std::to_string(in.beacons) +
             " rsn=" + std::to_string(in.rsn) + " mfp_capable=" + std::to_string(in.mfp_capable) +
@@ -448,6 +450,7 @@ void DeckApp::onReply(const ocp::Item &it)
     } else if (it.tag == OCP_MARK_ZIG) {
         zig_start_pending_ = false;
         zig_.absorb(it);
+        baseline_.evaluate(scan_, zig_, now_);
         log("zig pans=" + std::to_string(zig_.pans().size()) + " nodes=" + std::to_string(zig_.nodes().size()) +
             " malformed=" + std::to_string(zig_.malformedRows()));
     }
@@ -658,6 +661,44 @@ void DeckApp::loadLoraProfiles(const std::string &csv_text, const std::string &s
         }
     }
     lora_profile_index_ = lora_profiles_.findByToken(saved_token);
+}
+
+void DeckApp::loadBaseline()
+{
+    if (storage::loadBaseline(baseline_) && baseline_.active()) {
+        log("baseline loaded aps=" + std::to_string(baseline_.apCount()) +
+            " pans=" + std::to_string(baseline_.panCount()));
+    }
+}
+
+void DeckApp::saveBaselineNow()
+{
+    if (scan_.rows().empty() && zig_.pans().empty()) {
+        notice("nothing to baseline");
+        return;
+    }
+    baseline_.captureFrom(scan_, zig_);
+    const bool saved = storage::saveBaseline(baseline_);
+    notice(saved ? ("baseline saved (" + std::to_string(baseline_.apCount()) + " APs)")
+                 : "baseline in RAM (no SD)");
+    log("baseline saved aps=" + std::to_string(baseline_.apCount()) +
+        " pans=" + std::to_string(baseline_.panCount()) + " sd=" + std::to_string(saved ? 1 : 0));
+    dirty_ = true;
+}
+
+void DeckApp::clearBaselineNow()
+{
+    baseline_.clear();
+    storage::clearSavedBaseline();
+    notice("baseline cleared");
+    log("baseline cleared");
+    dirty_ = true;
+}
+
+void DeckApp::toggleBaselineWatch()
+{
+    if (baseline_.active()) clearBaselineNow();
+    else saveBaselineNow();
 }
 
 void DeckApp::cycleLoraProfile(int direction)
@@ -1052,6 +1093,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == '.' && cursor_ + 1 < scan_.rows().size()) cursor_++;
             else if (c == 'r') startScan(now_ms);
             else if (c == 's' || c == 'c') toggleWifiContinuous(now_ms);
+            else if (c == 'b') toggleBaselineWatch();
             if(cursor_<scan_.rows().size())ap_focus_bssid_=scan_.rows()[cursor_].bssid;
             break;
         case Screen::Trace:
@@ -1374,6 +1416,17 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     if (cmd == "scan") startScan(now_ms);
     else if (cmd == "wardrive") toggleWardriveLog(now_ms);
     else if (cmd == "mark") markWaypoint(now_ms);
+    else if (cmd == "baseline") {
+        if (arg == "save") saveBaselineNow();
+        else if (arg == "clear") clearBaselineNow();
+        else if (arg == "load") {
+            loadBaseline();
+            baseline_.evaluate(scan_, zig_, now_ms);
+            dirty_ = true;
+        } else {
+            log("debug: baseline needs save|load|clear");
+        }
+    }
     else if (cmd == "connect") client_.connect(now_ms);
     else if (cmd == "ping") client_.send(OCP_V_PING, now_ms);
     else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);
@@ -1681,7 +1734,7 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Sweep:
         ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_,
-                          makeChrome("WIFI SCAN"));
+                          makeChrome("WIFI SCAN"), &baseline_);
         break;
     case Screen::Trace:
         ui::drawWifiDetailView(wifi_inspection_,scan_,contacts_,traceListening(),now_ms,makeChrome("AP DOSSIER"));

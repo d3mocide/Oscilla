@@ -84,6 +84,7 @@ void setup()
         g_app.setWifiBand(storage::loadWifiBand());
         g_app.setIdleTimeoutS(storage::loadIdleTimeoutS(), millis());
         g_app.loadLoraProfiles(storage::loadLoraProfilesCsv(), storage::loadLoraProfile());
+        g_app.loadBaseline();
     }
 
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not
@@ -284,6 +285,20 @@ void loop()
     static ui::SettingsViewState external_settings;
     if (g_app.showingSettings()) external_settings = g_app.settingsViewState();
     external_card.settings = g_app.showingSettings() ? &external_settings : nullptr;
+    if (g_app.showingWifi() && g_app.baselineWatch().active()) {
+        const auto &bl = g_app.baselineWatch();
+        external_card.wifi_baseline.active = true;
+        external_card.wifi_baseline.total_alerts = static_cast<uint16_t>(bl.anomalies().size());
+        const auto &rows = g_app.scanModel().rows();
+        const size_t cur = g_app.scanCursor();
+        if (cur < rows.size()) {
+            if (const auto *an = bl.anomalyForBssid(rows[cur].bssid)) {
+                external_card.wifi_baseline.selected_flagged = true;
+                external_card.wifi_baseline.selected_high = model::BaselineWatch::isHighSeverity(an->kind);
+                external_card.wifi_baseline.selected_label = model::BaselineWatch::kindLabel(an->kind);
+            }
+        }
+    }
     ui::tickExternalGpsDisplay(g_app.gnssModel(), g_gnss_bytes,
                                g_app.gnssChecksumFailures(), millis(),
                                g_app.showingWifi() ? &g_app.scanModel() : nullptr,

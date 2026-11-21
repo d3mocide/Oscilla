@@ -7,7 +7,8 @@
 namespace ui {
 void drawExternalWifiStrip(lgfx::LGFX_Sprite &d, int top, const model::ScanModel &scan,
                            size_t cursor, uint32_t now, bool new_observation,
-                           const model::ContactsModel *contacts)
+                           const model::ContactsModel *contacts,
+                           const WifiBaselineBanner *baseline)
 {
     using namespace instrument;
     using namespace observatory;
@@ -86,7 +87,19 @@ void drawExternalWifiStrip(lgfx::LGFX_Sprite &d, int top, const model::ScanModel
     /* Lower Reading Dock. */
     obsText(c, 12, 164, r.ssid.empty() ? "<HIDDEN>" : r.ssid, FontId::Title, kPaperPhosphor, 296);
     obsText(c, 12, 184, r.bssid, FontId::Mono, kMutedSlate, 164);
-    obsMicro(c, 308, 186, "STRENGTH / NO BEARING", kMutedSlate, kPanelDark, Align::Right);
+    if (baseline && baseline->active) {
+        if (baseline->selected_flagged) {
+            obsMicro(c, 308, 186, std::string("BL // ") + baseline->selected_label,
+                     baseline->selected_high ? kSignalPink : kCalibrationYellow, kPanelDark, Align::Right);
+        } else {
+            obsMicro(c, 308, 186,
+                     baseline->total_alerts ? ("BL // " + std::to_string(baseline->total_alerts) + " ALERTS")
+                                            : "BASELINE // CLEAN",
+                     baseline->total_alerts ? kCalibrationYellow : kFieldGreen, kPanelDark, Align::Right);
+        }
+    } else {
+        obsMicro(c, 308, 186, "STRENGTH / NO BEARING", kMutedSlate, kPanelDark, Align::Right);
+    }
 
     size_t count5 = 0;
     for (const auto &row : rows) if (row.band5) ++count5;

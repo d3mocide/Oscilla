@@ -1,3 +1,29 @@
+## 2026-11-21 — Passive baseline & evil-twin / anomaly watch (WP-11)
+
+- Added pure-C++ `model/baseline_watch.{h,cpp}` (`BaselineWatch`, capped at 256
+  APs / 32 802.15.4 PANs / 64 anomalies) comparing live passive Wi-Fi `[SCAN]`,
+  `[EVT] kind=network`, `[INSPECT]`, and `[ZIG]` observations against an
+  operator-captured baseline. Flags conservative deltas: `NewAp`, `NewPan`,
+  `MfpDropped`, `AuthDowngrade` (recognizing `OPEN` < `WEP` < `WPA` < `WPA2`/`RSN`/`OWE`
+  < `WPA3`), and `EvilTwin` (known non-empty baseline SSID from an unfamiliar
+  BSSID; empty/hidden SSIDs never false-positive), with high-severity eviction
+  protection when the anomaly list hits 64.
+- Added `storage/baseline_store.{h,cpp}` persisting `/oscilla/baselines/default.csv`
+  (32 KiB cap, hostile-SSID hex escaping, strict `schema=oscilla-baseline-v1`
+  header validation) under `storage::lock()`, loaded once at boot.
+- Wired into `DeckApp` (`b` key on Wi-Fi Scan toggles save/clear,
+  `baseline save|load|clear` debug commands, `baseline_*` fields in `dump`),
+  onboard `sweep_view.cpp` (`BL OK` / `BL +N` / `BL !N` badge + row tinting),
+  and external `external_wifi_view.cpp` via a zero-heap POD `WifiBaselineBanner`
+  in `ExternalCardState`.
+- **Checks:** `check_protocol.sh` (ASan/UBSan `baseline_watch_test` +
+  `test_sweep_layout.py` + `check_external_frame_memory.py` + `check_rx_only.py`),
+  two mutation proofs (disabling evil-twin check and disabling auth-downgrade
+  check both fail `baseline_watch_test`), `render_external_views.py`, and
+  `build_firmware.sh` (both boards + stack guards).
+- **Not yet verified on hardware:** on-device `b` toggle, SD baseline reload,
+  and live anomaly display review.
+
 ## 2026-11-21 — Offline SD OUI & Bluetooth Company-ID vendor lookup tables (WP-12a)
 
 - Added pure-C++ `model/vendor_table.h` (sorted 24-byte binary record reader,

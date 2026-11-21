@@ -84,6 +84,7 @@ size_t frame_deauth_cursor, frame_anti_cursor;
 uint16_t previous_scan_rows;
 uint32_t previous_deauth_count, scan_event_until, deauth_event_until;
 SettingsViewState frame_settings_state;
+WifiBaselineBanner frame_wifi_baseline;
 int next_strip = kStrips;
 bool enabled;
 bool display_sleeping;
@@ -258,6 +259,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
             previous_scan_rows=count;
         } else if(view!=ExternalView::Wifi) previous_scan_rows=0;
         frame_scan_cursor=scan_cursor;
+        frame_wifi_baseline=card ? card->wifi_baseline : WifiBaselineBanner{};
         frame_system_enabled=system!=nullptr;
         if(system) {
             frame_system=*system;
@@ -318,7 +320,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     } else if(frame_system_enabled) {
         drawExternalSystemStrip(strip,next_strip*kStripHeight,frame_system,frame_time,frame_resources_enabled?&frame_resources:nullptr);
     } else if(frame_scan_enabled) {
-        drawExternalWifiStrip(strip,next_strip*kStripHeight,frame_scan,frame_scan_cursor,frame_time,frame_time<scan_event_until,&frame_wifi_contacts);
+        drawExternalWifiStrip(strip,next_strip*kStripHeight,frame_scan,frame_scan_cursor,frame_time,frame_time<scan_event_until,&frame_wifi_contacts,frame_wifi_baseline.active?&frame_wifi_baseline:nullptr);
     } else if(frame_sessions_enabled) {
         drawExternalSessionStrip(strip,next_strip*kStripHeight,frame_sessions);
     } else if(frame_trace_page) {

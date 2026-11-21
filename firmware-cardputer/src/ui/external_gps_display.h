@@ -18,6 +18,7 @@
 #include "model/deauth_model.h"
 #include "model/anti_surveillance_model.h"
 #include "ui/external_system_view.h"
+#include "ui/external_wifi_view.h"
 #include "ui/settings_state.h"
 
 namespace ui {
@@ -43,6 +44,7 @@ struct ExternalCardState {
     size_t anti_cursor = 0;
     bool anti_starting = false;
     const SettingsViewState *settings = nullptr;
+    WifiBaselineBanner wifi_baseline;
 };
 /* Hold the panel in reset while SD and settings initialize at boot. */
 void holdExternalGpsDisplayReset();

@@ -39,6 +39,7 @@
 #include "model/contacts_model.h"
 #include "model/deauth_model.h"
 #include "model/anti_surveillance_model.h"
+#include "model/baseline_watch.h"
 #include "model/gnss_model.h"
 #include "model/drive_trail.h"
 #include "model/lora_model.h"
@@ -150,6 +151,8 @@ public:
         idle_sleep_.setTimeoutS(IdleSleep::sanitizeTimeoutS(seconds), now_ms);
     }
     void loadLoraProfiles(const std::string &csv_text, const std::string &saved_token);
+    void loadBaseline();
+    const model::BaselineWatch &baselineWatch() const { return baseline_; }
     ui::SettingsViewState settingsViewState() const;
     void forceRedraw() { dirty_ = true; }
     int batteryPct() const { return cached_battery_pct_; }
@@ -254,6 +257,9 @@ private:
     void adjustSelectedSetting(int direction, uint32_t now_ms);
     void pollBatteryIfDue(uint32_t now_ms);
     void markWaypoint(uint32_t now_ms);
+    void saveBaselineNow();
+    void clearBaselineNow();
+    void toggleBaselineWatch();
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -271,6 +277,7 @@ private:
     model::DeauthModel deauth_;
     model::BtModel bt_;
     model::AntiSurveillanceModel anti_;
+    model::BaselineWatch baseline_;
     model::ZigModel zig_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;

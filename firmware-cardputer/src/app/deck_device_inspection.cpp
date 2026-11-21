@@ -18,6 +18,7 @@ uint16_t DeckApp::absorbWifiPage(const ocp::Item &item)
 {
     const auto key=wifi_inspection_.active()?wifi_inspection_.row().bssid:ap_focus_bssid_;
     const auto next=scan_.absorbPage(item,now_);wifi_inspection_.refresh(scan_);
+    baseline_.evaluate(scan_,zig_,now_);
     const auto i=model::apIndex(scan_,key);
     cursor_=i<scan_.rows().size()?i:(scan_.rows().empty()?0:std::min(cursor_,scan_.rows().size()-1));
     return next;
@@ -34,6 +35,7 @@ void DeckApp::absorbDeviceEvent(const ocp::Item &item)
     const auto *kind=item.get(OCP_K_KIND);if(!kind)return;
     if(*kind==OCP_EVT_KIND_NETWORK){
         scan_.absorbEvent(item,now_);wifi_inspection_.refresh(scan_);
+        baseline_.evaluate(scan_,zig_,now_);
     }else{
         bt_.absorbEvent(item,now_);bt_inspection_.refresh(bt_);
     }

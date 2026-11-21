@@ -35,7 +35,7 @@ void drawMeter(M5Canvas &d, int x, int y, int rssi)
 }  // namespace
 
 void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scanning_ms,
-                   const ChromeState &chrome)
+                   const ChromeState &chrome, const model::BaselineWatch *baseline)
 {
     auto &d = ui::canvas();
     beginChrome(chrome);
@@ -52,9 +52,19 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     } else {
         d.printf("TOTAL %u APs  %us", (unsigned)scan.rows().size(), (unsigned)(scan.elapsedMs() / 1000));
     }
-    d.setTextColor(kMutedSlate, kVoidInk);
+    const bool bl_on = baseline && baseline->active();
     d.setCursor(178, kBodyTop + 2);
-    d.printf("%s", scan.rows().empty() ? "--" : "RX");
+    if (bl_on) {
+        const size_t hi = baseline->highSeverityCount();
+        const size_t tot = baseline->anomalies().size();
+        d.setTextColor(hi ? kSignalPink : tot ? kCalibrationYellow : kFieldGreen, kVoidInk);
+        if (hi) d.printf("BL !%u", (unsigned)hi);
+        else if (tot) d.printf("BL +%u", (unsigned)tot);
+        else d.print("BL OK");
+    } else {
+        d.setTextColor(kMutedSlate, kVoidInk);
+        d.printf("%s", scan.rows().empty() ? "--" : "RX");
+    }
 
     const auto &rows = scan.rows();
     size_t first = listFirstVisible(cursor, kListCompactRows);
@@ -66,9 +76,14 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
         uint16_t bg = sel ? kSelectionGlow : kVoidInk;
         drawRowHighlight(d, y, sel);
 
+        const auto *anom = bl_on ? baseline->anomalyForBssid(r.bssid) : nullptr;
         std::string name = r.ssid.empty() ? "<hidden>" : printable(r.ssid, 15);
+        uint16_t name_col = r.ssid.empty() ? kDimGreen : kPaperPhosphor;
+        if (anom) {
+            name_col = model::BaselineWatch::isHighSeverity(anom->kind) ? kSignalPink : kCalibrationYellow;
+        }
         d.setCursor(6, y);
-        d.setTextColor(r.ssid.empty() ? kDimGreen : kPaperPhosphor, bg);
+        d.setTextColor(name_col, bg);
         d.printf("%-15s", name.c_str());
         d.setTextColor(kMutedSlate, bg);
         d.setCursor(kSweepChannelX, y);
@@ -97,7 +112,7 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
 
     d.setCursor(4, kHintRowY);
     d.setTextColor(kCalibrationYellow, kVoidInk);
-    d.print("ENTER DOSSIER / r SURVEY / c LIVE");
+    d.print(bl_on ? "ENTER INFO / r SCAN / c LIVE / b CLR" : "ENTER INFO / r SCAN / c LIVE / b BASE");
     endChrome(chrome);
 }
 

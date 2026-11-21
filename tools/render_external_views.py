@@ -23,7 +23,8 @@ def main():
     if not fonts.exists():
         fonts = ROOT / 'firmware-cardputer/.pio/libdeps/cardputer-adv/M5GFX@0.2.28/src'
     models = ['spectrum_model','scan_model','bt_model','contacts_model','zig_model',
-              'lora_model','lora_framing','deauth_model','anti_surveillance_model','gnss_model','session_review']
+              'lora_model','lora_framing','deauth_model','anti_surveillance_model','gnss_model','session_review',
+              'baseline_watch']
     views = ['spectrum','wifi','bt','contacts','lora','zig','drive','system','gnss']
     sources = [ROOT/'tools/viewport_fixtures.cpp']
     sources += [ROOT/f'firmware-cardputer/src/model/{m}.cpp' for m in models]
