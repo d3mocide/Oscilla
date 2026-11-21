@@ -1,3 +1,44 @@
+## 2026-11-21 — Flash & live bench verification of WP-2/WP-4/WP-6/WP-7 (+ two hardware-found fixes)
+
+- Flashed both boards by USB serial ID with verified hashes:
+  - Probe `38:44:BE:BF:D2:94` (`esp32c5`, `build-uart`, 3/3 hashes verified).
+  - Deck `50:78:7D:CE:6D:64` (`cardputer-adv`, 4/4 hashes verified).
+- **Two real bugs caught on the first bench pass and fixed immediately:**
+  1. **ESP-IDF 5.5 `channel_bitmap` zero-band quirk (`firmware-c5/main/wifi_recon.c`):**
+     `set_channels 1,6,11` under `band=auto` initially scanned in **7,784 ms**
+     (109 APs) because ESP-IDF treats `ghz_5_channels == 0` under
+     `WIFI_BAND_MODE_AUTO` as "scan all 5 GHz channels" rather than "skip
+     5 GHz". Fix: temporarily narrow the Wi-Fi band mode to `2G_ONLY` (or
+     `5G_ONLY`) for the duration of a single-band custom-bitmap scan and
+     restore `wifi_band_scope()` on all exit paths (done, abort, start error).
+     Retest on silicon: **`channels 1,6,11` dropped from 7,784 ms → 755 ms**
+     (61 APs, matching 3 × 250 ms dwell).
+  2. **Deck `channels` debug command busy drop (`firmware-cardputer/src/app/deck_app.cpp`):**
+     `sendWifiChannels()` previously returned `"link busy"` when a background
+     `status` poll happened to hold `client_.pending()`. Fix: queue via
+     `retrySoon()`, matching all other deck commands.
+- **Reflashed both boards and ran the full live bench suite (0 link timeouts,
+  0 probe resets, 0 probe log/hop errors across 46 console lines):**
+  - Link & handshake: `link=ready`, `probe_rst=poweron` (also confirms the
+    2026-11-20 `rst=` addition on real probe silicon), `region=US/US`,
+    `band=auto/auto`.
+  - Band & channel filtering: `band 24` → 67 APs in 2,761 ms; `band 5` →
+    66 APs in 7,028 ms; `channels 1,6,11` under `band=auto` → 61 APs in
+    **755 ms**; `channels 52` → refused with `err code=badarg`; mid-`wifiscan`
+    `band 24` deferred while busy (`probe_band=auto`) and applied automatically
+    after `stop phy` (`probe_band=24`).
+  - Enriched `inspect_network`: full dual-band scan (139 APs, 0 malformed,
+    9,789 ms) + `inspect 1` captured 4 beacons cleanly.
+  - Multi-vendor BLE passive scan & tracker watch: `scan_bt` saw 71 devices /
+    13 trackers; 3 s `scan_airtag` recorded 8 sightings; clean stop.
+  - D-UCB adaptive hopping (D-6 updated): 7 s `start_sniffer` (790 pkts,
+    10 clients, 3 probes), 7 s `start_wifi_scan` (141 APs), 3 s
+    `deauth_detector` (0 events), all with 0 hop errors.
+  - Final memory: probe `heap=98,436 B`; deck `heap_free=118,308 B`,
+    `heap_min=114,532 B`, `heap_largest=106,484 B`, `stack_free_min=3,312 B`.
+- **Checks after fixes:** `check_protocol.sh` (all green), `build_firmware.sh`
+  (both boards + stack guards), both boards reflashed and bench-verified.
+
 ## 2026-11-21 — D-UCB adaptive Wi-Fi channel picker (WP-4, D-6)
 
 - Implemented `firmware-c5/main/wifi_channel_picker.{h,c}` (pure C, zero heap

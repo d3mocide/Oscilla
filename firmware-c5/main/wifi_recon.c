@@ -35,6 +35,7 @@ static SemaphoreHandle_t s_done;          /* given when a scan's frame is out */
 static bool s_ready;
 static bool s_scanning;
 static bool s_aborting;
+static bool s_restore_band;
 static int64_t s_started_us;
 static uint32_t s_elapsed_ms;
 
@@ -168,6 +169,10 @@ static void on_scan_done(void *arg, esp_event_base_t base, int32_t id, void *dat
     s_elapsed_ms = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
     s_scanning = false;
     s_aborting = false;
+    if (s_restore_band) {
+        s_restore_band = false;
+        (void)wifi_recon_set_band_scope(wifi_band_scope());
+    }
     arbiter_release(PHY_OWNER_WIFI);
 
     emit_page(1, aborted);
@@ -197,6 +202,10 @@ static void scan_teardown(void)
         s_elapsed_ms = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
         s_scanning = false;
         s_aborting = false;
+        if (s_restore_band) {
+            s_restore_band = false;
+            (void)wifi_recon_set_band_scope(wifi_band_scope());
+        }
         arbiter_release(PHY_OWNER_WIFI);
         emit_page(1, true);
     }
@@ -290,9 +299,22 @@ void wifi_cmd_scan(void)
 
     wifi_scan_config_t cfg = wifi_passive_scan_config();
 
+    /* ESP-IDF treats a zero band mask in channel_bitmap as "all channels in
+     * that band" when band mode is AUTO. Narrow the band mode for the scan's
+     * duration when a custom channel list covers only one band. */
+    bool narrow = false;
+    if (wifi_channels_is_custom() && wifi_band_scope() == WIFI_BAND_SCOPE_AUTO) {
+        if (cfg.channel_bitmap.ghz_2_channels && !cfg.channel_bitmap.ghz_5_channels) {
+            narrow = (esp_wifi_set_band_mode(WIFI_BAND_MODE_2G_ONLY) == ESP_OK);
+        } else if (!cfg.channel_bitmap.ghz_2_channels && cfg.channel_bitmap.ghz_5_channels) {
+            narrow = (esp_wifi_set_band_mode(WIFI_BAND_MODE_5G_ONLY) == ESP_OK);
+        }
+    }
+
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_scanning = true;
     s_aborting = false;
+    s_restore_band = narrow;
     s_started_us = esp_timer_get_time();
     xSemaphoreGive(s_lock);
 
@@ -300,6 +322,10 @@ void wifi_cmd_scan(void)
     if (err != ESP_OK) {
         xSemaphoreTake(s_lock, portMAX_DELAY);
         s_scanning = false;
+        if (s_restore_band) {
+            s_restore_band = false;
+            (void)wifi_recon_set_band_scope(wifi_band_scope());
+        }
         xSemaphoreGive(s_lock);
         arbiter_release(PHY_OWNER_WIFI);
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));

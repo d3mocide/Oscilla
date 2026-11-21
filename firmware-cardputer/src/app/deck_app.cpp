@@ -1191,8 +1191,12 @@ void DeckApp::sendWifiChannels(const std::string &arg, uint32_t now_ms)
         notice("usage: channels <all|c1,c2,...>");
         return;
     }
-    if (client_.state() != ocp::LinkState::Ready || client_.pending()) {
-        notice("link busy");
+    if (client_.state() != ocp::LinkState::Ready) {
+        notice("link not ready");
+        return;
+    }
+    if (client_.pending()) {
+        retrySoon([this, arg](uint32_t t) { sendWifiChannels(arg, t); }, now_ms);
         return;
     }
     if (client_.send(std::string(OCP_V_SET_CHANNELS) + " " + arg, now_ms)) {
