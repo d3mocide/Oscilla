@@ -43,4 +43,10 @@ void saveWifiBand(const std::string &code);
 uint16_t loadIdleTimeoutS();
 void saveIdleTimeoutS(uint16_t seconds);
 
+/* Default LoRa RX profile token (/oscilla/lora_profile) and optional custom
+ * CSV catalog (/oscilla/lora_profiles.csv, bounded to 4 KiB). */
+std::string loadLoraProfile();
+void saveLoraProfile(const std::string &token);
+std::string loadLoraProfilesCsv();
+
 }  // namespace storage

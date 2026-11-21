@@ -83,7 +83,7 @@ bool frame_deauth_new;
 size_t frame_deauth_cursor, frame_anti_cursor;
 uint16_t previous_scan_rows;
 uint32_t previous_deauth_count, scan_event_until, deauth_event_until;
-uint8_t frame_brightness;
+SettingsViewState frame_settings_state;
 int next_strip = kStrips;
 bool enabled;
 bool display_sleeping;
@@ -223,6 +223,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         detail::discardFrameCopy(frame_bt_detail);
         detail::discardFrameCopy(frame_contact_detail);
         detail::discardFrameCopy(frame_system);
+        detail::discardFrameCopy(frame_settings_state);
         active_view = view;
         row_cache.invalidate();
         force_full_frame = true;
@@ -282,7 +283,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         frame_anti_cursor=card ? card->anti_cursor : 0;
         frame_anti_starting=card && card->anti_starting;
         frame_settings=card && card->settings;
-        frame_brightness=card ? card->brightness : 0;
+        if(frame_settings) frame_settings_state=*card->settings;
         frame_zig_enabled=zig!=nullptr;
         if(zig) frame_zig=*zig;
         frame_pans=pans;frame_zig_cursor=zig_cursor;
@@ -327,7 +328,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     } else if(frame_anti_enabled) {
         drawExternalAntiStrip(strip,next_strip*kStripHeight,frame_anti,frame_anti_cursor,frame_anti_starting,frame_time);
     } else if(frame_settings) {
-        drawExternalSettingsStrip(strip,next_strip*kStripHeight,frame_brightness);
+        drawExternalSettingsStrip(strip,next_strip*kStripHeight,frame_settings_state);
     } else if(frame_zig_enabled) {
         drawExternalZigStrip(strip,next_strip*kStripHeight,frame_zig,frame_pans,frame_zig_cursor);
     } else if(frame_contacts_enabled) {

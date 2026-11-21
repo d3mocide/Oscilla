@@ -1,3 +1,35 @@
+## 2026-11-21 — Settings menu overhaul (paired 320×240 inspector) & SD-loaded LoRa profiles (WP-9a)
+
+- **Settings menu overhaul (`ui/settings_state.h`, `ui/settings_view.{h,cpp}`,
+  `ui/external_card_views.{h,cpp}`, `ui/external_gps_display.{h,cpp}`):**
+  - Replaced the cramped two-panel onboard Settings layout with a clean 6-row
+    scrollable list (`;`/`.` moves cursor, `,`/`/` or `Enter` adjusts/cycles,
+    `` ` `` returns to Link): `BRIGHTNESS`, `IDLE SLEEP`, `WI-FI REGION`,
+    `WI-FI BAND`, `LORA PROFILE`, and `DEBUG SERIAL`.
+  - Replaced the brightness-only 320×240 external Settings screen with a full
+    Observatory v2 paired configuration inspector that dynamically renders a
+    dedicated visual control for the selected row (16-segment luminance bar,
+    5-pill idle timer selector, regulatory domain + channel list, 3-way band
+    selector, LoRa frequency/SF/BW/CR/sync dossier, or USB debug console status)
+    over a 3-bay device-wide summary dock.
+- **SD-loaded LoRa profiles & persistence (WP-9a, `model/lora_profile_catalog.{h,cpp}`,
+  `storage/settings.{h,cpp}`):**
+  - Added pure-C++ `LoraProfileCatalog` reading `/oscilla/lora_profiles.csv`
+    (`token,label,freq_hz,sf,bw_khz,cr,sync_word`), strictly validated against
+    SX1262 limits (`150–960 MHz`, `SF5–12`, valid SX1262 BWs, `CR1–4`,
+    `0x00–0xFF`), rejecting hostile/duplicate rows and capping at 16 profiles
+    while keeping built-in `MCORE`/`MTASTIC` authoritative.
+  - Persisted selected LoRa profile token in `/oscilla/lora_profile` and
+    converted `PendingLoraConfig::profile_token` to owned `std::string`.
+- **Checks:** `check_protocol.sh` (new `lora_profile_catalog_test` + palette
+  & frame-memory checks), mutation proof (disabling SX1262 BW validation fails
+  `lora_profile_catalog_test`), `render_external_views.py` (163 fixtures
+  including onboard & all 6 external Settings pages, visually inspected for
+  clean margins and zero clipping), and `build_firmware.sh` (both boards +
+  stack guards: `loop()` 1040/2048 B).
+- **Not yet verified on hardware:** on-device Settings visual & SD CSV load
+  verification (queued for next bench flash).
+
 ## 2026-11-21 — Flash & live bench verification of WP-5 & WP-10 (+ lazy LoRa KML fix)
 
 - Flashed updated deck firmware (`cardputer-adv`, `50:78:7D:CE:6D:64`, 4/4 hashes

@@ -42,11 +42,13 @@
 #include "model/gnss_model.h"
 #include "model/drive_trail.h"
 #include "model/lora_model.h"
+#include "model/lora_profile_catalog.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
 #include "model/zig_model.h"
 #include "ocp/ocp_client.h"
 #include "ui/contacts_view.h"
+#include "ui/settings_state.h"
 #include "ui/zig_view.h"
 
 namespace app {
@@ -147,6 +149,8 @@ public:
     {
         idle_sleep_.setTimeoutS(IdleSleep::sanitizeTimeoutS(seconds), now_ms);
     }
+    void loadLoraProfiles(const std::string &csv_text, const std::string &saved_token);
+    ui::SettingsViewState settingsViewState() const;
     void forceRedraw() { dirty_ = true; }
     int batteryPct() const { return cached_battery_pct_; }
     bool batteryCharging() const { return cached_charging_; }
@@ -203,7 +207,7 @@ private:
     void startPacketMonitor(uint32_t now_ms, uint8_t ch);
     void startLoraConfig(uint32_t now_ms);
     void sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
-                       const char *profile_token, uint32_t now_ms);
+                        const std::string &profile_token, uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
@@ -246,6 +250,8 @@ private:
     void pushWifiBandIfDue(uint32_t now_ms);
     void sendWifiChannels(const std::string &arg, uint32_t now_ms);
     void changeIdleTimeoutS(uint16_t seconds, uint32_t now_ms);
+    void cycleLoraProfile(int direction);
+    void adjustSelectedSetting(int direction, uint32_t now_ms);
     void pollBatteryIfDue(uint32_t now_ms);
     void markWaypoint(uint32_t now_ms);
 
@@ -293,6 +299,8 @@ private:
      * 'x', independent of whichever profile is actually configured/running
      * (lora_.profile()) until 'c' is pressed again. */
     size_t lora_profile_index_ = 0;
+    model::LoraProfileCatalog lora_profiles_;
+    size_t settings_cursor_ = 0;
     /* A rejected lora_listen (e.g. sent before lora_config) must not create
      * a session file — the ack only exists after the probe actually
      * confirms, so the [LORA]/error reply is what triggers lora_.begin()
@@ -308,7 +316,7 @@ private:
         int bw_khz;
         int cr;
         uint8_t sync_word;
-        const char *profile_token;   /* static storage: kLoraProfiles or a literal */
+        std::string profile_token;
     };
     bool lora_config_pending_ = false;
     PendingLoraConfig lora_config_sent_{};

@@ -9,9 +9,9 @@
 
 namespace ui {
 namespace {
-const char *profileLabel(const std::string &token) {
+std::string profileLabel(const std::string &token) {
     for (const auto &p:model::kLoraProfiles) if(token==p.token) return p.label;
-    return "MANUAL";
+    return token.empty() || token == "manual" ? "MANUAL" : token;
 }
 }
 void drawSubGhzView(const model::LoraModel &m, size_t cursor, const ChromeState &chrome,
@@ -43,7 +43,7 @@ void drawSubGhzView(const model::LoraModel &m, size_t cursor, const ChromeState 
     }
     d.drawFastHLine(5,kBodyTop+86,230,kDimGreen);
     d.setCursor(5,kHintRowY); d.setTextColor(kMutedSlate,kVoidInk);
-    if(!m.hasConfig() || std::strcmp(pending,profileLabel(m.profile()))!=0) {
+    if(!m.hasConfig() || std::strcmp(pending,profileLabel(m.profile()).c_str())!=0) {
         d.setTextColor(kCalibrationYellow,kVoidInk); d.printf("c APPLY %.20s / x NEXT",pending);
     } else if(m.health().valid && m.health().hw_fault) {
         d.setTextColor(kFaultRed,kVoidInk); d.print("RADIO FAULT / CHECK LINK STATUS");

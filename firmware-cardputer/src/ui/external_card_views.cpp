@@ -138,28 +138,155 @@ void drawExternalAntiStrip(lgfx::LGFX_Sprite &d, int top, const model::AntiSurve
     obsBay(c, 224, 84, "AGE / s", std::to_string((now - r->last_seen_ms) / 1000), kMutedSlate, "s");
 }
 
-void drawExternalSettingsStrip(lgfx::LGFX_Sprite &d, int top, uint8_t brightness)
+void drawExternalSettingsStrip(lgfx::LGFX_Sprite &d, int top, const SettingsViewState &s)
 {
     using namespace instrument;
     using namespace observatory;
     Canvas c(d, top);
-    const int percent = (brightness * 100U + 127U) / 255U;
+    const size_t cur = s.cursor < kSettingsRowCount ? s.cursor : 0;
+    const auto row = static_cast<SettingsRow>(cur);
+    const int percent = (s.brightness * 100U + 127U) / 255U;
 
-    obsFrame(c, ModeSigil::SystemCore, "DECK DISPLAY // LUMINANCE", "SETTING", BadgeTone::Cached);
-    obsDock(c, kCalibrationYellow, false);
+    const std::string header = std::string("CONFIG // ") + settingsRowName(row);
+    obsFrame(c, ModeSigil::SystemCore, header.c_str(),
+             s.sd_ready ? "SD SAVED" : "RAM ONLY",
+             s.sd_ready ? BadgeTone::Live : BadgeTone::Warn);
 
-    obsCard(c, 36, 44, 248, 86, kFieldGreen);
-    obsMicro(c, 48, 52, "CARDPUTER LCD BACKLIGHT", kMutedSlate, kPanelDark);
-    obsMicro(c, 272, 52, std::to_string(percent) + "%", kCalibrationYellow, kPanelDark, Align::Right);
-    obsSegBar(c, 48, 70, 224, 34, 16, percent, kFieldGreen);
-    obsMicro(c, 48, 112, "0%", kMutedSlate, kPanelDark);
-    obsMicro(c, 160, 112, "50%", kMutedSlate, kPanelDark, Align::Center);
-    obsMicro(c, 272, 112, "100%", kMutedSlate, kPanelDark, Align::Right);
+    uint16_t dock_accent = kCalibrationYellow;
+    if (row == SettingsRow::DebugSerial && s.debug_enabled) dock_accent = kSignalPink;
+    else if (row == SettingsRow::Brightness || (row == SettingsRow::WifiRegion && s.region_ok) ||
+             (row == SettingsRow::WifiBand && s.band_ok)) dock_accent = kFieldGreen;
+    obsDock(c, dock_accent, true);
 
-    obsText(c, 12, 164, "DECK DISPLAY", FontId::Title, kPaperPhosphor, 296);
-    obsMicro(c, 12, 185, "ADJUSTS CARDPUTER PANEL ONLY / EXTERNAL FIXED", kMutedSlate, kPanelDark);
+    const char *dock_title = settingsRowName(row);
+    const char *dock_desc = "";
 
-    obsBay(c, 12, 140, "BRIGHTNESS", std::to_string(percent) + "%", kCalibrationYellow);
-    obsBay(c, 168, 140, "EXTERNAL TFT", "FIXED ON", kFieldGreen);
+    switch (row) {
+    case SettingsRow::Brightness:
+        obsCard(c, 20, 40, 280, 98, kFieldGreen);
+        obsMicro(c, 32, 48, "CARDPUTER LCD BACKLIGHT", kMutedSlate, kPanelDark);
+        obsMicro(c, 288, 48, std::to_string(percent) + "%", kCalibrationYellow, kPanelDark, Align::Right);
+        obsSegBar(c, 32, 66, 256, 36, 16, percent, kFieldGreen);
+        obsMicro(c, 32, 110, "0%", kMutedSlate, kPanelDark);
+        obsMicro(c, 160, 110, "50%", kMutedSlate, kPanelDark, Align::Center);
+        obsMicro(c, 288, 110, "100%", kMutedSlate, kPanelDark, Align::Right);
+        obsMicro(c, 160, 124, "EXTERNAL ST7789 BACKLIGHT FIXED ON 3V3", kDimGreen, kPanelDark, Align::Center);
+        dock_title = "DISPLAY BRIGHTNESS";
+        dock_desc = "ADJUSTS INTERNAL LCD ONLY / /oscilla/brightness";
+        break;
+
+    case SettingsRow::IdleSleep: {
+        obsCard(c, 20, 40, 280, 98, s.idle_timeout_s ? kFieldGreen : kCalibrationYellow);
+        obsMicro(c, 32, 48, "AUTO DISPLAY SLEEP", kMutedSlate, kPanelDark);
+        obsMicro(c, 288, 48, s.idle_timeout_s ? "ENABLED" : "DISABLED",
+                 s.idle_timeout_s ? kFieldGreen : kMutedSlate, kPanelDark, Align::Right);
+        static constexpr uint16_t kVals[5] = {0, 30, 60, 120, 300};
+        static constexpr const char *kLbls[5] = {"OFF", "30s", "60s", "2m", "5m"};
+        for (int i = 0; i < 5; ++i) {
+            const int px = 30 + i * 53;
+            const bool active = s.idle_timeout_s == kVals[i];
+            c.rect(px, 68, 48, 30, active ? kSelectionGlow : kVoidInk);
+            c.box(px, 68, 48, 30, active ? kCalibrationYellow : kLineBorder);
+            obsText(c, px + 24, 76, kLbls[i], FontId::Head,
+                    active ? kCalibrationYellow : kMutedSlate, 44, Align::Center);
+        }
+        obsMicro(c, 160, 110, "LCD OFF + TFT SLPIN / RADIOS & GNSS LIVE",
+                 kMutedSlate, kPanelDark, Align::Center);
+        obsMicro(c, 160, 124, "ANY KEY WAKES WITHOUT ACTING", kDimGreen, kPanelDark, Align::Center);
+        dock_title = "IDLE POWER SAVING";
+        dock_desc = "PERSISTED IN /oscilla/idle_timeout";
+        break;
+    }
+
+    case SettingsRow::WifiRegion:
+        obsCard(c, 20, 40, 280, 98, s.region_ok ? kFieldGreen : kCalibrationYellow);
+        obsMicro(c, 32, 48, "REGULATORY DOMAIN", kMutedSlate, kPanelDark);
+        obsBadge(c, 212, 45, 76, 15, s.region_status, kTrackDark,
+                 s.region_ok ? kFieldGreen : kCalibrationYellow,
+                 s.region_ok ? kFieldGreen : kCalibrationYellow);
+        obsText(c, 32, 62, s.region_code, FontId::Hero, kCalibrationYellow, 96);
+        obsMicro(c, 132, 68, "PASSIVE DFS-FREE HOP TABLE", kMutedSlate, kPanelDark);
+        obsMicro(c, 132, 82, "PUSHED TO PROBE WHEN IDLE", kDimGreen, kPanelDark);
+        c.line(32, 98, 288, 98, kLineBorder);
+        obsMicro(c, 32, 105, "CHANNELS", kMutedSlate, kPanelDark);
+        obsText(c, 32, 117, s.region_channels, FontId::Mono, kPaperPhosphor, 256);
+        dock_title = "WI-FI REGION";
+        dock_desc = "COUNTRY & HOP LIST / /oscilla/wifi_region";
+        break;
+
+    case SettingsRow::WifiBand: {
+        obsCard(c, 20, 40, 280, 98, s.band_ok ? kFieldGreen : kCalibrationYellow);
+        obsMicro(c, 32, 48, "ACTIVE WI-FI BAND SCOPE", kMutedSlate, kPanelDark);
+        obsMicro(c, 288, 48, s.band_ok ? "PROBE SYNCED" : "PENDING IDLE",
+                 s.band_ok ? kFieldGreen : kCalibrationYellow, kPanelDark, Align::Right);
+        static constexpr const char *kCodes[3] = {"24", "auto", "5"};
+        static constexpr const char *kNames[3] = {"2.4 GHz", "AUTO", "5 GHz"};
+        for (int i = 0; i < 3; ++i) {
+            const int px = 30 + i * 88;
+            const bool active = s.band_code == kCodes[i];
+            c.rect(px, 68, 82, 34, active ? kSelectionGlow : kVoidInk);
+            c.box(px, 68, 82, 34, active ? kCalibrationYellow : kLineBorder);
+            obsText(c, px + 41, 78, kNames[i], FontId::Head,
+                    active ? kCalibrationYellow : kMutedSlate, 76, Align::Center);
+        }
+        obsMicro(c, 160, 113, "FILTERS SCANS, SNIFFER, DEAUTH & SPECTRUM",
+                 kMutedSlate, kPanelDark, Align::Center);
+        obsMicro(c, 160, 125, "CHANNEL REGION: " + s.region_code, kDimGreen, kPanelDark, Align::Center);
+        dock_title = "WI-FI BAND FILTER";
+        dock_desc = "2.4G, 5G, OR DUAL / /oscilla/wifi_band";
+        break;
+    }
+
+    case SettingsRow::LoraProfile: {
+        obsCard(c, 20, 40, 280, 98, kCalibrationYellow);
+        obsMicro(c, 32, 48, "SUB-GHZ DEFAULT PRESET", kMutedSlate, kPanelDark);
+        obsBadge(c, 214, 45, 74, 15, s.lora_from_sd ? "SD CARD" : "BUILT-IN",
+                 kTrackDark, s.lora_from_sd ? kCalibrationYellow : kDimGreen,
+                 s.lora_from_sd ? kCalibrationYellow : kFieldGreen);
+        obsText(c, 32, 62, s.lora_label, FontId::Title, kCalibrationYellow, 180);
+        char cnt[24];
+        snprintf(cnt, sizeof cnt, "%u OF %u",
+                 unsigned(s.lora_index + 1), unsigned(s.lora_count ? s.lora_count : 1));
+        obsMicro(c, 288, 67, cnt, kMutedSlate, kPanelDark, Align::Right);
+        c.line(32, 86, 288, 86, kLineBorder);
+        char freq[32], params[48];
+        snprintf(freq, sizeof freq, "%lu.%03lu MHz",
+                 static_cast<unsigned long>(s.lora_freq_hz / 1000000),
+                 static_cast<unsigned long>((s.lora_freq_hz % 1000000) / 1000));
+        snprintf(params, sizeof params, "SF%d  BW%d  CR4:%d  SYNC 0x%02X",
+                 s.lora_sf, s.lora_bw_khz, s.lora_cr + 4, unsigned(s.lora_sync));
+        obsText(c, 32, 94, freq, FontId::Head, kPaperPhosphor, 250);
+        obsText(c, 32, 114, params, FontId::Mono, kFieldGreen, 256);
+        dock_title = "LORA RX PROFILE";
+        dock_desc = "BUILT-IN + /oscilla/lora_profiles.csv";
+        break;
+    }
+
+    case SettingsRow::DebugSerial:
+        obsCard(c, 20, 40, 280, 98, s.debug_enabled ? kSignalPink : kMutedSlate);
+        obsMicro(c, 32, 48, "USB SERIAL / JTAG CONSOLE", kMutedSlate, kPanelDark);
+        obsMicro(c, 288, 48, "115200 8N1", kMutedSlate, kPanelDark, Align::Right);
+        obsText(c, 32, 65, s.debug_enabled ? "ENABLED" : "DISABLED",
+                FontId::Hero, s.debug_enabled ? kSignalPink : kMutedSlate, 250);
+        c.line(32, 102, 288, 102, kLineBorder);
+        obsMicro(c, 32, 110, "BENCH SCRIPTING & DIAGNOSTIC COMMANDS", kMutedSlate, kPanelDark);
+        obsMicro(c, 32, 123, "HOTKEY d TOGGLES GLOBALLY FROM ANY CARD", kDimGreen, kPanelDark);
+        dock_title = "DEBUG CONSOLE";
+        dock_desc = "PERSISTED IN /oscilla/debug_mode";
+        break;
+
+    case SettingsRow::Count:
+        break;
+    }
+
+    obsText(c, 12, 164, dock_title, FontId::Title, kPaperPhosphor, 230);
+    char row_pos[16];
+    snprintf(row_pos, sizeof row_pos, "ITEM %u/%u", unsigned(cur + 1), unsigned(kSettingsRowCount));
+    obsMicro(c, 308, 168, row_pos, kMutedSlate, kPanelDark, Align::Right);
+    obsMicro(c, 12, 185, dock_desc, kMutedSlate, kPanelDark);
+
+    obsBay(c, 12, 94, "DISPLAY", std::to_string(percent) + "%", kCalibrationYellow, s.idle_label.c_str());
+    obsBay(c, 122, 86, "WI-FI", s.region_code, s.region_ok && s.band_ok ? kFieldGreen : kCalibrationYellow, s.band_label.c_str());
+    obsBay(c, 224, 84, "LORA", s.lora_label.substr(0, 5), kPaperPhosphor, s.lora_from_sd ? "SD" : "BIN");
 }
 }  // namespace ui

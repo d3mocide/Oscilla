@@ -18,6 +18,7 @@
 #include "model/deauth_model.h"
 #include "model/anti_surveillance_model.h"
 #include "ui/external_system_view.h"
+#include "ui/settings_state.h"
 
 namespace ui {
 struct ExternalRenderStats {
@@ -41,8 +42,7 @@ struct ExternalCardState {
     const model::AntiSurveillanceModel *anti = nullptr;
     size_t anti_cursor = 0;
     bool anti_starting = false;
-    uint8_t brightness = 0;
-    bool settings = false;
+    const SettingsViewState *settings = nullptr;
 };
 /* Hold the panel in reset while SD and settings initialize at boot. */
 void holdExternalGpsDisplayReset();

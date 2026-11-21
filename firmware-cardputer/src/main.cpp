@@ -83,6 +83,7 @@ void setup()
         g_app.setWifiRegion(storage::loadWifiRegion());
         g_app.setWifiBand(storage::loadWifiBand());
         g_app.setIdleTimeoutS(storage::loadIdleTimeoutS(), millis());
+        g_app.loadLoraProfiles(storage::loadLoraProfilesCsv(), storage::loadLoraProfile());
     }
 
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not
@@ -280,8 +281,9 @@ void loop()
     external_card.anti = g_app.showingAntiSurveillance() ? &g_app.antiModel() : nullptr;
     external_card.anti_cursor = g_app.antiCursor();
     external_card.anti_starting = g_app.antiStarting();
-    external_card.settings = g_app.showingSettings();
-    external_card.brightness = g_app.brightness();
+    static ui::SettingsViewState external_settings;
+    if (g_app.showingSettings()) external_settings = g_app.settingsViewState();
+    external_card.settings = g_app.showingSettings() ? &external_settings : nullptr;
     ui::tickExternalGpsDisplay(g_app.gnssModel(), g_gnss_bytes,
                                g_app.gnssChecksumFailures(), millis(),
                                g_app.showingWifi() ? &g_app.scanModel() : nullptr,

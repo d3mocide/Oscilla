@@ -29,6 +29,7 @@
 #include "ui/external_system_view.h"
 #include "ui/external_card_views.h"
 #include "ui/external_gnss_view.h"
+#include "ui/settings_view.h"
 
 static ocp::Item event(std::initializer_list<ocp::KeyValue> fields) {
     ocp::Item item;item.kind=ocp::ItemKind::Event;item.kv=fields;return item;
@@ -212,6 +213,34 @@ int main(int argc,char **argv) {
             bt.stop();
             save("advertiser-history",[&](auto &d,int t){ui::drawExternalBtDetailStrip(d,t,advertiser,bt,now);});
         }
-        save("settings",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,146);});
+        ui::SettingsViewState cfg;
+        cfg.brightness = 146;
+        cfg.idle_timeout_s = 60;
+        cfg.idle_label = "60s";
+        cfg.sd_ready = !empty;
+        cfg.region_ok = !empty;
+        cfg.region_status = empty ? "OFFLINE" : "SYNCED";
+        cfg.band_ok = !empty;
+        cfg.lora_from_sd = !empty;
+        cfg.lora_label = empty ? "MCORE" : "EU868 MESH";
+        cfg.lora_freq_hz = empty ? 910525000 : 869525000;
+        cfg.lora_sf = empty ? 7 : 11;
+        cfg.lora_bw_khz = empty ? 62 : 250;
+        cfg.lora_sync = empty ? 0x12 : 0x2B;
+        cfg.lora_count = empty ? 2 : 4;
+        cfg.lora_index = empty ? 0 : 2;
+        cfg.cursor = 0;
+        save("settings",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+        chrome.title = "SETTINGS";
+        deckSave("deck-settings", [&]{ ui::drawSettingsView(cfg, chrome); });
+        if (!empty && !cached) {
+            cfg.cursor = 1; save("settings-idle",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            cfg.cursor = 2; save("settings-region",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            cfg.cursor = 3; save("settings-band",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            cfg.cursor = 4; save("settings-lora",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            cfg.cursor = 5; cfg.debug_enabled = true;
+            save("settings-debug",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            deckSave("deck-settings-bottom", [&]{ ui::drawSettingsView(cfg, chrome); });
+        }
     }
 }

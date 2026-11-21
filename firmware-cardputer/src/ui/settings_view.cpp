@@ -1,5 +1,5 @@
 /*
- * settings_view.cpp — deck display luminance and Wi-Fi region; Observatory v2.
+ * settings_view.cpp — scrollable deck configuration list; Observatory v2.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -7,90 +7,105 @@
 #include "ui/settings_view.h"
 
 #include <cstdio>
-#include <cstring>
+#include <string>
 
 #include "ui/canvas.h"
-#include "ui/observatory_chrome.h"
-#include "ui/segmented_bar.h"
+#include "ui/display_text.h"
+#include "ui/list_row.h"
 #include "ui/theme.h"
 
 namespace ui {
 
 namespace {
 
-constexpr int kBarSegmentCount = 10;
-constexpr int kBarSegmentWidth = 12;
-constexpr int kBarSegmentGap = 2;
-constexpr int kPanelX = 4;
-constexpr int kPanelW = 232;
-constexpr int kCharW = 6;   /* default 6x8 font at size 1 */
+constexpr int kCharW = 6;
 
-void panel(M5Canvas &d, int y, int h)
+void formatRowValue(const SettingsViewState &s, SettingsRow row, std::string &value, uint16_t &color)
 {
-    d.fillRect(kPanelX, y, kPanelW, h, kPanelDark);
-    d.drawRect(kPanelX, y, kPanelW, h, kLineBorder);
-    d.fillRect(kPanelX, y, 28, 2, kFieldGreen);
+    char buf[24];
+    switch (row) {
+    case SettingsRow::Brightness: {
+        const unsigned pct = (s.brightness * 100U + 127U) / 255U;
+        std::snprintf(buf, sizeof buf, "%u%%", pct);
+        value = buf;
+        color = kCalibrationYellow;
+        return;
+    }
+    case SettingsRow::IdleSleep:
+        value = s.idle_label;
+        color = s.idle_timeout_s ? kFieldGreen : kMutedSlate;
+        return;
+    case SettingsRow::WifiRegion:
+        value = s.region_code + (s.region_ok ? " OK" : " PEND");
+        color = s.region_ok ? kFieldGreen : kCalibrationYellow;
+        return;
+    case SettingsRow::WifiBand:
+        value = s.band_label;
+        color = s.band_ok ? kFieldGreen : kCalibrationYellow;
+        return;
+    case SettingsRow::LoraProfile:
+        value = printable(s.lora_label, 12);
+        color = s.lora_from_sd ? kCalibrationYellow : kFieldGreen;
+        return;
+    case SettingsRow::DebugSerial:
+        value = s.debug_enabled ? "ON" : "OFF";
+        color = s.debug_enabled ? kSignalPink : kMutedSlate;
+        return;
+    case SettingsRow::Count:
+        break;
+    }
+    value = "--";
+    color = kMutedSlate;
 }
 
 }  // namespace
 
-void drawSettingsView(uint8_t brightness, const char *idle_label, bool idle_enabled,
-                      const char *region_code, const char *band_label,
-                      bool band_ok, const char *region_channels, const char *region_status,
-                      bool region_ok, const ChromeState &chrome)
+void drawSettingsView(const SettingsViewState &s, const ChromeState &chrome)
 {
     auto &d = canvas();
     beginChrome(chrome);
     d.setTextSize(1);
 
-    /* Brightness + idle display sleep: label, sleep preset on right, hero %, bar. */
-    const int top = kBodyTop + 2;
-    panel(d, top, 44);
-    d.setCursor(10, top + 6);
-    d.setTextColor(kMutedSlate, kPanelDark);
-    d.print("DISPLAY BRIGHTNESS");
-    char sbuf[16];
-    std::snprintf(sbuf, sizeof sbuf, "SLEEP %s", idle_label ? idle_label : "OFF");
-    const int sw = static_cast<int>(std::strlen(sbuf)) * kCharW;
-    d.setCursor(kPanelX + kPanelW - 6 - sw, top + 6);
-    d.setTextColor(idle_enabled ? kFieldGreen : kMutedSlate, kPanelDark);
-    d.print(sbuf);
+    d.setCursor(5, kBodyTop + 3);
+    d.setTextColor(kFieldGreen, kVoidInk);
+    d.print("CONFIGURATION");
 
-    const unsigned pct = (brightness * 100U + 127U) / 255U;
-    char pbuf[12];
-    std::snprintf(pbuf, sizeof pbuf, "%u%%", pct);
-    instrument::Canvas c(d, 0);
-    observatory::obsText(c, 10, top + 18, pbuf, observatory::FontId::Hero, kCalibrationYellow, 80);
-
-    const int filled = static_cast<int>((brightness * kBarSegmentCount + 254) / 255);
-    drawSegmentedBar(d, 92, top + 24, kBarSegmentCount, kBarSegmentWidth, 9, kBarSegmentGap,
-                     filled, kFieldGreen);
-
-    /* Wi-Fi region + band: label and probe state, then code, band, and channels. */
-    const int rtop = top + 48;
-    panel(d, rtop, 32);
-    d.setCursor(10, rtop + 6);
-    d.setTextColor(kMutedSlate, kPanelDark);
-    d.print("WI-FI REGION / BAND");
-    const int status_w = static_cast<int>(std::strlen(region_status)) * kCharW;
-    d.setCursor(kPanelX + kPanelW - 6 - status_w, rtop + 6);
-    d.setTextColor(region_ok ? kFieldGreen : kCalibrationYellow, kPanelDark);
-    d.print(region_status);
-
-    d.setCursor(10, rtop + 19);
-    d.setTextColor(kCalibrationYellow, kPanelDark);
-    d.print(region_code);
-    d.setTextColor(kMutedSlate, kPanelDark);
-    d.print(" ");
-    d.setTextColor(band_ok ? kFieldGreen : kCalibrationYellow, kPanelDark);
-    d.print(band_label);
-    d.setTextColor(kMutedSlate, kPanelDark);
-    d.print("  ");
-    d.print(region_channels);
-
-    d.setCursor(6, rtop + 37);
+    char idx_buf[16];
+    const size_t cur = s.cursor < kSettingsRowCount ? s.cursor : 0;
+    std::snprintf(idx_buf, sizeof idx_buf, "%u/%u",
+                  static_cast<unsigned>(cur + 1), static_cast<unsigned>(kSettingsRowCount));
+    const int idx_w = static_cast<int>(std::char_traits<char>::length(idx_buf)) * kCharW;
+    d.setCursor(235 - idx_w, kBodyTop + 3);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.print(";.BRT ,/REG b:BND t:SLP `LNK");
+    d.print(idx_buf);
+    d.drawFastHLine(5, kBodyTop + 14, 230, kDimGreen);
+
+    const size_t start = listFirstVisible(cur, kListVisibleRows);
+    for (size_t i = 0; i < static_cast<size_t>(kListVisibleRows) && start + i < kSettingsRowCount; ++i) {
+        const size_t row_idx = start + i;
+        const auto row = static_cast<SettingsRow>(row_idx);
+        const bool sel = row_idx == cur;
+        const int y = kBodyTop + 19 + static_cast<int>(i) * kListRowHeight;
+        const uint16_t bg = sel ? kSelectionGlow : kVoidInk;
+        drawRowHighlight(d, y, sel);
+
+        d.setCursor(6, y);
+        d.setTextColor(sel ? kCalibrationYellow : kPaperPhosphor, bg);
+        d.print(settingsRowName(row));
+
+        std::string val;
+        uint16_t vcol = kPaperPhosphor;
+        formatRowValue(s, row, val, vcol);
+        const int vw = static_cast<int>(val.size()) * kCharW;
+        d.setCursor(234 - vw, y);
+        d.setTextColor(sel ? kCalibrationYellow : vcol, bg);
+        d.print(val.c_str());
+    }
+
+    d.drawFastHLine(5, kBodyTop + 86, 230, kDimGreen);
+    d.setCursor(5, kHintRowY);
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.print("; . ROW  , / ADJUST  ` LINK");
 
     endChrome(chrome);
 }

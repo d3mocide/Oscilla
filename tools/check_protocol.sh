@@ -363,6 +363,10 @@ PY
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/lora_profiles_test" \
     firmware-cardputer/test/host/lora_profiles_test.cpp
 "$out/lora_profiles_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/lora_profile_catalog_test" \
+    firmware-cardputer/test/host/lora_profile_catalog_test.cpp \
+    firmware-cardputer/src/model/lora_profile_catalog.cpp
+"$out/lora_profile_catalog_test" | tail -1 | sed 's/^/  /'
 
 # The deck's NMEA reader: checksum, chunking, bounds - no OCP link involved.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/nmea_parser_test" \

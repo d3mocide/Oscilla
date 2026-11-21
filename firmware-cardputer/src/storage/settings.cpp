@@ -22,6 +22,9 @@ constexpr const char *kBrightnessFlag = "/oscilla/brightness";
 constexpr const char *kWifiRegionFlag = "/oscilla/wifi_region";
 constexpr const char *kWifiBandFlag = "/oscilla/wifi_band";
 constexpr const char *kIdleTimeoutFlag = "/oscilla/idle_timeout";
+constexpr const char *kLoraProfileFlag = "/oscilla/lora_profile";
+constexpr const char *kLoraProfilesCsv = "/oscilla/lora_profiles.csv";
+constexpr size_t kMaxLoraProfilesCsvBytes = 4096;
 /* Mid-scale default (M5GFX 0-255): visible in daylight and indoors alike
  * without having read a saved value yet. Never 0 — see settings.h. */
 constexpr uint8_t kBrightnessDefault = 160;
@@ -174,6 +177,61 @@ void saveIdleTimeoutS(uint16_t seconds)
         f.close();
     }
     unlock();
+}
+
+std::string loadLoraProfile()
+{
+    if (!ready()) return {};
+    if (!lock()) return {};
+    std::string token;
+    if (SD.exists(kLoraProfileFlag)) {
+        File f = SD.open(kLoraProfileFlag, FILE_READ);
+        char buf[32] = {};
+        if (f) {
+            size_t got = f.read(reinterpret_cast<uint8_t *>(buf), sizeof buf - 1);
+            token.assign(buf, got);
+            f.close();
+        }
+    }
+    unlock();
+    return token;
+}
+
+void saveLoraProfile(const std::string &token)
+{
+    if (!ready()) return;
+    if (!lock()) return;
+    SD.mkdir(kDir);
+    File f = SD.open(kLoraProfileFlag, FILE_WRITE);
+    if (f) {
+        sdActivity().record(token.size(), f.print(token.c_str()), millis());
+        f.close();
+    }
+    unlock();
+}
+
+std::string loadLoraProfilesCsv()
+{
+    if (!ready()) return {};
+    if (!lock()) return {};
+    std::string csv;
+    if (SD.exists(kLoraProfilesCsv)) {
+        File f = SD.open(kLoraProfilesCsv, FILE_READ);
+        if (f && !f.isDirectory()) {
+            const size_t sz = f.size();
+            const size_t cap = sz < kMaxLoraProfilesCsvBytes ? sz : kMaxLoraProfilesCsvBytes;
+            csv.resize(cap);
+            if (cap > 0) {
+                const size_t got = f.read(reinterpret_cast<uint8_t *>(&csv[0]), cap);
+                csv.resize(got);
+            }
+            f.close();
+        } else if (f) {
+            f.close();
+        }
+    }
+    unlock();
+    return csv;
 }
 
 }  // namespace storage

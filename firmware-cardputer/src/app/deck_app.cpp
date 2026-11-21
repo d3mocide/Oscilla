@@ -288,7 +288,7 @@ void DeckApp::onReply(const ocp::Item &it)
     if (it.tag == OCP_MARK_CFG && lora_config_pending_) {
         lora_config_pending_ = false;
         const auto &c = lora_config_sent_;
-        lora_.configured(c.freq_hz, c.sf, c.bw_khz, c.cr, c.sync_word, c.profile_token);
+        lora_.configured(c.freq_hz, c.sf, c.bw_khz, c.cr, c.sync_word, c.profile_token.c_str());
         notice("");
     }
     if (it.tag == OCP_MARK_BLE && bt_scan_pending_) {
@@ -623,7 +623,7 @@ namespace {
  * (same reasoning as channel_plans.h's resolvedChannelForProfile() in
  * LoRaTrace-RX: one function every caller goes through). */
 void DeckApp::sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
-                             const char *profile_token, uint32_t now_ms)
+                             const std::string &profile_token, uint32_t now_ms)
 {
     if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
     std::string cmd = std::string(OCP_V_LORA_CONFIG) + " " + std::to_string(freq_hz) + " " +
@@ -640,14 +640,98 @@ void DeckApp::sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8
     notice("configuring lora...");
 }
 
-/* Cycles with 'x' (Screen::SubGhz), applies with 'c'. Named presets only —
- * arbitrary manual entry has no on-device numeric input yet (this keyboard
- * has none built) and goes through the debug console's lora_manual command
- * instead, which also calls sendLoraConfig() above. */
+/* Cycles with 'x' (Screen::SubGhz) or Settings, applies with 'c'. */
 void DeckApp::startLoraConfig(uint32_t now_ms)
 {
-    const auto &p = model::kLoraProfiles[lora_profile_index_];
+    const auto &p = lora_profiles_.at(lora_profile_index_);
     sendLoraConfig(p.freq_hz, p.sf, p.bw_khz, p.cr, p.sync_word, p.token, now_ms);
+}
+
+void DeckApp::loadLoraProfiles(const std::string &csv_text, const std::string &saved_token)
+{
+    lora_profiles_.resetToBuiltins();
+    if (!csv_text.empty()) {
+        const size_t added = lora_profiles_.parseCsv(csv_text);
+        if (added || lora_profiles_.rejectedRows()) {
+            log("lora profiles sd=" + std::to_string(added) +
+                " rejected=" + std::to_string(lora_profiles_.rejectedRows()));
+        }
+    }
+    lora_profile_index_ = lora_profiles_.findByToken(saved_token);
+}
+
+void DeckApp::cycleLoraProfile(int direction)
+{
+    const size_t n = lora_profiles_.size();
+    if (!n) return;
+    lora_profile_index_ = (lora_profile_index_ + (direction >= 0 ? 1 : n - 1)) % n;
+    const auto &p = lora_profiles_.at(lora_profile_index_);
+    storage::saveLoraProfile(p.token);
+    notice("lora preset " + p.label);
+    log("lora profile=" + p.token);
+    dirty_ = true;
+}
+
+ui::SettingsViewState DeckApp::settingsViewState() const
+{
+    ui::SettingsViewState s;
+    s.cursor = settings_cursor_;
+    s.brightness = brightness_;
+    s.idle_timeout_s = idle_sleep_.timeoutS();
+    s.idle_label = IdleSleep::label(s.idle_timeout_s);
+    const auto &region = app::regionOrDefault(wifi_region_);
+    char channels[64];
+    ocp_wifi_region_summary(&region, channels, sizeof channels);
+    const bool link_ok = client_.state() == ocp::LinkState::Ready;
+    const auto rstate = app::regionState(link_ok, wifi_region_, probe_region_);
+    const auto bstate = app::bandState(link_ok, wifi_band_, probe_band_);
+    s.region_code = region.code;
+    s.region_channels = channels;
+    s.region_ok = rstate == app::RegionState::Applied;
+    s.region_status = app::regionStateLabel(rstate);
+    s.band_code = wifi_band_;
+    s.band_label = app::bandDisplayLabel(wifi_band_);
+    s.band_ok = bstate == app::BandState::Applied || bstate == app::BandState::Unsupported;
+    const auto &lp = lora_profiles_.at(lora_profile_index_);
+    s.lora_label = lp.label;
+    s.lora_token = lp.token;
+    s.lora_freq_hz = lp.freq_hz;
+    s.lora_sf = lp.sf;
+    s.lora_bw_khz = lp.bw_khz;
+    s.lora_cr = lp.cr;
+    s.lora_sync = lp.sync_word;
+    s.lora_from_sd = lp.from_sd;
+    s.lora_index = lora_profile_index_;
+    s.lora_count = lora_profiles_.size();
+    s.debug_enabled = debug_mode_;
+    s.sd_ready = storage::ready();
+    return s;
+}
+
+void DeckApp::adjustSelectedSetting(int direction, uint32_t now_ms)
+{
+    switch (static_cast<ui::SettingsRow>(settings_cursor_)) {
+    case ui::SettingsRow::Brightness:
+        adjustBrightness(direction);
+        break;
+    case ui::SettingsRow::IdleSleep:
+        changeIdleTimeoutS(idle_sleep_.cycleTimeoutS(direction, now_ms), now_ms);
+        break;
+    case ui::SettingsRow::WifiRegion:
+        changeWifiRegion(app::cycleRegion(wifi_region_, direction).code);
+        break;
+    case ui::SettingsRow::WifiBand:
+        changeWifiBand(app::cycleBand(wifi_band_, direction));
+        break;
+    case ui::SettingsRow::LoraProfile:
+        cycleLoraProfile(direction);
+        break;
+    case ui::SettingsRow::DebugSerial:
+        toggleDebugMode();
+        break;
+    case ui::SettingsRow::Count:
+        break;
+    }
 }
 
 void DeckApp::startLoraListen(uint32_t now_ms)
@@ -956,10 +1040,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 'r') client_.send(OCP_V_REBOOT, now_ms);
             break;
         case Screen::Settings:
-            if (c == ';') adjustBrightness(1);
-            else if (c == '.') adjustBrightness(-1);
-            else if (c == ',') changeWifiRegion(app::cycleRegion(wifi_region_, -1).code);
-            else if (c == '/') changeWifiRegion(app::cycleRegion(wifi_region_, 1).code);
+            if (c == ';') settings_cursor_ = ui::stepSettingsCursor(settings_cursor_, -1);
+            else if (c == '.') settings_cursor_ = ui::stepSettingsCursor(settings_cursor_, 1);
+            else if (c == ',') adjustSelectedSetting(-1, now_ms);
+            else if (c == '/') adjustSelectedSetting(1, now_ms);
             else if (c == 'b') changeWifiBand(app::cycleBand(wifi_band_, 1));
             else if (c == 't') changeIdleTimeoutS(idle_sleep_.cycleTimeoutS(1, now_ms), now_ms);
             break;
@@ -1034,7 +1118,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
             else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
             else if (c == 'x') {
-                lora_profile_index_ = (lora_profile_index_ + 1) % model::kLoraProfileCount;
+                cycleLoraProfile(1);
             }
             else if (c == 'c') startLoraConfig(now_ms);
             else if (c == 'm') markWaypoint(now_ms);
@@ -1076,6 +1160,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         dirty_ = true;
     }
     if(keys.enter&&!help_visible_&&screen_==Screen::Logs)sessionEnter();
+    if (keys.enter && !help_visible_ && screen_ == Screen::Settings) adjustSelectedSetting(1, now_ms);
     if (keys.enter && !help_visible_ && screen_ == Screen::Link) {
         switch (link_cursor_) {
         case 0: /* Probe Link: reconnect when needed, otherwise verify the link. */
@@ -1592,24 +1677,7 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawLinkView(client_, link_cursor_, makeChrome("LINK"));
         break;
     case Screen::Settings:
-    {
-        const auto &region = app::regionOrDefault(wifi_region_);
-        char channels[64];
-        ocp_wifi_region_summary(&region, channels, sizeof channels);
-        const bool link_ok = client_.state() == ocp::LinkState::Ready;
-        const auto state = app::regionState(link_ok, wifi_region_, probe_region_);
-        const auto bstate = app::bandState(link_ok, wifi_band_, probe_band_);
-        const bool synced = state == app::RegionState::Applied &&
-                            (bstate == app::BandState::Applied || bstate == app::BandState::Unsupported);
-        const char *status = state != app::RegionState::Applied ? app::regionStateLabel(state)
-                           : bstate == app::BandState::Pending ? "PENDING"
-                           : app::regionStateLabel(state);
-        ui::drawSettingsView(brightness_, IdleSleep::label(idle_sleep_.timeoutS()),
-                             idle_sleep_.timeoutS() != 0,
-                             region.code, app::bandDisplayLabel(wifi_band_),
-                             bstate == app::BandState::Applied, channels, status,
-                             synced, makeChrome("SETTINGS"));
-    }
+        ui::drawSettingsView(settingsViewState(), makeChrome("SETTINGS"));
         break;
     case Screen::Sweep:
         ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_,
@@ -1638,7 +1706,7 @@ void DeckApp::draw(uint32_t now_ms)
     case Screen::SubGhz:
         if(packet_inspection_.active())ui::drawLoraDetailView(packet_inspection_,makeChrome("PACKET HEX"));
         else ui::drawSubGhzView(lora_, lora_cursor_, makeChrome("LORA RX"),
-                           model::kLoraProfiles[lora_profile_index_].label);
+                           lora_profiles_.at(lora_profile_index_).label.c_str());
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_,
