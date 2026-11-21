@@ -173,6 +173,13 @@ if grep -qF '"%s/log_%04d.csv", kDir, i)' firmware-cardputer/src/storage/lora_lo
     || ! grep -qF 'const int index = nextFreeSession();' firmware-cardputer/src/storage/lora_logger.cpp; then
     echo "lora_logger.cpp must number sessions with one readdir walk (getNextFileName), not per-index SD.exists probes or openNextFile" >&2; exit 1
 fi
+# Same for Drive start: one readdir walk, and only the KML the open-session
+# marker names is repaired (WORKLOG 2026-11-21: 1.7 s with 27 sessions).
+w=firmware-cardputer/src/storage/wardrive_logger.cpp
+if grep -qF 'openNextFile(' "$w" || ! grep -qF '    recoverOpenSession();' "$w" \
+    || awk '/^bool discoverSessions\(\)/,/^}/' "$w" | grep -qF 'recoverKml('; then
+    echo "wardrive_logger.cpp must walk sessions with getNextFileName and repair only the marked KML" >&2; exit 1
+fi
 
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contact_inspection_test" \
     firmware-cardputer/test/host/contact_inspection_test.cpp firmware-cardputer/src/model/contacts_model.cpp \

@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 
 #include <SD.h>
@@ -25,6 +26,9 @@ namespace {
 
 constexpr const char *kDir = "/oscilla/wardrive";
 constexpr std::size_t kMaxDirectoryEntries = 20000;
+/* Names the KML of the session that is open right now. A clean end removes
+ * it, so one left behind marks the only KML a reset can have cut short. */
+constexpr const char *kOpenMarker = "/oscilla/wardrive/open_session";
 
 File g_csv, g_kml;
 bool g_open = false;
@@ -38,6 +42,8 @@ WardriveLogStats g_stats;
 std::array<bool, static_cast<std::size_t>(sessions::kLastIndex) + 1> g_used_sessions{};
 
 void recoverKml(const char *path);
+void recoverOpenSession();
+void markOpenSession(const char *kml_path);
 
 bool appendVerified(File &file, const char *path, const std::string &text)
 {
@@ -60,35 +66,53 @@ bool discoverSessions()
         return false;
     }
 
+    /* readdir only: the File iterator stats and opens every entry by path,
+     * and repairing every KML on each start read them all; together they
+     * held the deck loop ~1.7 s on a 27-session card (WORKLOG 2026-11-21). */
     std::size_t inspected = 0;
-    while (inspected < kMaxDirectoryEntries) {
-        File entry = dir.openNextFile(FILE_READ);
-        if (!entry) break;
-
-        char name[32] = "";
-        std::snprintf(name, sizeof name, "%s", entry.name());
-        entry.close();
-
+    bool truncated = false;
+    for (;;) {
+        String path = dir.getNextFileName();
+        if (path.isEmpty()) break;
+        if (inspected++ >= kMaxDirectoryEntries) { truncated = true; break; }
         int index = 0;
         bool is_kml = false;
-        if (sessions::parse(name, &index, &is_kml)) {
+        if (sessions::parse(path.c_str() + path.lastIndexOf('/') + 1, &index, &is_kml)) {
             g_used_sessions[static_cast<std::size_t>(index)] = true;
-            if (is_kml) {
-                char path[64];
-                std::snprintf(path, sizeof path, "%s/%s", kDir, name);
-                recoverKml(path);
-            }
         }
-        inspected++;
     }
-
-    /* Do not silently allocate a name when the bounded directory walk was
-     * truncated. */
-    File extra = dir.openNextFile(FILE_READ);
-    const bool truncated = static_cast<bool>(extra);
-    if (extra) extra.close();
     dir.close();
     return !truncated;
+}
+
+/* Repair the one KML a reset left open, named by kOpenMarker. Only an exact
+ * session name inside kDir is trusted from the card. */
+void recoverOpenSession()
+{
+    if (!SD.exists(kOpenMarker)) return;
+    char path[64] = "";
+    File marker = SD.open(kOpenMarker, FILE_READ);
+    if (marker) {
+        size_t got = marker.read(reinterpret_cast<uint8_t *>(path), sizeof path - 1);
+        path[got] = '\0';
+        marker.close();
+    }
+    const std::size_t dir_len = std::strlen(kDir);
+    int index = 0;
+    bool is_kml = false;
+    if (std::strncmp(path, kDir, dir_len) == 0 && path[dir_len] == '/' &&
+        sessions::parse(path + dir_len + 1, &index, &is_kml) && is_kml) {
+        recoverKml(path);
+    }
+    SD.remove(kOpenMarker);
+}
+
+void markOpenSession(const char *kml_path)
+{
+    File marker = SD.open(kOpenMarker, FILE_WRITE);
+    if (!marker) return;
+    marker.print(kml_path);
+    marker.close();
 }
 
 void recoverKml(const char *path)
@@ -147,8 +171,9 @@ bool wardriveLogBegin(const model::GnssFix &fix)
     SD.mkdir(kDir);
 
     /* A reset can leave a valid KML prefix without its fixed closing suffix.
-     * Repair existing KML files during one bounded directory walk, then
-     * allocate the first unused session number. */
+     * Repair the session the open marker names, then allocate the first
+     * unused number from one bounded directory walk. */
+    recoverOpenSession();
     if (!discoverSessions()) {
         g_card_fault = true;
         markFault();
@@ -180,8 +205,12 @@ bool wardriveLogBegin(const model::GnssFix &fix)
             session += stamp;
         }
         ok = ok && appendVerified(g_kml, g_kml_path, kmlHeader(session));
-        if (ok) g_track_open = true;
-        else closeDead();
+        if (ok) {
+            g_track_open = true;
+            markOpenSession(g_kml_path);
+        } else {
+            closeDead();
+        }
     } else {
         if (g_csv) g_csv.close();
         if (g_kml) g_kml.close();
@@ -258,6 +287,7 @@ void wardriveLogEnd()
         if (ok) {
             g_kml.close();
             g_csv.close();
+            SD.remove(kOpenMarker);   /* footer written: nothing to repair */
         } else {
             closeDead();
         }
