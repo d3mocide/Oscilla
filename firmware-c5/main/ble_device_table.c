@@ -43,7 +43,10 @@ ble_device_t *ble_device_table_upsert(ble_device_table_t *t, const uint8_t addr[
         row->has_mfr = true;
         row->mfr_company_id = info->mfr_company_id;
     }
-    if (info->is_tracker) row->is_tracker = true;   /* sticky: one tracker sighting marks the row */
+    if (info->is_tracker) {
+        row->is_tracker = true;   /* sticky: one tracker sighting marks the row */
+        if (row->tracker == BLE_TRACKER_NONE) row->tracker = info->tracker;
+    }
 
     return row;
 }

@@ -134,10 +134,42 @@ int main()
         m.absorbEvent(eventOf(
             "[EVT] kind=ble mac=aa:bb:cc:dd:ee:ff name=\"\" mfr=\"004c\" tracker=\"airtag\" rssi=-71\n"));
         check(m.devices().size() == 2, "a second, different address appends a new row");
-        check(m.devices()[1].tracker, "tracker column non-empty sets the tracker flag");
+        check(m.devices()[1].tracker && m.devices()[1].tracker_kind == "airtag",
+              "tracker column non-empty sets the tracker flag and kind");
+
+        m.absorbEvent(eventOf(
+            "[EVT] kind=ble mac=11:22:33:44:55:66 name=\"\" mfr=\"\" tracker=\"fmdn\" rssi=-64\n"));
+        check(m.devices().size() == 3 && m.devices()[2].tracker &&
+              m.devices()[2].tracker_kind == "fmdn" &&
+              std::string(model::trackerShortLabel(m.devices()[2].tracker_kind)) == "GFM",
+              "multi-vendor tracker kind (fmdn) preserved and mapped to short badge");
 
         m.absorbEvent(eventOf("[EVT] kind=sniff pkts=1 ch=1\n"));
-        check(m.devices().size() == 2, "a non-ble event kind is ignored");
+        check(m.devices().size() == 3, "a non-ble event kind is ignored");
+
+        /* [BLE] snapshot rows accept all multi-vendor tracker tags too. */
+        m.beginScan();
+        std::string mv = "[BLE] BEGIN n=4 total=4\n"
+                         "[BLE] \"11:11:11:11:11:11\",\"\",\"\",\"fmdn\",\"-60\",\"2\"\n"
+                         "[BLE] \"22:22:22:22:22:22\",\"\",\"\",\"smarttag\",\"-65\",\"1\"\n"
+                         "[BLE] \"33:33:33:33:33:33\",\"\",\"\",\"tile\",\"-70\",\"3\"\n"
+                         "[BLE] \"44:44:44:44:44:44\",\"\",\"\",\"chipolo\",\"-72\",\"1\"\n"
+                         "[BLE] END\n";
+        m.absorbScan(frameOf(mv));
+        check(m.deviceTrackerCount() == 4 &&
+              std::string(model::trackerShortLabel(m.devices()[1].tracker_kind)) == "STG" &&
+              std::string(model::trackerShortLabel(m.devices()[2].tracker_kind)) == "TIL" &&
+              std::string(model::trackerShortLabel(m.devices()[3].tracker_kind)) == "CHP",
+              "snapshot [BLE] rows classify fmdn, smarttag, tile, chipolo");
+
+        /* [EVT] kind=airtag carries optional tracker=, defaulting to airtag when absent. */
+        m.beginAirtag();
+        m.absorbEvent(eventOf("[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-68 n=1 tracker=tile\n"));
+        m.absorbEvent(eventOf("[EVT] kind=airtag mac=aa:bb:cc:dd:ee:00 rssi=-70 n=2\n"));
+        check(m.trackerHits().size() == 2 &&
+              m.trackerHits()[0].tracker_kind == "airtag" &&
+              m.trackerHits()[1].tracker_kind == "tile",
+              "tracker stream reads tracker= and defaults to airtag for older probes");
     }
     {
         /* start_ble_scan only ever reports a genuinely new address (OCP-SPEC

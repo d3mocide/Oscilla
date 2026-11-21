@@ -30,6 +30,7 @@ struct BtDevice {
     std::string name;    /* raw bytes, may be empty: re-escape before display */
     std::string mfr;     /* 4 lowercase hex digits, or empty */
     bool tracker = false;
+    std::string tracker_kind;   /* OCP_TRACKER_* or empty */
     int rssi = 0;
     uint32_t n = 0;
     uint32_t observed_ms=0,observation_id=0;
@@ -38,8 +39,13 @@ struct BtDevice {
 
 struct BtTrackerHit {
     std::string mac;
+    std::string tracker_kind;   /* OCP_TRACKER_* */
     int rssi = 0;
 };
+
+/* Short 3-char UI badge for a classified tracker kind ("AT ", "GFM", "STG",
+ * "TIL", "CHP", or "TRK" for any unknown non-empty tag). */
+const char *trackerShortLabel(const std::string &kind);
 
 class BtModel {
 public:

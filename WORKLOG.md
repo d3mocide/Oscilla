@@ -1,3 +1,28 @@
+## 2026-11-21 — Multi-vendor BLE tracker classification (WP-6)
+
+- Extended passive BLE tracker detection beyond Apple Find My (`airtag`) to
+  also classify Google Find My Device Network (`fmdn`, 16-bit Service Data
+  `0xFEAA` frame `0x40`/`0x41` — excluding plain Eddystone URL/TLM/UID),
+  Samsung SmartTag (`smarttag`, `0xFD5A`), Tile (`tile`, `0xFEED`), and
+  Chipolo (`chipolo`, `0xFE33`):
+  - **Protocol:** added `OCP_TRACKER_*` literals in `protocol/ocp.h` and
+    updated `protocol/OCP-SPEC.md` §11.4. `kind=airtag` stays unchanged with
+    additive `tracker=<vendor>` so older decks stay compatible.
+  - **Probe (`firmware-c5`):** extended `ble_adv_parse.{h,c}` AD walker for
+    `0x16` Service Data and `0x02`/`0x03` 16-bit UUID lists, carried
+    `ble_tracker_kind_t` through `ble_device_table.{h,c}`, `ocp_frame.{h,c}`,
+    and `ble_recon.c`.
+  - **Deck (`firmware-cardputer`):** updated `bt_model.{h,cpp}` (`tracker_kind`,
+    `trackerShortLabel()` returning `AT`/`GFM`/`STG`/`TIL`/`CHP`),
+    `anti_surveillance_model.{h,cpp}`, and `bt_view.cpp` (vendor badge in
+    device rows and `LAST` tracker line).
+- **Checks:** `check_protocol.sh` (including 100k ASan/UBSan fuzzing on
+  `ble_adv_parse_test`, extended `bt_model_test`, and `check_rx_only.py`),
+  mutation proof (dropping the FMDN frame-type filter trips `ble_adv_parse_test`),
+  and `build_firmware.sh` (both `esp32c5` and `esp32s3` + stack guards).
+- **Not yet verified on hardware:** live RF sightings against physical FMDN,
+  SmartTag, Tile, and Chipolo hardware.
+
 ## 2026-11-21 — Wi-Fi band & custom channel filtering (`set_band` / `set_channels`, WP-2)
 
 - Implemented the already-declared `set_band <24|5|auto>` and

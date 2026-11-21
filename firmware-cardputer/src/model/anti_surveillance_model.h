@@ -19,6 +19,7 @@ namespace model {
 
 struct AntiTracker {
     std::string mac;
+    std::string tracker_kind;   /* OCP_TRACKER_* (defaults to "airtag" if omitted) */
     int rssi = 0;
     uint32_t sightings = 0;
     uint8_t movement_legs = 0;

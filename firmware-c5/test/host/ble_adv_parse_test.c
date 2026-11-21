@@ -7,6 +7,7 @@
  */
 
 #include "ble_adv_parse.h"
+#include "ocp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,7 +121,73 @@ static void known_answers(void)
         ad_airtag(&f);
         ad_ibeacon(&f);
         ble_adv_parse(f.b, f.n, &info);
-        CHECK(info.is_tracker, "first manufacturer-data block wins (airtag first)");
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_AIRTAG &&
+              strcmp(ble_tracker_name(info.tracker), OCP_TRACKER_AIRTAG) == 0,
+              "first manufacturer-data block wins (airtag first)");
+    }
+    {
+        /* Google Find My Device Network (FMDN): Service Data 0xFEAA, frame 0x40 or 0x41. */
+        adv_t f40 = {0};
+        uint8_t p40[] = { 0xAA, 0xFE, 0x40, 0x01, 0x02, 0x03 };
+        ad(&f40, 0x16, p40, sizeof p40);
+        ble_adv_parse(f40.b, f40.n, &info);
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_FMDN && !ble_adv_is_airtag(&info) &&
+              strcmp(ble_tracker_name(info.tracker), OCP_TRACKER_FMDN) == 0,
+              "Google FMDN frame 0x40 classifies as fmdn");
+
+        adv_t f41 = {0};
+        uint8_t p41[] = { 0xAA, 0xFE, 0x41, 0x99 };
+        ad(&f41, 0x16, p41, sizeof p41);
+        ble_adv_parse(f41.b, f41.n, &info);
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_FMDN,
+              "Google FMDN frame 0x41 classifies as fmdn");
+
+        /* Plain Eddystone (URL 0x10 / TLM 0x20 / truncated) must NOT classify as a tracker. */
+        adv_t feddy = {0};
+        uint8_t peddy[] = { 0xAA, 0xFE, 0x10, 0x00, 0x03 };
+        ad(&feddy, 0x16, peddy, sizeof peddy);
+        ble_adv_parse(feddy.b, feddy.n, &info);
+        CHECK(!info.is_tracker && info.tracker == BLE_TRACKER_NONE,
+              "plain Eddystone URL (0x10) is not misclassified as FMDN");
+
+        adv_t fshort = {0};
+        uint8_t pshort[] = { 0xAA, 0xFE };
+        ad(&fshort, 0x16, pshort, sizeof pshort);
+        ble_adv_parse(fshort.b, fshort.n, &info);
+        CHECK(!info.is_tracker, "truncated 0xFEAA without frame byte is not a tracker");
+    }
+    {
+        /* Samsung SmartTag (0xFD5A), Tile (0xFEED), Chipolo (0xFE33) via 16-bit Service Data or UUID list. */
+        adv_t st = {0};
+        uint8_t pst[] = { 0x5A, 0xFD, 0x01, 0x02 };
+        ad(&st, 0x16, pst, sizeof pst);
+        ble_adv_parse(st.b, st.n, &info);
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_SMARTTAG &&
+              strcmp(ble_tracker_name(info.tracker), OCP_TRACKER_SMARTTAG) == 0,
+              "Samsung SmartTag 0xFD5A service data classifies as smarttag");
+
+        adv_t tl = {0};
+        uint8_t ptl[] = { 0x0F, 0x18, 0xED, 0xFE };  /* Battery service + Tile UUID */
+        ad(&tl, 0x03, ptl, sizeof ptl);
+        ble_adv_parse(tl.b, tl.n, &info);
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_TILE &&
+              strcmp(ble_tracker_name(info.tracker), OCP_TRACKER_TILE) == 0,
+              "Tile 0xFEED in complete UUID16 list classifies as tile");
+
+        adv_t ch = {0};
+        uint8_t pch[] = { 0x33, 0xFE, 0xFF };  /* trailing odd byte must not over-read */
+        ad(&ch, 0x02, pch, sizeof pch);
+        ble_adv_parse(ch.b, ch.n, &info);
+        CHECK(info.is_tracker && info.tracker == BLE_TRACKER_CHIPOLO &&
+              strcmp(ble_tracker_name(info.tracker), OCP_TRACKER_CHIPOLO) == 0,
+              "Chipolo 0xFE33 in incomplete UUID16 list classifies as chipolo");
+
+        adv_t benign = {0};
+        uint8_t pben[] = { 0x0F, 0x18 };  /* Battery service only */
+        ad(&benign, 0x03, pben, sizeof pben);
+        ble_adv_parse(benign.b, benign.n, &info);
+        CHECK(!info.is_tracker && strcmp(ble_tracker_name(info.tracker), "") == 0,
+              "unrelated 16-bit UUID (0x180F) is not a tracker");
     }
 }
 

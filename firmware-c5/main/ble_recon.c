@@ -103,7 +103,7 @@ static void emit_ble_frame(bool aborted)
         ocp_emit_row(OCP_MARK_BLE,
                      "\"%02x:%02x:%02x:%02x:%02x:%02x\",%s,%s,\"%s\",\"%d\",\"%lu\"",
                      a[0], a[1], a[2], a[3], a[4], a[5], name, mfr,
-                     d->is_tracker ? OCP_EVT_KIND_AIRTAG : "", d->rssi,
+                     d->is_tracker ? ble_tracker_name(d->tracker) : "", d->rssi,
                      (unsigned long)d->n);
     }
     ocp_emit_end(OCP_MARK_BLE);
@@ -153,6 +153,8 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         uint16_t mfr_company_id = 0;
         bool has_name = false, has_mfr = false;
         bool is_tracker = false;
+        ble_tracker_kind_t row_tracker = BLE_TRACKER_NONE;
+        ble_tracker_kind_t evt_tracker = info.tracker;
         if (report_new && row) {
             memcpy(name, row->name, sizeof name);
             name_len = row->name_len;
@@ -160,6 +162,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             has_name = row->has_name;
             has_mfr = row->has_mfr;
             is_tracker = row->is_tracker;
+            row_tracker = row->tracker;
         }
         xSemaphoreGive(s_lock);
 
@@ -168,6 +171,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             memcpy(event_out.data.airtag.mac, addr, sizeof addr);
             event_out.data.airtag.rssi = rssi;
             event_out.data.airtag.count = airtag_n;
+            event_out.data.airtag.tracker = (uint8_t)evt_tracker;
             (void)ocp_event_submit(&event_out);
         }
         if (report_new) {
@@ -179,6 +183,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             event_out.data.ble.has_name = has_name;
             event_out.data.ble.has_mfr = has_mfr;
             event_out.data.ble.is_tracker = is_tracker;
+            event_out.data.ble.tracker = (uint8_t)row_tracker;
             event_out.data.ble.rssi = rssi;
             (void)ocp_event_submit(&event_out);
         }

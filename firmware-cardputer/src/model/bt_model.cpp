@@ -44,7 +44,8 @@ bool parseBtRow(const std::string &raw, BtDevice &row)
     row.mac = f[0];
     row.name = f[1];
     row.mfr = f[2];
-    row.tracker = f[3] == OCP_EVT_KIND_AIRTAG;
+    row.tracker_kind = f[3];
+    row.tracker = !f[3].empty();
     row.rssi = static_cast<int>(rssi);
     uint64_t n = 0;
     if (!parseUnsigned(f[5], &n) || n > UINT32_MAX) return false;
@@ -140,6 +141,16 @@ BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
     return &devices_.back();
 }
 
+const char *trackerShortLabel(const std::string &kind)
+{
+    if (kind == OCP_TRACKER_AIRTAG)   return "AT ";
+    if (kind == OCP_TRACKER_FMDN)     return "GFM";
+    if (kind == OCP_TRACKER_SMARTTAG) return "STG";
+    if (kind == OCP_TRACKER_TILE)     return "TIL";
+    if (kind == OCP_TRACKER_CHIPOLO)  return "CHP";
+    return kind.empty() ? "   " : "TRK";
+}
+
 void BtModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
 {
     const auto *kind = evt.get(OCP_K_KIND);
@@ -148,11 +159,13 @@ void BtModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
     if (*kind == OCP_EVT_KIND_AIRTAG) {
         const auto *mac = evt.get(OCP_K_MAC);
         const auto *rssi_s = evt.get(OCP_K_RSSI);
+        const auto *trk = evt.get(OCP_K_TRACKER);
         long rssi = 0;
         if (rssi_s) toLong(*rssi_s, -128, 127, rssi);
 
         BtTrackerHit hit;
         hit.mac = mac ? *mac : std::string("?");
+        hit.tracker_kind = (trk && !trk->empty()) ? *trk : std::string(OCP_TRACKER_AIRTAG);
         hit.rssi = static_cast<int>(rssi);
 
         tracker_hits_.insert(tracker_hits_.begin(), std::move(hit));
@@ -169,7 +182,10 @@ void BtModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
 
         if (const auto *name = evt.get(OCP_K_NAME)) row->name = *name;
         if (const auto *mfr = evt.get(OCP_K_MFR)) row->mfr = *mfr;
-        if (const auto *tracker = evt.get(OCP_K_TRACKER)) row->tracker = !tracker->empty();
+        if (const auto *tracker = evt.get(OCP_K_TRACKER)) {
+            row->tracker_kind = *tracker;
+            row->tracker = !tracker->empty();
+        }
         row->rssi=static_cast<int>(measured);
         row->observed_ms=now_ms;row->observation_id=++observation_id_;row->first_sighting=true;
         row->n = 1;   /* start_ble_scan only ever reports a first sighting (OCP-SPEC §11.3) */

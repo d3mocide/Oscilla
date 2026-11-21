@@ -37,7 +37,7 @@ void drawDeviceRows(const model::BtModel &bt, size_t cursor, int visible_rows)
         d.printf("%-22s", label.c_str());
         d.setCursor(156, y);
         d.setTextColor(r.tracker ? kSignalPink : kMutedSlate, bg);
-        d.print(r.tracker ? "TRK" : "   ");
+        d.print(r.tracker ? model::trackerShortLabel(r.tracker_kind) : "   ");
         d.setCursor(196, y);
         d.setTextColor(rssiColour(r.rssi), bg);
         d.printf("%4d", r.rssi);
@@ -80,7 +80,8 @@ void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
         d.setCursor(4, kDetailRowY);
         const auto &last = bt.trackerHits()[0];
         d.setTextColor(kSignalPink, kVoidInk);
-        d.printf("LAST TRACKER %s %d", printable(last.mac, 17).c_str(), last.rssi);
+        d.printf("LAST %s %s %d", model::trackerShortLabel(last.tracker_kind),
+                 printable(last.mac, 17).c_str(), last.rssi);
     }
 
     d.setCursor(4, kHintRowY);

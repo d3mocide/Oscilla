@@ -292,13 +292,14 @@ typedef enum {
 /* BLE frames (OCP-SPEC §11). */
 #define OCP_K_NAME              "name"      /* AD type 0x08/0x09, "" if absent */
 #define OCP_K_MFR               "mfr"       /* AD type 0xFF company ID, 4 lowercase hex digits, "" if absent */
-/* [BLE]'s "tracker" column: "" or one of the OCP_EVT_KIND_* tracker values
- * above (OCP_EVT_KIND_AIRTAG today) — the same classification `scan_airtag`
- * streams as events, just attached to a device-list row instead. Extensible:
- * only Apple's Find My network (AirTag and other FindMy-compatible
- * accessories) is classified in v1; other vendors' beacon formats are a
- * future addition, not a gap in this one. */
+/* [BLE]'s "tracker" column and [EVT] tracker= key: "" or one of the
+ * OCP_TRACKER_* values below (OCP-SPEC §11.4). */
 #define OCP_K_TRACKER           "tracker"
+#define OCP_TRACKER_AIRTAG      "airtag"    /* Apple Find My (0x004C, type 0x12) */
+#define OCP_TRACKER_FMDN        "fmdn"      /* Google Find My Device Network (0xFEAA, 0x40/0x41) */
+#define OCP_TRACKER_SMARTTAG    "smarttag"  /* Samsung SmartTag (0xFD5A) */
+#define OCP_TRACKER_TILE        "tile"      /* Tile (0xFEED) */
+#define OCP_TRACKER_CHIPOLO     "chipolo"   /* Chipolo (0xFE33) */
 
 /* [SCAN] "auth" column values. */
 #define OCP_AUTH_OPEN           "OPEN"

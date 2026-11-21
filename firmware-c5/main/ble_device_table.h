@@ -32,10 +32,11 @@ typedef struct {
     bool     has_name;
     uint8_t  name_len;
     uint8_t  name[32];
-    bool     has_mfr;
-    uint16_t mfr_company_id;
-    bool     is_tracker;
-    int8_t   rssi;    /* most recent sighting */
+    bool               has_mfr;
+    uint16_t           mfr_company_id;
+    ble_tracker_kind_t tracker;
+    bool               is_tracker;
+    int8_t             rssi;    /* most recent sighting */
     uint32_t n;        /* advertisements seen from this address this scan */
 } ble_device_t;
 

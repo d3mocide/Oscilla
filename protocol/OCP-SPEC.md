@@ -656,23 +656,31 @@ skipping one.
 
 ### 11.4 `scan_airtag`
 
-Same radio, always-on classification instead of a bounded snapshot: replies
-immediately and streams for the rest of the session, watching every
-advertisement for Apple's Find My network signature (manufacturer data,
-company ID `004c`, payload type byte `0x12` — the AirTag/FindMy-accessory
-broadcast, confirmed against public Find My protocol write-ups, not
-guessed) regardless of anything `scan_bt`/`start_ble_scan` has or hasn't
-seen:
+Same radio, always-on tracker classification instead of a bounded snapshot:
+replies immediately and streams for the rest of the session, watching every
+advertisement for known passive tracker beacon signatures regardless of
+anything `scan_bt`/`start_ble_scan` has or hasn't seen:
+
+| `tracker` | Signature |
+|---|---|
+| `airtag` | Apple Find My: Manufacturer Data `0x004C`, payload type `0x12` |
+| `fmdn` | Google Find My Device Network: 16-bit Service Data `0xFEAA`, frame `0x40`/`0x41` |
+| `smarttag` | Samsung SmartTag: 16-bit Service Data or UUID `0xFD5A` |
+| `tile` | Tile: 16-bit Service Data or UUID `0xFEED` |
+| `chipolo` | Chipolo: 16-bit Service Data or UUID `0xFE33` |
 
 ```
 > scan_airtag
 [CFG] BEGIN
 [CFG] END
-[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-71 n=1
-[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-69 n=2
+[EVT] kind=airtag mac=aa:bb:cc:dd:ee:ff rssi=-71 n=1 tracker=airtag
+[EVT] kind=airtag mac=11:22:33:44:55:66 rssi=-69 n=2 tracker=fmdn
 > stop
 [STOP] lane=phy running=1 END
 ```
+
+`kind` remains `airtag` and `tracker=` is additive so older decks keep working
+unchanged (defaulting to `airtag` when absent).
 
 | Key | Meaning |
 |---|---|

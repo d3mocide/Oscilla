@@ -124,6 +124,11 @@ void AntiSurveillanceModel::absorbEvent(const ocp::Item &evt, uint32_t now_ms)
 
     AntiTracker *tracker = findOrInsert(*mac);
     if (!tracker) return;
+    if (const auto *trk = evt.get(OCP_K_TRACKER); trk && !trk->empty()) {
+        tracker->tracker_kind = *trk;
+    } else if (tracker->tracker_kind.empty()) {
+        tracker->tracker_kind = OCP_TRACKER_AIRTAG;
+    }
     tracker->rssi = rssi;
     tracker->sightings++;
     tracker->last_seen_ms = now_ms;

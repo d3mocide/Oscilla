@@ -21,17 +21,27 @@
 extern "C" {
 #endif
 
+typedef enum {
+    BLE_TRACKER_NONE = 0,
+    BLE_TRACKER_AIRTAG,    /* Apple Find My (Mfr 0x004C, type 0x12) */
+    BLE_TRACKER_FMDN,      /* Google Find My Device Network (SvcData 0xFEAA, 0x40/0x41) */
+    BLE_TRACKER_SMARTTAG,  /* Samsung SmartTag (Svc 0xFD5A) */
+    BLE_TRACKER_TILE,      /* Tile (Svc 0xFEED) */
+    BLE_TRACKER_CHIPOLO,   /* Chipolo (Svc 0xFE33) */
+} ble_tracker_kind_t;
+
 typedef struct {
-    bool     has_name;
-    uint8_t  name_len;
-    uint8_t  name[32];          /* AD type 0x09 (complete) wins over 0x08 (shortened) */
+    bool               has_name;
+    uint8_t            name_len;
+    uint8_t            name[32];          /* AD type 0x09 (complete) wins over 0x08 (shortened) */
 
-    bool     has_mfr;
-    uint16_t mfr_company_id;    /* AD type 0xFF, first two bytes, little-endian */
-    uint8_t  mfr_data_len;      /* bytes after the company ID */
-    uint8_t  mfr_data[24];      /* truncated silently past this — classification only needs the front */
+    bool               has_mfr;
+    uint16_t           mfr_company_id;    /* AD type 0xFF, first two bytes, little-endian */
+    uint8_t            mfr_data_len;      /* bytes after the company ID */
+    uint8_t            mfr_data[24];      /* truncated silently past this — classification only needs the front */
 
-    bool     is_tracker;        /* see ble_adv_classify() */
+    ble_tracker_kind_t tracker;           /* classified tracker family, or BLE_TRACKER_NONE */
+    bool               is_tracker;        /* true iff tracker != BLE_TRACKER_NONE */
 } ble_adv_info_t;
 
 /* `len` is the AD-structure payload only (event->disc.data in NimBLE terms),
@@ -40,11 +50,12 @@ typedef struct {
  * defaults, same "never trust a partial field" posture as gnss_model.cpp. */
 void ble_adv_parse(const uint8_t *data, size_t len, ble_adv_info_t *out);
 
-/* Apple Find My network (AirTag and other FindMy-compatible accessories):
- * manufacturer company ID 0x004C, payload type byte 0x12 — confirmed against
- * public Find My / Offline Finding protocol write-ups, not guessed (OCP-SPEC
- * §11.4). Other vendors' tracker formats are a future addition. */
+/* Apple Find My network (AirTag and FindMy-compatible accessories):
+ * manufacturer company ID 0x004C, payload type byte 0x12 (OCP-SPEC §11.4). */
 bool ble_adv_is_airtag(const ble_adv_info_t *info);
+
+/* Wire label (OCP_TRACKER_* in ocp.h), or "" for BLE_TRACKER_NONE. */
+const char *ble_tracker_name(ble_tracker_kind_t kind);
 
 #ifdef __cplusplus
 }

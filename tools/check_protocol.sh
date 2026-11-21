@@ -107,12 +107,12 @@ python3 tools/check_deck_parser.py --count 150
 # BLE advertisement AD-structure parser (device name/manufacturer data,
 # tracker classification): same treatment.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
-    -Ifirmware-c5/main -o "$out/ble_adv_parse_test" firmware-c5/test/host/ble_adv_parse_test.c firmware-c5/main/ble_adv_parse.c
+    -Iprotocol -Ifirmware-c5/main -o "$out/ble_adv_parse_test" firmware-c5/test/host/ble_adv_parse_test.c firmware-c5/main/ble_adv_parse.c
 "$out/ble_adv_parse_test" 100000 | tail -1 | sed 's/^/  /'
 
 # BLE device table: upsert-by-address logic `scan_bt`'s reply is built from.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
-    -Ifirmware-c5/main -o "$out/ble_device_table_test" \
+    -Iprotocol -Ifirmware-c5/main -o "$out/ble_device_table_test" \
     firmware-c5/test/host/ble_device_table_test.c firmware-c5/main/ble_device_table.c firmware-c5/main/ble_adv_parse.c
 "$out/ble_device_table_test" | tail -1 | sed 's/^/  /'
 

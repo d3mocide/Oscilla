@@ -52,10 +52,11 @@ typedef struct {
     uint8_t mac[6], name[32], name_len;
     uint16_t mfr_company_id;
     bool has_name, has_mfr, is_tracker;
+    uint8_t tracker;   /* ble_tracker_kind_t */
     int8_t rssi;
     uint32_t count;
 } ocp_event_ble_t;
-typedef struct { uint8_t mac[6]; int8_t rssi; uint32_t count; } ocp_event_airtag_t;
+typedef struct { uint8_t mac[6]; int8_t rssi; uint32_t count; uint8_t tracker; } ocp_event_airtag_t;
 typedef struct { uint8_t channel; uint32_t packets; } ocp_event_sniff_t;
 typedef struct { uint8_t channel; uint32_t packets; } ocp_event_chan_t;
 typedef struct { uint16_t pan; uint8_t channel, lqi; int8_t rssi; } ocp_event_zig_t;

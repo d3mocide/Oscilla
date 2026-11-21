@@ -5,6 +5,8 @@
  */
 
 #include "ocp_frame.h"
+
+#include "ble_adv_parse.h"
 #include "ocp_transport.h"
 
 #include "freertos/FreeRTOS.h"
@@ -223,24 +225,30 @@ static void emit_event_record(const ocp_event_record_t *event)
         }
         case OCP_EVENT_RECORD_BLE: {
             const ocp_event_ble_t *r = &event->data.ble;
-            char name[4 * 32 + 3], mfr[8];
+            char name[4 * 32 + 3], mfr[8], trk[20];
             ocp_escape_field(r->name, r->has_name ? r->name_len : 0, name, sizeof name);
             if (r->has_mfr) snprintf(mfr, sizeof mfr, "\"%04x\"", r->mfr_company_id);
             else snprintf(mfr, sizeof mfr, "\"\"");
+            const char *tn = ble_tracker_name((ble_tracker_kind_t)r->tracker);
+            if (r->is_tracker && tn[0] == '\0') tn = OCP_TRACKER_AIRTAG;
+            snprintf(trk, sizeof trk, "\"%s\"", tn);
             emit_event_fields(event_kind_name(event->kind),
                               "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%s %s=%s %s=%s %s=%d",
                               OCP_K_MAC, r->mac[0], r->mac[1], r->mac[2], r->mac[3], r->mac[4], r->mac[5],
                               OCP_K_NAME, name, OCP_K_MFR, mfr,
-                              OCP_K_TRACKER, r->is_tracker ? "\"" OCP_EVT_KIND_AIRTAG "\"" : "\"\"",
+                              OCP_K_TRACKER, trk,
                               OCP_K_RSSI, r->rssi);
             break;
         }
         case OCP_EVENT_RECORD_AIRTAG: {
             const ocp_event_airtag_t *r = &event->data.airtag;
+            const char *tn = ble_tracker_name((ble_tracker_kind_t)r->tracker);
+            if (tn[0] == '\0') tn = OCP_TRACKER_AIRTAG;
             emit_event_fields(event_kind_name(event->kind),
-                              "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%lu",
+                              "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%lu %s=%s",
                               OCP_K_MAC, r->mac[0], r->mac[1], r->mac[2], r->mac[3], r->mac[4], r->mac[5],
-                              OCP_K_RSSI, r->rssi, OCP_K_COUNT, (unsigned long)r->count);
+                              OCP_K_RSSI, r->rssi, OCP_K_COUNT, (unsigned long)r->count,
+                              OCP_K_TRACKER, tn);
             break;
         }
         case OCP_EVENT_RECORD_SNIFF: {
