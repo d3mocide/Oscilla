@@ -1,3 +1,36 @@
+## 2026-11-21 — Drive rows: one cheap card check per record (~8-10x faster)
+
+- **Why the check exists:** on 2026-09-17 a card pulled mid-drive left
+  `wardrive_open=1`. Arduino's `File::flush()` runs `fsync` but discards its
+  result, so `print`/`flush` alone never noticed. The fix then was
+  `SD.exists(session path)` after every append.
+- **Why it was slow:** that stat walks the whole growing `wardrive/`
+  folder, and ran four times per AP row (CSV row, close track, placemark,
+  reopen track). Detection never needed the walk: every FatFs call whose
+  result we can see first sends the card CMD13 (`disk_status`), and that is
+  what fails on a pulled card.
+- **Change:** each append only checks for a short `print`. Once per record,
+  `commit()` flushes both files and stats the short fixed `/oscilla/wardrive`.
+  `check_protocol.sh` fails if `SD.exists(path)` returns or a record loses
+  its `commit()`. Both mutants (the HEAD file, and a track point without
+  commit) trip it.
+- **Measured on the bench card (32 drive sessions; throwaway benchmark
+  build, real folder, 40 iterations × 3 runs; the benchmark was not
+  committed):**
+  - Stat of the session path: 26.5 ms. Stat of `/oscilla/wardrive`: 3.9 ms.
+  - Real AP record (1 CSV + 3 KML appends): **124-166 ms → 15.3-15.9 ms**.
+  - The bench GNSS has no fix, so no live rows were written. The real
+    build was flashed afterwards; Drive opens in 0.40-0.50 s and closes
+    cleanly.
+- **Trade-off:** a crash mid-record can now lose up to one record's
+  unflushed appends instead of the last append. `recoverOpenSession()`
+  already repairs a cut-short KML tail.
+- **Not yet verified — needs hands:** a card pull mid-drive must still close
+  the session (`wardrive_open=0`, `SD: ABSENT`) and a later `wardrive` must
+  remount, as on 2026-09-17. The detection path (a FatFs stat that sends
+  CMD13) is unchanged in kind, but it has not been demonstrated with this
+  build.
+
 ## 2026-11-21 — Wi-Fi region setting (D-19); Drive start no longer stalls
 
 - **Wi-Fi region, default US.** New additive verb `set_region <CC>`

@@ -192,6 +192,12 @@ if grep -qF 'openNextFile(' "$w" || ! grep -qF '    recoverOpenSession();' "$w" 
     || awk '/^bool discoverSessions\(\)/,/^}/' "$w" | grep -qF 'recoverKml('; then
     echo "wardrive_logger.cpp must walk sessions with getNextFileName and repair only the marked KML" >&2; exit 1
 fi
+# Drive rows: one card check per record against the short fixed folder path,
+# never a stat of the session file per append (124-166 ms per AP record).
+if grep -qF 'SD.exists(path)' "$w" || ! grep -qF 'return SD.exists(kDir);' "$w" \
+    || [ "$(grep -c 'commit(' "$w")" -lt 5 ]; then
+    echo "wardrive_logger.cpp must check the card once per record via commit(), not SD.exists(path) per append" >&2; exit 1
+fi
 
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contact_inspection_test" \
     firmware-cardputer/test/host/contact_inspection_test.cpp firmware-cardputer/src/model/contacts_model.cpp \

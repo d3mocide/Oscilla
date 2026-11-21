@@ -45,15 +45,27 @@ void recoverKml(const char *path);
 void recoverOpenSession();
 void markOpenSession(const char *kml_path);
 
-bool appendVerified(File &file, const char *path, const std::string &text)
+/* A short print() is the per-append failure signal. */
+bool append(File &file, const std::string &text)
 {
     const size_t accepted = file.print(text.c_str());
     sdActivity().record(text.size(), accepted, millis());
-    if (accepted != text.size()) return false;
-    file.flush();
-    /* Arduino File::flush() is void and can hide an fsync failure. A stat of
-     * the still-open file is the available public API health check. */
-    return SD.exists(path);
+    return accepted == text.size();
+}
+
+/* Once per record, after its appends. Arduino's File::flush() runs fsync
+ * but discards the result, so print/flush alone never noticed a pulled card
+ * (WORKLOG 2026-09-17). Every FatFs call with a visible result first asks
+ * the card for its status (CMD13, via disk_status), so a stat of the short,
+ * fixed kDir catches a pulled card as the old stat of the session file did,
+ * without scanning the growing session folder: 3.9 ms against 26.5 ms per
+ * check on a 32-session card, and one AP record 124-166 ms -> ~15 ms
+ * (WORKLOG 2026-11-21). */
+bool commit(File *csv, File *kml)
+{
+    if (csv) csv->flush();
+    if (kml) kml->flush();
+    return SD.exists(kDir);
 }
 
 bool discoverSessions()
@@ -192,8 +204,8 @@ bool wardriveLogBegin(const model::GnssFix &fix)
     g_open = static_cast<bool>(g_csv) && static_cast<bool>(g_kml);
 
     if (g_open) {
-        bool ok = appendVerified(g_csv, g_csv_path, wardriveCsvHeader(OSCILLA_DECK_VER));
-        ok = ok && appendVerified(g_csv, g_csv_path, wardriveCsvColumnHeader());
+        bool ok = append(g_csv, wardriveCsvHeader(OSCILLA_DECK_VER));
+        ok = ok && append(g_csv, wardriveCsvColumnHeader());
 
         /* Date in the session name when the receiver has one — it commonly
          * does even with no position fix (RTC-backed), which is why
@@ -204,7 +216,8 @@ bool wardriveLogBegin(const model::GnssFix &fix)
             std::snprintf(stamp, sizeof stamp, " %04d-%02d-%02d", fix.year, fix.month, fix.day);
             session += stamp;
         }
-        ok = ok && appendVerified(g_kml, g_kml_path, kmlHeader(session));
+        ok = ok && append(g_kml, kmlHeader(session));
+        ok = ok && commit(&g_csv, &g_kml);
         if (ok) {
             g_track_open = true;
             markOpenSession(g_kml_path);
@@ -231,7 +244,7 @@ void wardriveLogTrackPoint(const model::GnssFix &fix)
     if (!lock()) return;   /* a contended lock drops this vertex, never blocks */
 
     std::string point = kmlTrackPoint(fix.lat_deg, fix.lon_deg, fix.alt_m);
-    bool ok = appendVerified(g_kml, g_kml_path, point);
+    bool ok = append(g_kml, point) && commit(nullptr, &g_kml);
 
     if (!ok) { closeDead(); unlock(); return; }
 
@@ -257,15 +270,14 @@ void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t f
                                           fix.lat_deg, fix.lon_deg, fix.alt_m, 0.0f);
     std::string kml_row = kmlApPlacemark(ap, fix.lat_deg, fix.lon_deg);
 
-    bool ok = appendVerified(g_csv, g_csv_path, csv_row);
+    bool ok = append(g_csv, csv_row);
     if (ok && g_track_open) {
-        const std::string close = kmlCloseTrack();
-        ok = appendVerified(g_kml, g_kml_path, close);
+        ok = append(g_kml, kmlCloseTrack());
         g_track_open = false;
     }
-    ok = ok && appendVerified(g_kml, g_kml_path, kml_row);
-    const std::string reopen = kmlTrackStart();
-    ok = ok && appendVerified(g_kml, g_kml_path, reopen);
+    ok = ok && append(g_kml, kml_row);
+    ok = ok && append(g_kml, kmlTrackStart());
+    ok = ok && commit(&g_csv, &g_kml);
     g_track_open = ok;
 
     if (!ok) { closeDead(); unlock(); return; }
@@ -280,10 +292,11 @@ void wardriveLogEnd()
     if (lock()) {
         bool ok = true;
         if (g_track_open) {
-            ok = appendVerified(g_kml, g_kml_path, kmlCloseTrack());
+            ok = append(g_kml, kmlCloseTrack());
             g_track_open = false;
         }
-        ok = ok && appendVerified(g_kml, g_kml_path, kmlFooter());
+        ok = ok && append(g_kml, kmlFooter());
+        ok = ok && commit(&g_csv, &g_kml);
         if (ok) {
             g_kml.close();
             g_csv.close();
