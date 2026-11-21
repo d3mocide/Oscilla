@@ -29,6 +29,7 @@ struct WardriveLogStats {
     uint32_t aps = 0;           /* observations written with a valid fix    */
     uint32_t aps_no_fix = 0;    /* observations dropped for want of a fix   */
     uint32_t track_points = 0;  /* drive-track vertices                     */
+    uint32_t waypoints = 0;     /* manual operator bookmarks                */
 };
 
 /* Opens /oscilla/wardrive/drive_NNNN.{csv,kml}. Numbered, not date-named:
@@ -44,6 +45,9 @@ void wardriveLogTrackPoint(const model::GnssFix &fix);
 
 /* One AP observation. Counted but not written unless `fix.valid`. */
 void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t fix_age_ms);
+
+/* Drops a manual waypoint placemark into the active drive KML. */
+bool wardriveLogWaypoint(const model::GnssFix &fix, uint32_t *out_index = nullptr);
 
 /* Closes the track and the KML document, then both files. */
 void wardriveLogEnd();

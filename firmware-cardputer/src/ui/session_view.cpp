@@ -30,6 +30,26 @@ std::string recordName(const model::SavedRecord &r, model::SessionKind k) {
                ? (r.name.empty() ? "<hidden>" : r.name)
                : std::to_string(r.packet.len) + "B / " + std::to_string(r.rssi) + "dBm";
 }
+std::string loraMetaText(const model::LoraSidecarSummary &m) {
+    char buf[80];
+    if (m.freq_hz > 0) {
+        std::snprintf(buf, sizeof buf, "%lu.%03luM SF%d BW%d CR%d",
+                      static_cast<unsigned long>(m.freq_hz / 1000000),
+                      static_cast<unsigned long>((m.freq_hz % 1000000) / 1000),
+                      m.sf, m.bw_khz, m.cr);
+        return buf;
+    }
+    return m.profile.empty() ? "META PRESENT" : m.profile;
+}
+std::string loraHealthText(const model::LoraSidecarSummary &m) {
+    char buf[80];
+    std::snprintf(buf, sizeof buf, "RX %lu CRC %lu DRP %lu FLT %lu",
+                  static_cast<unsigned long>(m.rx),
+                  static_cast<unsigned long>(m.crc_err + m.header_err),
+                  static_cast<unsigned long>(m.totalDrops()),
+                  static_cast<unsigned long>(m.hw_fault));
+    return buf;
+}
 } // namespace
 void drawSessionView(const model::SessionReview &r, const ChromeState &chrome) {
     if (r.stage == model::ReviewStage::Hex) {
@@ -69,14 +89,27 @@ void drawSessionView(const model::SessionReview &r, const ChromeState &chrome) {
                                              : "ENTER OPEN / x TYPE / r REFRESH",
              kCalibrationYellow);
     } else if (r.stage == model::ReviewStage::Summary) {
+        const auto &sc = r.summary.lora_sidecar;
+        const bool lora_sidecar = r.selected.kind == model::SessionKind::Lora && (sc.has_meta || sc.has_health);
         text(2, model::sessionStem(r.selected) + " / " + kind(r.selected), kCalibrationYellow);
-        text(17, parts(r.selected), kMutedSlate);
-        text(31, progress(r), kFieldGreen);
-        text(45, std::to_string(r.summary.valid) + " RECORDS / " + std::to_string(r.snapshot_bytes) + " B");
-        text(59, span(r.summary));
-        text(73,
-             std::to_string(r.summary.bad) + " BAD / TAIL " + (r.summary.partial ? "PARTIAL" : "COMPLETE"),
-             kMutedSlate);
+        text(15, parts(r.selected), kMutedSlate);
+        text(28, (!r.busy && sc.has_meta) ? loraMetaText(sc) : progress(r), kFieldGreen);
+        std::string rec_line = std::to_string(r.summary.valid) + " RECORDS";
+        if (r.selected.kind == model::SessionKind::Lora && r.summary.geotagged)
+            rec_line += " (" + std::to_string(r.summary.geotagged) + " GEO)";
+        rec_line += " / " + std::to_string(r.snapshot_bytes) + " B";
+        text(41, rec_line);
+        text(54, span(r.summary));
+        if (lora_sidecar && sc.has_health) {
+            const uint16_t hcol = (sc.hw_fault || sc.totalDrops()) ? kSignalPink : kFieldGreen;
+            text(67, loraHealthText(sc), hcol);
+            text(79, std::to_string(r.summary.bad) + " BAD / TAIL " + (r.summary.partial ? "PARTIAL" : "COMPLETE"),
+                 kMutedSlate);
+        } else {
+            text(73,
+                 std::to_string(r.summary.bad) + " BAD / TAIL " + (r.summary.partial ? "PARTIAL" : "COMPLETE"),
+                 kMutedSlate);
+        }
         text(92, !r.error.empty()||!r.summary.valid?"` SESSIONS":"ENTER RECORDS / ` SESSIONS", kCalibrationYellow);
     } else {
         text(2, model::sessionStem(r.selected) + " / RECORDS", kFieldGreen);
@@ -190,8 +223,14 @@ void drawExternalSessionStrip(lgfx::LGFX_Sprite &d, int top, const model::Sessio
 
         obsText(c, 12, 164, model::sessionStem(r.selected), FontId::Title, kCalibrationYellow, 210);
         obsBadge(c, 232, 164, 76, 15, kind(r.selected), kTrackDark, kDimGreen, kFieldGreen);
-        obsMicro(c, 12, 185, parts(r.selected), kMutedSlate, kPanelDark);
-        obsMicro(c, 308, 185, progress(r), kFieldGreen, kPanelDark, Align::Right);
+        const auto &sc = s.lora_sidecar;
+        const std::string sub_left =
+            (r.selected.kind == model::SessionKind::Lora && sc.has_health) ? loraHealthText(sc) : parts(r.selected);
+        const std::string sub_right =
+            (r.selected.kind == model::SessionKind::Lora && !r.busy && sc.has_meta) ? loraMetaText(sc) : progress(r);
+        obsMicro(c, 12, 185, sub_left,
+                 (sc.has_health && (sc.hw_fault || sc.totalDrops())) ? kSignalPink : kMutedSlate, kPanelDark);
+        obsMicro(c, 308, 185, sub_right, kFieldGreen, kPanelDark, Align::Right);
 
         obsBay(c, 12, 94, "VALID", std::to_string(s.valid), kPaperPhosphor);
         obsBay(c, 122, 86, "BAD", std::to_string(s.bad), s.bad ? kSignalPink : kMutedSlate);

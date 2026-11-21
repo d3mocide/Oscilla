@@ -27,18 +27,55 @@ struct SavedRecord {
     LoraPacket packet;
     uint64_t time = 0;
     bool timed = false;
+    bool geotagged = false;
+};
+struct LoraSidecarSummary {
+    bool has_meta = false;
+    std::string profile;
+    uint32_t freq_hz = 0;
+    int sf = 0, bw_khz = 0, cr = 0;
+    uint8_t sync_word = 0;
+    bool has_health = false;
+    uint32_t health_rows = 0, health_bad = 0;
+    uint32_t rx = 0, crc_err = 0, header_err = 0;
+    uint32_t irq_drop = 0, radio_drop = 0, ocp_drop = 0, hw_fault = 0;
+    uint32_t packet_drops = 0, health_drops = 0;
+    uint32_t totalDrops() const { return irq_drop + radio_drop + ocp_drop + packet_drops + health_drops; }
 };
 struct SessionSummary {
     bool header = false, partial = false, time_order = true;
-    uint32_t valid = 0, bad = 0;
+    uint32_t valid = 0, bad = 0, geotagged = 0;
     uint64_t first = 0, last = 0;
     uint32_t timed = 0;
     std::string first_stamp, last_stamp;
     std::array<int, 32> signals{};
     size_t signal_count = 0;
+    LoraSidecarSummary lora_sidecar;
     uint64_t spanMs() const { return timed == valid && timed && time_order ? last - first : 0; }
     bool hasSpan() const { return timed == valid && timed && time_order; }
     void add(const SavedRecord &record);
+};
+class LoraMetaParser {
+    std::string line_;
+    bool overlong_ = false;
+    void line();
+  public:
+    LoraSidecarSummary out;
+    void begin();
+    void feed(char byte);
+    void finish();
+};
+class LoraHealthParser {
+    unsigned line_number_ = 0;
+    bool header_ = false;
+    std::string line_;
+    bool overlong_ = false;
+    void line();
+  public:
+    LoraSidecarSummary out;
+    void begin();
+    void feed(char byte);
+    void finish();
 };
 class SessionParser {
     SessionKind kind_ = SessionKind::Drive;

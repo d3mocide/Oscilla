@@ -60,6 +60,10 @@ std::string kmlCloseTrack();
  * its current track before appending this and opens the next segment after. */
 std::string kmlApPlacemark(const model::ApRow &ap, double lat, double lon);
 
+/* One operator-dropped waypoint marker as a styled, self-contained Placemark. */
+std::string kmlWaypointPlacemark(uint32_t index, double lat, double lon, double alt_m,
+                                 const std::string &note = "");
+
 /* Closes </Document></kml>. Must be the last thing written for the file to
  * be strictly valid *as written*; see the file header comment on repairing
  * a session that ended before this was called. */

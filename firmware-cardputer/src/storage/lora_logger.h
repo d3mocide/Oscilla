@@ -10,6 +10,7 @@
 
 #include <cstdint>
 
+#include "model/gnss_model.h"
 #include "model/lora_model.h"
 
 namespace storage {
@@ -20,17 +21,22 @@ struct LoraLogStats {
     uint32_t packet_drops = 0;
     uint32_t health_rows = 0;
     uint32_t health_drops = 0;
+    uint32_t geotagged_rows = 0;
+    uint32_t waypoints = 0;
 };
 
-/* Opens numbered packet, manifest, and health sidecars under /oscilla/lora/.
+/* Opens numbered packet, manifest, health, and KML sidecars under /oscilla/lora/.
  * False if SD isn't ready or no unused filename was found — logging is then
  * simply unavailable this session, never blocking or retrying against the UI. */
 bool loraLogBegin(const model::LoraModel &lora);
 
-/* Appends one row and flushes immediately (crash-tolerant, same as DESIGN
- * §9.2's KML — LoRa traffic is bursty but not so dense that per-row flush
- * is a real cost yet). No-op if no session is open. */
-void loraLogPacket(uint32_t freq_hz, int sf, int bw_khz, int cr, const model::LoraPacket &p);
+/* Appends one row and flushes immediately; also emits a KML placemark when
+ * fix is non-null and valid. No-op if no session is open. */
+void loraLogPacket(uint32_t freq_hz, int sf, int bw_khz, int cr, const model::LoraPacket &p,
+                   const model::GnssFix *fix = nullptr, uint32_t fix_age_ms = 0);
+
+/* Drops a manual waypoint placemark into the open LoRa session KML. */
+bool loraLogWaypoint(const model::GnssFix &fix, uint32_t *out_index = nullptr);
 
 /* Appends a complete C5 health snapshot. No-op until a valid status reply
  * exists; packet and health write drops remain separately counted. */

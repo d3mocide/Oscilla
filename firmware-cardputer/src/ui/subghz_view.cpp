@@ -47,7 +47,7 @@ void drawSubGhzView(const model::LoraModel &m, size_t cursor, const ChromeState 
         d.setTextColor(kCalibrationYellow,kVoidInk); d.printf("c APPLY %.20s / x NEXT",pending);
     } else if(m.health().valid && m.health().hw_fault) {
         d.setTextColor(kFaultRed,kVoidInk); d.print("RADIO FAULT / CHECK LINK STATUS");
-    } else d.print("ENTER HEX / x PROFILE / c APPLY");
+    } else d.print("ENTER HEX / m MARK / x PROF / c SET");
     endChrome(chrome);
 }
 }

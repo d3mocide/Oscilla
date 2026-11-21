@@ -6,13 +6,17 @@
 namespace storage {
 namespace {
 enum class Job { Idle, Catalog, Open, Page, Cancel };
+enum class SidecarPhase { None, Meta, Health };
 Job pending = Job::Idle;
+SidecarPhase sidecar = SidecarPhase::None;
 File directory, file;
 model::SessionParser parser;
+model::LoraMetaParser meta_parser;
+model::LoraHealthParser health_parser;
 int folder = 0;
 unsigned entries = 0;
 bool listing = false, reading = false, page_only = false;
-uint32_t last_progress = 0;
+uint32_t last_progress = 0, sidecar_cap = 0, sidecar_read = 0;
 size_t wanted_page = 0;
 const char *path(model::SessionKind kind) {
     return kind == model::SessionKind::Drive ? "/oscilla/wardrive" : "/oscilla/lora";
@@ -21,6 +25,31 @@ void close() {
     if (directory) directory.close();
     if (file) file.close();
     listing = reading = false;
+    sidecar = SidecarPhase::None;
+    sidecar_cap = sidecar_read = 0;
+}
+void mergeMeta(model::LoraSidecarSummary &dst, const model::LoraSidecarSummary &src) {
+    dst.has_meta = src.has_meta;
+    dst.profile = src.profile;
+    dst.freq_hz = src.freq_hz;
+    dst.sf = src.sf;
+    dst.bw_khz = src.bw_khz;
+    dst.cr = src.cr;
+    dst.sync_word = src.sync_word;
+}
+void mergeHealth(model::LoraSidecarSummary &dst, const model::LoraSidecarSummary &src) {
+    dst.has_health = src.has_health;
+    dst.health_rows = src.health_rows;
+    dst.health_bad = src.health_bad;
+    dst.rx = src.rx;
+    dst.crc_err = src.crc_err;
+    dst.header_err = src.header_err;
+    dst.irq_drop = src.irq_drop;
+    dst.radio_drop = src.radio_drop;
+    dst.ocp_drop = src.ocp_drop;
+    dst.hw_fault = src.hw_fault;
+    dst.packet_drops = src.packet_drops;
+    dst.health_drops = src.health_drops;
 }
 void fail(model::SessionReview &r, const char *text) {
     r.error = text;
@@ -61,7 +90,7 @@ void sessionCancel(model::SessionReview &r) {
     r.busy = false;
 }
 void sessionTick(model::SessionReview &r, uint32_t now) {
-    if (pending == Job::Idle && !listing && !reading) return;
+    if (pending == Job::Idle && !listing && !reading && sidecar == SidecarPhase::None) return;
     if (now - last_progress > 5000 && r.busy) {
         fail(r, "SD BUS TIMEOUT");
     }
@@ -207,8 +236,81 @@ void sessionTick(model::SessionReview &r, uint32_t now) {
             parser.finish();
             if (!page_only) r.summary = parser.summary;
             r.rows = parser.page;
-            r.busy = false;
-            if (!r.summary.header) r.error = "UNRECOGNIZED CSV HEADER";
+            if (!r.summary.header) {
+                r.error = "UNRECOGNIZED CSV HEADER";
+                r.busy = false;
+            } else if (!page_only && r.selected.kind == model::SessionKind::Lora &&
+                       (r.selected.parts & (model::Manifest | model::Health))) {
+                if (r.selected.parts & model::Manifest) {
+                    sidecar = SidecarPhase::Meta;
+                    meta_parser.begin();
+                } else {
+                    sidecar = SidecarPhase::Health;
+                    health_parser.begin();
+                }
+            } else {
+                r.busy = false;
+            }
+        }
+        return;
+    }
+    if (sidecar != SidecarPhase::None) {
+        const auto phase = sidecar;
+        if (!file) {
+            const std::string ext = phase == SidecarPhase::Meta ? ".meta" : ".health.csv";
+            const std::string name = std::string(path(r.selected.kind)) + "/" + model::sessionStem(r.selected) + ext;
+            file = SD.open(name.c_str(), FILE_READ);
+            if (!file || file.isDirectory()) {
+                if (file) file.close();
+                if (phase == SidecarPhase::Meta && (r.selected.parts & model::Health)) {
+                    sidecar = SidecarPhase::Health;
+                    health_parser.begin();
+                } else {
+                    sidecar = SidecarPhase::None;
+                    r.busy = false;
+                }
+                last_progress = now;
+                unlock();
+                return;
+            }
+            const uint32_t limit = phase == SidecarPhase::Meta ? 4096U : 65536U;
+            sidecar_cap = std::min<uint32_t>(file.size(), limit);
+            sidecar_read = 0;
+            last_progress = now;
+            unlock();
+            return;
+        }
+        char buffer[512];
+        const uint32_t remaining = sidecar_cap - sidecar_read;
+        const int n = remaining ? file.read(reinterpret_cast<uint8_t *>(buffer),
+                                            std::min<uint32_t>(sizeof buffer, remaining))
+                                : 0;
+        const bool finished = !remaining || n <= 0 || sidecar_read + static_cast<uint32_t>(n) >= sidecar_cap;
+        if (n > 0) sidecar_read += static_cast<uint32_t>(n);
+        if (finished) file.close();
+        last_progress = now;
+        unlock();
+        for (int i = 0; i < n; ++i) {
+            if (phase == SidecarPhase::Meta) meta_parser.feed(buffer[i]);
+            else health_parser.feed(buffer[i]);
+        }
+        if (finished) {
+            if (phase == SidecarPhase::Meta) {
+                meta_parser.finish();
+                mergeMeta(r.summary.lora_sidecar, meta_parser.out);
+                if (r.selected.parts & model::Health) {
+                    sidecar = SidecarPhase::Health;
+                    health_parser.begin();
+                } else {
+                    sidecar = SidecarPhase::None;
+                    r.busy = false;
+                }
+            } else {
+                health_parser.finish();
+                mergeHealth(r.summary.lora_sidecar, health_parser.out);
+                sidecar = SidecarPhase::None;
+                r.busy = false;
+            }
         }
         return;
     }

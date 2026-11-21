@@ -1,6 +1,7 @@
 /* Counts/states only; each formatted field has a short stack lifetime. */
 #include "app/deck_app.h"
 #include "debug/diagnostic_line.h"
+#include "storage/lora_logger.h"
 #include "storage/wardrive_logger.h"
 namespace app {
 std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
@@ -95,6 +96,12 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("wardrive_pending", wardriveRowsPending() ? scan_.rows().size() - wardrive_logged_upto_ : 0);
     line.field("wardrive_closing", wardrive_closing_);
     line.field("wardrive_open", storage::wardriveLogStats().open);
+    line.field("wardrive_waypoints", storage::wardriveLogStats().waypoints);
+    line.field("lora_geotagged", storage::loraLogStats().geotagged_rows);
+    line.field("lora_waypoints", storage::loraLogStats().waypoints);
+    line.field("session_meta", session_review_.summary.lora_sidecar.has_meta);
+    line.field("session_health", session_review_.summary.lora_sidecar.has_health);
+    line.field("session_geotagged", session_review_.summary.geotagged);
     return line.take();
 }
 } // namespace app

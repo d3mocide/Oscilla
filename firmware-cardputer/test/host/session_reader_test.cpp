@@ -45,9 +45,15 @@ int main() {
     auto csv = node("log_0001.csv", "ts_ms,freq_hz,sf,bw_khz,cr,rssi,snr,len,hex,framing\n");
     for (int i = 0; i < 50; ++i)
         csv->data += std::to_string(1000 + i) + ",910525000,7,62,1,-61,4.5,1,41,unknown\n";
-    dir->children = {node("log_0001.meta", "profile=test\n"), csv, node("ignored.csv"),
-                     node("log_0001.health.csv")};
+    auto meta = node("log_0001.meta",
+                     "schema=oscilla-lora-session-v1\nprofile=meshcore_us\nfreq_hz=910525000\nsf=7\nbw_khz=62\ncr=1\nsync_word=0x12\n");
+    auto health = node("log_0001.health.csv",
+                       "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,hw_fault,packet_rows,packet_drops,health_drops\n"
+                       "5000,50,2,1,0,0,0,0,50,1,0\n");
+    dir->children = {meta, csv, node("ignored.csv"), health};
     SD.nodes["/oscilla/lora/log_0001.csv"] = csv;
+    SD.nodes["/oscilla/lora/log_0001.meta"] = meta;
+    SD.nodes["/oscilla/lora/log_0001.health.csv"] = health;
     model::SessionReview r;
     storage::sessionCatalog(r);
     drain(r);
@@ -59,6 +65,10 @@ int main() {
     csv->data += "9000,910525000,7,62,1,-70,1.5,1,42,unknown\n";
     drain(r);
     assert(r.snapshot_bytes == original && r.summary.valid == 50 && r.rows.size() == 6);
+    assert(r.summary.lora_sidecar.has_meta && r.summary.lora_sidecar.freq_hz == 910525000 &&
+           r.summary.lora_sidecar.sf == 7 && r.summary.lora_sidecar.bw_khz == 62);
+    assert(r.summary.lora_sidecar.has_health && r.summary.lora_sidecar.rx == 50 &&
+           r.summary.lora_sidecar.crc_err == 2 && r.summary.lora_sidecar.totalDrops() == 1);
     r.stage = model::ReviewStage::Records;
     storage::sessionPage(r, 1);
     drain(r);

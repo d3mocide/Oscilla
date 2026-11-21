@@ -24,12 +24,13 @@ namespace storage {
 namespace {
 constexpr const char *kDir = "/oscilla/lora";
 constexpr int kMaxSessionIndex = 9999;
-/* Three files per session; leave room for strays. */
-constexpr int kMaxDirectoryEntries = 4 * kMaxSessionIndex;
+/* Four files per session (.csv/.meta/.health.csv/.kml); leave room for strays. */
+constexpr int kMaxDirectoryEntries = 5 * kMaxSessionIndex;
 
-File g_packet_file, g_health_file;
+File g_packet_file, g_health_file, g_kml_file;
 char g_packet_path[48] = "";
 char g_health_path[56] = "";
+char g_kml_path[48] = "";
 LoraLogStats g_stats;
 WriteDigest g_packet_digest, g_health_digest;
 
@@ -95,14 +96,18 @@ bool loraLogBegin(const model::LoraModel &lora)
     const int index = nextFreeSession();
     if (!index) { unlock(); return false; }
     char manifest_path[48];
+    char session_name[20];
+    std::snprintf(session_name, sizeof session_name, "log_%04d", index);
     std::snprintf(g_packet_path, sizeof g_packet_path, "%s/log_%04d.csv", kDir, index);
     std::snprintf(manifest_path, sizeof manifest_path, "%s/log_%04d.meta", kDir, index);
     std::snprintf(g_health_path, sizeof g_health_path, "%s/log_%04d.health.csv", kDir, index);
-    /* Three lookups for the one chosen index, never per candidate. A walk
+    std::snprintf(g_kml_path, sizeof g_kml_path, "%s/log_%04d.kml", kDir, index);
+    /* Four lookups for the one chosen index, never per candidate. A walk
      * that ended early must not let FILE_WRITE truncate an old session. */
-    if (SD.exists(g_packet_path) || SD.exists(manifest_path) || SD.exists(g_health_path)) {
+    if (SD.exists(g_packet_path) || SD.exists(manifest_path) || SD.exists(g_health_path) || SD.exists(g_kml_path)) {
         g_packet_path[0] = '\0';
         g_health_path[0] = '\0';
+        g_kml_path[0] = '\0';
         unlock();
         return false;
     }
@@ -110,16 +115,20 @@ bool loraLogBegin(const model::LoraModel &lora)
     File manifest = SD.open(manifest_path, FILE_WRITE);
     g_packet_file = SD.open(g_packet_path, FILE_WRITE);
     g_health_file = SD.open(g_health_path, FILE_WRITE);
-    const bool opened = manifest && g_packet_file && g_health_file;
+    g_kml_file = SD.open(g_kml_path, FILE_WRITE);
+    const bool opened = manifest && g_packet_file && g_health_file && g_kml_file;
     bool written = opened && appendVerified(manifest, loraSessionManifest(millis(), lora)) &&
                    appendVerified(g_packet_file, loraLogHeader()) &&
-                   appendVerified(g_health_file, loraHealthHeader());
+                   appendVerified(g_health_file, loraHealthHeader()) &&
+                   appendVerified(g_kml_file, loraKmlHeader(session_name));
     if (manifest) manifest.close();
     if (!written) {
         if (g_packet_file) g_packet_file.close();
         if (g_health_file) g_health_file.close();
+        if (g_kml_file) g_kml_file.close();
         g_packet_path[0] = '\0';
         g_health_path[0] = '\0';
+        g_kml_path[0] = '\0';
         unlock();
         return false;
     }
@@ -129,16 +138,45 @@ bool loraLogBegin(const model::LoraModel &lora)
     return true;
 }
 
-void loraLogPacket(uint32_t freq_hz, int sf, int bw_khz, int cr, const model::LoraPacket &p)
+void loraLogPacket(uint32_t freq_hz, int sf, int bw_khz, int cr, const model::LoraPacket &p,
+                   const model::GnssFix *fix, uint32_t fix_age_ms)
 {
     if (!g_stats.open) return;
     if (!lock()) { g_stats.packet_drops++; return; }
 
-    std::string row = loraLogRow(millis(), freq_hz, sf, bw_khz, cr, p);
-    if (appendVerified(g_packet_file, row)) g_stats.packet_rows++;
-    else g_stats.packet_drops++;
+    const uint32_t ts = millis();
+    const bool has_fix = fix && fix->valid;
+    std::string row = loraLogRow(ts, freq_hz, sf, bw_khz, cr, p, has_fix ? fix : nullptr, fix_age_ms);
+    if (appendVerified(g_packet_file, row)) {
+        g_stats.packet_rows++;
+        if (has_fix) {
+            g_stats.geotagged_rows++;
+            if (g_kml_file) {
+                std::string pm = loraKmlPacketPlacemark(ts, freq_hz, sf, bw_khz, cr, p,
+                                                        fix->lat_deg, fix->lon_deg, fix->alt_m);
+                (void)appendVerified(g_kml_file, pm);
+            }
+        }
+    } else {
+        g_stats.packet_drops++;
+    }
 
     unlock();
+}
+
+bool loraLogWaypoint(const model::GnssFix &fix, uint32_t *out_index)
+{
+    if (!g_stats.open || !fix.valid || !g_kml_file) return false;
+    if (!lock()) return false;
+    const uint32_t next_idx = g_stats.waypoints + 1;
+    std::string pm = loraKmlWaypointPlacemark(next_idx, millis(), fix.lat_deg, fix.lon_deg, fix.alt_m, "manual");
+    const bool ok = appendVerified(g_kml_file, pm);
+    if (ok) {
+        g_stats.waypoints = next_idx;
+        if (out_index) *out_index = next_idx;
+    }
+    unlock();
+    return ok;
 }
 
 void loraLogHealth(const model::LoraHealth &health)
@@ -156,6 +194,10 @@ void loraLogEnd()
 {
     if (!g_stats.open) return;
     if (lock()) {
+        if (g_kml_file) {
+            (void)appendVerified(g_kml_file, loraKmlFooter());
+            g_kml_file.close();
+        }
         g_packet_file.close();
         g_health_file.close();
         unlock();
@@ -163,6 +205,7 @@ void loraLogEnd()
     g_stats.open = false;
     g_packet_path[0] = '\0';
     g_health_path[0] = '\0';
+    g_kml_path[0] = '\0';
 }
 
 const LoraLogStats &loraLogStats() { return g_stats; }

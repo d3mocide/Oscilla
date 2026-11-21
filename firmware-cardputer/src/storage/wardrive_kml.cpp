@@ -83,6 +83,8 @@ std::string kmlHeader(const std::string &session_name)
     out += "<Style id=\"sOther\"><IconStyle><color>ffa0a0a0</color></IconStyle></Style>\n";
     /* yellow: the drive track line */
     out += "<Style id=\"sTrack\"><LineStyle><color>ff00ffff</color><width>3</width></LineStyle></Style>\n";
+    /* signal pink: operator waypoint bookmark */
+    out += "<Style id=\"sWaypoint\"><IconStyle><color>ff9d5df0</color></IconStyle></Style>\n";
     out += kmlTrackStart();
     return out;
 }
@@ -125,6 +127,25 @@ std::string kmlApPlacemark(const model::ApRow &ap, double lat, double lon)
     out += "<styleUrl>#";
     out += styleIdFor(ap.auth);
     out += "</styleUrl>\n<Point><coordinates>";
+    out += coords;
+    out += "</coordinates></Point>\n</Placemark>\n";
+    return out;
+}
+
+std::string kmlWaypointPlacemark(uint32_t index, double lat, double lon, double alt_m,
+                                 const std::string &note)
+{
+    char name_buf[32];
+    std::snprintf(name_buf, sizeof name_buf, "WP #%lu", (unsigned long)index);
+    char coord[96];
+    int cn = std::snprintf(coord, sizeof coord, "%.6f,%.6f,%.1f\n", lon, lat, alt_m);
+    std::string coords(coord, cn > 0 && static_cast<size_t>(cn) < sizeof coord
+                                     ? static_cast<size_t>(cn) : sizeof coord - 1);
+    std::string desc = xmlEscapeText(note.empty() ? "manual waypoint" : note);
+
+    std::string out;
+    out += "<Placemark>\n<name>" + std::string(name_buf) + "</name>\n<description>" + desc + "</description>\n";
+    out += "<styleUrl>#sWaypoint</styleUrl>\n<Point><coordinates>";
     out += coords;
     out += "</coordinates></Point>\n</Placemark>\n";
     return out;

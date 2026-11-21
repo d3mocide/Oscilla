@@ -37,12 +37,12 @@ def main(test_bin: str) -> int:
         return 1
 
     placemarks = root.findall(f".//{NS}Placemark")
-    if len(placemarks) != 4:
-        print(f"FAIL: expected 4 Placemarks (1 track + 3 APs), found {len(placemarks)}", file=sys.stderr)
+    if len(placemarks) != 5:
+        print(f"FAIL: expected 5 Placemarks (1 track + 3 APs + 1 waypoint), found {len(placemarks)}", file=sys.stderr)
         return 1
 
     styles = {s.get("id") for s in root.findall(f".//{NS}Style")}
-    expected_styles = {"sOpen", "sWep", "sSecure", "sEnterprise", "sOther", "sTrack"}
+    expected_styles = {"sOpen", "sWep", "sSecure", "sEnterprise", "sOther", "sTrack", "sWaypoint"}
     if styles != expected_styles:
         print(f"FAIL: style ids {styles} != expected {expected_styles}", file=sys.stderr)
         return 1

@@ -331,11 +331,24 @@ python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
     firmware-cardputer/test/host/lora_framing_test.cpp firmware-cardputer/src/model/lora_framing.cpp
 "$out/lora_framing_test" | tail -1 | sed 's/^/  /'
 
-# The deck's LoRa session log row format (no SD I/O - pure formatting only).
+# The deck's LoRa session log row and KML format (no SD I/O - pure formatting only).
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/lora_log_format_test" \
     firmware-cardputer/test/host/lora_log_format_test.cpp firmware-cardputer/src/storage/lora_log_format.cpp \
     firmware-cardputer/src/model/lora_framing.cpp
 "$out/lora_log_format_test" | tail -1 | sed 's/^/  /'
+python3 - "$out/lora_log_format_test" <<'PY'
+import re, subprocess, sys, xml.etree.ElementTree as ET
+NS = "{http://www.opengis.net/kml/2.2}"
+doc = subprocess.run([sys.argv[1], "--sample-kml"], capture_output=True, text=True, check=True).stdout
+assert not re.search(r"<href>\s*https?://", doc), "remote href in LoRa KML"
+root = ET.fromstring(doc)
+assert root.tag == f"{NS}kml"
+pms = root.findall(f".//{NS}Placemark")
+styles = {s.get("id") for s in root.findall(f".//{NS}Style")}
+assert len(pms) == 4, f"expected 4 LoRa KML placemarks, got {len(pms)}"
+assert styles == {"sSnrGood", "sSnrMid", "sSnrWeak", "sWaypoint"}
+print(f"  lora KML: well-formed, {len(pms)} placemarks, {len(styles)} styles")
+PY
 
 # LoRa session sidecars: configuration provenance and health rows stay pure
 # and testable without an SD card.

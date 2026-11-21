@@ -30,7 +30,7 @@ void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &ch
     }
     d.drawFastHLine(5,kBodyTop+84,230,kDimGreen);
     d.setCursor(5,kBodyTop+88);d.setTextColor(log.open ? kFieldGreen : kMutedSlate,kVoidInk);
-    d.print(closing?"FINISHING QUEUED OBSERVATIONS":log.open ? "l CLOSE LOG / FRESH FIX REQUIRED" : "l START LOG / EXTERNAL TRACK");
+    d.print(closing?"FINISHING QUEUED OBSERVATIONS":log.open ? "l CLOSE / m MARK / FRESH FIX REQ" : "l START LOG / EXTERNAL TRACK");
     endChrome(chrome);
 }
 }

@@ -46,6 +46,7 @@ std::string sampleDocument()
     doc += storage::kmlApPlacemark(ap("HomeNet", "aa:bb:cc:dd:ee:ff", 6, "WPA2"), 47.2831, 8.5651);
     doc += storage::kmlApPlacemark(ap("OpenCafe", "11:22:33:44:55:66", 11, "OPEN"), 47.2832, 8.5652);
     doc += storage::kmlApPlacemark(ap(std::string("\xC3\x28\xFF", 3), "22:33:44:55:66:77", 1, "OPEN"), 47.2833, 8.5653);
+    doc += storage::kmlWaypointPlacemark(1, 47.2834, 8.5654, 452.0, "corner & <gate>\x07");
     doc += storage::kmlFooter();
     return doc;
 }
@@ -79,8 +80,9 @@ int main(int argc, char **argv)
               h.find("<Style id=\"sSecure\">") != std::string::npos &&
               h.find("<Style id=\"sEnterprise\">") != std::string::npos &&
               h.find("<Style id=\"sOther\">") != std::string::npos &&
-              h.find("<Style id=\"sTrack\">") != std::string::npos,
-              "all six style buckets present");
+              h.find("<Style id=\"sTrack\">") != std::string::npos &&
+              h.find("<Style id=\"sWaypoint\">") != std::string::npos,
+              "all seven style buckets present");
         check(h.find("<color>ff0000ff</color>") != std::string::npos, "open-AP color is aabbggrr red (ff0000ff), not rrggbb");
         check(h.find("<href>") == std::string::npos, "styles contain no remote icon resource");
         check(h.find("<coordinates>") != std::string::npos && h.find("</coordinates>") == std::string::npos,

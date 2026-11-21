@@ -74,7 +74,7 @@ bool parseRecord(SessionKind kind, const std::string &line, SavedRecord &r) {
     auto f = fields(line);
     long long v = 0;
     if (kind == SessionKind::Lora) {
-        if (f.size() != 10 || !number(f[0], 0, UINT32_MAX, v)) return false;
+        if ((f.size() != 10 && f.size() != 16) || !number(f[0], 0, UINT32_MAX, v)) return false;
         r.packet.received_ms = static_cast<uint32_t>(v);
         r.time = v;
         r.timed = true;
@@ -97,6 +97,17 @@ bool parseRecord(SessionKind kind, const std::string &line, SavedRecord &r) {
         r.packet.len = v;
         r.packet.hex = f[8];
         r.packet.framing = classifyLoraFrameHex(r.packet.hex);
+        r.geotagged = false;
+        if (f.size() == 16) {
+            const bool empty_geo = f[10].empty() && f[11].empty() && f[12].empty() && f[13].empty() && f[14].empty() && f[15].empty();
+            if (!empty_geo) {
+                if (!real(f[10], -90, 90) || !real(f[11], -180, 180)) return false;
+                if (!f[12].empty() && !real(f[12], -1000, 100000)) return false;
+                if (!f[13].empty() && !real(f[13], 0, 1000)) return false;
+                if (!f[14].empty() && !number(f[14], 0, UINT32_MAX, v)) return false;
+                r.geotagged = true;
+            }
+        }
         r.name = "RAW PACKET";
         return true;
     }
@@ -123,7 +134,7 @@ bool sessionName(const std::string &name, SessionKind kind, SessionEntry &e) {
     if (!number(name.substr(prefix, 4), 1, 9999, index)) return false;
     auto suffix = name.substr(prefix + 4);
     unsigned parts = suffix == ".csv"                                       ? Csv
-                     : kind == SessionKind::Drive && suffix == ".kml"       ? Kml
+                     : suffix == ".kml"                                     ? Kml
                      : kind == SessionKind::Lora && suffix == ".meta"       ? Manifest
                      : kind == SessionKind::Lora && suffix == ".health.csv" ? Health
                                                                             : 0;
@@ -164,6 +175,7 @@ void SessionSummary::add(const SavedRecord &r) {
         last_stamp = r.stamp;
     }
     ++valid;
+    if (r.geotagged) ++geotagged;
     if (signal_count == signals.size())
         std::move(signals.begin() + 1, signals.end(), signals.begin());
     else
@@ -204,7 +216,9 @@ void SessionParser::line() {
     ++line_number_;
     if (!line_.empty() && line_.back() == '\r') line_.pop_back();
     if (kind_ == SessionKind::Lora && line_number_ == 1) {
-        summary.header = line_ == "ts_ms,freq_hz,sf,bw_khz,cr,rssi,snr,len,hex,framing";
+        summary.header =
+            line_ == "ts_ms,freq_hz,sf,bw_khz,cr,rssi,snr,len,hex,framing" ||
+            line_ == "ts_ms,freq_hz,sf,bw_khz,cr,rssi,snr,len,hex,framing,lat,lon,alt,hdop,fix_age_ms,utc";
         return;
     }
     if (kind_ == SessionKind::Drive && line_number_ == 1) {
@@ -225,5 +239,106 @@ void SessionParser::line() {
     }
     if (summary.valid / 6 == page_index_) page.push_back(row);
     summary.add(row);
+}
+
+void LoraMetaParser::begin() {
+    line_.clear();
+    overlong_ = false;
+    out = {};
+}
+void LoraMetaParser::feed(char byte) {
+    if (byte == '\n') {
+        if (!overlong_) line();
+        line_.clear();
+        overlong_ = false;
+        return;
+    }
+    if (line_.size() < 128) line_ += byte;
+    else overlong_ = true;
+}
+void LoraMetaParser::finish() {
+    if (!overlong_ && !line_.empty()) line();
+    line_.clear();
+    overlong_ = false;
+}
+void LoraMetaParser::line() {
+    if (!line_.empty() && line_.back() == '\r') line_.pop_back();
+    const size_t eq = line_.find('=');
+    if (eq == std::string::npos || eq == 0) return;
+    const std::string key = line_.substr(0, eq);
+    const std::string val = line_.substr(eq + 1);
+    long long v = 0;
+    if (key == "profile" && !val.empty() && val.size() <= 32) {
+        out.profile = val;
+        out.has_meta = true;
+    } else if (key == "freq_hz" && number(val, 1, UINT32_MAX, v)) {
+        out.freq_hz = static_cast<uint32_t>(v);
+        out.has_meta = true;
+    } else if (key == "sf" && number(val, 5, 12, v)) {
+        out.sf = static_cast<int>(v);
+    } else if (key == "bw_khz" && number(val, 1, 1000, v)) {
+        out.bw_khz = static_cast<int>(v);
+    } else if (key == "cr" && number(val, 1, 4, v)) {
+        out.cr = static_cast<int>(v);
+    } else if (key == "sync_word" && val.size() == 4 && val[0] == '0' && (val[1] == 'x' || val[1] == 'X')) {
+        const int hi = hexNibble(val[2]), lo = hexNibble(val[3]);
+        if (hi >= 0 && lo >= 0) out.sync_word = static_cast<uint8_t>((hi << 4) | lo);
+    }
+}
+
+void LoraHealthParser::begin() {
+    line_number_ = 0;
+    header_ = false;
+    line_.clear();
+    overlong_ = false;
+    out = {};
+}
+void LoraHealthParser::feed(char byte) {
+    if (byte == '\n') {
+        if (overlong_) {
+            if (header_) ++out.health_bad;
+            ++line_number_;
+        } else {
+            line();
+        }
+        line_.clear();
+        overlong_ = false;
+        return;
+    }
+    if (line_.size() < 256) line_ += byte;
+    else overlong_ = true;
+}
+void LoraHealthParser::finish() {
+    if (!overlong_ && !line_.empty()) line();
+    else if (overlong_ && header_) ++out.health_bad;
+    line_.clear();
+    overlong_ = false;
+}
+void LoraHealthParser::line() {
+    ++line_number_;
+    if (!line_.empty() && line_.back() == '\r') line_.pop_back();
+    if (line_number_ == 1) {
+        header_ = line_ == "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,hw_fault,"
+                           "packet_rows,packet_drops,health_drops";
+        return;
+    }
+    if (!header_) return;
+    auto f = fields(line_);
+    if (f.size() != 11) { ++out.health_bad; return; }
+    long long vals[11];
+    for (size_t i = 0; i < 11; ++i) {
+        if (!number(f[i], 0, UINT32_MAX, vals[i])) { ++out.health_bad; return; }
+    }
+    out.has_health = true;
+    ++out.health_rows;
+    out.rx = static_cast<uint32_t>(vals[1]);
+    out.crc_err = static_cast<uint32_t>(vals[2]);
+    out.header_err = static_cast<uint32_t>(vals[3]);
+    out.irq_drop = static_cast<uint32_t>(vals[4]);
+    out.radio_drop = static_cast<uint32_t>(vals[5]);
+    out.ocp_drop = static_cast<uint32_t>(vals[6]);
+    out.hw_fault = static_cast<uint32_t>(vals[7]);
+    out.packet_drops = static_cast<uint32_t>(vals[9]);
+    out.health_drops = static_cast<uint32_t>(vals[10]);
 }
 } // namespace model

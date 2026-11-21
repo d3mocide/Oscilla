@@ -247,6 +247,7 @@ private:
     void sendWifiChannels(const std::string &arg, uint32_t now_ms);
     void changeIdleTimeoutS(uint16_t seconds, uint32_t now_ms);
     void pollBatteryIfDue(uint32_t now_ms);
+    void markWaypoint(uint32_t now_ms);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,

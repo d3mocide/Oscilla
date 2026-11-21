@@ -1,3 +1,36 @@
+## 2026-11-21 — Geotagged LoRa KML, session waypoints & LOGS sidecar inspection (WP-10)
+
+- **Geotagged LoRa CSV + incremental SNR-colored KML (`storage/lora_log_format.{h,cpp}`,
+  `storage/lora_logger.{h,cpp}`):**
+  - Extended LoRa session CSV to 16 columns (`...,lat,lon,alt,hdop,fix_age_ms,utc`);
+    rows without a fresh valid GNSS fix leave the six GNSS columns empty and never
+    fabricate coordinates or dates.
+  - Added incremental KML 2.2 coverage logs (`log_NNNN.kml`) alongside `.csv`,
+    `.meta`, and `.health.csv` (SNR buckets: green `> 0 dB`, yellow `-10..0 dB`,
+    red `< -10 dB`, pink `sWaypoint`, zero remote `<href>`), preserving
+    `nextFreeSession()`'s single-walk numbering guard.
+- **Session waypoints (`storage/wardrive_kml.{h,cpp}`, `wardrive_logger.{h,cpp}`,
+  `lora_logger.{h,cpp}`, `app/deck_app.{h,cpp}`):**
+  - Added `m` hotkey on Drive and Sub-GHz views plus `mark` debug command to
+    drop a fresh-fix `WP #N` KML placemark into any active Drive and/or LoRa
+    session without interrupting reception.
+- **LOGS sidecar inspection (`model/session_review.{h,cpp}`,
+  `storage/session_reader.cpp`, `ui/session_view.cpp`):**
+  - Updated `SessionParser` to accept both legacy 10-column and new 16-column
+    geotagged LoRa CSVs (rejecting out-of-range coordinates) and recognize
+    `log_NNNN.kml` as `SessionPart::Kml`.
+  - Added pure-C++ `LoraMetaParser` and `LoraHealthParser` driven cooperatively
+    in `session_reader.cpp` under `lock(0)` with the same `<= 512 B/tick`
+    shared-bus budget; surfaced tuning provenance, cumulative `RX/CRC/DRP/FLT`,
+    and geotag counts on the LOGS Summary view.
+- **Checks:** `check_protocol.sh` (extended `lora_log_format_test` + Python
+  `xml.etree` LoRa KML check, extended `wardrive_kml_test` + `check_wardrive_kml.py`,
+  extended `session_review_test` and `session_reader_test`), `render_external_views.py`
+  (154 fixtures + session highlight check), three mutation proofs (invalid fix
+  coord leak, out-of-range latitude acceptance, disabled sidecar read), and
+  zero-warning `build_firmware.sh` (both boards + stack guards: `loop()` 1040/2048 B).
+- **Not yet verified on hardware:** live flash and bench test (next step).
+
 ## 2026-11-21 — Idle display sleep & measured battery discharge trend (WP-5)
 
 - **Idle display sleep (`firmware-cardputer`):**

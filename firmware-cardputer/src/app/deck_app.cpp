@@ -459,7 +459,10 @@ void DeckApp::onEvent(const ocp::Item &it)
     contacts_.absorbEvent(it);   /* ticker only: [CLIENTS]/[PROBES] stay the authority */
     spectrum_.absorbEvent(it, now_);   /* kind=chan is the only source of truth here, no dump verb */
     if (const auto *p = lora_.absorbEvent(it, now_)) {   /* kind=lora is the only source of truth here too */
-        storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p);
+        const bool fresh_fix = gnss_.state(now_) == model::GnssState::Fixed && gnss_.fixAgeMs(now_) < 10000;
+        storage::loraLogPacket(lora_.freqHz(), lora_.sf(), lora_.bwKhz(), lora_.cr(), *p,
+                               fresh_fix ? &gnss_.fix() : nullptr,
+                               fresh_fix ? gnss_.fixAgeMs(now_) : 0);
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     absorbDeviceEvent(it);         /* kind=airtag is the only source of truth here too */
@@ -1034,6 +1037,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 lora_profile_index_ = (lora_profile_index_ + 1) % model::kLoraProfileCount;
             }
             else if (c == 'c') startLoraConfig(now_ms);
+            else if (c == 'm') markWaypoint(now_ms);
             else if (c == 's') {
                 if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
                 else startLoraListen(now_ms);
@@ -1054,6 +1058,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             break;
         case Screen::Drive:
             if (c == 'l') toggleWardriveLog(now_ms);
+            else if (c == 'm') markWaypoint(now_ms);
             break;
         case Screen::Beacons:
             if(bt_inspection_.active()){
@@ -1236,6 +1241,32 @@ void DeckApp::pollBatteryIfDue(uint32_t now_ms)
     battery_trend_.observe(cached_battery_pct_, cached_charging_, now_ms);
 }
 
+void DeckApp::markWaypoint(uint32_t now_ms)
+{
+    const bool drive_open = storage::wardriveLogStats().open;
+    const bool lora_open = storage::loraLogStats().open;
+    if (!drive_open && !lora_open) {
+        notice("no active log");
+        return;
+    }
+    const bool fresh_fix = gnss_.state(now_ms) == model::GnssState::Fixed && gnss_.fixAgeMs(now_ms) < 10000;
+    if (!fresh_fix) {
+        notice("waypoint needs gnss fix");
+        return;
+    }
+    uint32_t drive_idx = 0, lora_idx = 0;
+    const bool d_ok = drive_open && storage::wardriveLogWaypoint(gnss_.fix(), &drive_idx);
+    const bool l_ok = lora_open && storage::loraLogWaypoint(gnss_.fix(), &lora_idx);
+    if (!d_ok && !l_ok) {
+        notice("waypoint write failed");
+        return;
+    }
+    const uint32_t shown = d_ok ? drive_idx : lora_idx;
+    notice("waypoint #" + std::to_string(shown));
+    log("waypoint drive=" + std::to_string(drive_idx) + " lora=" + std::to_string(lora_idx));
+    dirty_ = true;
+}
+
 void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 {
     if (!debug_mode_) return;
@@ -1257,6 +1288,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
      * doesn't need to track which state it left an engine in either. */
     if (cmd == "scan") startScan(now_ms);
     else if (cmd == "wardrive") toggleWardriveLog(now_ms);
+    else if (cmd == "mark") markWaypoint(now_ms);
     else if (cmd == "connect") client_.connect(now_ms);
     else if (cmd == "ping") client_.send(OCP_V_PING, now_ms);
     else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);

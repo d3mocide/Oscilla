@@ -286,6 +286,41 @@ void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t f
     unlock();
 }
 
+bool wardriveLogWaypoint(const model::GnssFix &fix, uint32_t *out_index)
+{
+    if (!g_open || !fix.valid) return false;
+    if (!lock()) return false;
+
+    const uint32_t next_idx = g_stats.waypoints + 1;
+    std::string note;
+    if (fix.year > 0) {
+        int h = 0, m = 0, s = 0;
+        model::splitUtcTime(fix.utc, &h, &m, &s);
+        char stamp[64];
+        std::snprintf(stamp, sizeof stamp, "%04d-%02d-%02d %02d:%02d:%02d UTC",
+                      fix.year, fix.month, fix.day, h, m, s);
+        note = stamp;
+    }
+    std::string kml_row = kmlWaypointPlacemark(next_idx, fix.lat_deg, fix.lon_deg, fix.alt_m, note);
+
+    bool ok = true;
+    if (g_track_open) {
+        ok = append(g_kml, kmlCloseTrack());
+        g_track_open = false;
+    }
+    ok = ok && append(g_kml, kml_row);
+    ok = ok && append(g_kml, kmlTrackStart());
+    ok = ok && commit(nullptr, &g_kml);
+    g_track_open = ok;
+
+    if (!ok) { closeDead(); unlock(); return false; }
+
+    g_stats.waypoints = next_idx;
+    if (out_index) *out_index = next_idx;
+    unlock();
+    return true;
+}
+
 void wardriveLogEnd()
 {
     if (!g_open) return;

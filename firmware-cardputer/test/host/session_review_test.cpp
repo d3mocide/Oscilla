@@ -11,11 +11,14 @@ int main() {
     assert(!sessionName("../drive_0001.csv", SessionKind::Drive, e));
     assert(!sessionName("drive_0000.csv", SessionKind::Drive, e));
     assert(sessionName("log_9999.health.csv", SessionKind::Lora, e) && e.parts == Health);
+    assert(sessionName("log_9999.kml", SessionKind::Lora, e) && e.parts == Kml);
     SessionCatalog c;
+    c.add(e);
+    assert(sessionName("log_9999.health.csv", SessionKind::Lora, e));
     c.add(e);
     assert(sessionName("log_9999.csv", SessionKind::Lora, e));
     c.add(e);
-    assert(c.entries.size() == 1 && c.entries[0].parts == (Csv | Health));
+    assert(c.entries.size() == 1 && c.entries[0].parts == (Csv | Kml | Health));
     for (int i = 1; i < 100; ++i) {
         e = {SessionKind::Drive, i, Csv, 30};
         c.add(e);
@@ -81,6 +84,72 @@ int main() {
     assert(review.stage == ReviewStage::Summary);
     review.back();
     assert(review.stage == ReviewStage::Catalog);
-    std::cout << "session review: strict names, grouped bounded catalog, hostile rows, chunking, partial "
-                 "tails, paging and Back passed\n";
+
+    // Geotagged 16-column LoRa CSV round-trip + hostile lat/lon rejection.
+    {
+        model::LoraPacket pkt{1000, -72, 6.5f, 2, "aabb", model::Framing::MeshCore};
+        model::GnssFix fix;
+        fix.valid = true;
+        fix.lat_deg = 47.2831;
+        fix.lon_deg = -122.4194;
+        fix.alt_m = 100.0;
+        fix.hdop = 1.1f;
+        fix.year = 2026;
+        fix.month = 11;
+        fix.day = 21;
+        fix.utc = "120000.00";
+        SessionParser gp;
+        gp.begin(SessionKind::Lora);
+        std::string doc = storage::loraLogHeader() +
+                          storage::loraLogRow(1000, 910525000, 7, 62, 1, pkt, &fix, 250) +
+                          storage::loraLogRow(2000, 910525000, 7, 62, 1, pkt) +
+                          "3000,910525000,7,62,1,-72,6.5,2,aabb,meshcore,91.5,-122.0,10.0,1.0,100,\n";
+        for (char ch : doc) gp.feed(ch);
+        gp.finish();
+        assert(gp.summary.header && gp.summary.valid == 2 && gp.summary.bad == 1 &&
+               gp.summary.geotagged == 1 && gp.page.size() == 2 &&
+               gp.page[0].geotagged && !gp.page[1].geotagged);
+    }
+
+    // LoRa .meta sidecar parser (valid, unknown keys, hostile overlong lines).
+    {
+        LoraMetaParser mp;
+        mp.begin();
+        std::string meta = "schema=oscilla-lora-session-v1\n"
+                           "started_ms=12345\n"
+                           "profile=meshcore_us\n"
+                           "freq_hz=910525000\n"
+                           "sf=7\nbw_khz=62\ncr=1\nsync_word=0x12\n"
+                           "unknown_key=ignored\n" +
+                           std::string(200, 'Z') + "\n";
+        for (char ch : meta) mp.feed(ch);
+        mp.finish();
+        assert(mp.out.has_meta && mp.out.profile == "meshcore_us" &&
+               mp.out.freq_hz == 910525000 && mp.out.sf == 7 &&
+               mp.out.bw_khz == 62 && mp.out.cr == 1 && mp.out.sync_word == 0x12);
+    }
+
+    // LoRa .health.csv sidecar parser (cumulative totals + hostile rows + wrong header).
+    {
+        LoraHealthParser hp;
+        hp.begin();
+        std::string h = "ts_ms,rx,crc_err,header_err,irq_drop,radio_drop,ocp_drop,hw_fault,packet_rows,packet_drops,health_drops\n"
+                        "1000,5,1,0,0,0,0,0,5,0,0\n"
+                        "2000,12,2,1,1,0,2,0,12,1,0\n"
+                        "bad,row\n";
+        for (char ch : h) hp.feed(ch);
+        hp.finish();
+        assert(hp.out.has_health && hp.out.health_rows == 2 && hp.out.health_bad == 1 &&
+               hp.out.rx == 12 && hp.out.crc_err == 2 && hp.out.header_err == 1 &&
+               hp.out.totalDrops() == 4 && hp.out.hw_fault == 0);
+
+        hp.begin();
+        std::string bad_hdr = "wrong,header\n1000,5,0,0,0,0,0,0,5,0,0\n";
+        for (char ch : bad_hdr) hp.feed(ch);
+        hp.finish();
+        assert(!hp.out.has_health && hp.out.health_rows == 0);
+    }
+
+    std::cout << "session review: strict names, grouped bounded catalog, hostile rows, geotagged LoRa, "
+                 "sidecar meta/health, chunking, partial tails, paging and Back passed\n";
 }
