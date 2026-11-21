@@ -5,8 +5,8 @@
 
 | Field | Value |
 |---|---|
-| **Current phase** | P4 complete → **P5 — External TFT** (🟡 bench integration); P7 passive-suite work continues in parallel |
-| **Last updated** | 2026-09-22 |
+| **Current phase** | P5 complete → **P6 — Combined soak & power** (🟡 periodic use pending); P7/P8 continue in parallel |
+| **Last updated** | 2026-11-20 (v0.3.0) |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -21,8 +21,8 @@
 | **P2** | Probe sees Wi-Fi | 🟢 Exit gate met | ✅ 2026-09-12 |
 | **P3** | LoRa (RX) | 🟢 Exit gate met | ✅ 2026-09-13 |
 | **P4** | GNSS on the deck | 🟢 Exit gate met | ✅ 2026-09-16 |
-| **P5** | External TFT | 🟡 Bench integration — cold boot/soak pending | — |
-| **P6** | Combined soak & power | ⚪ Not started | — |
+| **P5** | External TFT | 🟢 Exit gate met (operator-reported, see P5) | ✅ 2026-11-20 |
+| **P6** | Combined soak & power | 🟡 In progress — mode switching passed; periodic use, battery soak, power budget open | — |
 | **P7** | Passive suite completion | 🟡 In progress (out of sequence) | — |
 | **P8** | Polish | 🟡 In progress — deck UI foundation | — |
 
@@ -164,11 +164,12 @@ gate.
 - [x] Replacement GMT028-05/ST7789 colour fixture: user confirmed colours on 2026-11-16; normal-app profile uses TFT 8 MHz / SD 8 MHz (Rev D §5.4).
 - [x] Native ST7789-only normal-app output and corrected colour polarity confirmed by user, 2026-11-16.
 - [x] Replacement ST7789 native output/colours confirmed; 8 MHz TFT/SD passed 32 write/read/cleanup cycles (128 KiB), with clean redraw confirmed by user, 2026-11-16.
-- [ ] Qualify physical cold boot with SD and sustained soak on the replacement ST7789.
-- [ ] Review the graphical companion overhaul on-device: Packet Monitor scope first, then populated/empty/cached states across the other cards. Source previews and bounded animation/SD checks pass. Operator accepted Sniffer visuals, the Packet Monitor redesign and System resource monitor, including automatic heap scaling and physical Back/`i` navigation (2026-11-17); remaining card states still need review.
+- [x] Qualify physical cold boot with SD and sustained soak on the replacement ST7789. Operator-reported 2026-11-20: repeated cold boots with SD inserted, and a ~10 h soak on USB power with no display or bus corruption. No captured log; battery operation is not part of this gate (P6/P8).
+- [x] Review the graphical companion overhaul on-device: Packet Monitor scope first, then populated/empty/cached states across the other cards. Operator accepted Sniffer visuals, the Packet Monitor redesign and System resource monitor (2026-11-17), and accepted the expanded external views as complete with the Observatory v2 revision (2026-11-20).
 - [x] **Single shared-bus lock** covering SD + TFT; SD brought up first. Interleaved fixture passed 32 cycles / 128 KiB readback; user confirmed clean display after parking. Delivered variant caps SD at 8 MHz.
-- [ ] Second-panel detection at boot; expanded views on the 240×320.
-- [ ] Touch stays disabled (Rev D baseline).
+- [x] Expanded views on the 240×320: delivered with Observatory v2.
+- [~] ~~Second-panel detection at boot~~ — dropped 2026-11-20. The panel is write-only (no MISO readback), so it cannot be detected, and it is now a standard fitment rather than optional (DESIGN §7.4).
+- [x] Touch stays disabled (Rev D baseline): the GMT028-05 has no touch controller and the deck has no touch code.
 
 **Exit gate:** sustained TFT redraw concurrent with SD read/write of a disposable file, cold-boot with SD inserted, no bus corruption over a soak.
 
@@ -177,6 +178,11 @@ Normal-app probe packet/health logging and SD readback also demonstrated on
 2026-10-09. First mockup-based Packet Monitor companion implemented; physical
 layout review, lower-clock long soak, and controlled cold-boot/JTAG qualification
 remain open; P5 is not declared complete.
+
+2026-11-20: **exit gate met.** The bounded fixture covers concurrent redraw
+plus disposable-file SD I/O; the operator reports repeated cold boots with SD
+inserted and a ~10 h USB-powered soak with no bus corruption. The soak and
+cold-boot evidence is operator-reported, not a captured log. Closed in v0.3.0.
 
 ---
 
@@ -238,6 +244,10 @@ firmware/protocol/storage fault preceded it. Host kernel logged repeated USB
 re-enumeration and `-71` errors. Periodic qualification remains incomplete and
 the new-image two-hour stage never started. Check USB stability and rerun from
 a fresh baseline; the separate first mode-switching pass remains valid.
+
+2026-11-20 (v0.3.0): entry gate now met with P5 closed. Next: check the USB
+cable/hub path, rerun periodic use from a fresh baseline, run the new-image
+two-hour soak, then a battery-powered soak and the measured current budget.
 
 **Exit gate:** a documented current budget in `docs/hardware/`; the arbiter's interlock reflects it; a clean multi-hour soak. Only after this does Grove-powered operation ([D-4](docs/DECISIONS.md)) get evaluated.
 
@@ -304,6 +314,7 @@ C5 + Wio-SX1262 backpack only.
 - [ ] Paired AP/BLE dossiers: identity-pinned inspection, cached client relationships and real-observation RSSI history implemented; rendered previews and host checks available, operator accepted normal paired dossier appearance; remaining error-state review pending.
 - [ ] Saved-session browser implemented: bounded read-only SD snapshots, summaries, paged wardrive/LoRa records and saved packet hex. Host/source-render and real-SD bench checks passed (778 wardrive rows, 46 LoRa packets, paging/hex/Back, reception preserved); operator layout review pending.
 - [ ] Validate the rendered result and keyboard behavior on the Cardputer hardware.
+- [ ] **Idle power saving:** blank/back-light-off both displays after a configurable period with no key press, any key wakes without acting; then evaluate a deeper deck sleep that keeps active logging and receive lanes running. Measure the saving against the P6 current budget.
 
 **Exit gate:** a field session start-to-finish on battery without a bench.
 

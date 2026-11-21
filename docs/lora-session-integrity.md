@@ -251,8 +251,8 @@ becomes a real constraint, which is nowhere close today.
 
 Confirmed the prerequisite this was blocked on doesn't exist yet: both
 firmwares report a manually-bumped human version string
-(`firmware-c5/CMakeLists.txt`'s `PROJECT_VER`, `firmware-cardputer`'s
-`OSCILLA_DECK_VER`), deliberately not git-derived (the CMake comment says
+(`PROJECT_VER` / `OSCILLA_DECK_VER`, both read from the repo-root `VERSION`
+file since v0.3.0), deliberately not git-derived (the CMake comment says
 so explicitly), and neither has moved since 2026-09-13 despite everything
 built since — `ver=0.2.0` cannot distinguish which commit produced a given
 SD session. The design below is written up for a future implementation

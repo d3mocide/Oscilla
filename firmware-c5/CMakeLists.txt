@@ -9,8 +9,10 @@ cmake_minimum_required(VERSION 3.16)
 # Both firmwares compile against the same header so the contract cannot drift.
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/components")
 
-# Reported by `version` and [HELLO]; without this IDF derives it from git.
-set(PROJECT_VER "0.2.0")
+# Reported by `version` and [HELLO]; read from the repo-root VERSION file
+# (docs/RELEASING.md) so IDF does not derive it from git.
+file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../VERSION" PROJECT_VER LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../VERSION")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(oscilla-c5)

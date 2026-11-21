@@ -49,7 +49,7 @@ The name is the frame: an **oscilloscope for the air**. The product's job is to 
 - 802.15.4 survey: passive PAN/node discovery, protocol classification.
 - **LoRa survey (RX)**: sub-GHz listening — packet observation, RSSI/SNR, Meshtastic/LoRaWAN framing classification.
 - Geolocated logging (wardrive-style) to the **deck's** microSD in standard formats, using the deck's own GNSS fix.
-- A clean, discoverable UI across the internal 240×135 LCD and, when fitted, an external 240×320 panel.
+- A clean, discoverable UI across the internal 240×135 LCD and the external 240×320 panel.
 
 **Explicitly out of scope (v1):** deauth, evil-twin, rogue AP, beacon spam, SAE overflow, jamming, on-LAN attacks, LoRa transmission, and any transmission whatsoever on any radio. See [§8](#8-feature-scope--the-receive-only-boundary) for why the architecture makes these *unreachable* rather than merely *unused*.
 
@@ -463,7 +463,7 @@ is reported lane state plus local capture/GNSS state.
 - **Offline review:** cached scan/session data is browsable with the probe idle or unplugged. GNSS and logging keep working with no backpack attached.
 
 ### 7.4 Display & bus discipline
-- Internal LCD (240×135) is the primary target; the external ST7789 (240×320) is an **optional second panel**, configured explicitly and used for expanded views; write-only initialization cannot detect a physical panel.
+- Internal LCD (240×135) is the primary target; the external ST7789 (240×320) is a **standard fitment** carrying the expanded views. Write-only initialization cannot detect a physical panel, so there is no runtime detection: a build without the panel simply draws to nothing on the external bus.
 - Both the external TFT and the internal SD live on **one SPI bus**. All access goes through a single shared lock; SD is brought up before TFT traffic; the TFT is write-only with no readback. UI and logger tasks must not bypass the lock. This is the deck's main source of hard-to-debug failures — treat it with suspicion.
 
 The normal `cardputer-adv` profile supports only the GMT028-05 V1.1 ST7789 replacement (Rev D §5.4); `cardputer-adv-st7789` is an alias. The native M5GFX driver handles initialization and all pixels, matching the standalone colour fixture. `external_tft` attaches to the same SPI2 hardware controller used by Arduino FSPI/SD, preserves the SD MISO route, initializes after storage, and takes the existing storage lock for initialization and each row. It deselects the panel between transactions. There is no manual command-list interpreter, no-CS parking or ILI9341 runtime path.

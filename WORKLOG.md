@@ -1,3 +1,33 @@
+## 2026-11-20 — v0.3.0 milestone cut; P5 closed
+
+- First tagged version. Committed the uncommitted work since 2026-10-09 in
+  five groups (hardware, deck firmware + tests, brand/preview tooling, soak
+  tooling, docs), then the release commit. Process recorded in
+  `docs/RELEASING.md`; notes in `CHANGELOG.md`.
+- Version now comes from the repo-root `VERSION` file: the probe's CMake
+  reads it into `PROJECT_VER`, and the deck's `version.py` pre-script defines
+  `OSCILLA_DECK_VER`. Both builds confirmed to embed `0.3.0`. OCP stays at 1;
+  `protocol/` and `firmware-c5/` sources are unchanged since 2026-10-09.
+- Gates on the release tree: `check_protocol.sh` (ASan), `ocp_repl.py
+  --selftest` (27/27), `build_firmware.sh` (both) and `--bench
+  --probe-only`, `render_external_views.py --sync-guide-assets` (no diff),
+  `check_ui_palette`, `check_rx_only`, `check_deck_stack`, card selection /
+  sweep layout / session highlight tests. All passed.
+- **P5 exit gate met**, on operator report (Will, 2026-11-20): repeated cold
+  boots with SD inserted and a ~10 h USB-powered soak without bus corruption,
+  alongside the earlier bounded concurrent redraw + disposable-file fixture.
+  No captured log for the cold boots or soak. Operator also accepted the
+  expanded external views as complete with Observatory v2.
+- Second-panel detection dropped: a write-only panel cannot be detected, and
+  the operator confirmed the project relies on the panel, so DESIGN §7.4 now
+  calls it a standard fitment. Touch: no touch hardware or code.
+- Added P8 item for idle power saving (display timeout on no key press, then
+  a deeper sleep that keeps receive/logging alive), per operator.
+- Not done in this cut: neither board was re-flashed with the 0.3.0 image,
+  so on-device `[HELLO]` still reports 0.2.0 until the next flash. P6
+  periodic use, the two-hour new-image soak, battery soak and current budget
+  remain open.
+
 ## 2026-11-20 — Periodic-use capture interrupted by USB disconnect; long soak unstarted
 
 - Run `/tmp/oscilla-periodic-long-20261120-133559` stopped on USB EOF/readiness
