@@ -116,16 +116,20 @@ int main()
     {
         model::ScanModel m;
         m.absorbInspect(frameOf("[INSPECT] BEGIN idx=3 bssid=aa:bb:cc:dd:ee:03 ch=36 band=5\n"
-                                "[INSPECT] beacons=3 rssi=-61 rsn=1 mfp_capable=1 mfp_required=1 uptime_s=5000000000 interval_ms=102\n"
+                                "[INSPECT] beacons=3 rssi=-61 rsn=1 mfp_capable=1 mfp_required=1 uptime_s=5000000000 interval_ms=102 akm=PSK,SAE width=80 gen=6 wps=1 cc=US\n"
                                 "[INSPECT] END\n"));
         const auto &in = m.inspect();
         check(in.valid && in.idx == 3 && in.ch == 36 && in.beacons == 3 && in.rssi == -61, "inspect parsed");
         check(in.rsn && in.mfp_capable && in.mfp_required && in.interval_ms == 102, "MFP flags");
         check(in.uptime_s == 5000000000ULL, "uptime beyond 32 bits survives");
+        check(in.akm == "PSK,SAE" && in.width_mhz == 80 && in.wifi_gen == 6 && in.wps && in.country == "US",
+              "enriched inspect keys (akm/width/gen/wps/cc) parsed");
 
         m.absorbInspect(frameOf("[INSPECT] BEGIN idx=1 bssid=aa:bb:cc:dd:ee:01 ch=6 band=2.4 aborted=1\n"
                                 "[INSPECT] beacons=0\n[INSPECT] END\n"));
-        check(m.inspect().aborted && m.inspect().beacons == 0 && !m.inspect().rsn, "aborted inspect, no beacons");
+        check(m.inspect().aborted && m.inspect().beacons == 0 && !m.inspect().rsn &&
+              m.inspect().akm.empty() && m.inspect().width_mhz == 0 && !m.inspect().wps,
+              "aborted inspect, no beacons");
     }
     {
         model::ScanModel m;

@@ -37,6 +37,11 @@ struct Inspect {
     uint16_t beacons = 0;
     int rssi = 0;
     bool rsn = false, mfp_capable = false, mfp_required = false;
+    std::string akm;          /* comma-separated RSN AKMs, or empty */
+    uint8_t width_mhz = 0;    /* 20/40/80/160, or 0 when absent */
+    uint8_t wifi_gen = 0;     /* 4/5/6, or 0 when legacy/absent */
+    std::string country;      /* 2-char Country IE code, or empty */
+    bool wps = false;
     uint64_t uptime_s = 0;
     uint16_t interval_ms = 0;
 };

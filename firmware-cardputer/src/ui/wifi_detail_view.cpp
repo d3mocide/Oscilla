@@ -37,8 +37,21 @@ void drawWifiDetailView(const model::WifiInspection &p,const model::SurveyState 
         d.setCursor(4,kBodyTop+91);d.setTextColor(kCalibrationYellow,kVoidInk);d.print("; . PEER / x RADIO / ` LIST");
     }else{
         d.setCursor(4,kBodyTop+37);d.printf("CH%u %s %ddBm / AGE%lus",r.ch,r.band5?"5G":"2.4G",p.signal(),(unsigned long)((now-p.observedMs())/1000));
-        d.setCursor(4,kBodyTop+50);d.printf("SECURITY %s",name(r.auth,24).c_str());
-        d.setCursor(4,kBodyTop+64);d.printf("MFP %s",mfp(b));
+        d.setCursor(4,kBodyTop+50);
+        if(p.inspect().valid&&p.inspect().beacons&&!p.inspect().akm.empty())
+            d.printf("SEC %s (%s)",name(r.auth,12).c_str(),name(p.inspect().akm,14).c_str());
+        else d.printf("SECURITY %s",name(r.auth,24).c_str());
+        d.setCursor(4,kBodyTop+64);
+        if(p.inspect().valid&&p.inspect().beacons&&p.inspect().width_mhz){
+            const auto &in=p.inspect();
+            char phy[32];
+            std::snprintf(phy,sizeof phy,"%s%uM%s%s",
+                          in.wifi_gen==6?"W6 ":in.wifi_gen==5?"W5 ":in.wifi_gen==4?"W4 ":"",
+                          (unsigned)in.width_mhz,
+                          in.country.empty()?"":(std::string(" ")+in.country).c_str(),
+                          in.wps?" WPS":"");
+            d.printf("MFP %s / %s",mfp(b),phy);
+        }else d.printf("MFP %s",mfp(b));
         d.setCursor(4,kBodyTop+78);d.setTextColor(kMutedSlate,kVoidInk);
         if(listening)d.print("PASSIVE BEACON CAPTURE...");
         else if(p.inspect().valid)d.printf("%u BEACONS / CAPTURE %lus",p.inspect().beacons,(unsigned long)((now-p.captureMs())/1000));

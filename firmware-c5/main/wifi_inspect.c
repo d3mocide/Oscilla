@@ -111,12 +111,24 @@ static void finish(bool aborted)
         ocp_emit_row(OCP_MARK_INSPECT, "%s=0", OCP_K_BEACONS);
     } else {
         bool rsn = bi.has_rsn && !bi.rsn_malformed;
-        ocp_emit_row(OCP_MARK_INSPECT, "%s=%u %s=%d %s=%d %s=%d %s=%d %s=%llu %s=%u",
+        char akm[48];
+        beacon_format_akm(rsn ? bi.rsn_akm_mask : 0, akm, sizeof akm);
+        char cc_part[12] = "";
+        if (bi.has_country) {
+            snprintf(cc_part, sizeof cc_part, " %s=%s", OCP_K_COUNTRY, bi.country);
+        }
+        ocp_emit_row(OCP_MARK_INSPECT,
+                     "%s=%u %s=%d %s=%d %s=%d %s=%d %s=%llu %s=%u %s=%s %s=%u %s=%u %s=%d%s",
                      OCP_K_BEACONS, beacons, OCP_K_RSSI, rssi, OCP_K_RSN, rsn,
                      OCP_K_MFP_CAPABLE, rsn && bi.mfp_capable,
                      OCP_K_MFP_REQUIRED, rsn && bi.mfp_required,
                      OCP_K_UPTIME_S, (unsigned long long)(bi.tsf_us / 1000000ULL),
-                     OCP_K_INTERVAL_MS, (unsigned)((bi.interval_tu * 1024u + 500u) / 1000u));
+                     OCP_K_INTERVAL_MS, (unsigned)((bi.interval_tu * 1024u + 500u) / 1000u),
+                     OCP_K_AKM, akm,
+                     OCP_K_WIDTH, (unsigned)bi.chan_width_mhz,
+                     OCP_K_GEN, (unsigned)bi.wifi_gen,
+                     OCP_K_WPS, bi.has_wps ? 1 : 0,
+                     cc_part);
     }
     ocp_emit_end(OCP_MARK_INSPECT);
 

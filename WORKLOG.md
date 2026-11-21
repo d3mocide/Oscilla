@@ -1,3 +1,27 @@
+## 2026-11-21 — Richer 802.11 beacon & RSN inspection (WP-7)
+
+- Extended passive 802.11 beacon/probe-response parsing (`beacon_parse.{h,c}`)
+  and `[INSPECT]` output (`wifi_inspect.c`, OCP-SPEC §10.3) with additive
+  security and PHY posture keys (ignored by older decks):
+  - **RSN AKM suites (`akm=`):** parses IEEE `00:0F:AC` AKM entries inside RSN
+    IE 48 (`PSK`, `SAE`, `EAP`, `FT-PSK`, `FT-SAE`, `FT-EAP`, `OWE`).
+  - **Channel width & generation (`width=`, `gen=`):** derives `20/40/80/160 MHz`
+    and Wi-Fi 4/5/6 (`4`/`5`/`6`) from HT (45/61), VHT (191/192), and HE
+    extension (255/35,36) IEs.
+  - **Country IE & WPS (`cc=`, `wps=`):** validates 2-letter uppercase ASCII
+    Country IE (IE 7) and Wi-Fi Alliance WPS vendor IE (`00:50:F2:04`,
+    excluding WPA1 `00:50:F2:01`).
+  - **Deck (`firmware-cardputer`):** parsed into `model::Inspect` in
+    `scan_model.{h,cpp}` and rendered in the onboard `wifi_detail_view.cpp`
+    dossier when a live passive capture populates them.
+- **Checks:** `check_protocol.sh` (including 100k ASan/UBSan fuzzing on
+  `beacon_test`, extended `model_test`, and `check_rx_only.py`), mutation
+  proof (dropping the WPS type-4 check misclassifies WPA1 and trips
+  `beacon_test`), and `build_firmware.sh` (both `esp32c5` and `esp32s3` +
+  stack guards).
+- **Not yet verified on hardware:** live `inspect_network` against physical
+  Wi-Fi 6 / WPA3-SAE / WPS APs.
+
 ## 2026-11-21 — Multi-vendor BLE tracker classification (WP-6)
 
 - Extended passive BLE tracker detection beyond Apple Find My (`airtag`) to

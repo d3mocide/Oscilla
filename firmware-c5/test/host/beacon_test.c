@@ -128,6 +128,68 @@ static void known_answers(void)
 
     header(&f, 0x08, 0, 100);                        /* data frame */
     CHECK(parse_exact(f.b, f.n, &bi) == BEACON_NOT_MGMT_BEACON, "data frame rejected");
+
+    /* Richer RSN AKMs, HT/VHT/HE generation & width, Country IE, WPS vendor IE. */
+    {
+        header(&f, 0x80, 0, 100);
+        /* RSN with 2 AKMs: PSK (2) and SAE (8), MFPC=1 MFPR=0 */
+        uint8_t rsn_mixed[] = {
+            1, 0,
+            0x00, 0x0f, 0xac, 4,              /* group CCMP */
+            1, 0, 0x00, 0x0f, 0xac, 4,        /* pairwise CCMP */
+            2, 0,                             /* 2 AKMs */
+            0x00, 0x0f, 0xac, 2,              /* PSK */
+            0x00, 0x0f, 0xac, 8,              /* SAE */
+            0x80, 0x00,
+        };
+        ie(&f, 48, rsn_mixed, sizeof rsn_mixed);
+        uint8_t cc[] = { 'U', 'S', ' ', 1, 11, 20 };
+        ie(&f, 7, cc, sizeof cc);
+        uint8_t ht_op[] = { 36, 0x01 };       /* secondary channel above -> 40 MHz */
+        ie(&f, 61, ht_op, sizeof ht_op);
+        uint8_t vht_op[] = { 1, 42, 0 };      /* 80 MHz */
+        ie(&f, 192, vht_op, sizeof vht_op);
+        uint8_t he_cap[] = { 35, 0, 0, 0 };   /* ext ID 35 = HE Caps -> Wi-Fi 6 */
+        ie(&f, 255, he_cap, sizeof he_cap);
+        uint8_t wps[] = { 0x00, 0x50, 0xF2, 0x04, 0x10, 0x4A };
+        ie(&f, 221, wps, sizeof wps);
+
+        CHECK(parse_exact(f.b, f.n, &bi) == BEACON_OK, "rich beacon parses");
+        char akm[48];
+        beacon_format_akm(bi.rsn_akm_mask, akm, sizeof akm);
+        CHECK(strcmp(akm, "PSK,SAE") == 0, "RSN mixed PSK,SAE extracted");
+        CHECK(bi.wifi_gen == 6 && bi.chan_width_mhz == 80, "Wi-Fi 6 (HE) + 80 MHz width");
+        CHECK(bi.has_country && strcmp(bi.country, "US") == 0, "Country IE US parsed");
+        CHECK(bi.has_wps, "WPS vendor IE (00:50:F2:04) detected");
+    }
+    {
+        /* OWE + FT-SAE + VHT 160 MHz; non-ASCII country & non-WPS vendor IE rejected. */
+        header(&f, 0x80, 0, 100);
+        uint8_t rsn_owe[] = {
+            1, 0,
+            0x00, 0x0f, 0xac, 4,
+            1, 0, 0x00, 0x0f, 0xac, 4,
+            2, 0,
+            0x00, 0x0f, 0xac, 9,              /* FT-SAE */
+            0x00, 0x0f, 0xac, 18,             /* OWE */
+            0xC0, 0x00,
+        };
+        ie(&f, 48, rsn_owe, sizeof rsn_owe);
+        uint8_t bad_cc[] = { 'u', 's', ' ' }; /* lowercase rejected */
+        ie(&f, 7, bad_cc, sizeof bad_cc);
+        uint8_t vht160[] = { 2, 50, 0 };      /* 160 MHz */
+        ie(&f, 192, vht160, sizeof vht160);
+        uint8_t wpa_old[] = { 0x00, 0x50, 0xF2, 0x01 }; /* WPA1 IE, NOT WPS */
+        ie(&f, 221, wpa_old, sizeof wpa_old);
+
+        CHECK(parse_exact(f.b, f.n, &bi) == BEACON_OK, "OWE/160 beacon parses");
+        char akm[48];
+        beacon_format_akm(bi.rsn_akm_mask, akm, sizeof akm);
+        CHECK(strcmp(akm, "FT-SAE,OWE") == 0, "FT-SAE and OWE AKMs extracted");
+        CHECK(bi.wifi_gen == 5 && bi.chan_width_mhz == 160, "Wi-Fi 5 (VHT) + 160 MHz");
+        CHECK(!bi.has_country, "lowercase Country IE rejected");
+        CHECK(!bi.has_wps, "Microsoft OUI type 0x01 (WPA1) not misclassified as WPS");
+    }
     header(&f, 0x40, 0, 100);                        /* probe request */
     CHECK(parse_exact(f.b, f.n, &bi) == BEACON_NOT_MGMT_BEACON, "probe request rejected");
     CHECK(parse_exact(f.b, 35, &bi) == BEACON_TOO_SHORT, "35 bytes: too short");

@@ -257,6 +257,11 @@ typedef enum {
 #define OCP_K_PRIVACY           "privacy"  /* 802.11 capability privacy bit */
 #define OCP_K_MFP_CAPABLE       "mfp_capable"
 #define OCP_K_MFP_REQUIRED      "mfp_required"
+#define OCP_K_AKM               "akm"       /* [INSPECT]: comma-separated RSN AKMs */
+#define OCP_K_WIDTH             "width"     /* [INSPECT]: channel width MHz (20/40/80/160) */
+#define OCP_K_GEN               "gen"       /* [INSPECT]: Wi-Fi generation (0/4/5/6) */
+#define OCP_K_COUNTRY           "cc"        /* [INSPECT]: 2-letter Country IE code */
+#define OCP_K_WPS               "wps"       /* [INSPECT]: 1 if WPS vendor IE seen */
 #define OCP_K_UPTIME_S          "uptime_s"
 #define OCP_K_INTERVAL_MS       "interval_ms"
 #define OCP_K_FREQ              "freq"

@@ -222,6 +222,11 @@ void ScanModel::absorbInspect(const ocp::Item &frame)
         in.mfp_capable = kvLong(row, OCP_K_MFP_CAPABLE, 0, 1, 0) == 1;
         in.mfp_required = kvLong(row, OCP_K_MFP_REQUIRED, 0, 1, 0) == 1;
         in.interval_ms = static_cast<uint16_t>(kvLong(row, OCP_K_INTERVAL_MS, 0, 65535, 0));
+        if (const auto *akm = row.get(OCP_K_AKM)) in.akm = *akm;
+        in.width_mhz = static_cast<uint8_t>(kvLong(row, OCP_K_WIDTH, 0, 160, 0));
+        in.wifi_gen = static_cast<uint8_t>(kvLong(row, OCP_K_GEN, 0, 7, 0));
+        if (const auto *cc = row.get(OCP_K_COUNTRY); cc && cc->size() == 2) in.country = *cc;
+        in.wps = kvLong(row, OCP_K_WPS, 0, 1, 0) == 1;
         if (const auto *u = row.get(OCP_K_UPTIME_S)) {   /* 64-bit: long is 32-bit on the S3 */
             char *end = nullptr;
             errno = 0;

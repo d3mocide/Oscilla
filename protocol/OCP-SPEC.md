@@ -360,12 +360,13 @@ Passively captures beacons from one scanned AP on its channel:
 
 ```
 [INSPECT] BEGIN idx=1 bssid=aa:bb:cc:dd:ee:01 ch=6 band=2.4
-[INSPECT] beacons=3 rssi=-51 rsn=1 mfp_capable=1 mfp_required=0 uptime_s=1042311 interval_ms=102
+[INSPECT] beacons=3 rssi=-51 rsn=1 mfp_capable=1 mfp_required=0 uptime_s=1042311 interval_ms=102 akm=PSK,SAE width=40 gen=6 wps=0 cc=US
 [INSPECT] END
 ```
 
 - `beacons=0` means none were heard in the capture window; the other row keys are then omitted.
-- `rsn=0` means no RSN element (open or WEP); `mfp_*` are then `0`.
+- `rsn=0` means no RSN element (open or WEP); `mfp_*` are then `0` and `akm` is empty.
+- Additive posture keys (ignored by older decks): `akm` (comma-separated IEEE 802.11 RSN AKMs: `PSK`, `SAE`, `EAP`, `FT-PSK`, `FT-SAE`, `FT-EAP`, `OWE`), `width` (channel width in MHz: `20`/`40`/`80`/`160`), `gen` (Wi-Fi generation: `0`=legacy, `4`=HT, `5`=VHT, `6`=HE), `wps` (`1` if Wi-Fi Alliance WPS vendor IE `00:50:F2:04` was seen), and optional `cc` (2-letter uppercase Country IE code when valid).
 - `uptime_s` is the beacon TSF in seconds. Most APs reset it at boot, so it is uptime; some randomise it, so treat it as a hint.
 - An `idx` outside the stored results is `code=badarg`.
 
