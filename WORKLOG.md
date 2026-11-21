@@ -1,3 +1,37 @@
+## 2026-11-20 — "Probe stuck after deck flash" found: deck/probe lane desync
+
+- **Report (Will):** after flashing the deck without restarting the probe,
+  the probe sometimes seems stuck until a full power cycle.
+- **Ruled out on hardware** (probe Grove-powered from the deck, idle):
+  10 RTS resets, 5 ROM download-mode entries and 3 real reflashes all
+  reconnected in 4.4 s. No power dip, ROM-parking or UART-garbage hang
+  reproduced. The probe's line assembler discards over-long lines and its
+  idle read backs off, as designed.
+- **Reproduced with a busy probe:** LoRa RX + Wi-Fi live, then reset the
+  deck. The link came back `ready` in 5.2 s, but the probe still reported
+  `probe_owner=wifi` and kept listening while the fresh deck believed both
+  lanes idle. `lora config` and `wifiscan` then returned `err code=busy`,
+  `lora` did nothing visible, and the UI had no running mode to stop. A
+  power cycle "fixed" it only by making the probe forget too. `stop`
+  cleared it at once. The same desync applies after a link drop, because
+  the deck clears its BLE/spectrum/anti-surveillance state on any drop.
+- **Fix:** on every transition into `Ready`, the deck stops each probe lane
+  it does not believe is running (`app::reconcileStopLane`, one scoped
+  `stop`, always acked per OCP-SPEC §6). Lanes the deck still owns are
+  left alone, so a LoRa session it is still logging survives a link drop.
+  Starts issued meanwhile queue behind the pending stop (PHY handoff) or
+  follow it in order (LoRa).
+- **Checks:** new `link_reconcile_test` plus a wiring guard in
+  `check_protocol.sh`. Both mutants fail as expected (no stop on a fresh
+  link: test aborts; call removed: guard fails). Host gate, deck build and
+  stack guard pass.
+- **Hardware-confirmed:** flashed the fix while the probe was busy. On
+  reconnect `probe_owner=none`; `lora config` acked, `lora` started
+  recording, `wifiscan` acked. Not exercised: a real mid-session Grove
+  link drop with deck-owned LoRa (covered by the unit table only).
+- Open diagnostic gap: the probe never reports its reset reason, so a
+  brownout or watchdog restart is invisible from the deck.
+
 ## 2026-11-20 — v0.3.0 periodic use and two-hour soak PASSED
 
 - Run `/tmp/oscilla-periodic-long-v030-20261120-164039`, controller reused

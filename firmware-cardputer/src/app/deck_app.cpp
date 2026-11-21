@@ -116,6 +116,10 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
              * Ready, and must never fire later against something unrelated
              * after a reconnect. */
             pending_retry_ = nullptr;
+        } else if (const char *lane = reconcileStopLane(phyToolActive(),
+                                                        lora_.active() || lora_listen_pending_)) {
+            /* Stop leftovers from before a deck reboot or link drop. */
+            client_.stop(now_, lane);
         }
         dirty_ = true;
     });

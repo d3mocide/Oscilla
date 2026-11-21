@@ -28,6 +28,7 @@
 #include "app/deck_navigation.h"
 #include "model/session_review.h"
 #include "app/system_navigation.h"
+#include "app/link_reconcile.h"
 #include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
