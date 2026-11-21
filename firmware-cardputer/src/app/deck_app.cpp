@@ -177,6 +177,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
 
 void DeckApp::begin(uint32_t now_ms)
 {
+    idle_sleep_.begin(now_ms);
+    pollBatteryIfDue(now_ms);
     client_.connect(now_ms);
 }
 
@@ -895,7 +897,14 @@ void DeckApp::stopPhyForNavigation(uint32_t now_ms)
 void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
 {
     now_ = now_ms;
-    if (!keys.chars.empty() || keys.enter) log("keys=" + keys.chars + (keys.enter ? "<enter>" : ""));
+    if (!keys.chars.empty() || keys.enter) {
+        if (idle_sleep_.onActivity(now_ms)) {
+            log("display wake (key swallowed)");
+            dirty_ = true;
+            return;
+        }
+        log("keys=" + keys.chars + (keys.enter ? "<enter>" : ""));
+    }
     for (char c : keys.chars) {
         if (c == '`') {
             if (help_visible_) {
@@ -949,6 +958,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == ',') changeWifiRegion(app::cycleRegion(wifi_region_, -1).code);
             else if (c == '/') changeWifiRegion(app::cycleRegion(wifi_region_, 1).code);
             else if (c == 'b') changeWifiBand(app::cycleBand(wifi_band_, 1));
+            else if (c == 't') changeIdleTimeoutS(idle_sleep_.cycleTimeoutS(1, now_ms), now_ms);
             break;
         case Screen::Sweep:
             if (c == ';' && cursor_ > 0) cursor_--;
@@ -1204,6 +1214,28 @@ void DeckApp::sendWifiChannels(const std::string &arg, uint32_t now_ms)
     }
 }
 
+void DeckApp::changeIdleTimeoutS(uint16_t seconds, uint32_t now_ms)
+{
+    if (!idle_sleep_.setTimeoutS(seconds, now_ms)) {
+        notice("idle: 0 30 60 120 300");
+        return;
+    }
+    storage::saveIdleTimeoutS(seconds);
+    notice(std::string("idle sleep ") + IdleSleep::label(seconds));
+    log(std::string("idle_timeout_s=") + std::to_string(seconds));
+    dirty_ = true;
+}
+
+void DeckApp::pollBatteryIfDue(uint32_t now_ms)
+{
+    if (battery_polled_ && now_ms - last_battery_poll_ms_ < kBatteryPollMs) return;
+    battery_polled_ = true;
+    last_battery_poll_ms_ = now_ms;
+    cached_battery_pct_ = M5.Power.getBatteryLevel();
+    cached_charging_ = M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
+    battery_trend_.observe(cached_battery_pct_, cached_charging_, now_ms);
+}
+
 void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 {
     if (!debug_mode_) return;
@@ -1232,6 +1264,16 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "region") changeWifiRegion(arg);
     else if (cmd == "band") changeWifiBand(arg);
     else if (cmd == "channels") sendWifiChannels(arg, now_ms);
+    else if (cmd == "idle") {
+        uint64_t sec = 0;
+        if (arg == "off") sec = 0;
+        else if (!model::parseUnsigned(arg, &sec) || sec > UINT16_MAX ||
+                 !IdleSleep::isValidTimeoutS(static_cast<uint16_t>(sec))) {
+            log("debug: idle needs off|0|30|60|120|300");
+            return;
+        }
+        changeIdleTimeoutS(static_cast<uint16_t>(sec), now_ms);
+    }
     else if (cmd == "stop") {
         if (arg.empty() || arg == OCP_LANE_PHY) phy_handoff_.clear();
         client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
@@ -1456,10 +1498,16 @@ void DeckApp::tick(uint32_t now_ms)
             " chkfail=" + std::to_string(gnss_parser_.checksumFailures()) +
             " overlong=" + std::to_string(gnss_parser_.overlongLines()));
     }
+
+    pollBatteryIfDue(now_ms);
+    const auto idle_tr = idle_sleep_.tick(now_ms);
+    if (idle_tr == IdleTransition::EnterSleep) log("display sleep");
+    else if (idle_tr == IdleTransition::Wake) { log("display wake"); dirty_ = true; }
 }
 
 bool DeckApp::dirty(uint32_t now_ms) const
 {
+    if (idle_sleep_.sleeping()) return false;
     if (now_ms - last_draw_ms_ < kRedrawMs) return false;
     bool busy = (screen_==Screen::Logs&&session_review_.busy) || scan_.scanning() || scan_.continuousActive() || bt_.scanning() ||
                 (screen_ == Screen::Trace && client_.pending());
@@ -1487,12 +1535,7 @@ void DeckApp::draw(uint32_t now_ms)
         chrome.storage = storage::ready() ? ui::IndicatorState::Ready : ui::IndicatorState::Fault;
         const bool phy_active = phyEngineActive();
         chrome.rf = (phy_active || lora_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
-        if (!battery_polled_ || now_ms - last_battery_poll_ms_ >= kBatteryPollMs) {
-            battery_polled_ = true;
-            last_battery_poll_ms_ = now_ms;
-            cached_battery_pct_ = M5.Power.getBatteryLevel();
-            cached_charging_ = M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
-        }
+        pollBatteryIfDue(now_ms);
         chrome.battery_pct = cached_battery_pct_;
         chrome.charging = cached_charging_;
         chrome.live = phy_active || lora_.active();
@@ -1529,7 +1572,9 @@ void DeckApp::draw(uint32_t now_ms)
         const char *status = state != app::RegionState::Applied ? app::regionStateLabel(state)
                            : bstate == app::BandState::Pending ? "PENDING"
                            : app::regionStateLabel(state);
-        ui::drawSettingsView(brightness_, region.code, app::bandDisplayLabel(wifi_band_),
+        ui::drawSettingsView(brightness_, IdleSleep::label(idle_sleep_.timeoutS()),
+                             idle_sleep_.timeoutS() != 0,
+                             region.code, app::bandDisplayLabel(wifi_band_),
                              bstate == app::BandState::Applied, channels, status,
                              synced, makeChrome("SETTINGS"));
     }
@@ -1548,7 +1593,7 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Info:
         ui::drawInfoView(client_, probe_status_valid_, probe_heap_, probe_heap_total_, probe_uptime_ms_,
-                         makeChrome("SYSTEM"));
+                         battery_trend_, makeChrome("SYSTEM"));
         break;
     case Screen::Spectrum:
         ui::drawSpectrumView(spectrum_, spectrum_cursor_,

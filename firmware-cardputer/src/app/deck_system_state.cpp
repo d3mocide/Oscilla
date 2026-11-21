@@ -25,6 +25,7 @@ model::SystemStatus DeckApp::externalSystemState()const
     s.probe_valid=probe_status_valid_;s.probe_heap=probe_heap_;s.probe_total=probe_heap_total_;
     s.probe_uptime=probe_uptime_ms_;s.probe_sample_ms=last_status_reply_ms_;s.probe_sequence=probe_status_sequence_;s.probe_epoch=probe_status_epoch_;
     s.probe_owner=probe_owner_;s.probe_lora=probe_lora_;
+    s.battery_pct=cached_battery_pct_;s.battery_charging=cached_charging_;
     if(s.probe_owner==OCP_OWNER_WIFI){
         if(spectrum_.active())s.phy_task=spectrum_.locked()?"CHANNEL "+std::to_string(spectrum_.lockedChannel()):"CHANNEL SURVEY";
         else if(contacts_.sniffing())s.phy_task="SNIFFER";

@@ -187,6 +187,9 @@ python3 tools/check_deck_parser.py --count 150
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wifi_band_sync_test" \
     firmware-cardputer/test/host/wifi_band_sync_test.cpp
 "$out/wifi_band_sync_test"
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/idle_sleep_test" \
+    firmware-cardputer/test/host/idle_sleep_test.cpp
+"$out/idle_sleep_test"
 # The table only helps if the deck runs it when the link comes up.
 for wire in 'reconcileStopLane(phyToolActive()' 'reconcile_on_status_ = client_.send(OCP_V_STATUS' \
             'reconcileFromStatus(phyEngineActive()'; do

@@ -70,6 +70,18 @@ bool beginExternalTft()
     return status.initialized;
 }
 
+bool setExternalTftSleep(bool sleep)
+{
+    if (!status.initialized) return false;
+    if (status.sleeping == sleep) return true;
+    if (!storage::lock(20)) return false;
+    if (sleep) display.sleep();
+    else display.wakeup();
+    status.sleeping = sleep;
+    storage::unlock();
+    return true;
+}
+
 bool writeExternalTftRow(int y, const uint16_t *pixels)
 {
     return writeExternalTftSpan(y,0,320,pixels);
@@ -77,7 +89,7 @@ bool writeExternalTftRow(int y, const uint16_t *pixels)
 
 bool writeExternalTftSpan(int y,int x,int width,const uint16_t *pixels)
 {
-    if (!status.initialized || !pixels || y < 0 || y >= 240 || x<0 || width<=0 || width>320 || x>320-width) return false;
+    if (!status.initialized || status.sleeping || !pixels || y < 0 || y >= 240 || x<0 || width<=0 || width>320 || x>320-width) return false;
     if (!storage::lock(2)) return false;
     const uint32_t started=micros();
     display.pushImage(x, y, width, 1, pixels);

@@ -63,5 +63,38 @@ int main(){
     assert(n==3&&visited[0].age==11001&&visited[0].basis_points==2500&&!visited[0].connected);
     assert(visited[1].age==9000&&visited[1].basis_points==5000&&visited[1].connected);
     assert(visited[2].age==1000&&visited[2].basis_points==1000&&!visited[2].connected);
-    std::cout<<"system resources: cadence, deduplication, gaps, reboot, disconnect, bounds and clock wrap and automatic scale passed\n";
+
+    // BatteryTrend: honest slope, charging reset, bounce reset, and wrap-around.
+    model::BatteryTrend bt;
+    assert(!bt.valid() && !bt.hasEstimate() && bt.burnTenthPctPerHr()==0 && bt.estMinutes()==0);
+    bt.observe(-1,false,1000);
+    assert(!bt.valid() && !bt.hasEstimate());
+    // Charging never reports a discharge estimate.
+    bt.observe(90,true,2000);
+    bt.observe(85,true,120000);
+    assert(bt.valid() && bt.charging() && !bt.hasEstimate());
+    // Discharging needs >= 60 s and >= 2% drop before reporting a slope.
+    bt.observe(80,false,200000);
+    bt.observe(79,false,270000); // 70 s but only 1% drop
+    assert(!bt.hasEstimate());
+    bt.observe(78,false,250000); // only 50 s elapsed
+    assert(!bt.hasEstimate());
+    // 10% drop over 30 minutes (1,800,000 ms) => 20.0%/h (200 tenths), 70% left => 210 min.
+    bt.observe(80,false,300000); // bounce up resets anchor to (300000, 80)
+    assert(!bt.hasEstimate());
+    bt.observe(70,false,2100000);
+    assert(bt.hasEstimate());
+    assert(bt.burnTenthPctPerHr()==200);
+    assert(bt.estMinutes()==210);
+    // Plugging in resets anchor; unplugging starts fresh.
+    bt.observe(70,true,2105000);
+    assert(!bt.hasEstimate() && bt.charging());
+    // Unsigned millis() wrap-around: 600,000 ms (10 min), 4% drop => 24.0%/h, 46% left => 115 min.
+    bt.observe(50,false,UINT32_MAX-100000);
+    bt.observe(46,false,499999);
+    assert(bt.hasEstimate());
+    assert(bt.burnTenthPctPerHr()==240);
+    assert(bt.estMinutes()==115);
+
+    std::cout<<"system resources: cadence, deduplication, gaps, reboot, disconnect, bounds, clock wrap, auto scale and battery trend passed\n";
 }

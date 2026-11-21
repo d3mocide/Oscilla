@@ -31,7 +31,9 @@
 #include "app/link_reconcile.h"
 #include "app/wifi_region_sync.h"
 #include "app/wifi_band_sync.h"
+#include "app/idle_sleep.h"
 #include "app/phy_handoff.h"
+#include "model/system_resources.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
 #include "model/contacts_model.h"
@@ -139,6 +141,16 @@ public:
      * saved values at boot; unknown/empty becomes the default. */
     void setWifiRegion(const std::string &code) { wifi_region_ = app::regionOrDefault(code).code; }
     void setWifiBand(const std::string &code) { wifi_band_ = app::bandOrDefault(code); }
+    uint16_t idleTimeoutS() const { return idle_sleep_.timeoutS(); }
+    bool displaySleeping() const { return idle_sleep_.sleeping(); }
+    void setIdleTimeoutS(uint16_t seconds, uint32_t now_ms)
+    {
+        idle_sleep_.setTimeoutS(IdleSleep::sanitizeTimeoutS(seconds), now_ms);
+    }
+    void forceRedraw() { dirty_ = true; }
+    int batteryPct() const { return cached_battery_pct_; }
+    bool batteryCharging() const { return cached_charging_; }
+    const model::BatteryTrend &batteryTrend() const { return battery_trend_; }
 
     /* True when the screen should be redrawn. */
     bool dirty(uint32_t now_ms) const;
@@ -233,6 +245,8 @@ private:
     void changeWifiBand(const std::string &code);
     void pushWifiBandIfDue(uint32_t now_ms);
     void sendWifiChannels(const std::string &arg, uint32_t now_ms);
+    void changeIdleTimeoutS(uint16_t seconds, uint32_t now_ms);
+    void pollBatteryIfDue(uint32_t now_ms);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -353,6 +367,8 @@ private:
     /* Placeholder only — main.cpp overwrites this via setBrightness() at
      * boot from storage::loadBrightness(), same as debug_mode_ above. */
     uint8_t brightness_ = 160;
+    IdleSleep idle_sleep_;
+    model::BatteryTrend battery_trend_;
     uint16_t next_page_ = 0;
     uint32_t scan_started_ms_ = 0;
     bool scan_pending_ = false;

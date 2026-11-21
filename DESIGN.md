@@ -393,7 +393,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/contact_detail_view` | view | Onboard full identities, channel, RSSI, packets, snapshot age and missing-row state |
 | `src/ui/external_contact_detail_view` | view | Selected-client ego graph of reported AP or SSID-request links; no distance/bearing inference |
 | `src/ui/display_text` | view | Shared safe ASCII labels for deck renderers |
-| `src/model/system_resources` | model | Fixed 61-sample heap rings; 60-second percent plots, deduplicated probe replies, gaps and restart boundaries |
+| `src/model/system_resources` | model | Fixed 61-sample heap rings (60s auto-scale plots) and measured battery discharge trend (`BatteryTrend`); host-tested |
+| `src/app/idle_sleep` | app | Configurable idle display-sleep state machine (`OFF`/`30s`/`60s`/`2m`/`5m`, wake-key swallow); host-tested |
 | `src/model/system_status` | model | Plain snapshot of measured deck/probe diagnostics; framework independent |
 | `src/ui/external_system_view` | view | Lens Core startup, Link health and live heap/resource monitor with reported activity |
 | `src/ui/external_zig_view` | view | Passive PAN/node inventory, RSSI/LQI rails and selected MAC identity; no topology inference |

@@ -15,9 +15,10 @@
 namespace ui {
 
 /* `region_code` e.g. "US"; `band_label` e.g. "AUTO"/"2.4G"/"5G";
- * `region_channels` its hop summary ("1-11,36-48,149-165"); `region_status`
- * short caps text, `region_ok` true when probe matches region & band. */
-void drawSettingsView(uint8_t brightness, const char *region_code, const char *band_label,
+ * `idle_label` e.g. "OFF"/"60s"/"5m"; `region_channels` its hop summary;
+ * `region_status` short caps text, `region_ok` true when probe matches. */
+void drawSettingsView(uint8_t brightness, const char *idle_label, bool idle_enabled,
+                      const char *region_code, const char *band_label,
                       bool band_ok, const char *region_channels, const char *region_status,
                       bool region_ok, const ChromeState &chrome);
 

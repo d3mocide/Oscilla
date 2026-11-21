@@ -38,4 +38,9 @@ void saveWifiRegion(const std::string &code);
 std::string loadWifiBand();
 void saveWifiBand(const std::string &code);
 
+/* Idle display sleep timeout in seconds (0 = OFF, or 30/60/120/300).
+ * Caller validates with app::IdleSleep::sanitizeTimeoutS(). */
+uint16_t loadIdleTimeoutS();
+void saveIdleTimeoutS(uint16_t seconds);
+
 }  // namespace storage

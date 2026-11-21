@@ -86,6 +86,7 @@ uint32_t previous_deauth_count, scan_event_until, deauth_event_until;
 uint8_t frame_brightness;
 int next_strip = kStrips;
 bool enabled;
+bool display_sleeping;
 bool force_full_frame;
 model::SpectrumModel frame_spectrum;
 size_t frame_cursor;
@@ -166,6 +167,21 @@ bool beginExternalGpsDisplay()
     row_cache.validate();
     next_strip = kStrips;
     enabled = true;
+    display_sleeping = false;
+    return true;
+}
+
+bool setExternalGpsDisplaySleep(bool sleep, uint32_t now_ms)
+{
+    if (!enabled) return false;
+    if (!setExternalTftSleep(sleep)) return false;
+    display_sleeping = sleep;
+    if (!sleep) {
+        row_cache.invalidate();
+        force_full_frame = true;
+        next_strip = kStrips;
+        last_frame = now_ms;
+    }
     return true;
 }
 
@@ -180,7 +196,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
                             const model::SystemStatus *system, const ExternalCardState *card)
 {
     (void)bytes; (void)checksum_failures;
-    if (!enabled) return;
+    if (!enabled || display_sleeping) return;
     const ExternalView view = card&&card->sessions ? (card->sessions->stage==model::ReviewStage::Catalog?ExternalView::SessionCatalog:card->sessions->stage==model::ReviewStage::Summary?ExternalView::SessionSummary:card->sessions->stage==model::ReviewStage::Records?ExternalView::SessionRecords:ExternalView::SessionHex) : system ? (system->info ? ExternalView::Info : ExternalView::Link) :
                               scan ? ExternalView::Wifi :
                               zig ? (pans ? ExternalView::ZigPans : ExternalView::ZigNodes) :

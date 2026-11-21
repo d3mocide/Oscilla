@@ -9,6 +9,7 @@
 
 #include <cstdint>
 
+#include "model/system_resources.h"
 #include "ocp/ocp_client.h"
 #include "ui/chrome.h"
 
@@ -17,9 +18,9 @@ namespace ui {
 /* Deck-local readings (heap/uptime) are read directly from M5Unified
  * inside the view, same as other views touch M5Cardputer.Display directly
  * (DESIGN §7.1: the view layer is where framework-specific code belongs).
- * The probe's numbers, including heap_total for the gauge denominator, arrive
- * over OCP, so DeckApp owns and passes them in. */
+ * Probe numbers and the measured battery trend arrive from DeckApp. */
 void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t probe_heap,
-                  uint32_t probe_heap_total, uint64_t probe_uptime_ms, const ChromeState &chrome);
+                  uint32_t probe_heap_total, uint64_t probe_uptime_ms,
+                  const model::BatteryTrend &battery, const ChromeState &chrome);
 
 }  // namespace ui

@@ -16,5 +16,7 @@ struct SystemStatus {
     std::string probe_owner, probe_lora, phy_task;
     bool drive_logging = false, lora_logging = false;
     uint64_t probe_uptime = 0;
+    int battery_pct = -1;
+    bool battery_charging = false;
 };
 }

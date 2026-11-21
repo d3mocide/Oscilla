@@ -8,6 +8,7 @@
 namespace ui {
 void holdExternalTftReset() {}
 bool beginExternalTft() { return true; }
+bool setExternalTftSleep(bool) { return true; }
 bool writeExternalTftSpan(int, int, int, const uint16_t *) { return true; }
 }
 namespace storage {

@@ -105,7 +105,8 @@ void drawMetric(M5Canvas &d, int x, int y, const char *label, const char *value,
 }  // namespace
 
 void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t probe_heap,
-                  uint32_t probe_heap_total, uint64_t probe_uptime_ms, const ChromeState &chrome)
+                  uint32_t probe_heap_total, uint64_t probe_uptime_ms,
+                  const model::BatteryTrend &battery, const ChromeState &chrome)
 {
     auto &d = ui::canvas();
     beginChrome(chrome);
@@ -126,14 +127,43 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
     char probe_uptime[24];
     formatDuration(deck_uptime, sizeof deck_uptime, millis());
     formatDuration(probe_uptime, sizeof probe_uptime, probe_uptime_ms);
-    drawMetric(d, 4, kBodyTop + 67, "DECK UP", deck_uptime, kMutedSlate);
-    drawMetric(d, 124, kBodyTop + 67, "PROBE UP", probe_available ? probe_uptime : "--",
+    drawMetric(d, 4, kBodyTop + 65, "DECK UP", deck_uptime, kMutedSlate);
+    drawMetric(d, 124, kBodyTop + 65, "PROBE UP", probe_available ? probe_uptime : "--",
                probe_available ? kMutedSlate : kCalibrationYellow);
 
-    drawMetric(d, 4, kBodyTop + 83, "LINK", ocp::linkStateName(client.state()),
+    drawMetric(d, 4, kBodyTop + 77, "LINK", ocp::linkStateName(client.state()),
                ready ? kFieldGreen : kFaultRed);
-    drawMetric(d, 124, kBodyTop + 83, "SD", storage::ready() ? "READY" : "ABSENT",
+    drawMetric(d, 124, kBodyTop + 77, "SD", storage::ready() ? "READY" : "ABSENT",
                storage::ready() ? kFieldGreen : kFaultRed);
+
+    char bat_buf[18] = "--";
+    char est_buf[18] = "--";
+    uint16_t bat_col = kMutedSlate;
+    uint16_t est_col = kMutedSlate;
+    if (battery.valid()) {
+        if (battery.charging()) {
+            std::snprintf(bat_buf, sizeof bat_buf, "%d%% CHG", battery.pct());
+            std::snprintf(est_buf, sizeof est_buf, "CHARGING");
+            bat_col = kFieldGreen;
+            est_col = kFieldGreen;
+        } else if (battery.hasEstimate()) {
+            const uint32_t burn = battery.burnTenthPctPerHr();
+            const uint32_t mins = battery.estMinutes();
+            std::snprintf(bat_buf, sizeof bat_buf, "%d%% -%lu.%lu/h", battery.pct(),
+                          static_cast<unsigned long>(burn / 10),
+                          static_cast<unsigned long>(burn % 10));
+            std::snprintf(est_buf, sizeof est_buf, "~%luh %02lum",
+                          static_cast<unsigned long>(mins / 60),
+                          static_cast<unsigned long>(mins % 60));
+            bat_col = battery.pct() <= 20 ? kFaultRed : kCalibrationYellow;
+            est_col = mins <= 30 ? kFaultRed : kFieldGreen;
+        } else {
+            std::snprintf(bat_buf, sizeof bat_buf, "%d%%", battery.pct());
+            bat_col = battery.pct() <= 20 ? kFaultRed : kPaperPhosphor;
+        }
+    }
+    drawMetric(d, 4, kBodyTop + 89, "BAT", bat_buf, bat_col);
+    drawMetric(d, 124, kBodyTop + 89, "EST", est_buf, est_col);
 
     endChrome(chrome);
 }

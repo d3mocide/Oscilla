@@ -48,6 +48,9 @@ struct ExternalCardState {
 void holdExternalGpsDisplayReset();
 /* Call after storage::begin(); sends startup through the native TFT driver. */
 bool beginExternalGpsDisplay();
+/* Put the external panel to sleep / wake it under the shared SPI lock;
+ * skips strip redraws while asleep and forces a full repaint after wake. */
+bool setExternalGpsDisplaySleep(bool sleep, uint32_t now_ms);
 /* One strip per call, changed 40-pixel spans only; 50/250 ms frame targets.
  * Model samples remain coherent for each ten-strip frame. */
 void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,

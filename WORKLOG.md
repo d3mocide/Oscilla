@@ -1,3 +1,43 @@
+## 2026-11-21 — Idle display sleep & measured battery discharge trend (WP-5)
+
+- **Idle display sleep (`firmware-cardputer`):**
+  - Added pure-C++ `app/idle_sleep.h` (`OFF`/`30s`/`60s`/`2m`/`5m`, default `OFF`,
+    clock-wrap safe, swallows the waking key press so it never triggers an action
+    on the active card).
+  - Persisted under `/oscilla/idle_timeout` (`storage/settings.{h,cpp}`), wired
+    to `t` on Settings (`ui/settings_view.{h,cpp}`), `idle <off|0|30|60|120|300>`
+    debug command, and `dump`/`display_status`.
+  - Added shared-lock-guarded `setExternalTftSleep(bool)` (`ui/external_tft.{h,cpp}`)
+    and `setExternalGpsDisplaySleep(bool, now_ms)` (`ui/external_gps_display.{h,cpp}`):
+    internal LCD turns backlight off + `sleep()`; external ST7789 enters `SLPIN`
+    and halts SPI2 redraws (per Rev D §5.1, `BLK` stays on 3.3 V so GNSS is never
+    interrupted) and invalidates the row diff cache on wake.
+- **Measured battery burn-rate / runtime slope (`model/system_resources.h`):**
+  - Added `model::BatteryTrend` (pure C++, zero heap): samples `M5.Power`
+    periodically inside `DeckApp::tick()` (even while displays are asleep),
+    requires >= 60 s elapsed and >= 2% discharging drop before reporting
+    `%/h` and estimated remaining minutes (`EST`), resets anchor on charging or
+    voltage bounce, and renders on onboard `ui/info_view.cpp` + `dump`.
+- **Checks:** `check_protocol.sh` (new `idle_sleep_test`, extended
+  `system_resources_test`, extended `check_external_tft.py` with sleep lock-bypass
+  mutation), mutation proofs (wake-swallow disabled and `kMinDropPct=1` both fail
+  host tests), and `build_firmware.sh` (both `esp32c5` and `esp32s3` + stack
+  guards: `loop()` 1040/2048 B, `runDebugCommand()` 384/2048 B).
+- **Not yet verified on hardware:** live display sleep/wake transition and
+  battery discharge slope on the physical Cardputer ADV (planned next after WP-10).
+
+## 2026-11-21 — WP-1 (`lora_listen` concurrent startup) hardware closure
+
+- Tested `lora_listen` start/stop directly under active continuous `wifiscan`
+  bursts on connected bench hardware (probe `38:44:BE:BF:D2:94` + deck
+  `50:78:7D:CE:6D:64`): **6/6 cycles** succeeded cleanly in **~140 ms**
+  round-trip with `link_timeouts=0` and zero probe errors.
+- Root-caused the original 2026-11-20 timeout to the deck-side O(N²)
+  `SD.exists()` session-numbering stall inside `loraLogBegin()` (~6 s with
+  many saved sessions), which was already resolved by commit `858e6e7`
+  (`nextFreeSession()` single `readdir` walk). No probe-side dispatch task
+  churn is needed; marked closed in `ROADMAP.md`.
+
 ## 2026-11-21 — Flash & live bench verification of WP-2/WP-4/WP-6/WP-7 (+ two hardware-found fixes)
 
 - Flashed both boards by USB serial ID with verified hashes:

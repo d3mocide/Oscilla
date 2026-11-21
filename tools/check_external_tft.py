@@ -27,7 +27,7 @@ namespace storage { bool lock(unsigned); void unlock(); }
 #include <cstdint>
 #include <cassert>
 extern bool held, init_ok;
-extern unsigned initializations, images;
+extern unsigned initializations, images, sleeps, wakeups;
 namespace lgfx {
 struct Bus_SPI {
     struct Config { int spi_host=-1,spi_mode=-1,pin_sclk=-1,pin_mosi=-1,pin_miso=-1,pin_dc=-1;
@@ -48,6 +48,8 @@ struct LGFX_Device {
     void setRotation(int r) { assert(held && r==1); }
     void setColorDepth(int d) { assert(held && d==16); }
     void setSwapBytes(bool b) { assert(held && b); }
+    void sleep() { assert(held); ++sleeps; }
+    void wakeup() { assert(held); ++wakeups; }
     void pushImage(int x,int y,int w,int h,const uint16_t* p) {
         assert(held && x>=0 && x+w<=320 && y>=0 && y<240 && w>0 && h==1 && p); ++images;
     }
@@ -58,7 +60,7 @@ struct LGFX_Device {
         test.write_text("""#include <cassert>
 #include "ui/external_tft.h"
 bool held=false, init_ok=false, allow_lock=true;
-unsigned initializations=0, images=0;
+unsigned initializations=0, images=0, sleeps=0, wakeups=0;
 void digitalWrite(int,int) {}
 void pinMode(int,int) {}
 uint32_t micros() { static uint32_t n=0; return n+=100; }
@@ -69,6 +71,7 @@ void unlock() { assert(held); held=false; }
 int main() {
     uint16_t row[320]{};
     assert(!ui::writeExternalTftRow(0,row));
+    assert(!ui::setExternalTftSleep(true) && sleeps==0);
     allow_lock=false;
     assert(!ui::beginExternalTft() && initializations==0 && !held);
     allow_lock=true;
@@ -82,6 +85,7 @@ int main() {
     assert(images==0);
     allow_lock=false;
     assert(!ui::writeExternalTftRow(0,row) && images==0);
+    assert(!ui::setExternalTftSleep(true) && sleeps==0 && !ui::externalTftStatus().sleeping);
     allow_lock=true;
     assert(ui::writeExternalTftRow(239,row) && images==1 && !held);
     assert(ui::externalTftStatus().rows_sent==1);
@@ -91,6 +95,11 @@ int main() {
     assert(ui::writeExternalTftSpan(0,280,40,row));
     assert(ui::externalTftStatus().pixels_sent==360);
     assert(ui::externalTftStatus().max_span_us==100);
+    assert(ui::setExternalTftSleep(true) && sleeps==1 && ui::externalTftStatus().sleeping && !held);
+    assert(ui::setExternalTftSleep(true) && sleeps==1);
+    assert(!ui::writeExternalTftRow(0,row) && images==2);
+    assert(ui::setExternalTftSleep(false) && wakeups==1 && !ui::externalTftStatus().sleeping && !held);
+    assert(ui::writeExternalTftRow(0,row) && images==3 && !held);
 }
 """)
 
@@ -108,6 +117,9 @@ int main() {
         assert "if (!storage::lock(2)) return false;" in text
         mutated.write_text(text.replace("if (!storage::lock(2)) return false;", ""))
         assert run(mutated) != 0, "unlocked TFT traffic went undetected"
+        assert "if (sleep) display.sleep();" in text
+        mutated.write_text(text.replace("if (!storage::lock(20)) return false;\n    if (sleep)", "if (sleep)"))
+        assert run(mutated) != 0, "unlocked TFT sleep went undetected"
     print("external TFT: shared controller/pins, init failures, row bounds, lock failures and rejected lock-bypass mutation passed")
 
 

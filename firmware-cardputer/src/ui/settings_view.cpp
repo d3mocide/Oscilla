@@ -34,7 +34,8 @@ void panel(M5Canvas &d, int y, int h)
 
 }  // namespace
 
-void drawSettingsView(uint8_t brightness, const char *region_code, const char *band_label,
+void drawSettingsView(uint8_t brightness, const char *idle_label, bool idle_enabled,
+                      const char *region_code, const char *band_label,
                       bool band_ok, const char *region_channels, const char *region_status,
                       bool region_ok, const ChromeState &chrome)
 {
@@ -42,12 +43,18 @@ void drawSettingsView(uint8_t brightness, const char *region_code, const char *b
     beginChrome(chrome);
     d.setTextSize(1);
 
-    /* Brightness: label, hero percentage, segmented bar on the right. */
+    /* Brightness + idle display sleep: label, sleep preset on right, hero %, bar. */
     const int top = kBodyTop + 2;
     panel(d, top, 44);
     d.setCursor(10, top + 6);
     d.setTextColor(kMutedSlate, kPanelDark);
     d.print("DISPLAY BRIGHTNESS");
+    char sbuf[16];
+    std::snprintf(sbuf, sizeof sbuf, "SLEEP %s", idle_label ? idle_label : "OFF");
+    const int sw = static_cast<int>(std::strlen(sbuf)) * kCharW;
+    d.setCursor(kPanelX + kPanelW - 6 - sw, top + 6);
+    d.setTextColor(idle_enabled ? kFieldGreen : kMutedSlate, kPanelDark);
+    d.print(sbuf);
 
     const unsigned pct = (brightness * 100U + 127U) / 255U;
     char pbuf[12];
@@ -83,7 +90,7 @@ void drawSettingsView(uint8_t brightness, const char *region_code, const char *b
 
     d.setCursor(6, rtop + 37);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.print("; . BRT  , / REG  b BAND  ` LINK");
+    d.print(";.BRT ,/REG b:BND t:SLP `LNK");
 
     endChrome(chrome);
 }

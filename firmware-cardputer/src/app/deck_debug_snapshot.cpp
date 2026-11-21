@@ -20,6 +20,12 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("probe_region",probe_region_);
     line.field("wifi_band",wifi_band_);
     line.field("probe_band",probe_band_);
+    line.field("idle_timeout_s",idle_sleep_.timeoutS());
+    line.field("display_sleeping",idle_sleep_.sleeping());
+    line.field("battery_pct",cached_battery_pct_);
+    line.field("battery_chg",cached_charging_);
+    line.field("battery_burn_x10",battery_trend_.burnTenthPctPerHr());
+    line.field("battery_est_min",battery_trend_.estMinutes());
     line.field("bt_live",bt_.continuousActive());
     line.field("bt_scanning",bt_.scanning());
     line.field("bt_tracker",bt_.airtagActive());

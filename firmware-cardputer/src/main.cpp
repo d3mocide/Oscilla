@@ -82,6 +82,7 @@ void setup()
         g_app.setBrightness(brightness);
         g_app.setWifiRegion(storage::loadWifiRegion());
         g_app.setWifiBand(storage::loadWifiBand());
+        g_app.setIdleTimeoutS(storage::loadIdleTimeoutS(), millis());
     }
 
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not
@@ -138,6 +139,26 @@ void logDeckMemory(const char *tag, uint32_t uptime_ms)
                   (unsigned)uxTaskGetStackHighWaterMark(nullptr),
                   (unsigned long)(uptime_ms / 1000));
 }
+
+void syncDisplaySleep(bool want_sleep, uint32_t now_ms)
+{
+    static bool internal_sleeping = false;
+    if (want_sleep != internal_sleeping) {
+        internal_sleeping = want_sleep;
+        if (want_sleep) {
+            M5Cardputer.Display.setBrightness(0);
+            M5Cardputer.Display.sleep();
+        } else {
+            M5Cardputer.Display.wakeup();
+            M5Cardputer.Display.setBrightness(g_app.brightness());
+            g_app.forceRedraw();
+        }
+    }
+    const auto &tft = ui::externalTftStatus();
+    if (tft.initialized && tft.sleeping != want_sleep) {
+        ui::setExternalGpsDisplaySleep(want_sleep, now_ms);
+    }
+}
 }  // namespace
 
 void loop()
@@ -189,7 +210,7 @@ void loop()
                               (unsigned long)render.frames,(unsigned long)render.last_frame_us,
                               (unsigned long)render.max_frame_us,(unsigned long)tft.pixels_sent,
                               (unsigned long)tft.max_span_us);
-                Serial.printf("deck tft_status initialized=%u rows_sent=%lu clock_hz=%lu driver=ST7789 readback=none\n", tft.initialized, (unsigned long)tft.rows_sent, (unsigned long)tft.clock_hz);
+                Serial.printf("deck tft_status initialized=%u sleeping=%u rows_sent=%lu clock_hz=%lu driver=ST7789 readback=none\n", tft.initialized, tft.sleeping, (unsigned long)tft.rows_sent, (unsigned long)tft.clock_hz);
                 const auto &a = storage::sdActivity();
                 const auto &l = storage::loraLogStats();
                 const auto &w = storage::wardriveLogStats();
@@ -225,6 +246,7 @@ void loop()
         keys.enter = ks.enter;
         g_app.onKeys(keys, now);
     }
+    syncDisplaySleep(g_app.displaySleeping(), now);
 
     if (g_app.dirty(now)) g_app.draw(now);
     static model::SystemStatus external_system;
