@@ -166,6 +166,8 @@ private:
     bool phyEngineActive() const;
     bool phyToolActive() const;
     bool preparePhyStart(PhyHandoff::Start start, uint32_t now_ms);
+    void clearPhyBelief();
+    void clearLoraBelief();
     void stopPhy(uint32_t now_ms);
     void stopPhyForNavigation(uint32_t now_ms);
     void toggleWifiContinuous(uint32_t now_ms);
@@ -296,6 +298,7 @@ private:
     bool bt_airtag_pending_ = false;
     bool spectrum_start_pending_ = false;
     PhyHandoff phy_handoff_;
+    bool reconcile_on_status_ = false;
 
     /* Queued because the client couldn't send yet (something else was
      * still pending) - retried once that clears, see retrySoon(). */

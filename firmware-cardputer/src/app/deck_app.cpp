@@ -121,6 +121,10 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             /* Stop leftovers from before a deck reboot or link drop. */
             client_.stop(now_, lane);
         }
+        if (s == ocp::LinkState::Ready) {
+            /* The probe may have rebooted while we were away: its status wins. */
+            reconcile_on_status_ = client_.send(OCP_V_STATUS, now_);
+        }
         dirty_ = true;
     });
     client_.onReset([this] {
@@ -290,6 +294,14 @@ void DeckApp::onReply(const ocp::Item &it)
                 ++probe_status_sequence_;
                 probe_status_valid_ = true;
                 last_status_reply_ms_ = now_;
+                if (reconcile_on_status_) {
+                    reconcile_on_status_ = false;
+                    const auto clear = reconcileFromStatus(phyEngineActive(), lora_.active(),
+                                                           probe_owner_, probe_lora_);
+                    if (clear.phy) clearPhyBelief();
+                    if (clear.lora) clearLoraBelief();
+                    if (clear.phy || clear.lora) notice("probe restarted - modes stopped");
+                }
             }
         }
     } else if (it.tag == OCP_MARK_STOP) {
@@ -297,25 +309,8 @@ void DeckApp::onReply(const ocp::Item &it)
          * probe omits lane=, and stopped everything. */
         const auto *lane = it.get(OCP_K_LANE);
         bool all = !lane || *lane == OCP_LANE_ALL;
-        if (all || *lane == OCP_LANE_PHY) {
-            anti_start_pending_ = false;
-            bt_scan_pending_ = false;
-            bt_continuous_pending_ = false;
-            bt_airtag_pending_ = false;
-            spectrum_start_pending_ = false;
-            scan_.stop();
-            contacts_.stopSniffing();
-            spectrum_.stop();
-            deauth_.stop();
-            bt_.stop();
-            anti_.stop();
-            zig_.stop();
-        }
-        if (all || *lane == OCP_LANE_LORA) {
-            lora_.stop();
-            storage::loraLogHealth(lora_.health());
-            storage::loraLogEnd();
-        }
+        if (all || *lane == OCP_LANE_PHY) clearPhyBelief();
+        if (all || *lane == OCP_LANE_LORA) clearLoraBelief();
         if (all || *lane == OCP_LANE_PHY) {
             PhyHandoff::Start start;
             if (phy_handoff_.takeAfterStop(&start)) start(now_);
@@ -440,6 +435,29 @@ bool DeckApp::phyEngineActive() const
     return scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
            spectrum_.active() || deauth_.active() || bt_.scanning() || bt_.continuousActive() ||
            bt_.airtagActive() || anti_.active() || zig_.active();
+}
+
+void DeckApp::clearPhyBelief()
+{
+    anti_start_pending_ = false;
+    bt_scan_pending_ = false;
+    bt_continuous_pending_ = false;
+    bt_airtag_pending_ = false;
+    spectrum_start_pending_ = false;
+    scan_.stop();
+    contacts_.stopSniffing();
+    spectrum_.stop();
+    deauth_.stop();
+    bt_.stop();
+    anti_.stop();
+    zig_.stop();
+}
+
+void DeckApp::clearLoraBelief()
+{
+    lora_.stop();
+    storage::loraLogHealth(lora_.health());
+    storage::loraLogEnd();
 }
 
 bool DeckApp::phyToolActive() const

@@ -161,8 +161,11 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/link_reconcile_test.cpp
 "$out/link_reconcile_test"
 # The table only helps if the deck runs it when the link comes up.
-grep -q 'reconcileStopLane(phyToolActive()' firmware-cardputer/src/app/deck_app.cpp \
-    || { echo "deck_app.cpp no longer reconciles probe lanes on Ready" >&2; exit 1; }
+for wire in 'reconcileStopLane(phyToolActive()' 'reconcile_on_status_ = client_.send(OCP_V_STATUS' \
+            'reconcileFromStatus(phyEngineActive()'; do
+    grep -qF "$wire" firmware-cardputer/src/app/deck_app.cpp \
+        || { echo "deck_app.cpp no longer reconciles with the probe on Ready: $wire" >&2; exit 1; }
+done
 
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contact_inspection_test" \
     firmware-cardputer/test/host/contact_inspection_test.cpp firmware-cardputer/src/model/contacts_model.cpp \

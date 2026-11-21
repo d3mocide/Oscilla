@@ -1,3 +1,45 @@
+## 2026-11-20 — Stability hunt: probe-reboot desync fixed; four tests clean
+
+Live deck + Grove-powered probe, v0.3.0 plus the lane-reconcile fix.
+Receive-only commands throughout. Harness kept outside the repo.
+
+- **Probe heap fragmentation (50 Wi-Fi snapshots):** largest free block
+  61,440 B after every snapshot, free 99,112–99,124 B, no errors. The
+  earlier 77,824 → 61,440 B drop is a one-time settle after the first
+  snapshot since boot, not a ratchet.
+- **Probe reboot mid-session — bug found and fixed.** `reboot` during LoRa
+  RX + Wi-Fi live: the probe was back idle in 3.9 s, but the deck kept
+  `wifi_live=1`, `lora_active=1` and **its LoRa recording open** for a dead
+  session, and `wifiscan` toggled "off" instead of starting. 3/3. The
+  deck only cleared state for an *unsolicited* `[HELLO]` while `Ready`;
+  a deck-commanded reboot, or a crash that drops the link first (boot
+  3.9 s > 3 s ping), skipped it. **Fix:** on entering `Ready` the deck
+  also requests `status`, and the first reply clears any lane the deck
+  believes in but the probe reports idle (`owner=none`, `lora` not `rx`),
+  through the same path as a `[STOP]` reply, so the recording closes.
+  Missing keys never clear. Host tests extended and wiring guard widened;
+  mutants (never clear PHY, no status on Ready) both caught. On hardware:
+  3/3 consistent, `lora_open=0`, zero write errors, Wi-Fi restarts.
+  Deck-reset regression from the first fix still passes.
+- **Rapid mode switching (40 random bursts) and LoRa toggling (30):** no
+  stuck state. Snapshot-mode mismatches self-healed within 3 s (the deck
+  pauses status polling during snapshots, so the owner it shows lags);
+  LoRa converged on a fresh status 30/30. `busy` errors from overlapping
+  starts are expected. Start-immediately-after-reconnect race: 5/5
+  consistent.
+- **"1.21 s loop stall" corrected:** `max_cycle_us` is the external
+  display's frame latency, rendered one strip per loop pass, not a
+  blocked loop. Fresh-deck attribution: about 250–275 ms for most
+  actions, 353 ms with LoRa SD logging, **819 ms with LoRa logging +
+  Wi-Fi live**. The external panel refreshes about once a second in that
+  mode; the keyboard and link keep running. Low priority.
+- **Pre-existing, open:** starting LoRa while Wi-Fi live runs produces one
+  reply timeout every time (`link_timeouts` +1; the link stays `Ready`
+  and LoRa does start). Same on the fix-1-only image (`835e3e7`), so not
+  introduced here. `lora_listen` starts the SX1262 synchronously in the
+  probe's dispatch task; identifying the timed-out verb needs the probe
+  USB console.
+
 ## 2026-11-20 — "Probe stuck after deck flash" found: deck/probe lane desync
 
 - **Report (Will):** after flashing the deck without restarting the probe,
