@@ -109,6 +109,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             bt_.stop();
             spectrum_.stop();
             probe_status_valid_ = false;
+            probe_region_.clear();
+            region_push_pending_ = false;
             probe_heap_ = 0;
             probe_heap_total_ = 0;
             probe_uptime_ms_ = 0;
@@ -123,6 +125,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         }
         if (s == ocp::LinkState::Ready) {
             if (!client_.probe().rst.empty()) log("probe rst=" + client_.probe().rst);
+            probe_region_ = client_.probe().region;
+            region_push_attempted_ = false;
             /* The probe may have rebooted while we were away: its status wins. */
             reconcile_on_status_ = client_.send(OCP_V_STATUS, now_);
         }
@@ -192,6 +196,13 @@ void DeckApp::onReply(const ocp::Item &it)
     dirty_ = true;
     if (it.kind == ocp::ItemKind::Pong) { last_reply_ = "pong"; return; }
 
+    if (it.kind == ocp::ItemKind::Error && region_push_pending_) {
+        /* Usually `busy`: the next idle moment retries (kRegionRetryMs). */
+        region_push_pending_ = false;
+        const auto *code = it.get(OCP_K_CODE);
+        log(std::string("set_region refused code=") + (code ? *code : "?"));
+        return;
+    }
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         lora_config_pending_ = false;   /* rejected: probe and model both keep the previous config */
@@ -236,6 +247,19 @@ void DeckApp::onReply(const ocp::Item &it)
     }
 
     last_reply_ = it.tag;
+    if (it.tag == OCP_MARK_CFG && region_push_pending_) {
+        region_push_pending_ = false;
+        region_push_attempted_ = false;   /* landed: a newer pick may go at once */
+        const auto *region = it.get(OCP_K_REGION);
+        if (region) probe_region_ = *region;
+        log("wifi region applied " + probe_region_);
+        if (region_notice_pending_ && probe_region_ == wifi_region_) {
+            region_notice_pending_ = false;
+            char summary[64];
+            ocp_wifi_region_summary(&app::regionOrDefault(wifi_region_), summary, sizeof summary);
+            notice("wifi region " + wifi_region_ + ": ch " + summary);
+        }
+    }
     if (it.tag == OCP_MARK_CFG && lora_config_pending_) {
         lora_config_pending_ = false;
         const auto &c = lora_config_sent_;
@@ -292,6 +316,8 @@ void DeckApp::onReply(const ocp::Item &it)
                 const auto *owner=it.get(OCP_K_OWNER), *lora=it.get(OCP_LANE_LORA);
                 probe_owner_=owner?*owner:std::string{};
                 probe_lora_=lora?*lora:std::string{};
+                const auto *region=it.get(OCP_K_REGION);
+                probe_region_=region?*region:std::string{};
                 ++probe_status_sequence_;
                 probe_status_valid_ = true;
                 last_status_reply_ms_ = now_;
@@ -895,6 +921,8 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         case Screen::Settings:
             if (c == ';') adjustBrightness(1);
             else if (c == '.') adjustBrightness(-1);
+            else if (c == ',') changeWifiRegion(app::cycleRegion(wifi_region_, -1).code);
+            else if (c == '/') changeWifiRegion(app::cycleRegion(wifi_region_, 1).code);
             break;
         case Screen::Sweep:
             if (c == ';' && cursor_ > 0) cursor_--;
@@ -1064,6 +1092,40 @@ void DeckApp::adjustBrightness(int direction)
     dirty_ = true;
 }
 
+void DeckApp::changeWifiRegion(const std::string &code)
+{
+    const ocp_wifi_region_t *r = ocp_wifi_region_find(code.c_str());
+    if (!r) {
+        notice("unknown region " + code);
+        return;
+    }
+    wifi_region_ = r->code;
+    storage::saveWifiRegion(wifi_region_);
+    region_push_attempted_ = false;
+    region_notice_pending_ = true;
+    log("wifi region set " + wifi_region_);
+    if (client_.state() == ocp::LinkState::Ready && !probe_region_.empty() &&
+        probe_region_ != wifi_region_ && phyToolActive()) {
+        notice(std::string("region ") + r->code + " - applies when radio idle");
+    }
+    dirty_ = true;
+}
+
+void DeckApp::pushWifiRegionIfDue(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready || client_.pending() || client_.stopPending() ||
+        next_page_ || pending_retry_ || phy_handoff_.queued()) return;
+    const bool idle = !phyToolActive() && (probe_owner_.empty() || probe_owner_ == "none");
+    if (!app::regionPushDue(wifi_region_, probe_region_, idle, region_push_attempted_,
+                            now_ms - region_push_ms_)) return;
+    if (client_.send(std::string(OCP_V_SET_REGION) + " " + wifi_region_, now_ms)) {
+        region_push_pending_ = true;
+        region_push_attempted_ = true;
+        region_push_ms_ = now_ms;
+        log("set_region " + wifi_region_);
+    }
+}
+
 void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
 {
     if (!debug_mode_) return;
@@ -1089,6 +1151,7 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "ping") client_.send(OCP_V_PING, now_ms);
     else if (cmd == "status") client_.send(OCP_V_STATUS, now_ms);
     else if (cmd == "reboot") client_.send(OCP_V_REBOOT, now_ms);
+    else if (cmd == "region") changeWifiRegion(arg);
     else if (cmd == "stop") {
         if (arg.empty() || arg == OCP_LANE_PHY) phy_handoff_.clear();
         client_.stop(now_ms, arg.empty() ? OCP_LANE_ALL : arg);
@@ -1284,6 +1347,7 @@ void DeckApp::tick(uint32_t now_ms)
         last_lora_health_poll_ms_ = now_ms;
         client_.send(OCP_V_LORA_STATUS, now_ms);
     }
+    pushWifiRegionIfDue(now_ms);
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
         !pending_retry_ && !phy_handoff_.queued() && !scan_.scanning() && !bt_.scanning() &&
         now_ms-last_status_poll_ms_>=kInfoPollMs) {
@@ -1372,7 +1436,15 @@ void DeckApp::draw(uint32_t now_ms)
         ui::drawLinkView(client_, link_cursor_, makeChrome("LINK"));
         break;
     case Screen::Settings:
-        ui::drawSettingsView(brightness_, makeChrome("SETTINGS"));
+    {
+        const auto &region = app::regionOrDefault(wifi_region_);
+        char channels[64];
+        ocp_wifi_region_summary(&region, channels, sizeof channels);
+        const auto state = app::regionState(client_.state() == ocp::LinkState::Ready,
+                                            wifi_region_, probe_region_);
+        ui::drawSettingsView(brightness_, region.code, channels, app::regionStateLabel(state),
+                             state == app::RegionState::Applied, makeChrome("SETTINGS"));
+    }
         break;
     case Screen::Sweep:
         ui::drawSweepView(scan_, cursor_, now_ms - scan_started_ms_,

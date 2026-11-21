@@ -158,6 +158,7 @@ void wifi_cmd_start_sniffer(void)
     sniff_track_reset(s_track);
     s_total_pkts = 0;
     s_chan_idx = 0;
+    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
     s_started_us = esp_timer_get_time();
     xSemaphoreGive(s_lock);
 

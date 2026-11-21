@@ -1,7 +1,7 @@
 /*
  * settings_view.h — the System Settings card: on-device flags persisted to
- * the SD card (storage::settings, DESIGN §7.6). Display brightness today,
- * more later, same one-flag-file-per-setting shape as debug mode.
+ * the SD card (storage::settings, DESIGN §7.6): display brightness and the
+ * Wi-Fi region (OCP-SPEC §10.8), one flag file per setting.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -14,6 +14,10 @@
 
 namespace ui {
 
-void drawSettingsView(uint8_t brightness, const ChromeState &chrome);
+/* `region_code` e.g. "US"; `region_channels` its hop summary
+ * ("1-11,36-48,149-165"); `region_status` short caps text, `region_ok`
+ * true when the probe runs that region. */
+void drawSettingsView(uint8_t brightness, const char *region_code, const char *region_channels,
+                      const char *region_status, bool region_ok, const ChromeState &chrome);
 
 }  // namespace ui

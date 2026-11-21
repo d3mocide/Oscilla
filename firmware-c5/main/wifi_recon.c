@@ -8,6 +8,7 @@
  */
 
 #include "wifi_recon.h"
+#include "wifi_channels.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -214,6 +215,7 @@ esp_err_t wifi_recon_init(void)
     STEP(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, on_scan_done, NULL));
     STEP(esp_wifi_start());
     STEP(esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO));        /* only valid once started */
+    STEP(wifi_recon_set_country(wifi_region()->country));     /* hop list and country agree */
     esp_wifi_set_ps(WIFI_PS_NONE);
 
     s_ready = true;
@@ -234,7 +236,16 @@ esp_err_t wifi_recon_restore_shared_phy(void)
     if (err != ESP_OK) return err;
     err = esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);
     if (err != ESP_OK) return err;
+    err = wifi_recon_set_country(wifi_region()->country);
+    if (err != ESP_OK) return err;
     return esp_wifi_set_ps(WIFI_PS_NONE);
+}
+
+esp_err_t wifi_recon_set_country(const char *country)
+{
+    /* 802.11d off: a beacon's country IE never overrides the region the
+     * deck chose. Storage is RAM (above), so this never writes flash. */
+    return esp_wifi_set_country_code(country, false);
 }
 
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel)

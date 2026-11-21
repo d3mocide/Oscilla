@@ -73,6 +73,7 @@ int main()
               r.c.probe().caps == "wifi24,ble" && r.c.probe().proto == 1, "probe info parsed");
         check(r.resets == 0, "a solicited [HELLO] is not a reset");
         check(r.c.probe().rst.empty(), "an older probe without rst= leaves it empty");
+        check(r.c.probe().region.empty(), "an older probe without region= leaves it empty");
 
         check(r.c.send("ping", r.now) && r.takeWire() == "ping\n", "ping sent");
         check(!r.c.send("status", r.now), "one command at a time");
@@ -116,8 +117,12 @@ int main()
     {
         Rig r;
         r.c.connect(r.now);
-        r.probe("[HELLO] proto=1 fw=oscilla-c5 ver=0.3.0 caps=wifi24 rst=brownout END\n");
+        r.probe("[HELLO] proto=1 fw=oscilla-c5 ver=0.3.0 caps=wifi24 rst=brownout region=JP END\n");
         check(r.c.state() == S::Ready && r.c.probe().rst == "brownout", "reset reason parsed from [HELLO]");
+        check(r.c.probe().region == "JP", "Wi-Fi region parsed from [HELLO]");
+        r.takeWire();   /* drop the handshake's hello */
+        check(r.c.send("set_region CA", r.now) && r.takeWire() == "set_region CA\n",
+              "set_region is in the contract and goes on the wire");
     }
     {
         Rig r;

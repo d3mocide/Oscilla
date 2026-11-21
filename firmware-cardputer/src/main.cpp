@@ -80,6 +80,7 @@ void setup()
         uint8_t brightness = storage::loadBrightness();
         M5Cardputer.Display.setBrightness(brightness);
         g_app.setBrightness(brightness);
+        g_app.setWifiRegion(storage::loadWifiRegion());
     }
 
     /* Debug mode (DESIGN §7.6): a runtime toggle ('d', DeckApp::onKeys), not

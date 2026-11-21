@@ -64,6 +64,15 @@ python3 tools/check_deck_parser.py --count 150
     -Ifirmware-c5/main -o "$out/beacon_test" firmware-c5/test/host/beacon_test.c firmware-c5/main/beacon_parse.c
 "$out/beacon_test" 100000 | tail -1 | sed 's/^/  /'
 
+# Wi-Fi regions (set_region): one table for the probe hop list and the deck
+# picker. Built as C and as C++ because both firmwares include it.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -o "$out/wifi_regions_test" firmware-c5/test/host/wifi_regions_test.c
+"$out/wifi_regions_test" | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -x c++ -Iprotocol -o "$out/wifi_regions_test_cxx" \
+    firmware-c5/test/host/wifi_regions_test.c
+"$out/wifi_regions_test_cxx" > /dev/null
+
 # LoRa event hex encoding: zero-length packets must still produce an empty,
 # terminated field, and undersized output must fail without partial writes.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -160,6 +169,9 @@ python3 tools/check_deck_parser.py --count 150
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/link_reconcile_test" \
     firmware-cardputer/test/host/link_reconcile_test.cpp
 "$out/link_reconcile_test"
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/wifi_region_sync_test" \
+    firmware-cardputer/test/host/wifi_region_sync_test.cpp
+"$out/wifi_region_sync_test"
 # The table only helps if the deck runs it when the link comes up.
 for wire in 'reconcileStopLane(phyToolActive()' 'reconcile_on_status_ = client_.send(OCP_V_STATUS' \
             'reconcileFromStatus(phyEngineActive()'; do

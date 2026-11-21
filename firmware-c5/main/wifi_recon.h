@@ -29,6 +29,10 @@ bool wifi_recon_ready(void);
  * results (2026-09-21, see WORKLOG). */
 esp_err_t wifi_recon_restore_shared_phy(void);
 
+/* Set the ESP-IDF Wi-Fi country (an ocp_wifi_region_t's `country`). Call
+ * only while no PHY tool runs; 802.11d stays off. */
+esp_err_t wifi_recon_set_country(const char *country);
+
 /* Copy stored result `idx` (1-based). False if absent or a scan is running. */
 bool wifi_recon_lookup(unsigned idx, uint8_t bssid[6], uint8_t *channel);
 

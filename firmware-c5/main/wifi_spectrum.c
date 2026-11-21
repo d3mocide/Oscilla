@@ -103,6 +103,7 @@ void wifi_cmd_channel_view(void)
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_cv_idx = 0;
+    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
     s_cv_pkts = 0;
     xSemaphoreGive(s_lock);
 
@@ -170,6 +171,7 @@ static bool channel_supported(unsigned long ch)
 void wifi_cmd_packet_monitor(int argc, char **argv)
 {
     (void)argc;
+    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
     uint32_t ch = 0;
     if (!ocp_parse_u32(argv[1], &ch) || ch < 1 || ch > 255 || !channel_supported(ch)) {
         ocp_emit_error(OCP_ERR_BADARG, "channel is not in the supported hop list");

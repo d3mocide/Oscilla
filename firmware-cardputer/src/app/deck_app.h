@@ -29,6 +29,7 @@
 #include "model/session_review.h"
 #include "app/system_navigation.h"
 #include "app/link_reconcile.h"
+#include "app/wifi_region_sync.h"
 #include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
@@ -133,6 +134,9 @@ public:
      * storage::saveBrightness() the same way toggleDebugMode() does. */
     uint8_t brightness() const { return brightness_; }
     void setBrightness(uint8_t value) { brightness_ = value; }
+    /* Wi-Fi region (OCP-SPEC §10.8). main.cpp passes the saved code at boot;
+     * an unknown or empty one becomes the default. */
+    void setWifiRegion(const std::string &code) { wifi_region_ = app::regionOrDefault(code).code; }
 
     /* True when the screen should be redrawn. */
     bool dirty(uint32_t now_ms) const;
@@ -218,6 +222,10 @@ private:
      * kBrightnessMax] (never 0 — a black screen has no way back), applies
      * live via M5Cardputer.Display.setBrightness(), and persists. */
     void adjustBrightness(int direction);
+    /* Settings `,` `/`: next/previous region, saved to SD and pushed to the
+     * probe once its PHY lane is idle (pushWifiRegionIfDue). */
+    void changeWifiRegion(const std::string &code);
+    void pushWifiRegionIfDue(uint32_t now_ms);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -306,6 +314,12 @@ private:
     uint32_t pending_retry_started_ms_ = 0;
 
     std::string probe_owner_, probe_lora_;
+    std::string wifi_region_ = OCP_WIFI_REGION_DEFAULT;   /* the deck's setting */
+    std::string probe_region_;     /* what the probe last reported; empty: unknown/unsupported */
+    bool region_push_pending_ = false;
+    bool region_push_attempted_ = false;
+    bool region_notice_pending_ = false;   /* user changed it: say when it lands */
+    uint32_t region_push_ms_ = 0;
     uint32_t probe_status_sequence_ = 0, probe_status_epoch_ = 0;
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;

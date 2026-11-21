@@ -126,6 +126,7 @@ The deck opens every session with `hello` and must not send any other verb until
 | `ver` | firmware semver, informational |
 | `caps` | comma-separated capability list, no spaces |
 | `rst` | why the probe last reset: `poweron`, `sw`, `panic`, `int_wdt`, `task_wdt`, `wdt`, `brownout`, `ext`, `usb`, `jtag`, … or `unknown`; informational, added in v0.3.x, absent from older probes |
+| `region` | the active Wi-Fi region code (§10.8); `US` after every boot. Absent from probes without `set_region`, which the deck must not send it to |
 
 **All caps name receive capabilities. There is no transmit cap, because there is no transmit verb** (§7).
 
@@ -194,7 +195,7 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, the last reset reason (`rst`, as in `[HELLO]`), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, the last reset reason (`rst`, as in `[HELLO]`), the Wi-Fi region (`region`, §10.8), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
 
 **The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
 
@@ -494,15 +495,15 @@ packets/s on a 1 s window:
 [STOP] lane=all running=1 END
 ```
 
-`ch` must be one of the channels this build actually hops (2.4 GHz 1-13,
-non-DFS 5 GHz) — anything else is `code=badarg`, checked against the same
-list `start_sniffer` uses rather than handed straight to the radio, so an
-unsupported channel never silently mislabels frames the way D-14 describes.
+`ch` must be in the active region's hop list (§10.8) — anything else is
+`code=badarg`, checked against the same list `start_sniffer` uses rather
+than handed straight to the radio, so an unsupported channel never silently
+mislabels frames the way D-14 describes.
 
 ### 10.7 `start_wifi_scan`
 
 This is the continuous counterpart to `scan_networks`: it passively hops the
-same fixed channel list as `start_sniffer` and `channel_view`, listens only
+same region channel list (§10.8) as `start_sniffer` and `channel_view`, listens only
 for beacon and probe-response management frames, and returns immediately.
 There are no probe requests and no association. The probe emits one event for
 each newly seen BSSID in the session:
@@ -529,6 +530,33 @@ table drops a new BSSID rather than evicting an older one. The mode continues
 until `stop`, which disables promiscuous capture and releases `PHY_OWNER_WIFI`.
 Use `channel_view` or `packet_monitor` alongside this mode only after stopping
 it: all three require the one shared Wi-Fi/BLE/802.15.4 PHY lane.
+
+### 10.8 `set_region <CC>`
+
+Selects the Wi-Fi region: the channel list every hopping engine uses
+(`start_wifi_scan`, `start_sniffer`, `deauth_detector`, `channel_view`, and
+`packet_monitor`'s check) and the matching ESP-IDF country, so the radio
+accepts every channel on the list. `scan_networks` follows the country too.
+The table is `protocol/ocp_wifi_regions.h`: each region is the non-DFS
+channels ESP-IDF's regulatory database allows for that country (D-19).
+
+| Code | 2.4 GHz | 5 GHz |
+|---|---|---|
+| `US`, `CA` | 1-11 | 36-48, 149-165 |
+| `MX`, `EU`, `GB` | 1-13 | 36-48, 149-165 |
+| `JP` | 1-14 | 36-48 |
+
+```
+> set_region EU
+[CFG] region=EU chans=1,2,3,4,5,6,7,8,9,10,11,12,13,36,40,44,48,149,153,157,161,165 END
+```
+
+An unknown code is `code=badarg`. While any tool holds the PHY lane the
+probe answers `code=busy` and keeps its region; engines read the list only
+when they start. The probe does not store the region: it boots as `US` and
+reports it as `region=` in `[HELLO]` and `[STATUS]`, so the deck, which keeps
+the setting, resends it whenever the two differ and the PHY lane is idle.
+Receive-only (§7): a region only decides which channels are listened to.
 
 ## 11. BLE frames
 

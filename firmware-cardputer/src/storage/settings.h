@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace storage {
 
@@ -25,5 +26,11 @@ void saveDebugMode(bool on);
  * there's no SD card or no saved value — never an unreadable/zero screen. */
 uint8_t loadBrightness();
 void saveBrightness(uint8_t value);
+
+/* Wi-Fi region code (protocol/ocp_wifi_regions.h), pushed to the probe as
+ * `set_region`. Returns the raw saved text, empty when there is none; the
+ * caller validates it (app::regionOrDefault). */
+std::string loadWifiRegion();
+void saveWifiRegion(const std::string &code);
 
 }  // namespace storage

@@ -17,6 +17,7 @@ namespace {
 constexpr const char *kDir = "/oscilla";
 constexpr const char *kDebugModeFlag = "/oscilla/debug_mode";
 constexpr const char *kBrightnessFlag = "/oscilla/brightness";
+constexpr const char *kWifiRegionFlag = "/oscilla/wifi_region";
 /* Mid-scale default (M5GFX 0-255): visible in daylight and indoors alike
  * without having read a saved value yet. Never 0 — see settings.h. */
 constexpr uint8_t kBrightnessDefault = 160;
@@ -68,6 +69,37 @@ void saveBrightness(uint8_t value)
     File f = SD.open(kBrightnessFlag, FILE_WRITE);
     if (f) {
         sdActivity().record(1, f.write(value), millis());
+        f.close();
+    }
+    unlock();
+}
+
+std::string loadWifiRegion()
+{
+    if (!ready()) return {};
+    if (!lock()) return {};
+    std::string code;
+    if (SD.exists(kWifiRegionFlag)) {
+        File f = SD.open(kWifiRegionFlag, FILE_READ);
+        char buf[4] = {};
+        if (f) {
+            size_t got = f.read(reinterpret_cast<uint8_t *>(buf), sizeof buf - 1);
+            code.assign(buf, got);
+            f.close();
+        }
+    }
+    unlock();
+    return code;
+}
+
+void saveWifiRegion(const std::string &code)
+{
+    if (!ready()) return;
+    if (!lock()) return;
+    SD.mkdir(kDir);
+    File f = SD.open(kWifiRegionFlag, FILE_WRITE);
+    if (f) {
+        sdActivity().record(code.size(), f.print(code.c_str()), millis());
         f.close();
     }
     unlock();

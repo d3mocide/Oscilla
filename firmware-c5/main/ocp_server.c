@@ -13,6 +13,7 @@
 #include "probe_restart.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
+#include "wifi_channels.h"
 #include "wifi_deauth.h"
 #include "wifi_inspect.h"
 #include "wifi_networks.h"
@@ -99,12 +100,39 @@ static const char *reset_reason_name(void)
 
 static void emit_hello(void)
 {
-    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s %s=%s",
+    ocp_emit_compact(OCP_MARK_HELLO, "%s=%d %s=%s %s=%s %s=%s %s=%s %s=%s",
                      OCP_K_PROTO, OCP_PROTO_VERSION,
                      OCP_K_FW, OCP_FW_NAME_PROBE,
                      OCP_K_VER, esp_app_get_description()->version,
                      OCP_K_CAPS, ocp_server_caps(),
-                     OCP_K_RESET, reset_reason_name());
+                     OCP_K_RESET, reset_reason_name(),
+                     OCP_K_REGION, wifi_region()->code);
+}
+
+/* OCP-SPEC §10.8. The region changes the hop list engines read at start
+ * and the ESP-IDF country, so it is refused while any PHY tool runs. */
+static void cmd_set_region(const char *code)
+{
+    const ocp_wifi_region_t *r = ocp_wifi_region_find(code);
+    if (!r) {
+        ocp_emit_error(OCP_ERR_BADARG, "unknown region");
+        return;
+    }
+    if (arbiter_owner() != PHY_OWNER_NONE) {
+        char msg[48];
+        snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
+        ocp_emit_error(OCP_ERR_BUSY, msg);
+        return;
+    }
+    esp_err_t err = wifi_recon_set_country(r->country);
+    if (err != ESP_OK) {
+        ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
+        return;
+    }
+    wifi_region_select(r);
+    char chans[OCP_WIFI_REGION_MAX_CHANNELS * 4 + 1];
+    ocp_wifi_region_list(r, chans, sizeof chans);
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%s", OCP_K_REGION, r->code, OCP_K_CHANS, chans);
 }
 
 /* A capability class is satisfied only if the build advertises a cap in it.
@@ -145,11 +173,12 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
+                         "%s=%s lora=%s link=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
                          OCP_K_RESET, reset_reason_name(),
+                         OCP_K_REGION, wifi_region()->code,
                          OCP_K_UPTIME_MS,
                          (unsigned long long)(esp_timer_get_time() / 1000),
                          OCP_K_HEAP, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
@@ -273,6 +302,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
         break;
     case OCP_VID_ZIG_CLEAR:
         zig_cmd_clear();
+        break;
+
+    case OCP_VID_SET_REGION:
+        cmd_set_region(argv[1]);
         break;
 
     case OCP_VID_REBOOT:

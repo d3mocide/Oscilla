@@ -108,6 +108,7 @@ void wifi_cmd_deauth_detector(void)
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_total = 0;
     s_chan_idx = 0;
+    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
     xSemaphoreGive(s_lock);
 
     const wifi_promiscuous_filter_t filter = { .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT };

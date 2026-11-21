@@ -120,6 +120,7 @@ typedef enum {
 #define OCP_V_DEAUTH_DETECTOR   "deauth_detector"
 #define OCP_V_SET_BAND          "set_band"
 #define OCP_V_SET_CHANNELS      "set_channels"
+#define OCP_V_SET_REGION        "set_region"    /* <CC>: ocp_wifi_regions.h */
 
 /* BLE */
 #define OCP_V_SCAN_BT           "scan_bt"
@@ -169,6 +170,7 @@ typedef enum {
     X(DEAUTH_DETECTOR,   OCP_V_DEAUTH_DETECTOR,   OCP_CC_WIFI,        0,  0,  OCP_MARK_CFG)        \
     X(SET_BAND,          OCP_V_SET_BAND,          OCP_CC_WIFI,        1,  1,  OCP_MARK_CFG)        \
     X(SET_CHANNELS,      OCP_V_SET_CHANNELS,      OCP_CC_WIFI,        1,  1,  OCP_MARK_CFG)        \
+    X(SET_REGION,        OCP_V_SET_REGION,        OCP_CC_WIFI,        1,  1,  OCP_MARK_CFG)        \
     X(SCAN_BT,           OCP_V_SCAN_BT,           OCP_CC_BLE,         0,  1,  OCP_MARK_BLE)        \
     X(START_BLE_SCAN,    OCP_V_START_BLE_SCAN,    OCP_CC_BLE,         0,  0,  OCP_MARK_CFG)        \
     X(SCAN_AIRTAG,       OCP_V_SCAN_AIRTAG,       OCP_CC_BLE,         0,  0,  OCP_MARK_CFG)        \
@@ -223,6 +225,8 @@ typedef enum {
 #define OCP_K_LANE              "lane"     /* [STOP]: which lane(s) it addressed */
 #define OCP_K_UPTIME_MS         "uptime_ms"
 #define OCP_K_RESET             "rst"      /* [HELLO]/[STATUS]: last reset reason */
+#define OCP_K_REGION            "region"   /* [HELLO]/[STATUS]/[CFG]: Wi-Fi region code */
+#define OCP_K_CHANS             "chans"    /* [CFG]: the region's hop list, comma-separated */
 #define OCP_K_HEAP_TOTAL        "heap_total" /* [STATUS]: total default heap bytes */
 #define OCP_K_TS_MS             "ts_ms"    /* monotonic probe timestamp */
 #define OCP_K_HEAP              "heap"     /* [STATUS]: free heap, bytes  */

@@ -1,3 +1,47 @@
+## 2026-11-21 — Wi-Fi region setting (D-19); Drive start no longer stalls
+
+- **Wi-Fi region, default US.** New additive verb `set_region <CC>`
+  (OCP-SPEC §10.8; `region=` in `[HELLO]`/`[STATUS]`). One table,
+  `protocol/ocp_wifi_regions.h`, gives each region an ESP-IDF country plus
+  the non-DFS channels that country's regulatory row allows: `US`/`CA`
+  1-11, `MX`/`EU`/`GB` 1-13, `JP` 1-14, each with its allowed 5 GHz set.
+  The probe sets the country (802.11d off, RAM storage) and every hopper
+  re-reads the list at start. It refuses a change while the PHY lane is
+  held and boots as `US`. The deck saves the choice on SD
+  (`/oscilla/wifi_region`) and resends whenever the probe reports a
+  different region and the lane is idle. Settings card: `,` `/` cycle the
+  region, with state shown as APPLIED / PENDING / PROBE OFFLINE / PROBE TOO
+  OLD. Debug: `region <CC>`, plus `wifi_region` / `probe_region` in `dump`.
+- **Hardware (both boards on their own USB):**
+  - Zero `hop to ch` errors over a live-discovery lap in `US`, `EU`
+    (12/13), `JP` (14) and `MX`, against every lap failing 12/13 before.
+  - `packet_monitor 13` gives `badarg` under `US` and is accepted under
+    `EU`.
+  - Each change applied in about 1.1 s. A change made during Wi-Fi live
+    waited for `stop`.
+  - `CA` survived a deck reset and was re-pushed after a probe reboot.
+  - 0 link timeouts.
+- **Host:**
+  - `wifi_regions_test` is built as both C and C++; a mutant that puts
+    12/13 into `US` fails it.
+  - `wifi_region_sync_test` covers the push rules.
+  - `client_test` covers `region=` and the verb (60 checks).
+  - RX-only, palette, render-sync and OCP selftest gates pass; uart and
+    bench probe builds pass.
+- **Drive start (`ef446ea`):** 1.7 s → 0.40 s. The walk is readdir-only,
+  and only the KML named by the open-session marker is repaired. 0.70 s
+  after a mid-drive deck reset, including that repair. Not verified: the
+  repaired KML's footer contents (needs the card on a host). Cards with a
+  KML cut short before this build, and no Drive start since, are not
+  repaired.
+- **Not changed:** wardrive `appendVerified()` still runs `SD.exists()`
+  after every row, as its card-pull health check. That is one directory
+  lookup per row, growing with the folder. Changing it changes SD fault
+  detection, so it is left for a deliberate decision.
+- **Not yet seen by the operator:** the Settings card layout (no host
+  renderer for deck LCD views). The external panel's settings strip still
+  shows brightness only.
+
 ## 2026-11-21 — Probe `rst=` confirmed; LoRa start froze the deck for 6 s (fixed)
 
 - **Probe flashed** with the `b0a060c` `build-uart` image (probe and deck each

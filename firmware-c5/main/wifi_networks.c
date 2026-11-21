@@ -157,6 +157,7 @@ void wifi_cmd_start_network_scan(void)
     xSemaphoreTake(s_lock, portMAX_DELAY);
     wifi_network_table_reset(s_table);
     s_chan_idx = 0;
+    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
     s_session++;
     if (s_session == 0) s_session = 1;
     s_running = false;

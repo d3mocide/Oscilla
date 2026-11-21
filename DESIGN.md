@@ -646,6 +646,7 @@ v1 probe verbs. All replies are marker-framed ([Appendix B](#appendix-b--marker-
 | `start_wardrive [...]` | wifi+ble | `[EVT]` | stream observations for deck-side geotagging + logging |
 | `set_band <24\|5\|auto>` | wifi | `[CFG]` | band scope |
 | `set_channels <list\|all>` | wifi | `[CFG]` | hop set |
+| `set_region <CC>` | wifi | `[CFG]` | Wi-Fi region: hop list + ESP-IDF country (OCP-SPEC §10.8, D-19) |
 
 **There are no transmit verbs.** Every verb above is receive-only; the whole command table is the attack surface (§8), so its contents are the guarantee. Removed from v0.1: `list_dir` / `send_file` — the probe has no filesystem to browse.
 

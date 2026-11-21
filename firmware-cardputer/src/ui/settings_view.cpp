@@ -1,5 +1,5 @@
 /*
- * settings_view.cpp — deck display luminance control; Observatory v2.
+ * settings_view.cpp — deck display luminance and Wi-Fi region; Observatory v2.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -7,6 +7,7 @@
 #include "ui/settings_view.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "ui/canvas.h"
 #include "ui/observatory_chrome.h"
@@ -18,42 +19,66 @@ namespace ui {
 namespace {
 
 constexpr int kBarSegmentCount = 10;
-constexpr int kBarSegmentWidth = 18;
-constexpr int kBarSegmentGap = 3;
+constexpr int kBarSegmentWidth = 12;
+constexpr int kBarSegmentGap = 2;
+constexpr int kPanelX = 4;
+constexpr int kPanelW = 232;
+constexpr int kCharW = 6;   /* default 6x8 font at size 1 */
+
+void panel(M5Canvas &d, int y, int h)
+{
+    d.fillRect(kPanelX, y, kPanelW, h, kPanelDark);
+    d.drawRect(kPanelX, y, kPanelW, h, kLineBorder);
+    d.fillRect(kPanelX, y, 28, 2, kFieldGreen);
+}
 
 }  // namespace
 
-void drawSettingsView(uint8_t brightness, const ChromeState &chrome)
+void drawSettingsView(uint8_t brightness, const char *region_code, const char *region_channels,
+                      const char *region_status, bool region_ok, const ChromeState &chrome)
 {
     auto &d = canvas();
     beginChrome(chrome);
     d.setTextSize(1);
 
-    const unsigned pct = (brightness * 100U + 127U) / 255U;
-    d.fillRect(4, kBodyTop + 4, 232, 54, kPanelDark);
-    d.drawRect(4, kBodyTop + 4, 232, 54, kLineBorder);
-    d.fillRect(4, kBodyTop + 4, 28, 2, kFieldGreen);
-
-    d.setCursor(10, kBodyTop + 10);
+    /* Brightness: label, hero percentage, segmented bar on the right. */
+    const int top = kBodyTop + 2;
+    panel(d, top, 44);
+    d.setCursor(10, top + 6);
     d.setTextColor(kMutedSlate, kPanelDark);
     d.print("DISPLAY BRIGHTNESS");
 
+    const unsigned pct = (brightness * 100U + 127U) / 255U;
     char pbuf[12];
     std::snprintf(pbuf, sizeof pbuf, "%u%%", pct);
     instrument::Canvas c(d, 0);
-    observatory::obsText(c, 10, kBodyTop + 22, pbuf, observatory::FontId::Hero, kCalibrationYellow, 96);
+    observatory::obsText(c, 10, top + 18, pbuf, observatory::FontId::Hero, kCalibrationYellow, 80);
 
-    const int bar_x = 10;
-    const int bar_y = kBodyTop + 43;
     const int filled = static_cast<int>((brightness * kBarSegmentCount + 254) / 255);
-    drawSegmentedBar(d, bar_x, bar_y, kBarSegmentCount, kBarSegmentWidth, 9, kBarSegmentGap,
+    drawSegmentedBar(d, 92, top + 24, kBarSegmentCount, kBarSegmentWidth, 9, kBarSegmentGap,
                      filled, kFieldGreen);
 
-    d.setCursor(6, kBodyTop + 66);
+    /* Wi-Fi region: label and probe state, then code and hop channels. */
+    const int rtop = top + 48;
+    panel(d, rtop, 32);
+    d.setCursor(10, rtop + 6);
+    d.setTextColor(kMutedSlate, kPanelDark);
+    d.print("WI-FI REGION");
+    const int status_w = static_cast<int>(std::strlen(region_status)) * kCharW;
+    d.setCursor(kPanelX + kPanelW - 6 - status_w, rtop + 6);
+    d.setTextColor(region_ok ? kFieldGreen : kCalibrationYellow, kPanelDark);
+    d.print(region_status);
+
+    d.setCursor(10, rtop + 19);
+    d.setTextColor(kCalibrationYellow, kPanelDark);
+    d.print(region_code);
+    d.setTextColor(kMutedSlate, kPanelDark);
+    d.print("  CH ");
+    d.print(region_channels);
+
+    d.setCursor(6, rtop + 37);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.print("; .   BRIGHTER / DIMMER");
-    d.setCursor(6, kBodyTop + 79);
-    d.print("`     BACK TO LINK");
+    d.print("; . BRIGHT  , / REGION  ` LINK");
 
     endChrome(chrome);
 }
