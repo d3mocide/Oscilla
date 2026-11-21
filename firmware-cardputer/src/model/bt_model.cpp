@@ -13,6 +13,7 @@
 #include "ocp.h"
 #include "ocp/ocp_csv.h"
 #include "model/number_parse.h"
+#include "model/snapshot_rows.h"
 
 namespace model {
 
@@ -104,19 +105,17 @@ void BtModel::clear()
     airtag_active_ = false;
 }
 
-void BtModel::absorbScan(const ocp::Item &frame)
+void BtModel::absorbScan(const ocp::Item &frame,uint32_t now_ms)
 {
     if (frame.tag != OCP_MARK_BLE) return;
 
-    std::vector<BtDevice> rows;
-    uint16_t bad = 0;
-    for (const auto &raw : frame.rows) {
-        if (rows.size() >= kMaxDevices) break;
-        BtDevice row;
-        if (parseBtRow(raw, row)) rows.push_back(std::move(row));
-        else bad++;
-    }
-    devices_ = std::move(rows);
+    const auto bad = replaceSnapshotRows(devices_, frame, kMaxDevices,
+        [this, now_ms](const std::string &raw, BtDevice &row) {
+            if (!parseBtRow(raw, row)) return false;
+            row.observed_ms = now_ms;
+            row.observation_id = ++observation_id_;
+            return true;
+        });
     malformed_ = bad;
     scanning_ = false;   /* [BLE] has no paging: this frame is already the whole result */
 }
@@ -141,7 +140,7 @@ BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
     return &devices_.back();
 }
 
-void BtModel::absorbEvent(const ocp::Item &evt)
+void BtModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
 {
     const auto *kind = evt.get(OCP_K_KIND);
     if (!kind) return;
@@ -163,15 +162,16 @@ void BtModel::absorbEvent(const ocp::Item &evt)
         const auto *mac = evt.get(OCP_K_MAC);
         if (!mac || !looksLikeMac(*mac)) return;
 
+        const auto *signal=evt.get(OCP_K_RSSI);long measured=0;
+        if(!signal||!toLong(*signal,-128,127,measured)){++malformed_;return;}
         BtDevice *row = findOrInsertDevice(*mac);
         if (!row) return;   /* table full: dropped, not swapped in for an older row */
 
         if (const auto *name = evt.get(OCP_K_NAME)) row->name = *name;
         if (const auto *mfr = evt.get(OCP_K_MFR)) row->mfr = *mfr;
         if (const auto *tracker = evt.get(OCP_K_TRACKER)) row->tracker = !tracker->empty();
-        long rssi = 0;
-        if (const auto *rssi_s = evt.get(OCP_K_RSSI)) toLong(*rssi_s, -128, 127, rssi);
-        row->rssi = static_cast<int>(rssi);
+        row->rssi=static_cast<int>(measured);
+        row->observed_ms=now_ms;row->observation_id=++observation_id_;row->first_sighting=true;
         row->n = 1;   /* start_ble_scan only ever reports a first sighting (OCP-SPEC §11.3) */
     }
 }

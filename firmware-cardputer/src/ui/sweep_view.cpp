@@ -57,9 +57,9 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     d.printf("%s", scan.rows().empty() ? "--" : "RX");
 
     const auto &rows = scan.rows();
-    size_t first = listFirstVisible(cursor);
+    size_t first = listFirstVisible(cursor, kListCompactRows);
 
-    for (int i = 0; i < kListVisibleRows && first + i < rows.size(); i++) {
+    for (int i = 0; i < kListCompactRows && first + i < rows.size(); i++) {
         const auto &r = rows[first + i];
         bool sel = first + i == cursor;
         int y = kListTop + i * kListRowHeight;
@@ -82,30 +82,22 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
     }
 
     if (rows.empty()) {
-        d.setCursor(4, kListTop);
-        d.setTextColor(kDimGreen, kVoidInk);
-        if (scan.scanning()) drawDwellAnimation(d, scanning_ms);
-        else d.print("NO OBSERVATIONS YET");
+        if (scan.scanning()) {
+            drawDwellAnimation(d, scanning_ms);
+        } else if (scan.aborted()) {
+            d.setCursor(4, kListTop);
+            d.setTextColor(kCalibrationYellow, kVoidInk);
+            d.print("SCAN ABORTED / NO SNAPSHOT");
+        } else {
+            d.setCursor(4, kListTop);
+            d.setTextColor(kDimGreen, kVoidInk);
+            d.print("NO OBSERVATIONS YET");
+        }
     }
 
-    d.setCursor(4, kDetailRowY);
-    const bool live = scan.scanning() || scan.continuousActive();
-    if (cursor < rows.size()) {
-        const auto &r = rows[cursor];
-        d.setTextColor(live ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.printf("CH %u %s · %d dBm · %s", r.ch, r.band5 ? "5G" : "2.4G", r.rssi,
-                 printable(r.auth, 8).c_str());
-    } else if (scan.scanning()) {
-        /* The centered dwell animation is the only bounded-sweep progress
-         * indicator; do not duplicate it in the lower body row. */
-    } else if (scan.aborted()) {
-        d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.print("SCAN ABORTED · NO SNAPSHOT");
-    } else {
-        d.setTextColor(kMutedSlate, kVoidInk);
-        d.print(rows.empty() ? "NO AP OBSERVATIONS" : "SELECT AN AP ROW");
-    }
-
+    d.setCursor(4, kHintRowY);
+    d.setTextColor(kCalibrationYellow, kVoidInk);
+    d.print("ENTER DOSSIER / r SURVEY / c LIVE");
     endChrome(chrome);
 }
 

@@ -30,11 +30,11 @@ void drawHelpView(const ChromeState &chrome)
     d.setCursor(4, kBodyTop + 44);
     d.print("ENTER SELECT / ACT");
     d.setCursor(4, kBodyTop + 57);
-    d.print("`     BACK/STOP, SETTINGS ON LINK");
+    d.print("`     BACK ONE LEVEL / LINK SETTINGS");
     d.setCursor(4, kBodyTop + 70);
-    d.print("s/c   START / STREAM");
-    d.setCursor(4, kDetailRowY);
-    d.print("h     CLOSE HELP");
+    d.print("s TOOL ACTION / o SAVED SESSIONS");
+    d.setCursor(4, kBodyTop + 83);
+    d.print("i SYSTEM / BACK RETURN / h CLOSE");
 
     endChrome(chrome);
 }

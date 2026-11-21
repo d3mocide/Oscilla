@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,8 @@ ROW_VIEWS = (
     "zig_view.cpp",
     "subghz_view.cpp",
     "sweep_view.cpp",
+    "spectrum_view.cpp",
+    "session_view.cpp",
 )
 
 
@@ -48,6 +51,13 @@ def main() -> int:
     )
     if any(fragment not in sniff for fragment in required):
         return fail("Sniffer rows are missing their fixed metadata columns or LAST label")
+
+    positions = {name: int(value) for name, value in re.findall(r"constexpr int (kSniff\w+X) = (\d+);", sniff)}
+    channel, band, rssi = (positions[name] for name in ("kSniffClientChannelX", "kSniffClientBandX", "kSniffRssiX"))
+    if not (6 + 17*6 <= channel and channel + 3*6 <= band and band + 4*6 <= rssi and rssi + 4*6 <= 240):
+        return fail("Sniffer full MAC/channel/band/RSSI columns overlap at device font size")
+    if 'printable(r.mac, 17)' not in sniff or 'ENTER DETAIL' not in sniff:
+        return fail("Sniffer must show full MAC identity and its inspection action")
 
     print("card selection style test OK")
     return 0

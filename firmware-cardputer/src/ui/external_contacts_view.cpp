@@ -1,85 +1,87 @@
+/* Selected AP or probe-request clusters; Observatory v2. */
 #include "ui/external_contacts_view.h"
-#include "ui/theme.h"
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
+#include "ui/external_radar.h"
+#include "ui/observatory_chrome.h"
+#include <array>
+
 namespace ui {
-namespace {
-std::string safe(const std::string &s,size_t limit)
+void drawExternalContactsStrip(lgfx::LGFX_Sprite &d, int top, const model::ContactsModel &m,
+                               bool probes, size_t cursor, uint32_t now)
 {
-    std::string out;
-    for(unsigned char c:s) {if(out.size()==limit) break;out+=(c>=32 && c<=126) ? char(c) : '?';}
-    return out;
-}
-}
-void drawExternalContactsStrip(lgfx::LGFX_Sprite &d,int top,
-    const model::ContactsModel &m,bool probes,size_t cursor,uint32_t now)
-{
-    constexpr uint16_t panel=rgb565(0x080C08),border=rgb565(0x1D2A1F);
-    auto text=[&](int x,int y,uint16_t c,const char *s) {d.setTextSize(1);d.setTextColor(c,panel);d.setCursor(x,y-top);d.print(s);};
-    auto box=[&](int x,int y,int w,int h) {d.fillRect(x,y-top,w,h,panel);d.drawRect(x,y-top,w,h,border);};
-    const auto &clients=m.clients();const auto &requests=m.probes();
-    const size_t count=probes ? requests.size() : clients.size();
-    const bool selected=cursor<count;
-    const bool have=probes ? m.hasProbeSnapshot() : m.hasClientSnapshot();
-    const uint32_t age=now-(probes ? m.probeSnapshotMs() : m.clientSnapshotMs());
-    const std::string target=selected && !probes ? clients[cursor].bssid : "";
-    char value[80];d.fillScreen(kVoidInk);box(4,3,312,30);
-    text(8,6,kMutedSlate,probes ? "PROBE REQUESTS" : "CLIENT LINKS");
-    snprintf(value,sizeof value,"%u ROWS",(unsigned)count);text(8,20,kCalibrationYellow,value);
-    text(116,6,kMutedSlate,"PACKET TICKER");snprintf(value,sizeof value,"%lu",(unsigned long)m.totalPkts());text(116,20,kPaperPhosphor,value);
-    text(226,6,kMutedSlate,"SNAPSHOT");
-    if(!have) snprintf(value,sizeof value,"WAITING");
-    else if(!m.sniffing()) snprintf(value,sizeof value,"CACHED");
-    else snprintf(value,sizeof value,"%lus %s",(unsigned long)(age/1000),age>=10000 ? "AGED" : "SNAP");
-    text(226,20,have && age<10000 && m.sniffing() ? kFieldGreen : kCalibrationYellow,value);
-    box(4,36,174,137);box(181,36,135,137);
-    text(8,40,kMutedSlate,probes ? "REQUEST RSSI FIELD" : "SELECTED BSSID LINKS");text(185,40,kMutedSlate,probes ? "REQUESTERS" : "CLIENTS");
-    for(int radius:{14,35,56}) d.drawCircle(91,106-top,radius,border);
-    d.drawLine(35,106-top,147,106-top,border);d.drawLine(91,50-top,91,162-top,border);
-    text(95,90,kMutedSlate,"-40");text(95,69,kMutedSlate,"-70");text(95,50,kMutedSlate,"-100");
-    size_t matching=0;
-    for(size_t i=0;i<count;++i) if(probes || clients[i].bssid==target) ++matching;
-    size_t index=0;
-    for(size_t i=0;i<count;++i) {
-        if(!probes && clients[i].bssid!=target) continue;
-        const int rssi=probes ? requests[i].rssi : clients[i].rssi;
-        const double angle=6.283185307179586*index++/std::max(size_t(1),matching);
-        const int radius=std::max(7,std::min(56,7+(-rssi-30)*49/70));
-        const int x=91+int(std::cos(angle)*radius),y=106+int(std::sin(angle)*radius);
-        const uint16_t c=i==cursor ? kCalibrationYellow : kFieldGreen;
-        if(!probes) d.drawLine(91,106-top,x,y-top,kDimGreen);
-        d.fillCircle(x,y-top,i==cursor ? 3 : 1,c);
-        if(i==cursor) d.drawCircle(x,y-top,5,c);
+    using namespace instrument;
+    using namespace observatory;
+    Canvas c(d, top);
+    const auto key = model::contactKey(m, probes, cursor);
+    const bool have = probes ? m.hasProbeSnapshot() : m.hasClientSnapshot();
+    const uint32_t age = now - (probes ? m.probeSnapshotMs() : m.clientSnapshotMs());
+    const bool fresh = have && age < 5000;
+    const char *badge = !m.sniffing() ? "CACHED" : !have ? "WAIT" : fresh ? "LIVE" : "AGED";
+    const BadgeTone tone = !m.sniffing() ? BadgeTone::Cached
+                         : (have && fresh) ? BadgeTone::Live : BadgeTone::Warn;
+    const bool cached = !m.sniffing();
+
+    obsFrame(c, ModeSigil::NodeMesh, probes ? "REQUEST CLUSTER" : "AP / CLIENT CLUSTER", badge, tone);
+    obsRadar(c, 84, 88);
+    obsCard(c, 164, 36, 140, 103, key.valid ? kCalibrationYellow : kMutedSlate);
+    obsDock(c, tone == BadgeTone::Live ? kFieldGreen : kMutedSlate, true);
+
+    if (!key.valid) {
+        obsMicro(c, 172, 42, probes ? "REQUESTED SSID" : "AP / BSSID", kMutedSlate, kPanelDark);
+        obsText(c, 172, 60, probes ? "NO REQUESTS" : "NO LINKS", FontId::Title, kCalibrationYellow, 124);
+        obsMicro(c, 172, 92, m.sniffing() ? "PASSIVE SNIFFER..." : "SNIFFER IDLE", kMutedSlate, kPanelDark);
+        obsText(c, 12, 164, "PASSIVE SNIFFER", FontId::Title, kPaperPhosphor, 296);
+        obsMicro(c, 12, 185, probes ? "NO SSID REQUESTS" : "NO CLIENT LINKS", kMutedSlate, kPanelDark);
+        obsMicro(c, 308, 185, "RSSI @ PROBE / NO BEARING", kMutedSlate, kPanelDark, Align::Right);
+        obsBay(c, 12, 94, "RSSI / dBm", "--", kCalibrationYellow);
+        obsBay(c, 122, 86, "PACKETS", "--", kPaperPhosphor);
+        obsBay(c, 224, 84, "AGE / s", "--", kMutedSlate);
+        return;
     }
-    d.fillCircle(91,106-top,2,kCalibrationYellow);
-    if(!matching) text(30,116,kMutedSlate,"NO SNAPSHOT LINKS");
-    text(8,163,kMutedSlate,probes ? "REQUESTS / NO AP LINK" : "BSSID AT CENTRE");
-    const size_t first=cursor>=6 ? cursor-5 : 0;
-    for(size_t i=first;i<count && i<first+6;++i) {
-        const int y=54+(i-first)*18;
-        if(i==cursor) d.fillRect(184,y-2-top,129,17,kSelectionGlow);
-        const auto &mac=probes ? requests[i].mac : clients[i].mac;
-        text(185,y,i==cursor ? kCalibrationYellow : kPaperPhosphor,safe(mac,17).c_str());
-        if(probes) snprintf(value,sizeof value,"%d / %s",requests[i].rssi,safe(requests[i].ssid.empty() ? "<wildcard>" : requests[i].ssid,13).c_str());
-        else snprintf(value,sizeof value,"%d / CH %u",clients[i].rssi,clients[i].ch);
-        text(185,y+8,kMutedSlate,value);
+
+    const auto graph = model::contactGraph(m, key, false);
+    std::array<RadarPoint, 12> nodes{};
+    for (size_t i = 0; i < graph.size; ++i) {
+        const size_t idx = graph.indices[i];
+        const auto &mac = probes ? m.probes()[idx].mac : m.clients()[idx].mac;
+        const int rssi = probes ? m.probes()[idx].rssi : m.clients()[idx].rssi;
+        nodes[i] = radarPoint(mac, rssi, 84, 88);
+        if (idx != cursor) c.line(84, 88, nodes[i].x, nodes[i].y, cached ? kLineBorder : kDimGreen);
     }
-    box(4,176,312,37);
-    if(selected) {
-        const auto &mac=probes ? requests[cursor].mac : clients[cursor].mac;
-        text(8,181,kCalibrationYellow,safe(mac,17).c_str());
-        if(probes) text(8,199,kMutedSlate,safe(requests[cursor].ssid.empty() ? "<wildcard>" : requests[cursor].ssid,20).c_str());
-        else text(8,199,kMutedSlate,safe(target,17).c_str());
-        snprintf(value,sizeof value,"%d dBm",probes ? requests[cursor].rssi : clients[cursor].rssi);text(139,181,kPaperPhosphor,value);
-        snprintf(value,sizeof value,"%lu PKTS",(unsigned long)(probes ? requests[cursor].pkts : clients[cursor].pkts));text(139,199,kMutedSlate,value);
-        text(226,181,kMutedSlate,probes ? "SSID REQUEST" : "BSSID LINK");
-        if(probes) snprintf(value,sizeof value,"NO AP LINK");else snprintf(value,sizeof value,"CH %u %s",clients[cursor].ch,clients[cursor].band5 ? "5G" : "2.4G");
-        text(226,199,kFieldGreen,value);
-    } else text(8,187,kMutedSlate,"NO SELECTED SNAPSHOT ROW");
-    char channel[8];
-    if(m.currentChannel()) snprintf(channel,sizeof channel,"%u",m.currentChannel());else snprintf(channel,sizeof channel,"--");
-    snprintf(value,sizeof value,"%s / CH %s / BAD %u",m.sniffing() ? "PASSIVE" : "CACHED",channel,m.malformedRows());text(8,219,kMutedSlate,value);
-    text(8,230,kMutedSlate,"INDEX ANGLE / NO BEARING");
+    if (graph.size) c.line(84, 88, nodes[0].x, nodes[0].y, kSignalPink);
+    c.rect(78, 82, 13, 13, kVoidInk);
+    obsDiamond(c, 84, 88, 4, kPaperPhosphor);
+    c.dot(84, 88, 2, probes ? kCalibrationYellow : kFieldGreen);
+
+    for (size_t i = graph.size; i > 0; --i) {
+        obsRadarNode(c, nodes[i - 1], graph.indices[i - 1] == cursor, false, cached);
+    }
+
+    /* Right-side cluster dossier card. */
+    obsMicro(c, 172, 42, probes ? "REQUESTED SSID" : "AP / BSSID", kMutedSlate, kPanelDark);
+    obsText(c, 172, 55, key.target.empty() ? "<WILDCARD>" : key.target,
+            FontId::Mono, kCalibrationYellow, 124);
+    c.line(172, 72, 296, 72, kLineBorder);
+    obsText(c, 172, 79, std::to_string(graph.total) + (probes ? " REQUESTERS" : " LINKS"),
+            FontId::Title, kPaperPhosphor, 124);
+    if (!probes) {
+        const auto &row = m.clients()[cursor];
+        obsBadge(c, 172, 99, 82, 14, "CH " + std::to_string(row.ch) + (row.band5 ? " 5G" : " 2.4G"),
+                 kTrackDark, kDimGreen, kFieldGreen);
+    } else {
+        obsBadge(c, 172, 99, 98, 14, "NOT ASSOCIATION", kPanelDark, kLineBorder, kMutedSlate);
+    }
+    obsMicro(c, 172, 122, std::to_string(graph.size) + "/" + std::to_string(graph.total) + " DRAWN  @PROBE",
+             kMutedSlate, kPanelDark);
+
+    /* Lower Reading Dock. */
+    obsText(c, 12, 164, key.mac, FontId::Title, kPaperPhosphor, 296);
+    obsMicro(c, 12, 185, probes ? "OBSERVED REQUESTS" : "OBSERVED CLIENT LINKS", kMutedSlate, kPanelDark);
+    obsMicro(c, 308, 185, "RSSI @ PROBE / NO BEARING", kMutedSlate, kPanelDark, Align::Right);
+
+    const int rssi = probes ? m.probes()[cursor].rssi : m.clients()[cursor].rssi;
+    const uint32_t packets = probes ? m.probes()[cursor].pkts : m.clients()[cursor].pkts;
+    obsBay(c, 12, 94, "RSSI / dBm", std::to_string(rssi), kCalibrationYellow);
+    obsBay(c, 122, 86, "PACKETS", std::to_string(packets), kPaperPhosphor);
+    obsBay(c, 224, 84, "AGE / s", have ? std::to_string(age / 1000) : "--", kMutedSlate, have ? "s" : "");
 }
-}
+}  // namespace ui

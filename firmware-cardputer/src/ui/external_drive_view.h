@@ -5,5 +5,5 @@
 #include "storage/wardrive_logger.h"
 namespace ui {
 void drawExternalDriveStrip(lgfx::LGFX_Sprite &strip,int top,const model::GnssModel &gps,
-                            const model::DriveTrail &trail,const storage::WardriveLogStats &log,uint32_t now);
+                            const model::DriveTrail &trail,const storage::WardriveLogStats &log,uint32_t now,bool closing=false);
 }

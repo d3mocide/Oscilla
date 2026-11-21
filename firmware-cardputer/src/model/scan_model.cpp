@@ -115,7 +115,7 @@ void ScanModel::clear()
     inspectable_ = false;
 }
 
-uint16_t ScanModel::absorbPage(const ocp::Item &frame)
+uint16_t ScanModel::absorbPage(const ocp::Item &frame,uint32_t now_ms)
 {
     if (!scanning_ || frame.tag != OCP_MARK_SCAN) return 0;
 
@@ -137,7 +137,7 @@ uint16_t ScanModel::absorbPage(const ocp::Item &frame)
     for (const auto &raw : frame.rows) {
         if (rows_.size() >= kMaxRows) break;
         ApRow row;
-        if (parseRow(raw, idx, row)) rows_.push_back(std::move(row));
+        if (parseRow(raw, idx, row)) {row.observed_ms=now_ms;row.observation_id=++observation_id_;rows_.push_back(std::move(row));}
         else malformed_++;
         idx++;
     }
@@ -150,7 +150,7 @@ uint16_t ScanModel::absorbPage(const ocp::Item &frame)
     return next;
 }
 
-void ScanModel::absorbEvent(const ocp::Item &evt)
+void ScanModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
 {
     if (!continuous_active_ || evt.kind != ocp::ItemKind::Event) return;
     const auto *kind = evt.get(OCP_K_KIND);
@@ -180,6 +180,8 @@ void ScanModel::absorbEvent(const ocp::Item &evt)
         row.band5 = *band == OCP_BAND_LABEL_5;
         row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
         row.rssi = static_cast<int>(rssi);
+        row.observed_ms=now_ms;row.observation_id=++observation_id_;
+        row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;
         return;
     }
     if (rows_.size() >= kMaxRows) return;   /* bounded deck table: drop, don't churn old rows */
@@ -192,6 +194,8 @@ void ScanModel::absorbEvent(const ocp::Item &evt)
     row.band5 = *band == OCP_BAND_LABEL_5;
     row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
     row.rssi = static_cast<int>(rssi);
+    row.observed_ms=now_ms;row.observation_id=++observation_id_;
+    row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;
     rows_.push_back(std::move(row));
     total_ = static_cast<uint16_t>(rows_.size());
 }

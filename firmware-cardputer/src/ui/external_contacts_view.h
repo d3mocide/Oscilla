@@ -2,6 +2,7 @@
 #pragma once
 #include <M5GFX.h>
 #include "model/contacts_model.h"
+#include "model/contact_inspection.h"
 namespace ui {
 void drawExternalContactsStrip(lgfx::LGFX_Sprite &strip, int top,
     const model::ContactsModel &contacts, bool probes, size_t cursor, uint32_t now);

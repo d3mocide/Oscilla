@@ -1,99 +1,182 @@
-/* Rendered reference: master brand guide, external Packet Monitor Field. */
+/* One measured scope or channel dwell field; Observatory v2. */
 #include "ui/external_spectrum_view.h"
-#include "ui/theme.h"
-#include <algorithm>
+#include "ui/external_plot.h"
+#include "ui/observatory_chrome.h"
 #include <cstdio>
 
 namespace ui {
-namespace {
-constexpr uint16_t ground = rgb565(0x060806), panel = rgb565(0x080C08);
-constexpr uint16_t plot = rgb565(0x070A07), border = rgb565(0x1D2A1F);
-constexpr uint16_t axis = rgb565(0x4B6349);
-}
 void drawExternalSpectrumStrip(lgfx::LGFX_Sprite &d, int top,
-                              const model::SpectrumModel &s, size_t cursor, uint32_t now)
+                               const model::SpectrumModel &s, size_t cursor, uint32_t now)
 {
-    const auto &readings = s.readings();
+    using namespace instrument;
+    using namespace observatory;
+    const auto &rows = s.readings();
     if (s.locked()) cursor = 0;
-    const auto *focus = cursor < readings.size() ? &readings[cursor] : nullptr;
-    const size_t count = std::min<size_t>(readings.size(), 40);
-    uint32_t scale = 1, peak = 0;
+    const auto *r = cursor < rows.size() ? &rows[cursor] : nullptr;
+    const bool fresh = r && r->valid && now - r->received_ms < 3000;
+    const char *state = !s.active() ? "CACHED" : !r || !r->valid ? "WAIT" : fresh ? "LIVE" : "AGED";
+    const BadgeTone tone = !s.active() ? BadgeTone::Cached
+                         : (r && r->valid && fresh) ? BadgeTone::Live : BadgeTone::Warn;
+    Canvas c(d, top);
+
+    obsFrame(c, ModeSigil::WaveScope,
+             s.locked() ? "PACKET SCOPE // 1S" : "CHANNEL FIELD // DWELL",
+             state, tone);
+    obsDock(c, tone == BadgeTone::Live ? kFieldGreen : tone == BadgeTone::Warn ? kCalibrationYellow : kMutedSlate, true);
+
+    constexpr int x0 = 34, y0 = 46, w = 264, h = 84;
+    for (int i = 0; i <= 4; ++i) {
+        const int yy = y0 + (h * i) / 4;
+        if (i == 4) c.line(x0, yy, x0 + w, yy, kDimGreen);
+        else obsDashedH(c, x0, x0 + w, yy, kTrackDark, 2, 3);
+    }
+    for (int i = 0; i <= 6; ++i) {
+        obsDashedV(c, x0 + (w * i) / 6, y0, y0 + h, kTrackDark, 2, 3);
+    }
+
+    uint32_t peak = 0;
+    uint64_t sum = 0;
+    size_t valid_count = 0;
     bool have_peak = false;
-    for (const auto &r : readings) {
-        scale = std::max(scale, r.pkts);
-        for (size_t i = 0; i < r.history_size; ++i) {
-            if (now - r.history[i].received_ms < 30000) {
-                scale = std::max(scale, r.history[i].pkts);
-                if (&r == focus) { peak = std::max(peak, r.history[i].pkts); have_peak = true; }
+
+    if (s.locked() && r) {
+        const size_t count = std::min(r->history_size, r->history.size());
+        const size_t first = (r->history_next + r->history.size() - count) % r->history.size();
+        uint32_t anchor = now;
+        if (!s.active() && count) anchor = r->history[(first + count - 1) % r->history.size()].received_ms;
+        for (size_t i = 0; i < count; ++i) {
+            const auto &sample = r->history[(first + i) % r->history.size()];
+            if (anchor - sample.received_ms < 30000) {
+                peak = std::max(peak, sample.pkts);
+                sum += sample.pkts;
+                ++valid_count;
             }
         }
-    }
-    auto rect = [&](int x, int y, int w, int h, uint16_t c) { d.fillRect(x,y-top,w,h,c); };
-    auto line = [&](int x1, int y1, int x2, int y2, uint16_t c) { d.drawLine(x1,y1-top,x2,y2-top,c); };
-    auto text = [&](int x, int y, uint16_t colour, const char *value, uint16_t bg = ground) {
-        d.setTextSize(1); d.setTextColor(colour,bg); d.setCursor(x,y-top); d.print(value);
-    };
-    char value[48];
-    d.fillScreen(ground);
-    rect(4,3,312,25,panel); d.drawRect(4,3-top,312,25,border);
-    const char *labels[] = {"CHANNEL", "COUNT/WIN", "PEAK/30s", "FRESHNESS"};
-    const uint16_t colours[] = {kCalibrationYellow,kPaperPhosphor,kSignalPink,kCalibrationYellow};
-    for (int tile = 0; tile < 4; ++tile) {
-        const int x = 8 + tile * 78;
-        if (tile) line(x-4,6,x-4,24,border);
-        text(x,6,kMutedSlate,labels[tile],panel);
-        if (!focus) snprintf(value,sizeof value,"--");
-        else if (tile == 0) snprintf(value,sizeof value,"CH %u",focus->ch);
-        else if (tile == 1) snprintf(value,sizeof value,focus->valid ? "%lu" : "--",(unsigned long)focus->pkts);
-        else if (tile == 2) snprintf(value,sizeof value,have_peak ? "%lu" : "--",(unsigned long)peak);
-        else if (!focus->valid) snprintf(value,sizeof value,"WAIT");
-        else if (!s.active()) snprintf(value,sizeof value,"CACHED");
-        else snprintf(value,sizeof value,"%s %lus",now-focus->received_ms < 3000 ? "LIVE" : "AGED",(unsigned long)((now-focus->received_ms)/1000));
-        text(x,17,colours[tile],value,panel);
-    }
-    rect(4,31,312,183,plot); d.drawRect(4,31-top,312,183,border);
-    text(10,35,axis,"PACKET HISTORY / 30s",plot);
-    text(190,35,kMutedSlate,s.locked() ? "1s WINDOWS" : "DWELL COUNTS",plot);
-    for (int tick = 0; tick <= 3; ++tick) {
-        const int y = 49 + tick*24;
-        snprintf(value,sizeof value,"-%us",tick*10);
-        text(7,y,axis,value,plot); line(30,y+4,310,y+4,border);
-    }
-    const int step = count ? 276/count : 276;
-    for (size_t i = 0; i < count; ++i) {
-        const auto &r = readings[i]; const int x = 32+i*step;
-        if (i == cursor) { rect(x,47,step-1,79,kPanelDark); d.drawRect(x,47-top,step-1,79,kSignalPink); }
-        for (size_t j = 0; j < r.history_size; ++j) {
-            const auto &sample = r.history[j]; const uint32_t age = now-sample.received_ms;
+        have_peak = valid_count != 0;
+        const uint32_t scale = plot::scaleFor(peak);
+        char lbl[16];
+        snprintf(lbl, sizeof lbl, "%lu", (unsigned long)scale);
+        obsMicro(c, 30, y0 - 3, lbl, kMutedSlate, kVoidInk, Align::Right);
+        snprintf(lbl, sizeof lbl, "%lu", (unsigned long)(scale / 2));
+        obsMicro(c, 30, y0 + h / 2 - 3, lbl, kMutedSlate, kVoidInk, Align::Right);
+        obsMicro(c, 30, y0 + h - 4, "0", kMutedSlate, kVoidInk, Align::Right);
+        obsMicro(c, x0, 32, "PKTS / 1S WINDOW", kDimGreen, kVoidInk);
+
+        int peak_x = x0 + w / 2;
+        int peak_y = y0 + h;
+        int prev_x = 0, prev_y = 0;
+        uint32_t prev_ms = 0;
+        bool has_prev = false;
+        const uint16_t trace_col = s.active() ? kFieldGreen : kMutedSlate;
+        bool peak_marked = false;
+
+        if (have_peak) {
+            peak_y = y0 + h - int(uint64_t(peak) * h / scale);
+            obsDashedH(c, x0, x0 + w, peak_y, kSignalPink, 3, 3);
+        }
+
+        for (size_t i = 0; i < count; ++i) {
+            const auto &sample = r->history[(first + i) % r->history.size()];
+            const uint32_t age = anchor - sample.received_ms;
             if (age >= 30000) continue;
-            const uint32_t level = static_cast<uint64_t>(sample.pkts)*100/scale;
-            const uint16_t colour = !sample.pkts ? kTrackDark : level >= 75 ? kSignalPink : level >= 40 ? kCalibrationYellow : kDimGreen;
-            rect(x+2,49+(age*72/30000),std::max(1,step-5),2,colour);
+            const int px = x0 + int(uint64_t(30000 - age) * w / 30000);
+            const int py = y0 + h - int(uint64_t(sample.pkts) * h / scale);
+            const bool is_peak = !peak_marked && sample.pkts == peak;
+            if (is_peak) { peak_x = px; peak_marked = true; }
+            const bool connected = has_prev && (sample.received_ms - prev_ms <= 1600);
+            /* Solid vertical phosphor drop-stem per measured window (missing windows stay gaps). */
+            c.line(px, py + 2, px, y0 + h - 1, is_peak ? kLineBorder : kTrackDark);
+            if (connected) {
+                c.line(prev_x, prev_y + 1, px, py + 1, kDimGreen);
+                c.line(prev_x, prev_y, px, py, trace_col);
+            }
+            if (is_peak) obsDiamondFill(c, px, py, 3, kSignalPink);
+            else c.rect(px - 1, py - 1, 3, 3, trace_col);
+            prev_x = px; prev_y = py; prev_ms = sample.received_ms; has_prev = true;
         }
-    }
-    text(9,130,axis,"CHANNEL COUNT ENVELOPE",plot);
-    snprintf(value,sizeof value,"MAX %lu",(unsigned long)scale); text(246,130,kMutedSlate,value,plot);
-    for (int tick = 0; tick < 3; ++tick) line(30,147+tick*22,310,147+tick*22,border);
-    line(30,142,30,197,axis); line(30,197,310,197,axis);
-    int last_x = 0, last_y = 0; bool last_valid = false;
-    for (size_t i = 0; i < count; ++i) {
-        const auto &r = readings[i]; const int x = 32+i*step+step/2;
-        const int y = 194-static_cast<uint64_t>(r.pkts)*46/scale;
-        const bool fresh = r.valid && now-r.received_ms < 3000;
-        if (r.valid && last_valid) line(last_x,last_y,x,y,s.active() && fresh ? kFieldGreen : kMutedSlate);
-        if (r.valid) { line(x,194,x,y,kDimGreen); d.fillCircle(x,y-top,2,i==cursor ? kSignalPink : kFieldGreen); }
-        if (i==cursor) {
-            line(x,197,x,201,kCalibrationYellow);
-            snprintf(value,sizeof value,"%u",r.ch);
-            text(std::max(32,std::min(286,x-8)),203,kCalibrationYellow,value,plot);
+        if (has_prev) {
+            c.ring(prev_x, prev_y, 5, kSignalPink);
+            c.rect(prev_x - 2, prev_y - 2, 5, 5, kCalibrationYellow);
         }
-        last_x=x; last_y=y; last_valid=r.valid;
+        if (have_peak) {
+            char pbuf[20];
+            snprintf(pbuf, sizeof pbuf, "PEAK %lu", (unsigned long)peak);
+            const int bx = std::max(x0 + 104, std::min(x0 + w - 58, peak_x - 28));
+            obsBadge(c, bx, 29, 56, 13, pbuf, kPanelDark, kSignalPink, kSignalPink);
+        } else {
+            obsMicro(c, 160, 84, r->valid ? "NO RECENT MEASURED WINDOWS" : "WAITING FOR MEASURED WINDOWS",
+                     kCalibrationYellow, kVoidInk, Align::Center);
+        }
+        obsMicro(c, x0, 136, "-30s", kMutedSlate, kVoidInk);
+        obsMicro(c, x0 + w / 2, 136, "-15s / MEASURED ONLY", kMutedSlate, kVoidInk, Align::Center);
+        obsMicro(c, x0 + w, 136, s.active() ? "NOW" : "FROZEN",
+                 s.active() ? kCalibrationYellow : kMutedSlate, kVoidInk, Align::Right);
+    } else {
+        const size_t first = firstVisible(rows.size(), cursor);
+        const size_t count = std::min(size_t(12), rows.size() - first);
+        uint32_t max_pkts = 0;
+        for (size_t i = 0; i < count; ++i) {
+            if (rows[first + i].valid) {
+                max_pkts = std::max(max_pkts, rows[first + i].pkts);
+                sum += rows[first + i].pkts;
+                ++valid_count;
+            }
+        }
+        have_peak = valid_count != 0;
+        const uint32_t scale = plot::scaleFor(max_pkts);
+        char lbl[16];
+        snprintf(lbl, sizeof lbl, "%lu", (unsigned long)scale);
+        obsMicro(c, 30, y0 - 3, lbl, kMutedSlate, kVoidInk, Align::Right);
+        obsMicro(c, 30, y0 + h - 4, "0", kMutedSlate, kVoidInk, Align::Right);
+        obsMicro(c, x0, 32, "DWELL PACKETS / CHANNEL", kDimGreen, kVoidInk);
+
+        const int step = count ? w / int(count) : w;
+        for (size_t i = 0; i < count; ++i) {
+            const auto &item = rows[first + i];
+            const bool sel = first + i == cursor;
+            const int x = x0 + int(i) * step;
+            const int bw = std::max(6, step - 5);
+            const int bh = std::max(2, int(uint64_t(item.pkts) * h / scale));
+            const bool aged = !s.active() || now - item.received_ms >= 3000;
+            if (item.valid) {
+                c.rect(x, y0 + h - bh, bw, bh, sel ? kDimGreen : kTrackDark);
+                c.line(x, y0 + h - bh, x + bw - 1, y0 + h - bh,
+                       sel ? kCalibrationYellow : aged ? kMutedSlate : kFieldGreen);
+                for (int yy = y0 + h - bh + 5; yy < y0 + h; yy += 6) {
+                    c.line(x, yy, x + bw - 1, yy, aged ? kLineBorder : kDimGreen);
+                }
+            }
+            if (sel) c.corners(x - 2, y0 - 2, bw + 4, h + 4, kSignalPink);
+            snprintf(lbl, sizeof lbl, "%u", unsigned(item.ch));
+            obsMicro(c, x + bw / 2, 136, lbl, sel ? kCalibrationYellow : kMutedSlate, kVoidInk, Align::Center);
+        }
+        if (!count) {
+            obsMicro(c, 160, 84, "WAITING FOR CHANNEL OBSERVATIONS", kCalibrationYellow, kVoidInk, Align::Center);
+        }
+        peak = max_pkts;
     }
-    if (!count) text(46,80,kMutedSlate,"WAITING FOR MEASURED CHANNELS",plot);
-    rect(4,217,224,20,panel); d.drawRect(4,217-top,224,20,border);
-    if (focus) snprintf(value,sizeof value,"ACTIVE CH %u / %s",focus->ch,focus->band5 ? "5 GHz" : "2.4 GHz");
-    else snprintf(value,sizeof value,"NO CHANNEL SELECTED");
-    text(8,220,kPaperPhosphor,value,panel);
-    text(8,229,kMutedSlate,s.active() ? "PASSIVE / MEASURED COUNTS" : "CACHED / RECEIVER STOPPED",panel);
+
+    char head[40];
+    if (r) snprintf(head, sizeof head, "CH %02u / %s", unsigned(r->ch), r->band5 ? "5 GHz" : "2.4 GHz");
+    else snprintf(head, sizeof head, "NO CHANNEL SELECTED");
+    obsText(c, 12, 164, head, FontId::Title, kPaperPhosphor, 296);
+
+    char sub[48];
+    if (s.locked()) snprintf(sub, sizeof sub, "LOCKED CHANNEL / %u WINDOWS", unsigned(valid_count));
+    else snprintf(sub, sizeof sub, "CHANNEL SURVEY / %u VISIBLE", unsigned(valid_count));
+    obsMicro(c, 12, 185, sub, kMutedSlate, kPanelDark);
+    if (r && r->valid) {
+        snprintf(sub, sizeof sub, "%lus OLD", (unsigned long)((now - r->received_ms) / 1000));
+        obsMicro(c, 308, 185, sub, fresh ? kMutedSlate : kCalibrationYellow, kPanelDark, Align::Right);
+    }
+
+    const std::string latest = (r && r->valid) ? std::to_string(r->pkts) : "--";
+    char mean_str[16] = "--";
+    if (valid_count) snprintf(mean_str, sizeof mean_str, "%.1f", double(sum) / double(valid_count));
+
+    obsBay(c, 12, 94, s.locked() ? "LATEST 1S" : "LATEST DWELL", latest, kFieldGreen, "pkts");
+    obsBay(c, 122, 86, s.locked() ? "PEAK / 30S" : "VISIBLE MAX",
+           have_peak ? std::to_string(peak) : "--", kSignalPink, "pkts");
+    obsBay(c, 224, 84, s.locked() ? "30S MEAN" : "MEAN", mean_str, kPaperPhosphor, s.locked() ? "/s" : "");
 }
-}
+}  // namespace ui

@@ -54,7 +54,8 @@ if [ "$PROBE_ONLY" -eq 0 ]; then
     echo "=== deck: firmware-cardputer (esp32s3) ==="
     (
         cd firmware-cardputer
-        pio run
+        pio run -e cardputer-adv
+        python3 ../tools/check_deck_stack.py .pio/build/cardputer-adv/firmware.elf
     )
 else
     echo

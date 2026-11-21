@@ -45,14 +45,15 @@ int main()
           std::string(app::navItem(Screen::Deauth).title) == "DEAUTH DETECT" &&
           std::string(app::navItem(Screen::AntiSurveillance).title) == "ANTI-SURV",
           "route labels use standard tool names");
-    check(app::cycleScreen(Screen::Link, -1) == Screen::Drive &&
-          app::cycleScreen(Screen::Drive, 1) == Screen::Link,
-          "home route order wraps in both directions");
+    check(app::cycleScreen(Screen::Link, -1) == Screen::Logs &&
+          app::cycleScreen(Screen::Logs, 1) == Screen::Link,
+          "archive home route wraps in both directions");
     check(app::cycleScreen(Screen::Sweep, 1) == Screen::Beacons &&
           app::cycleScreen(Screen::Spectrum, 1) == Screen::Contacts &&
           app::cycleScreen(Screen::Contacts, 1) == Screen::Deauth &&
           app::cycleScreen(Screen::Deauth, 1) == Screen::AntiSurveillance &&
-          app::cycleScreen(Screen::AntiSurveillance, 1) == Screen::Drive,
+          app::cycleScreen(Screen::AntiSurveillance, 1) == Screen::Drive &&
+          app::cycleScreen(Screen::Drive,1)==Screen::Logs && app::navItem(Screen::Logs).section==app::Section::Logs,
           "sibling views remain grouped by section");
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "navigation test FAILED" : "navigation test OK",

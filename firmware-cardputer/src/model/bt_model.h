@@ -32,6 +32,8 @@ struct BtDevice {
     bool tracker = false;
     int rssi = 0;
     uint32_t n = 0;
+    uint32_t observed_ms=0,observation_id=0;
+    bool first_sighting=false;
 };
 
 struct BtTrackerHit {
@@ -68,13 +70,13 @@ public:
     void clear();
 
     /* Absorb a [BLE] frame — the complete device table, not a page. */
-    void absorbScan(const ocp::Item &frame);
+    void absorbScan(const ocp::Item &frame,uint32_t now_ms=0);
 
     /* Absorb an [EVT] kind=airtag or kind=ble (the latter upserts one row
      * into the same devices() table absorbScan() populates — a script or
      * view watching that list doesn't need to know which command filled
      * it). Both are no-ops for a kind they don't recognize. */
-    void absorbEvent(const ocp::Item &evt);
+    void absorbEvent(const ocp::Item &evt,uint32_t now_ms=0);
 
     bool scanning() const { return scanning_; }
     bool continuousActive() const { return continuous_active_; }
@@ -94,6 +96,7 @@ private:
 
     std::vector<BtDevice> devices_;
     uint16_t malformed_ = 0;
+    uint32_t observation_id_=0;
     bool scanning_ = false;
     bool continuous_active_ = false;
 

@@ -3,7 +3,8 @@
 # Host compiler only; no toolchain needed.
 set -euo pipefail
 
-python3 "$(dirname "$0")/check_no_cs_storage.py"
+python3 "$(dirname "$0")/check_sd_storage.py"
+python3 "$(dirname "$0")/check_external_tft.py"
 cd "$(dirname "$0")/.."
 out=$(mktemp -d); trap 'rm -rf "$out"' EXIT
 warn=(-Wall -Wextra -pedantic -Werror)
@@ -47,6 +48,7 @@ python3 tools/check_event_queue.py | tail -1 | sed 's/^/  /'
 python3 tools/test_wifi_inspect_arm.py | tail -1 | sed 's/^/  /'
 python3 tools/test_sweep_layout.py | tail -1 | sed 's/^/  /'
 python3 tools/test_card_selection_style.py | tail -1 | sed 's/^/  /'
+python3 tools/check_external_frame_memory.py | tail -1 | sed 's/^/  /'
 
 # Spec rules: the OCP-SPEC §9 conformance checklist.
 python3 tools/ocp_repl.py --selftest --no-color | tail -1 | sed 's/^/  /'
@@ -135,6 +137,63 @@ python3 tools/check_deck_parser.py --count 150
     firmware-cardputer/test/host/navigation_test.cpp firmware-cardputer/src/app/deck_navigation.cpp
 "$out/navigation_test" | tail -1 | sed 's/^/  /'
 
+# External display diffing must compare each rendered strip against the same
+# physical LCD rows, while still skipping unchanged rows within a page.
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/external_row_cache_test" \
+    firmware-cardputer/test/host/external_row_cache_test.cpp
+"$out/external_row_cache_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/external_plot_test" \
+    firmware-cardputer/test/host/external_plot_test.cpp
+"$out/external_plot_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/inspection_state_test" \
+    firmware-cardputer/test/host/inspection_state_test.cpp firmware-cardputer/src/model/spectrum_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/inspection_state_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/system_resources_test" \
+    firmware-cardputer/test/host/system_resources_test.cpp
+"$out/system_resources_test"
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/system_navigation_test" \
+    firmware-cardputer/test/host/system_navigation_test.cpp
+"$out/system_navigation_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/contact_inspection_test" \
+    firmware-cardputer/test/host/contact_inspection_test.cpp firmware-cardputer/src/model/contacts_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/contact_inspection_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/gnss_noise_test" \
+    firmware-cardputer/test/host/gnss_noise_test.cpp
+"$out/gnss_noise_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/device_inspection_test" \
+    firmware-cardputer/test/host/device_inspection_test.cpp firmware-cardputer/src/model/scan_model.cpp \
+    firmware-cardputer/src/model/contacts_model.cpp \
+    firmware-cardputer/src/model/bt_model.cpp firmware-cardputer/src/ocp/ocp_csv.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/device_inspection_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/session_review_test" \
+    firmware-cardputer/test/host/session_review_test.cpp firmware-cardputer/src/model/session_review.cpp \
+    firmware-cardputer/src/storage/lora_log_format.cpp firmware-cardputer/src/storage/wardrive_csv.cpp \
+    firmware-cardputer/src/model/lora_framing.cpp
+"$out/session_review_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Itools/sessionstub -Ifirmware-cardputer/src -o "$out/session_reader_test" \
+    firmware-cardputer/test/host/session_reader_test.cpp firmware-cardputer/src/storage/session_reader.cpp \
+    firmware-cardputer/src/model/session_review.cpp firmware-cardputer/src/model/lora_framing.cpp
+"$out/session_reader_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Itools/sessionstub -Ifirmware-cardputer/src -o "$out/session_navigation_test" \
+    firmware-cardputer/test/host/session_navigation_test.cpp firmware-cardputer/src/app/deck_sessions.cpp \
+    firmware-cardputer/src/model/session_review.cpp firmware-cardputer/src/model/lora_framing.cpp
+"$out/session_navigation_test"
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/diagnostic_line_test" \
+    firmware-cardputer/test/host/diagnostic_line_test.cpp
+"$out/diagnostic_line_test"
+
 # A PHY handoff must wait for [STOP] before it starts the requested successor.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/phy_handoff_test" \
     firmware-cardputer/test/host/phy_handoff_test.cpp firmware-cardputer/src/app/phy_handoff.cpp
@@ -164,6 +223,17 @@ python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
     firmware-cardputer/test/host/bt_model_test.cpp firmware-cardputer/src/model/bt_model.cpp \
     firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/bt_model_test" | tail -1 | sed 's/^/  /'
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/snapshot_memory_test" \
+    firmware-cardputer/test/host/snapshot_memory_test.cpp \
+    firmware-cardputer/src/model/contacts_model.cpp firmware-cardputer/src/model/bt_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/snapshot_memory_test" | tail -1 | sed 's/^/  /'
+
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/scan_memory_test" \
+    firmware-cardputer/test/host/scan_memory_test.cpp firmware-cardputer/src/model/scan_model.cpp \
+    firmware-cardputer/src/ocp/ocp_csv.cpp firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/scan_memory_test" | tail -1 | sed 's/^/  /'
 
 # The deck-local anti-surveillance correlator: bounded tracker table, fresh-fix
 # requirement, two-leg movement threshold, and stop/clear semantics.

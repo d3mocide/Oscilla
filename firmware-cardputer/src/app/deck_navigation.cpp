@@ -22,6 +22,7 @@ constexpr NavItem kCards[] = {
     {Screen::Deauth,   Section::Analyze, "DEAUTH DETECT"},
     {Screen::AntiSurveillance, Section::Analyze, "ANTI-SURV"},
     {Screen::Drive,    Section::Drive,   "WARDRIVE"},
+    {Screen::Logs,     Section::Logs,    "SESSIONS"},
 };
 
 constexpr int kNumCards = sizeof(kCards) / sizeof(kCards[0]);

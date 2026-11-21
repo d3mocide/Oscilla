@@ -5,7 +5,7 @@
  *   SYSTEM -> OBSERVE -> ANALYZE -> DRIVE. AP Detail is a Wi-Fi Scan drill-down.
  *   ` = stop + back, except on Link where it opens Settings (DESIGN §7.3)
  *
- * AP Detail is the only drill-down; defensive analysis cards are first-class
+ * AP Detail and packet inspection are drill-downs; defensive analysis cards are first-class
  * home routes in DESIGN §7.2.
  *
  * PHY tool changes wait for `stop phy` (D-16, OCP-SPEC §5.4), preserving
@@ -16,12 +16,18 @@
 
 #pragma once
 #include "model/system_status.h"
+#include "model/inspection_state.h"
+#include "model/contact_inspection.h"
+#include "model/device_inspection.h"
+#include "model/gnss_noise.h"
 
 #include <cstdint>
 #include <functional>
 #include <string>
 
 #include "app/deck_navigation.h"
+#include "model/session_review.h"
+#include "app/system_navigation.h"
 #include "app/phy_handoff.h"
 #include "gnss/nmea_parser.h"
 #include "model/bt_model.h"
@@ -58,14 +64,34 @@ public:
     const model::GnssModel &gnssModel() const { return gnss_; }
     const model::SpectrumModel &spectrumModel() const { return spectrum_; }
     size_t spectrumCursor() const { return spectrum_cursor_; }
+    bool showingSessions()const{return screen_==Screen::Logs;}
+    const model::SessionReview &sessionReview()const{return session_review_;}
     bool showingSpectrum() const { return screen_ == Screen::Spectrum; }
+    bool showingWifi() const { return screen_ == Screen::Sweep; }
+    const model::ScanModel &scanModel() const { return scan_; }
+    size_t scanCursor() const { return cursor_; }
+    bool showingTrace() const { return screen_ == Screen::Trace; }
+    const model::WifiInspection &wifiInspection()const{return wifi_inspection_;}
+    const model::BtInspection &btInspection()const{return bt_inspection_;}
+    bool traceListening() const { return client_.pending() && client_.pendingVerb() == OCP_V_INSPECT_NETWORK; }
     const model::LoraModel &loraModel() const { return lora_; }
+    const model::PacketInspection &packetInspection() const { return packet_inspection_; }
     size_t loraCursor() const { return lora_cursor_; }
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
+    bool wardriveClosing()const{return wardrive_closing_;}
     bool showingDrive() const { return screen_ == Screen::Drive; }
+    bool showingDeauth() const { return screen_ == Screen::Deauth; }
+    const model::DeauthModel &deauthModel() const { return deauth_; }
+    size_t deauthCursor() const { return deauth_cursor_; }
+    bool showingAntiSurveillance() const { return screen_ == Screen::AntiSurveillance; }
+    const model::AntiSurveillanceModel &antiModel() const { return anti_; }
+    size_t antiCursor() const { return anti_cursor_; }
+    bool antiStarting() const { return anti_start_pending_; }
+    bool showingSettings() const { return screen_ == Screen::Settings; }
     const model::ContactsModel &contactsModel() const { return contacts_; }
     size_t contactsCursor() const { return contacts_cursor_; }
     bool contactsProbes() const { return contacts_tab_ == ui::ContactsTab::Probes; }
+    const model::ContactInspection &contactInspection() const { return contact_inspection_; }
     bool showingContacts() const { return screen_ == Screen::Contacts; }
     const model::ZigModel &zigModel() const { return zig_; }
     size_t zigCursor() const { return zig_cursor_; }
@@ -73,13 +99,7 @@ public:
     bool showingZig() const { return screen_ == Screen::Zig; }
     bool showingSystem() const { return screen_ == Screen::Link || screen_ == Screen::Info; }
     bool showingInfo() const { return screen_ == Screen::Info; }
-    model::SystemStatus externalSystemState() const {
-        model::SystemStatus s;
-        s.info=showingInfo();s.link=client_.state();s.probe=client_.probe();s.stats=client_.stats();
-        s.probe_valid=probe_status_valid_;s.probe_heap=probe_heap_;
-        s.probe_total=probe_heap_total_;s.probe_uptime=probe_uptime_ms_;
-        return s;
-    }
+    model::SystemStatus externalSystemState() const;
     const model::BtModel &btModel() const { return bt_; }
     size_t btCursor() const { return bt_cursor_; }
     bool showingBt() const { return screen_ == Screen::Beacons; }
@@ -123,6 +143,13 @@ public:
     void onLog(std::function<void(const std::string &)> log) { log_ = std::move(log); }
 
 private:
+    model::SessionReview session_review_;
+    bool session_previous_page_=false,system_from_sessions_=false;
+    void openSessions(uint32_t now);
+    void sessionKeys(char c);
+    void sessionEnter();
+    void tickSessions(uint32_t now);
+    std::string debugSnapshot(uint32_t now_ms)const;
     void onReply(const ocp::Item &it);
     void onEvent(const ocp::Item &it);
     /* The wire-level half of startScan(): send scan_networks, reset scan_.
@@ -142,6 +169,14 @@ private:
     void stopPhyForNavigation(uint32_t now_ms);
     void toggleWifiContinuous(uint32_t now_ms);
     void startInspect(uint32_t now_ms);
+    void openWifiDossier();void openBtDossier();
+    void refreshWifiDossier(uint32_t now);void refreshBtDossier(uint32_t now);
+    uint16_t absorbWifiPage(const ocp::Item &item);
+    void absorbBtSnapshot(const ocp::Item &item);
+    void absorbDeviceEvent(const ocp::Item &item);
+    model::WifiInspection wifi_inspection_;
+    model::BtInspection bt_inspection_;
+    std::string ap_focus_bssid_,bt_focus_mac_;
     void startSniffer(uint32_t now_ms);
     void startChannelView(uint32_t now_ms);
     void startPacketMonitor(uint32_t now_ms, uint8_t ch);
@@ -161,7 +196,20 @@ private:
     void toggleZig(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
     void logScanRows();
+    bool wardriveRowsPending() const;
+    void tickWardrive(uint32_t now);
+    void finishWardrive();
+    void gnssDiagnostic(const std::string &arg,uint32_t now);
+    model::GnssNoise gnss_noise_;
+    bool wardrive_rescan_=false,wardrive_closing_=false;
+    model::GnssFix wardrive_page_fix_;
+    uint32_t wardrive_page_fix_ms_=0,scan_wait_started_ms_=0;
     void back(uint32_t now_ms);
+    void openContactInspection();
+    void absorbContactSnapshot(const ocp::Item &item);
+    model::ContactInspection contact_inspection_;
+    void navigateCard(Screen target,uint32_t now_ms);
+    SystemNavigation system_navigation_;
     void notice(const std::string &text);
     /* ';'/'.' on the Settings screen: clamps to [kBrightnessMin,
      * kBrightnessMax] (never 0 — a black screen has no way back), applies
@@ -178,6 +226,8 @@ private:
     model::ScanModel scan_;
     model::ContactsModel contacts_;
     model::SpectrumModel spectrum_;
+    model::ScopeInspection scope_inspection_;
+    model::PacketInspection packet_inspection_;
     model::LoraModel lora_;
     model::DeauthModel deauth_;
     model::BtModel bt_;
@@ -251,6 +301,8 @@ private:
     std::function<void(uint32_t)> pending_retry_;
     uint32_t pending_retry_started_ms_ = 0;
 
+    std::string probe_owner_, probe_lora_;
+    uint32_t probe_status_sequence_ = 0, probe_status_epoch_ = 0;
     bool probe_status_valid_ = false;
     uint32_t probe_heap_ = 0;
     uint32_t probe_heap_total_ = 0;

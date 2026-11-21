@@ -127,11 +127,11 @@ void drawZigView(const model::ZigModel &m, ZigTab tab, size_t cursor, const Chro
         if (!pans.empty() && cursor < pans.size()) {
             const auto &p = pans[cursor];
             d.setTextColor(m.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-            d.printf("%s · %d CH · N%u · RSSI %d", printable(p.pan, 8).c_str(),
+            d.printf("%s / %d CH / N%u / RSSI %d", printable(p.pan, 8).c_str(),
                      channelCount(p.channels), p.nodes, p.rssi);
         } else {
             d.setTextColor(m.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-            d.printf("PANS %u · %s", (unsigned)pans.size(), m.active() ? "LISTENING" : "IDLE");
+            d.printf("PANS %u / %s", (unsigned)pans.size(), m.active() ? "LISTENING" : "IDLE");
         }
     } else {
         const auto &nodes = m.nodes();
@@ -139,15 +139,19 @@ void drawZigView(const model::ZigModel &m, ZigTab tab, size_t cursor, const Chro
             const auto &n = nodes[cursor];
             d.setTextColor(m.active() ? kFieldGreen : kMutedSlate, kVoidInk);
             if (n.short_addr.empty() && !n.ext.empty()) {
-                d.printf("EXT %s · RSSI %d LQI %u", printable(n.ext, 16).c_str(), n.rssi, n.lqi);
+                d.printf("EXT %s / RSSI %d LQI %u", printable(n.ext, 16).c_str(), n.rssi, n.lqi);
             } else {
                 d.printf("%s RSSI %d LQI %u", printable(n.pan, 8).c_str(), n.rssi, n.lqi);
             }
         } else {
             d.setTextColor(m.active() ? kFieldGreen : kMutedSlate, kVoidInk);
-            d.printf("NODES %u · %s", (unsigned)nodes.size(), m.active() ? "LISTENING" : "IDLE");
+            d.printf("NODES %u / %s", (unsigned)nodes.size(), m.active() ? "LISTENING" : "IDLE");
         }
     }
+
+    d.setCursor(4, kHintRowY);
+    d.setTextColor(kCalibrationYellow, kVoidInk);
+    d.print(pans_tab ? "x NODES / s START-STOP" : "x PANS / s START-STOP");
 
     endChrome(chrome);
 }

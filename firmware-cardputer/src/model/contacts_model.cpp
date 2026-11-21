@@ -13,6 +13,7 @@
 #include "ocp.h"
 #include "ocp/ocp_csv.h"
 #include "model/number_parse.h"
+#include "model/snapshot_rows.h"
 
 namespace model {
 
@@ -105,15 +106,7 @@ void ContactsModel::absorbClients(const ocp::Item &frame, uint32_t now_ms)
 {
     if (frame.tag != OCP_MARK_CLIENTS) return;
 
-    std::vector<ClientRow> rows;
-    uint16_t bad = 0;
-    for (const auto &raw : frame.rows) {
-        if (rows.size() >= kMaxRows) break;
-        ClientRow row;
-        if (parseClientRow(raw, row)) rows.push_back(std::move(row));
-        else bad++;
-    }
-    clients_ = std::move(rows);
+    const auto bad = replaceSnapshotRows(clients_, frame, kMaxRows, parseClientRow);
     have_clients_ = true;
     clients_ms_ = now_ms;
     malformed_ = bad;   /* a fresh snapshot: last frame's count doesn't carry over */
@@ -123,15 +116,7 @@ void ContactsModel::absorbProbes(const ocp::Item &frame, uint32_t now_ms)
 {
     if (frame.tag != OCP_MARK_PROBES) return;
 
-    std::vector<ProbeRow> rows;
-    uint16_t bad = 0;
-    for (const auto &raw : frame.rows) {
-        if (rows.size() >= kMaxRows) break;
-        ProbeRow row;
-        if (parseProbeRow(raw, row)) rows.push_back(std::move(row));
-        else bad++;
-    }
-    probes_ = std::move(rows);
+    const auto bad = replaceSnapshotRows(probes_, frame, kMaxRows, parseProbeRow);
     have_probes_ = true;
     probes_ms_ = now_ms;
     malformed_ = bad;

@@ -9,7 +9,7 @@
 
 #include <cstdint>
 #include <string>
-#include <vector>
+#include <deque>
 
 #include "ocp/ocp_item.h"
 
@@ -23,6 +23,9 @@ struct ApRow {
     std::string auth;
     int rssi = 0;
     bool band5 = false;
+    uint32_t observed_ms=0,observation_id=0;
+    bool beacon_info=false,rsn=false,mfp_capable=false,mfp_required=false;
+    uint16_t interval_ms=0;
 };
 
 struct Inspect {
@@ -57,10 +60,10 @@ public:
 
     /* Absorb a [SCAN] frame. Returns the `first` to request next, or 0 when
      * the survey is complete (all pages, aborted, or kMaxRows reached). */
-    uint16_t absorbPage(const ocp::Item &frame);
+    uint16_t absorbPage(const ocp::Item &frame,uint32_t now_ms=0);
 
     /* Absorb an [EVT] kind=network, upserting by BSSID. */
-    void absorbEvent(const ocp::Item &evt);
+    void absorbEvent(const ocp::Item &evt,uint32_t now_ms=0);
 
     void absorbInspect(const ocp::Item &frame);
 
@@ -72,11 +75,11 @@ public:
     bool truncated() const { return total_ > rows_.size() && !scanning_ && !aborted_; }
     uint32_t elapsedMs() const { return elapsed_ms_; }
     uint16_t malformedRows() const { return malformed_; }
-    const std::vector<ApRow> &rows() const { return rows_; }
+    const std::deque<ApRow> &rows() const { return rows_; }
     const Inspect &inspect() const { return inspect_; }
 
 private:
-    std::vector<ApRow> rows_;
+    std::deque<ApRow> rows_;
     Inspect inspect_;
     bool scanning_ = false;
     bool continuous_active_ = false;
@@ -85,6 +88,7 @@ private:
     uint16_t total_ = 0;
     uint16_t malformed_ = 0;
     uint32_t elapsed_ms_ = 0;
+    uint32_t observation_id_=0;
 };
 
 }  // namespace model

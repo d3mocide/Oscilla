@@ -20,9 +20,8 @@ namespace {
 constexpr int kSniffHeaderClientsX = 4;
 constexpr int kSniffHeaderProbesX = 76;
 constexpr int kSniffHeaderChannelX = 142;
-constexpr int kSniffHeaderPacketsX = 184;
-constexpr int kSniffClientChannelX = 104;
-constexpr int kSniffClientBandX = 128;
+constexpr int kSniffClientChannelX = 118;
+constexpr int kSniffClientBandX = 145;
 constexpr int kSniffRssiX = 204;
 
 void drawClientRows(const model::ContactsModel &contacts, size_t cursor)
@@ -40,7 +39,7 @@ void drawClientRows(const model::ContactsModel &contacts, size_t cursor)
 
         d.setCursor(6, y);
         d.setTextColor(kPaperPhosphor, bg);
-        d.printf("%-15s", printable(r.mac, 15).c_str());
+        d.printf("%-17s", printable(r.mac, 17).c_str());
         d.setTextColor(kMutedSlate, bg);
         d.setCursor(kSniffClientChannelX, y);
         d.printf("%3u", r.ch);
@@ -93,29 +92,26 @@ void drawContactsView(const model::ContactsModel &contacts, ContactsTab tab, siz
     d.printf("PROBES %u", (unsigned)contacts.probes().size());
     d.setCursor(kSniffHeaderChannelX, kBodyTop + 2);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.printf("CH %u", contacts.currentChannel());
-    d.setCursor(kSniffHeaderPacketsX, kBodyTop + 2);
-    d.printf("PKTS %u", (unsigned)contacts.totalPkts());
-    if (contacts.malformedRows()) {
-        d.setTextColor(kSignalPink, kVoidInk);
-        d.printf(" BAD %u", contacts.malformedRows());
-    }
+    if(contacts.currentChannel())d.printf("CH %u",contacts.currentChannel());
+    else d.print("CH --");
 
     if (clients) drawClientRows(contacts, cursor);
     else drawProbeRows(contacts, cursor);
 
-    d.setCursor(4, kDetailRowY);
-    if (!contacts.lastSighting().empty()) {
-        d.setTextColor(kCalibrationYellow, kVoidInk);
-        d.print("LAST ");
-        d.setTextColor(contacts.sniffing() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.print(printable(contacts.lastSighting(), 32).c_str());
-    } else {
-        d.setTextColor(contacts.sniffing() ? kFieldGreen : kMutedSlate, kVoidInk);
-        d.printf("CLIENTS %u · PROBES %u · PKTS %u",
-                 (unsigned)contacts.clients().size(), (unsigned)contacts.probes().size(),
-                 (unsigned)contacts.totalPkts());
+    if ((clients && contacts.clients().empty()) || (!clients && contacts.probes().empty())) {
+        d.setCursor(4, kListTop);
+        d.setTextColor(kDimGreen, kVoidInk);
+        d.print(contacts.sniffing() ? "LISTENING FOR WIFI FRAMES..." : "NO OBSERVATIONS YET");
     }
+
+    d.setCursor(4, kDetailRowY);
+    d.setTextColor(kMutedSlate, kVoidInk);
+    d.print("LAST ");
+    d.setTextColor(contacts.sniffing() ? kFieldGreen : kMutedSlate, kVoidInk);
+    d.print(printable(contacts.lastSighting().empty() ? "NO SIGHTINGS" : contacts.lastSighting(), 32).c_str());
+    d.setCursor(4, kHintRowY);
+    d.setTextColor(kCalibrationYellow, kVoidInk);
+    d.print(clients ? "ENTER DETAIL / x REQUESTS" : "ENTER DETAIL / x CLIENTS");
 
     endChrome(chrome);
 }

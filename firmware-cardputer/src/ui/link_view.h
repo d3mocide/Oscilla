@@ -11,13 +11,11 @@
 
 #include "ocp/ocp_client.h"
 #include "ui/chrome.h"
+#include "ui/display_text.h"
 
 namespace ui {
 
 constexpr size_t kLinkRowCount = 4;
-
-/* Probe-supplied text is untrusted: re-escape before display (OCP-SPEC §6). */
-std::string printable(const std::string &s, size_t max_len);
 
 void drawLinkView(const ocp::Client &client, size_t cursor, const ChromeState &chrome);
 

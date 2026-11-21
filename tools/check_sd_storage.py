@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the real storage module against counters; no hardware required."""
+"""Check the ST7789 deck's SD mount/remount and conservative clock cap."""
 import pathlib
 import subprocess
 import tempfile
@@ -8,17 +8,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "firmware-cardputer/src/storage/sd_storage.cpp"
 
 
-def check(source, directory, isolated, coexist=False, integrated=False):
+def check(source, directory):
     executable = directory / "storage-test"
     command = ["g++", "-std=c++17", "-I" + str(directory),
                "-I" + str(ROOT / "firmware-cardputer/src"),
                str(source), str(directory / "test.cpp"), "-o", str(executable)]
-    if isolated:
-        command.append("-DOSCILLA_NO_CS_DISPLAY_BENCH")
-    if coexist:
-        command.append("-DOSCILLA_SD_DISPLAY_BENCH")
-    if integrated:
-        command.append("-DOSCILLA_EXTERNAL_NO_CS_DISPLAY")
     subprocess.run(command, check=True, capture_output=True)
     return subprocess.run([str(executable)], capture_output=True).returncode
 
@@ -59,28 +53,16 @@ int main() {
     bool started = storage::begin();
     bool ready = storage::ready();
     bool recovered = storage::remount();
-#ifdef OSCILLA_NO_CS_DISPLAY_BENCH
-    return started || ready || recovered || mounts || unmounts;
-#elif defined(OSCILLA_SD_DISPLAY_BENCH) || defined(OSCILLA_EXTERNAL_NO_CS_DISPLAY)
-    return !(started && ready && recovered && mounts == 2 && unmounts == 1 && fastest <= 10000000);
-#else
-    return !(started && ready && recovered && mounts == 2 && unmounts == 1);
-#endif
+    return !(started && ready && recovered && mounts == 2 && unmounts == 1 && fastest == 8000000);
 }
 """)
-        assert check(SOURCE, directory, False) == 0, "normal SD path regressed"
-        assert check(SOURCE, directory, True) == 0, "no-CS bench reached SD"
-        assert check(SOURCE, directory, False, True) == 0, "coexistence clock exceeds panel timing"
-        assert check(SOURCE, directory, False, integrated=True) == 0, "integrated display clock exceeds timing"
+        assert check(SOURCE, directory) == 0, "SD mount/remount or 8 MHz cap regressed"
         mutated = directory / "mutated.cpp"
         text = SOURCE.read_text()
-        assert text.count("#ifdef OSCILLA_NO_CS_DISPLAY_BENCH") == 2
-        mutated.write_text(text.replace("#ifdef OSCILLA_NO_CS_DISPLAY_BENCH", "#if 0"))
-        assert check(mutated, directory, True) != 0, "missing guard went undetected"
+        assert "kSpiHz = 8000000" in text
         mutated.write_text(text.replace("kSpiHz = 8000000", "kSpiHz = 25000000"))
-        assert check(mutated, directory, False, True) != 0, "panel overclock went undetected"
-        assert check(mutated, directory, False, integrated=True) != 0, "integrated panel overclock went undetected"
-    print("no-CS storage: mount/remount, isolation, panel clock cap and rejected mutations passed")
+        assert check(mutated, directory) != 0, "SD overclock went undetected"
+    print("SD storage: mount/remount, 8 MHz cap and rejected overclock mutation passed")
 
 
 if __name__ == "__main__":

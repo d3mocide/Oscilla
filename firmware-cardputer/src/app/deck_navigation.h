@@ -27,6 +27,7 @@ enum class Screen : uint8_t {
     Drive,
     Beacons,
     Settings,
+    Logs,
 };
 
 enum class Section : uint8_t { System, Observe, Analyze, Drive, Logs };

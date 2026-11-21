@@ -56,5 +56,6 @@ inline HostSerial Serial2;
 
 inline void delay(unsigned long) {}
 inline unsigned long millis() { return 0; }
+inline unsigned long micros() { return 0; }
 
 #endif /* OSCILLA_HOSTSTUB_ARDUINO_H */

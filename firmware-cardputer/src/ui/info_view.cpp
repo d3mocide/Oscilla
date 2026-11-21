@@ -13,6 +13,7 @@
 #include "storage/sd_storage.h"
 #include "ui/canvas.h"
 #include "ui/list_row.h"
+#include "ui/observatory_chrome.h"
 #include "ui/segmented_bar.h"
 #include "ui/theme.h"
 
@@ -35,24 +36,25 @@ uint16_t heapColour(uint32_t free_bytes, uint32_t total_bytes)
 }
 
 void drawHeapPanel(M5Canvas &d, int x, int y, int width, const char *label,
-                   bool available, uint32_t free_bytes, uint32_t total_bytes)
+                   uint16_t accent, bool available, uint32_t free_bytes, uint32_t total_bytes)
 {
     d.fillRect(x, y, width, kHeapPanelHeight, kPanelDark);
     d.drawRect(x, y, width, kHeapPanelHeight, kLineBorder);
+    d.fillRect(x, y, 24, 2, accent);
 
     d.setTextSize(1);
-    d.setCursor(x + 5, y + 4);
+    d.setCursor(x + 5, y + 5);
     d.setTextColor(kMutedSlate, kPanelDark);
     d.print(label);
 
-    d.setTextSize(2);
-    d.setCursor(x + 5, y + 15);
+    instrument::Canvas c(d, 0);
     if (!available) {
-        d.setTextColor(kMutedSlate, kPanelDark);
-        d.print("--");
+        observatory::obsText(c, x + 5, y + 17, "--", observatory::FontId::Title, kMutedSlate, width - 10);
     } else {
-        d.setTextColor(heapColour(free_bytes, total_bytes), kPanelDark);
-        d.printf("%lu KB", (unsigned long)(free_bytes / 1024));
+        char buf[16];
+        std::snprintf(buf, sizeof buf, "%lu KB", (unsigned long)(free_bytes / 1024));
+        observatory::obsText(c, x + 5, y + 17, buf, observatory::FontId::Title,
+                             heapColour(free_bytes, total_bytes), width - 10);
     }
 
     d.setTextSize(1);
@@ -114,9 +116,10 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
     const bool ready = client.state() == ocp::LinkState::Ready;
     const bool probe_available = ready && probe_status_valid;
 
-    drawHeapPanel(d, 4, kBodyTop + 3, 112, "DECK HEAP", true,
+    drawHeapPanel(d, 4, kBodyTop + 3, 112, "DECK HEAP", kFieldGreen, true,
                   deck_heap, deck_heap_total);
-    drawHeapPanel(d, 124, kBodyTop + 3, 112, "PROBE HEAP", probe_available,
+    drawHeapPanel(d, 124, kBodyTop + 3, 112, "PROBE HEAP",
+                  probe_available ? kSignalPink : kMutedSlate, probe_available,
                   probe_heap, probe_heap_total);
 
     char deck_uptime[24];
@@ -127,9 +130,9 @@ void drawInfoView(const ocp::Client &client, bool probe_status_valid, uint32_t p
     drawMetric(d, 124, kBodyTop + 67, "PROBE UP", probe_available ? probe_uptime : "--",
                probe_available ? kMutedSlate : kCalibrationYellow);
 
-    drawMetric(d, 4, kDetailRowY, "LINK", ocp::linkStateName(client.state()),
+    drawMetric(d, 4, kBodyTop + 83, "LINK", ocp::linkStateName(client.state()),
                ready ? kFieldGreen : kFaultRed);
-    drawMetric(d, 124, kDetailRowY, "SD", storage::ready() ? "READY" : "ABSENT",
+    drawMetric(d, 124, kBodyTop + 83, "SD", storage::ready() ? "READY" : "ABSENT",
                storage::ready() ? kFieldGreen : kFaultRed);
 
     endChrome(chrome);

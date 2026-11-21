@@ -1,6 +1,6 @@
 /*
  * list_row.h — shared windowed-list layout, selection highlight, and RSSI
- * color helper for card views that render a scrollable 4-row list.
+ * color helper for card views that render a scrollable 5- or 6-row list.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -16,10 +16,12 @@
 
 namespace ui {
 
-constexpr int kListTop = kBodyTop + 16;
-constexpr int kListRowHeight = 13;
-constexpr int kListVisibleRows = 4;
-constexpr int kDetailRowY = kBodyTop + 83;
+constexpr int kListTop = kBodyTop + 14;
+constexpr int kListRowHeight = 12;
+constexpr int kListVisibleRows = 5;
+constexpr int kListCompactRows = 6;
+constexpr int kDetailRowY = kBodyTop + 78;
+constexpr int kHintRowY = kBodyTop + 92;
 
 /* First visible row index for a scroll window that follows the cursor. */
 inline size_t listFirstVisible(size_t cursor, size_t visible = kListVisibleRows)

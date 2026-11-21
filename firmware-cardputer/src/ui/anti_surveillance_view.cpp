@@ -42,42 +42,52 @@ void drawAntiSurveillanceView(const model::AntiSurveillanceModel &anti, size_t c
 
         d.setCursor(6, y);
         d.setTextColor(tracker.alert ? kSignalPink : kPaperPhosphor, bg);
-        d.printf("%-15s", printable(tracker.mac, 15).c_str());
-        d.setCursor(102, y);
+        d.printf("%-17s", printable(tracker.mac, 17).c_str());
+        d.setCursor(114, y);
         d.setTextColor(kMutedSlate, bg);
         d.printf("L%u", (unsigned)tracker.movement_legs);
-        d.setCursor(132, y);
+        d.setCursor(140, y);
         d.printf("N%lu", (unsigned long)tracker.sightings);
         d.setCursor(204, y);
         d.setTextColor(rssiColour(tracker.rssi), bg);
         d.printf("%4d", tracker.rssi);
     }
 
+    if (trackers.empty()) {
+        d.setCursor(4, kListTop);
+        d.setTextColor(kDimGreen, kVoidInk);
+        d.print(starting ? "STARTING PASSIVE WATCH..." : anti.active() ? "WATCHING FOR PERSISTENT TRACKERS" : "NO TRACKERS OBSERVED");
+    }
+
     d.setCursor(4, kDetailRowY);
     if (const auto *alert = anti.latestAlert()) {
         d.setTextColor(kSignalPink, kVoidInk);
-        d.printf("FOLLOW? %s · %u LEGS", printable(alert->mac, 17).c_str(),
+        d.printf("FOLLOW? %s / %u LEGS", printable(alert->mac, 17).c_str(),
                  (unsigned)alert->movement_legs);
     } else if (starting) {
         d.setTextColor(kCalibrationYellow, kVoidInk);
         d.print("AWAITING PASSIVE TRACKER STREAM");
     } else if (anti.active()) {
         d.setTextColor(anti.hasPosition() ? kFieldGreen : kCalibrationYellow, kVoidInk);
-        d.printf("%s · NEED 2 x 25m LEGS", anti.hasPosition() ? "FIX READY" : "NO FRESH FIX");
+        d.printf("%s / NEED 2 x 25m LEGS", anti.hasPosition() ? "FIX READY" : "NO FRESH FIX");
     } else if (!trackers.empty() && cursor < trackers.size()) {
         const auto &tracker = trackers[cursor];
         d.setTextColor(kMutedSlate, kVoidInk);
-        d.printf("%s · %u/%u LEGS · %.0fm", printable(tracker.mac, 17).c_str(),
+        d.printf("%s / %u/%u LEGS / %.0fm", printable(tracker.mac, 17).c_str(),
                  (unsigned)tracker.movement_legs,
                  (unsigned)model::AntiSurveillanceModel::kAlertMovementLegs,
                  tracker.traveled_m);
     } else if (!trackers.empty()) {
         d.setTextColor(kMutedSlate, kVoidInk);
-        d.printf("%u TRACKERS · RESULTS HELD IN RAM", (unsigned)trackers.size());
+        d.printf("%u TRACKERS / RESULTS HELD IN RAM", (unsigned)trackers.size());
     } else {
         d.setTextColor(kDimGreen, kVoidInk);
-        d.print("PASSIVE ONLY · PRESS s TO WATCH");
+        d.print("PASSIVE ONLY / PRESS s TO WATCH");
     }
+
+    d.setCursor(4, kHintRowY);
+    d.setTextColor(kCalibrationYellow, kVoidInk);
+    d.print("s WATCH-STOP / ; . ROW");
 
     endChrome(chrome);
 }

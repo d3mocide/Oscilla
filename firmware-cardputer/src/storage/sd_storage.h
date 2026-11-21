@@ -1,15 +1,4 @@
-/*
- * sd_storage.h — owns the deck's internal microSD and the single shared bus
- * lock (DESIGN §7.4 / Rev D §5.2). The no-CS display bench build initializes
- * the bus and lock but disables all card mount/remount attempts.
- *
- * Not host-testable (real SD/SPI I/O); kept deliberately thin so the parts
- * that *are* worth testing (CSV row shape) live in lora_log_format.h
- * instead, which has no dependency on this file.
- *
- * SPDX-License-Identifier: MIT
- */
-
+/* SD storage and shared TFT bus lock; DESIGN §7.4 / Rev D §5.4. */
 #pragma once
 
 #include <freertos/FreeRTOS.h>
