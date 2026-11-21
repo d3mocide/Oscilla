@@ -6,7 +6,7 @@
 | Field | Value |
 |---|---|
 | **Current phase** | P5 complete → **P6 — Combined soak & power** (🟡 periodic use pending); P7/P8 continue in parallel |
-| **Last updated** | 2026-11-20 (v0.3.0) |
+| **Last updated** | 2026-11-21 (v0.3.0+) |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
@@ -25,6 +25,7 @@
 | **P6** | Combined soak & power | 🟡 In progress — mode switching passed; periodic use, battery soak, power budget open | — |
 | **P7** | Passive suite completion | 🟡 In progress (out of sequence) | — |
 | **P8** | Polish | 🟡 In progress — deck UI foundation | — |
+| **P9** | Field intelligence & RF enhancements | ⚪ Not started (additive, receive-only) | — |
 
 Legend: ⚪ not started · 🟡 in progress · 🟢 exit gate met · 🔴 blocked
 
@@ -303,6 +304,8 @@ complete until its remaining real-frame and view checks are demonstrated.
   **Still open:** a controlled moving-tracker run with two qualifying movement
   legs, final physical view inspection, and the external TFT rendering once P5
   is available.
+- [ ] **Band & channel filtering (`set_band` / `set_channels`).** Wire up the already-declared `OCP_V_SET_BAND` and `OCP_V_SET_CHANNELS` handlers in `ocp_server.c` behind `wifi_channels.c` (2.4 GHz, 5 GHz, auto, or custom channel list), expose band/channel scope controls on the deck, and run the 5-minute bench check for 5 GHz passive DFS channels (`52–144`) to settle [D-14](docs/DECISIONS.md).
+- [ ] **Probe-driven multi-band wardrive (`start_wardrive`).** Implement the already-declared `OCP_V_START_WARDRIVE` verb so the probe streams passive Wi-Fi discovery (`kind=network`) interleaved with duty-cycled passive BLE sightings, allowing the deck's Drive logger to write both Wi-Fi and BLE rows into WigleWifi-1.6 CSV with tighter position timestamps (alongside optional concurrent LoRa RX).
 
 **Archived:** The CC1101 experiment was removed from `main` under D-15. Its
 implementation and research record remain in the `cc1101` branch; v1 uses the
@@ -321,15 +324,42 @@ C5 + Wio-SX1262 backpack only.
 - [ ] Paired AP/BLE dossiers: identity-pinned inspection, cached client relationships and real-observation RSSI history implemented; rendered previews and host checks available, operator accepted normal paired dossier appearance; remaining error-state review pending.
 - [ ] Saved-session browser implemented: bounded read-only SD snapshots, summaries, paged wardrive/LoRa records and saved packet hex. Host/source-render and real-SD bench checks passed (778 wardrive rows, 46 LoRa packets, paging/hex/Back, reception preserved); operator layout review pending.
 - [ ] Validate the rendered result and keyboard behavior on the Cardputer hardware.
+- [ ] **Non-blocking `lora_listen` startup:** decouple synchronous SX1262 RX entry from the probe's OCP dispatch task so starting LoRa while Wi-Fi live is active no longer triggers a reply timeout (see WORKLOG 2026-11-20).
 - [ ] **Idle power saving:** blank/back-light-off both displays after a configurable period with no key press, any key wakes without acting; then evaluate a deeper deck sleep that keeps active logging and receive lanes running. Measure the saving against the P6 current budget.
+- [ ] **Persistent deck & probe settings:** expand `storage::settings` on SD (idle display timeout, last LoRa profile, band scope, audio mute) and add probe-side NVS persistence (`config.c` per DESIGN §6.1) so field preferences survive reboots and reflashes.
+- [ ] **D-UCB adaptive channel picker ([D-6](docs/DECISIONS.md)):** drop-in replacement behind the shared Wi-Fi channel hopper so sniffer, deauth detector, and continuous discovery spend dwell where devices are active instead of empty 5 GHz channels.
+- [ ] **LOGS sidecar inspection & session waypoints:** parse existing manifest and LoRa health sidecars inside the LOGS browser (CRC/header error rates, drops, fix quality) and add a single-hotkey bookmark/waypoint stamp during active Drive and LoRa recordings.
+- [ ] **Measured battery burn-rate / runtime estimate:** track Cardputer battery slope in `system_resources.h` to show an honest measured runtime trend on the System view alongside the P6 power interlock.
 
 **Exit gate:** a field session start-to-finish on battery without a bench.
 
 ---
 
+## P9 — Field intelligence & RF enhancements (post-v1)
+
+**Why here:** additive, strictly receive-only capabilities ([D-8](docs/DECISIONS.md)) that deepen RF inspection, tracking, and offline analysis without delaying v1's battery/soak gates. Pure-C parser slices and host-tested models may be prototyped ahead of gate closure as long as they do not disrupt P6–P8 stability.
+
+**Entry gate:** P6–P8 exits met (host-tested parser slices may start earlier).
+
+**Work:**
+- [ ] **Richer 802.11 beacon & RSN inspection (`beacon_parse.c`):** extract exact AKM/cipher suites (WPA3-SAE, OWE, 802.1X/Enterprise, FT/802.11r), channel width (`20/40/80 MHz` from HT/VHT/HE IEs), Wi-Fi generation (Wi-Fi 4/5/6), Country IE (`IE 7`), and WPS flags into `[INSPECT]` / AP Detail.
+- [ ] **Multi-vendor BLE tracker classification (`ble_adv_parse.c`):** extend `OCP_K_TRACKER` beyond Apple Find My (`0x004C`/`0x12`) with passive classifiers for Google Find My Device Network (`0xFEAA` frame `0x40`/`0x41`), Samsung SmartTag (`0xFD5A`), Tile (`0xFEED`), and Chipolo (`0xFE33`), feeding both BLE Scan and Anti-Surveillance.
+- [ ] **SX1262 sub-GHz passive energy / noise-floor sweep:** step across `862–930 MHz` in receive mode reading `GetRssiInst` (pure RX) and stream frequency-bin RSSI sweeps to the 320×240 external TFT as a measured sub-GHz spectrum/waterfall view.
+- [ ] **SD-loaded LoRa profiles & CAD-assisted profile hopping:** load user-defined LoRa receive presets from microSD (e.g., EU868, US915 LoRaWAN channels, alternate Meshtastic slots) without reflashing, and add optional SX1262 `SetCad` watchlist hopping to dwell only where preambles appear.
+- [ ] **Geotagged LoRa coverage logging & KML export:** stamp LoRa packet logs on the deck with current local GNSS `lat/lon/alt/fix_age` when fixed and emit SNR/RSSI-colored KML tracks for repeater coverage mapping.
+- [ ] **Passive baseline & anomaly / evil-twin watch mode:** save a baseline snapshot of known BSSIDs/security attributes and 802.15.4 PANs on SD, then run a passive delta/watch mode highlighting newly observed devices, duplicate SSIDs with unfamiliar BSSIDs, or security/MFP downgrades.
+- [ ] **Single-target "Signal Hunt" mode:** pin the probe to a selected AP, BLE advertiser, tracker, or LoRa target with a dedicated high-rate RSSI meter/sparkline on the external TFT and an optional, off-by-default muteable audio Geiger cadence via the Cardputer speaker.
+- [ ] **Offline OUI & BLE Company-ID lookup tables on SD:** support optional sorted binary vendor tables (`/oscilla/oui.bin`, `/oscilla/bt_mfr.bin`) queried via bounded binary search under the shared SPI lock, resolving MAC prefixes and `mfr=` IDs cleanly with automatic hex fallback when absent.
+- [ ] **Post-handshake baud negotiation & bounded passive PCAP capture ([D-2](docs/DECISIONS.md)):** keep `115200 8N1` at boot for ROM-noise resilience, optionally negotiate `460800`/`921600` after `[HELLO]` (reverting on reset/timeout), and stream filtered passive management / 802.15.4 frames to deck microSD as standard `.pcap` files.
+
+**Exit gate:** each shipped P9 slice passes host unit/fuzz tests, preserves `check_rx_only.py` (zero transmit paths), fits within the P6 heap/power envelope, and is demonstrated on real hardware.
+
+---
+
 ## Parallelism & critical path
 
-- **Critical path:** P0 → P1 → P2 → P6 → P7.
+- **Critical path:** P0 → P1 → P2 → P6 → P7 → P8 → P9.
 - **P3 (LoRa)** and **P4 (GNSS)** branch off after P2 and can proceed in parallel with each other.
 - **P5 (TFT)** is gated by hardware arrival, not by other phases (needs only P2).
 - **P6** is the join point — it needs P2–P5 present to measure the real combined load.
+- **P9** items are independent vertical slices and can be prioritized in any order once v1 gates are healthy.

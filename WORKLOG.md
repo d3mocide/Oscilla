@@ -112,6 +112,25 @@
   This also answers part of D-14's bench question: a disallowed channel is
   rejected with a checkable error, not silently ignored.
 
+## 2026-11-21 — Roadmap expanded with P7/P8 contract follow-ups and P9 enhancement phase
+
+- Updated `ROADMAP.md` to capture the agreed firmware enhancement backlog while
+  keeping v1 exit gates intact and every item strictly receive-only (D-8):
+  - **P7:** explicit items for wiring up already-declared `set_band` /
+    `set_channels` (plus the D-14 DFS bench check) and probe-driven multi-band
+    `start_wardrive`.
+  - **P8:** explicit items for decoupling synchronous `lora_listen` startup
+    from the OCP dispatch task, persistent deck/probe settings (`settings` +
+    `config.c`), D-UCB channel picking (D-6), LOGS sidecar inspection +
+    session waypoints, and measured battery runtime slope.
+  - **P9 (new, post-v1 additive phase):** richer 802.11 beacon/RSN parsing,
+    multi-vendor BLE tracker classification, SX1262 sub-GHz RSSI energy sweep,
+    SD-loaded LoRa profiles + CAD hopping, geotagged LoRa KML logging, passive
+    baseline/anomaly watch mode, single-target Signal Hunt mode, offline
+    SD OUI/BLE vendor tables, and post-handshake baud negotiation + bounded
+    passive PCAP streaming (D-2).
+- Doc-only change; no firmware or protocol files modified.
+
 ## 2026-11-20 — Probe reports its reset reason (`rst=`); probe flash pending
 
 - Added `rst=` (OCP_K_RESET) to `[HELLO]` and `[STATUS]`: `poweron`, `sw`,
