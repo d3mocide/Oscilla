@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Oscilla — Deck UI State</title>
+<title>Oscilla — Brand, UI System &amp; Lab (Observatory v2)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -90,12 +90,19 @@
 
   /* simulator */
   .sim-wrap {
-    display: grid; grid-template-columns: minmax(260px, 460px) 1fr; gap: 28px; align-items: start;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start;
     margin: 20px 0 10px;
   }
-  @media (max-width: 760px) { .sim-wrap { grid-template-columns: 1fr; } }
+  .sim-displays { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .device-frame { display: block; min-width: 0; width: 100%; }
+  .device-frame canvas { max-width: 100%; }
+  .deck-frame canvas { aspect-ratio: 240 / 135; }
+  .external-frame canvas { aspect-ratio: 320 / 240; }
   .sim-controls { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: var(--panel); }
   .sim-controls h4 { margin-bottom: 10px; }
+  .sim-controls h4:not(:first-child) { margin-top: 18px; }
+  .control-label { display: block; color: var(--muted); font-size: 11px; margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .06em; }
+  .sim-controls select { width: 100%; background: #100d13; color: var(--cream); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font: 12px var(--mono); }
   .keyrow { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px dashed #2a2430; font-size: 12.5px; }
   .keyrow:last-child { border-bottom: none; }
   .kcap {
@@ -124,12 +131,11 @@
   .legend .item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
   .dotp { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
-  /* external display schematic */
-  .ext-schema { max-width: 480px; border: 2px solid var(--line); border-radius: 4px; overflow: hidden; background: #0d0b10; }
-  .ext-schema .viz { height: 154px; display: flex; align-items: center; justify-content: center; color: var(--muted-dim); font-size: 11px; letter-spacing: .08em; border-bottom: 1px dashed var(--line); background: repeating-linear-gradient(135deg, #151018, #151018 8px, #17121b 8px, #17121b 16px); }
-  .ext-schema .insp { height: 86px; display: grid; grid-template-columns: repeat(3,1fr); }
-  .ext-schema .insp div { border-right: 1px dashed var(--line); display: flex; align-items: center; justify-content: center; color: var(--muted-dim); font-size: 10.5px; text-align: center; padding: 6px; }
-  .ext-schema .insp div:last-child { border-right: none; }
+  @media (max-width: 760px) {
+    .sim-displays { grid-template-columns: 1fr; }
+    .deck-frame { max-width: 480px; }
+    .external-frame { max-width: 640px; }
+  }
 
   footer.page { border-top: 1px solid var(--line); margin-top: 50px; padding-top: 20px; color: var(--muted-dim); font-size: 12px; }
   .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
@@ -138,54 +144,194 @@
     text-decoration: none; border-radius: 3px;
   }
   .toc a:hover { border-color: var(--green); color: var(--green); }
+
+  /* Consolidated Brand & Observatory v2 sections */
+  .brand-hero {
+    display: grid; grid-template-columns: 150px 1fr; gap: 24px; align-items: center;
+    border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 20px; margin: 18px 0;
+  }
+  .brand-hero svg { width: 140px; height: 140px; display: block; margin: auto; }
+  .brand-quote { font: 700 12px var(--mono); letter-spacing: .14em; color: var(--yellow); margin-bottom: 8px; }
+  .obs-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
+  .obs-card { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 14px; }
+  .obs-card h4 { font-size: 12px; color: var(--green); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 6px; }
+  .obs-card p { font-size: 12px; color: var(--muted); margin: 0; }
+  .obs-state-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 10px 14px; margin: 16px 0;
+  }
+  .obs-state-btns { display: flex; gap: 6px; }
+  .obs-state-btn {
+    appearance: none; border: 1px solid var(--line); background: var(--void); color: var(--muted);
+    font: 700 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 5px 10px;
+    border-radius: 4px; cursor: pointer;
+  }
+  .obs-state-btn:hover { border-color: var(--green); color: var(--cream); }
+  .obs-state-btn[aria-pressed="true"] { background: var(--dim-dark); border-color: var(--green); color: var(--green); }
+  .obs-screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; margin: 16px 0; }
+  .obs-screen-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #100d13; }
+  .obs-screen-card header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .obs-screen-card h4 { margin: 0; font-size: 13px; color: var(--cream); }
+  .obs-screen-card p { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
+  .obs-pixel-well { background: #050407; border: 1px solid #2b212d; border-radius: 4px; padding: 4px; }
+  .obs-pixel-well img { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+  @media (max-width: 760px) {
+    .brand-hero, .obs-grid3 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 <main>
 
 <header class="top">
-  <div class="eyebrow">As-built reference · not the brand spec</div>
-  <h1>Deck UI State</h1>
+  <div class="eyebrow">Oscilla · Visual Source of Truth · Observatory v2</div>
+  <h1>Oscilla Brand &amp; UI System</h1>
   <p class="lead">
-    What the Cardputer ADV deck actually renders right now, read directly out of
-    <code>firmware-cardputer/src/ui/*.cpp</code> and <code>src/app/deck_navigation.cpp</code> — plus a preview
-    section for the external ILI9341 panel, which is spec'd but <b>not yet implemented</b>.
-    Where the brand guide (<a href="brand/oscilla-master-brand-ui-guide.html">docs/brand/oscilla-master-brand-ui-guide.html</a>)
-    shows the target design language, this file shows what actually compiles and runs today.
+    The single HTML source of truth for Oscilla's brand identity, Observatory v2 visual
+    contract, compiled ST7789 external &amp; Cardputer deck renders, and interactive
+    dual-display simulator. Synced directly from C++ via <code>tools/render_external_views.py --sync-guide-assets</code>.
   </p>
   <div class="toc">
+    <a href="#brand">Brand &amp; Observatory v2</a>
+    <a href="#external">External ST7789 (320×240)</a>
+    <a href="#deck-renders">Deck Renders (240×135)</a>
     <a href="#simulator">Simulator</a>
     <a href="#nav-map">Navigation map</a>
     <a href="#chrome">Chrome anatomy</a>
     <a href="#gallery">Screen gallery</a>
     <a href="#keys">Keyboard contract</a>
     <a href="#palette">Palette &amp; layout</a>
-    <a href="#external">External display (planned)</a>
   </div>
 </header>
 
 <div class="note warn">
-  <b>This is a hand-drawn simulation, not a framebuffer capture.</b> Canvas text uses a
-  proportional web font standing in for M5GFX's fixed 6×8 / 12×16 bitmap glyphs, so line
-  wrapping and exact character widths will drift slightly from the real screen. Every
-  color, coordinate, and state string below was copied from source at commit
-  <code>60b81bc</code> (2026-09-23) — if a view changes, this file goes stale and should
-  be updated in the same PR that changes the view. Verify against
-  <code>firmware-cardputer/src/ui/</code> before trusting a pixel position for real layout work.
+  <b>Source-based simulator, not a framebuffer capture.</b> Coordinates, colors, card
+  content, and state labels follow the current renderers in
+  <code>firmware-cardputer/src/ui/</code>; sample observations are synthetic. Each preview
+  repaints the full Canvas, so it previews clean screen states rather than the SPI row
+  cache or panel timing. The display font is approximated in Canvas, so glyph shapes and
+  exact text widths can differ from M5GFX. Compare important changes on the real panels.
 </div>
+
+
+<section id="brand">
+  <h2>Brand &amp; Observatory v2 <span class="badge live">source of truth</span></h2>
+  <div class="brand-hero">
+    <svg viewBox="0 0 300 300" fill="none" role="img" aria-label="Oscilla Lens Core mark">
+      <g stroke="#A8DF65" stroke-width="3">
+        <path d="M150 24 258 86v128l-108 62L42 214V86z"/>
+        <ellipse cx="150" cy="150" rx="101" ry="43"/>
+        <ellipse cx="150" cy="150" rx="43" ry="101" opacity=".68"/>
+      </g>
+      <path d="M102 150c15-35 81-35 96 0-15 35-81 35-96 0Z" stroke="#F4ECD9" stroke-width="5"/>
+      <circle cx="150" cy="150" r="16" fill="#F5D658"/>
+    </svg>
+    <div>
+      <div class="brand-quote">OBSERVE THE NOISE · RECEIVE-ONLY BY CONSTRUCTION</div>
+      <h3>Techno-futuristic mystic observatory with real lab discipline.</h3>
+      <p><b>Lens Core</b> is the only mark (green hex + orthogonal orbits, cream lens, yellow focal core; Signal Pink never enters the logo). Hierarchy is strictly <b>1. Truth → 2. Action → 3. Context → 4. Atmosphere</b>. Every pixel on both displays uses solid 16-bit RGB565 colors from <code>firmware-cardputer/src/ui/theme.h</code> with zero alpha, gradients, or fabricated telemetry.</p>
+    </div>
+  </div>
+  <div class="obs-grid3">
+    <div class="obs-card">
+      <h4>1-Bit Flash Typography</h4>
+      <p><code>observatory_fonts.h</code> stores pre-rasterized Chakra Petch Bold (12 / 16 / 20 px) and IBM Plex Mono Medium (11 px) in 7.4 KB flash (0 B RAM). Built-in 5×7 <code>glcdfont</code> is strictly <code>1×</code> micro-ticks only—zero <code>2×</code>/<code>3×</code> scaling anywhere.</p>
+    </div>
+    <div class="obs-card">
+      <h4>Observatory v2 Chrome</h4>
+      <p>External ST7789 uses <code>observatory_chrome.h</code>: 9×9 mode sigil, chamfered truth pill, octagonal aperture on Void Ink, and static <code>#151018</code> Reading Dock. Cardputer 240×135 pairs a <code>#151018</code> Chakra Petch top bar, 4 recessed status LEDs, far-right battery, and bordered truth-pill footer.</p>
+    </div>
+    <div class="obs-card">
+      <h4>Truthful Sacred Geometry</h4>
+      <p>Lens Core hex frames, astrolabe RSSI rings (with <code>-40/-65/-95</code> anchored on their true inner-to-outer rings), HDOP precision tiers, RSSI-height LoRa pulses, and real dynamic Drive scale bars orient actual measurements—never wallpaper or invented data.</p>
+    </div>
+  </div>
+</section>
 
 <section id="simulator">
   <h2>Interactive simulator</h2>
-  <p>A working model of the deck's card system: real navigation order, real cursor
-    behaviour, real footer states. Click the panel and use your keyboard, or use the
-    on-screen buttons.</p>
+  <p>Both renderers follow the selected deck screen. Choose one of the source states,
+    then use the matching device keys or click the controls. Fixture data is local and
+    synthetic.</p>
 
   <div class="sim-wrap">
-    <div class="device-frame" tabindex="0" id="simFrame">
-      <canvas id="simCanvas"></canvas>
-      <div class="device-label"><span id="simScreenName">LINK</span><span>240 × 135 · CLICK TO FOCUS</span></div>
+    <div class="sim-displays">
+      <div class="device-frame deck-frame" tabindex="0" id="simFrame">
+        <canvas id="simCanvas"></canvas>
+        <div class="device-label"><span id="simScreenName">LINK</span><span>DECK · 240 × 135</span></div>
+      </div>
+      <div class="device-frame external-frame">
+        <canvas id="externalCanvas"></canvas>
+        <div class="device-label"><span id="externalScreenName">GROVE LINK</span><span>EXTERNAL · 320 × 240</span></div>
+      </div>
     </div>
     <div class="sim-controls">
+      <h4>Card and fixture</h4>
+      <label class="control-label" for="screenPicker">Screen</label>
+      <select id="screenPicker" aria-label="Select deck screen"></select>
+      <label class="control-label" for="fixturePicker">Visual state</label>
+      <select id="fixturePicker" aria-label="Select simulated visual state">
+        <option value="live">Live observations</option>
+        <option value="cached">Cached observations</option>
+        <option value="empty">Empty / idle</option>
+        <option value="fault">Link fault / cached</option>
+      </select>
+      <label class="control-label" for="linkPicker">Probe link condition</label>
+      <select id="linkPicker" aria-label="Select probe link condition">
+        <option value="auto">Follow visual state</option>
+        <option value="ready">Ready</option>
+        <option value="syncing">Synchronizing</option>
+        <option value="offline">Offline</option>
+        <option value="mismatch">Protocol mismatch</option>
+      </select>
+      <label class="control-label" for="storagePicker">SD storage condition</label>
+      <select id="storagePicker" aria-label="Select SD storage condition">
+        <option value="auto">Ready</option>
+        <option value="absent">Absent / fault</option>
+      </select>
+      <label class="control-label" for="batteryPicker">Battery indicator</label>
+      <select id="batteryPicker" aria-label="Select battery indicator state">
+        <option value="normal">84% · normal</option>
+        <option value="low">12% · low</option>
+        <option value="charging">64% · charging</option>
+        <option value="unknown">Unknown</option>
+      </select>
+      <label class="control-label" for="sdIndicatorPicker">External SD activity tile</label>
+      <select id="sdIndicatorPicker" aria-label="Select external SD activity state">
+        <option value="auto">Follow SD condition</option>
+        <option value="ready">Ready</option>
+        <option value="write">Accepted write</option>
+        <option value="off">Disabled</option>
+        <option value="fault">Write / storage fault</option>
+      </select>
+      <label class="control-label" for="gnssPicker">GNSS model state</label>
+      <select id="gnssPicker" aria-label="Select GNSS model state">
+        <option value="auto">Follow visual state</option>
+        <option value="Fixed">Fixed</option>
+        <option value="Searching">Searching</option>
+        <option value="FixLost">Fix lost</option>
+        <option value="NoUartData">No UART data</option>
+      </select>
+      <label class="control-label" for="loraPicker">LoRa RX configuration</label>
+      <select id="loraPicker" aria-label="Select LoRa RX state">
+        <option value="auto">Follow visual state</option>
+        <option value="configured">Configured</option>
+        <option value="required">Config required</option>
+        <option value="fault">Radio fault</option>
+      </select>
+      <label class="control-label" for="antiPicker">Anti-Surveillance state</label>
+      <select id="antiPicker" aria-label="Select Anti-Surveillance state">
+        <option value="auto">Follow activity</option>
+        <option value="starting">Starting</option>
+        <option value="watch">Watching</option>
+        <option value="idle">Idle / cached</option>
+      </select>
+      <label class="control-label" for="externalProfilePicker">External panel profile</label>
+      <select id="externalProfilePicker" aria-label="Select external wiring profile">
+        <option value="no-cs">No-CS panel · SD corner tile</option>
+        <option value="cs">CS panel · no SD tile</option>
+      </select>
+      <p class="sim-status" id="fixtureNote">Synthetic live fixture · no device data is loaded.</p>
       <h4>Keyboard contract</h4>
       <div class="keyrow"><span class="kcap">,</span><span class="kcap">/</span> move between cards</div>
       <div class="keyrow"><span class="kcap">;</span><span class="kcap">.</span> move / scroll rows</div>
@@ -193,7 +339,10 @@
       <div class="keyrow"><span class="kcap">`</span> back / stop · Settings from Link</div>
       <div class="keyrow"><span class="kcap">s</span> start / stop watching</div>
       <div class="keyrow"><span class="kcap">c</span> configure / stream</div>
+      <div class="keyrow"><span class="kcap">r</span> start / abort Wi-Fi snapshot</div>
+      <div class="keyrow"><span class="kcap">a</span> BLE tracker watch · <span class="kcap">l</span> Drive log</div>
       <div class="keyrow"><span class="kcap">x</span> cycle tab / profile (Sniffer, 802.15.4, LoRa RX)</div>
+      <div class="keyrow"><span class="kcap">w</span> start Wi-Fi scan from Link</div>
       <div class="keyrow"><span class="kcap">m</span> drop a Drive marker</div>
       <div class="keyrow"><span class="kcap">h</span> toggle this help overlay</div>
       <div class="sim-touch">
@@ -266,6 +415,44 @@
   <div class="gallery" id="galleryGrid"></div>
 </section>
 
+
+<section id="deck-renders">
+  <h2>Compiled Deck Renders (Cardputer ADV · 240 × 135) <span class="badge live">Observatory v2</span></h2>
+  <p>Pixel-exact host renders compiled directly from <code>firmware-cardputer/src/ui/</code> via <code>tools/render_external_views.py --sync-guide-assets</code>. Every deck screen shares the <code>#151018</code> Chakra Petch header bar, 4 unlabelled status LEDs (B/G/S/R), terminal far-right battery, and bordered truth-pill footer.</p>
+  <div class="obs-screen-grid">
+    <div class="obs-screen-card">
+      <header><h4>AP Radio Dossier</h4><span class="badge live">240×135 C++</span></header>
+      <p>Chakra Petch top bar + #151018 SSID identity band + LIVE pill footer.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-ap-radio-active.png" alt="AP Radio Dossier 240x135 deck render" width="240" height="135"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Sniffer Clients</h4><span class="badge live">240×135 C++</span></header>
+      <p>4-row rail-selected client table with fixed channel/band/RSSI columns and LAST ticker.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-clients-active.png" alt="Sniffer Clients 240x135 deck render" width="240" height="135"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>BLE Advertiser Dossier</h4><span class="badge live">240×135 C++</span></header>
+      <p>Observed advertiser metadata with tracker-aware rail and real sample count.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-advertiser-active.png" alt="BLE Advertiser Dossier 240x135 deck render" width="240" height="135"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Client Detail</h4><span class="badge live">240×135 C++</span></header>
+      <p>Full client MAC in Chakra Petch Title + observed AP link metadata.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-client-detail-active.png" alt="Client Detail 240x135 deck render" width="240" height="135"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Archive Sessions</h4><span class="badge live">240×135 C++</span></header>
+      <p>Read-only offline SD recording catalog.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-sessions-catalog-active.png" alt="Archive Sessions 240x135 deck render" width="240" height="135"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Archive Summary</h4><span class="badge live">240×135 C++</span></header>
+      <p>Validated record count, time span, and partial-tail status.</p>
+      <div class="obs-pixel-well"><img src="brand/assets/deck/deck-sessions-summary-active.png" alt="Archive Summary 240x135 deck render" width="240" height="135"></div>
+    </div>
+  </div>
+</section>
+
 <section id="keys">
   <h2>Keyboard contract</h2>
   <p>From <code>ui/help_view.cpp</code> (the deck's own <code>h</code> overlay) plus the
@@ -289,9 +476,8 @@
 <section id="palette">
   <h2>Palette &amp; layout constants</h2>
   <p>RGB565 values from <code>ui/theme.h</code>, shown here as their nearest 24-bit
-    equivalent (the header comment on each constant). The deck's actual screen ground is
-    literal TFT black (<code>0x0000</code>) — not the brand guide's Void Ink
-    (<code>#0B090D</code>); the two only agree conceptually.</p>
+    equivalent of the deck's RGB565 constants. The external spectrum plot and neutral
+    panel surfaces use their own RGB565 colors from the companion view modules.</p>
   <div class="swatches" id="paletteSwatches"></div>
   <table>
     <thead><tr><th>Constant</th><th>Value (px)</th></tr></thead>
@@ -306,50 +492,92 @@
 </section>
 
 <section id="external">
-  <h2>External display <span class="badge planned">planned — not implemented</span></h2>
-  <p>No code in <code>firmware-cardputer</code> or <code>firmware-c5</code> talks to an
-    ILI9341 yet — <code>ROADMAP.md</code> still lists "ILI9341 write-only init on the
-    shared bus" as an open checkbox. What follows is the target spec from
-    <a href="brand/README.md">docs/brand/README.md</a>, not a capture of running code.
-    When this lands, its section here should switch to a rendered gallery exactly like
-    the deck cards above.</p>
+  <h2>External ST7789 Display (320 × 240) <span class="badge live">Observatory v2 · compiled C++ renders</span></h2>
+  <p>Every panel below is rendered 1:1 from the compiled ST7789 companion firmware (<code>firmware-cardputer/src/ui/external_*.cpp</code>) using solid RGB565 tokens from <code>theme.h</code>, shared <code>observatory_chrome.h</code> framing, and 40 px tile-diffing over shared SPI2. No duplicated deck chrome, status dots, battery, or keyboard hints appear on the external panel.</p>
 
-  <h3 style="margin-top:26px;">Target composition — 320 × 240 landscape</h3>
-  <div class="ext-schema">
-    <div class="viz">UPPER 64% · VISUALIZATION / DENSE CONTEXT FIELD</div>
-    <div class="insp">
-      <div>IDENTITY</div>
-      <div>MEASURED VALUES</div>
-      <div>CONDITION / ANNOTATION</div>
+  <div class="obs-state-bar">
+    <span style="font-size:12px;color:var(--muted)">Preview truth-state distinction across all 12 compiled ST7789 views:</span>
+    <div class="obs-state-btns" role="group" aria-label="External view truth state">
+      <button type="button" class="obs-state-btn" data-obs-mode="active" aria-pressed="true">LIVE / ACTIVE</button>
+      <button type="button" class="obs-state-btn" data-obs-mode="cached" aria-pressed="false">CACHED / AGED</button>
+      <button type="button" class="obs-state-btn" data-obs-mode="empty" aria-pressed="false">EMPTY / IDLE</button>
     </div>
   </div>
 
-  <table style="margin-top:20px;">
-    <thead><tr><th>Deck counterpart</th><th>Planned external companion</th></tr></thead>
-    <tbody>
-      <tr><td>Packet Monitor</td><td>Channel occupancy bars, baseline comparison, focused-channel RF inspector</td></tr>
-      <tr><td>Sniffer</td><td>Ranked relationship table, client counts, security/freshness detail, anomaly context</td></tr>
-      <tr><td>Wardrive</td><td>GNSS breadcrumb and marker-event history, accuracy, movement/session context</td></tr>
-      <tr><td>LoRa RX / BLE / 802.15.4</td><td>Protocol cadence or dense frame context, RSSI/SNR, selected-frame decode</td></tr>
-      <tr><td>Logs</td><td>Session comparison, timeline/density overview, preview counts, explicit cached state</td></tr>
-    </tbody>
-  </table>
+  <div class="obs-screen-grid">
+    <div class="obs-screen-card">
+      <header><h4>Observe / AP Constellation</h4><span class="badge live">LIVE</span></header>
+      <p>Hex-framed RSSI astrolabe with meridian-anchored dBm rings (-40 inner to -95 outer), Signal Pink target-lock leader, and Selected AP dossier card.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="wifi" src="brand/assets/external/wifi-active.png" alt="Observe / AP Constellation 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Analyze / Packet Scope // 1S</h4><span class="badge live">LIVE</span></header>
+      <p>30s measured 1s window scope with solid vertical drop-stems, dashed Signal Pink peak-hold line, and visibly unbridged missing windows.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="packet-monitor" src="brand/assets/external/packet-monitor-active.png" alt="Analyze / Packet Scope // 1S 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Analyze / Channel Field // Dwell</h4><span class="badge live">LIVE</span></header>
+      <p>Indexed dwell-count barfield with stepped phosphor segments, Signal Pink selection frame, and Reading Dock peak/mean summary.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="channel-field" src="brand/assets/external/channel-field-active.png" alt="Analyze / Channel Field // Dwell 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Observe / LoRa Pulse Cadence</h4><span class="badge live">LIVE</span></header>
+      <p>RF pulse oscilloscope (height = RSSI, cap = byte length) with Signal Pink selected callout, RSSI meter, and zero-centered SNR gauge.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="lora" src="brand/assets/external/lora-active.png" alt="Observe / LoRa Pulse Cadence 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Drive / Breadcrumb // N-Up</h4><span class="badge live">FIX</span></header>
+      <p>Crosshair survey grid, Signal Pink north-up compass rose, Start [S] vs. Live Head lock, and dynamic scale bar from trail meters/pixel.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="drive" src="brand/assets/external/drive-active.png" alt="Drive / Breadcrumb // N-Up 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Drive / GNSS Fix Reticle</h4><span class="badge live">FIX</span></header>
+      <p>HDOP precision-tier astrolabe (<1.5 / <3.0 / <6.0) with UTC clock, NMEA UART status, altitude, and 3s freshness bar. Zero fake satellites.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="gnss" src="brand/assets/external/gnss-active.png" alt="Drive / GNSS Fix Reticle 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Observe / BLE Constellation</h4><span class="badge live">LIVE</span></header>
+      <p>Passive BLE advertiser astrolabe with Company ID dossier card, Signal Pink tracker flag, and explicit no-bearing notice.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="bluetooth" src="brand/assets/external/bluetooth-active.png" alt="Observe / BLE Constellation 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Analyze / AP &amp; Client Cluster</h4><span class="badge live">LIVE</span></header>
+      <p>AP/request-centred RSSI cluster with observed client filaments radiating by probe-measured RSSI and drawn/total link counts.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="contacts" src="brand/assets/external/contacts-active.png" alt="Analyze / AP &amp; Client Cluster 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Observe / 802.15.4 PAN Field</h4><span class="badge live">LIVE</span></header>
+      <p>Multi-PAN / multi-node passive MAC inventory plotted as a 0-255 LQI column field with explicit no-topology notice.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="pans" src="brand/assets/external/pans-active.png" alt="Observe / 802.15.4 PAN Field 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Analyze / Management Events</h4><span class="badge live">LIVE</span></header>
+      <p>Passive deauth/disassoc counts grouped by observed channel with Signal Pink focus bar and MAC/reason dock.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="deauth" src="brand/assets/external/deauth-active.png" alt="Analyze / Management Events 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>System / Heap Free % Monitor</h4><span class="badge live">READY</span></header>
+      <p>60s auto-scaled Deck (green) and Probe (pink, slate when stale) free-heap traces paired with live PHY, LoRa, GNSS, and SD log state.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="health" src="brand/assets/external/health-active.png" alt="System / Heap Free % Monitor 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+    <div class="obs-screen-card">
+      <header><h4>Logs / Saved Session Summary</h4><span class="badge live">ARCHIVE</span></header>
+      <p>Read-only SD snapshot plotting the last 32 valid record RSSI values, observed time span, valid/bad row card, and sidecar flags.</p>
+      <div class="obs-pixel-well"><img class="obs-ext-img" data-slug="sessions-summary" src="brand/assets/external/sessions-summary-active.png" alt="Logs / Saved Session Summary 320x240 ST7789 render" width="320" height="240"></div>
+    </div>
+  </div>
 
+  <div class="gallery" id="externalGalleryGrid" style="display:none"></div>
   <div class="note">
-    <b>Non-negotiables carried over from the brand spec:</b> no duplicated top bar,
-    battery, status dots, live strip, footer hints, navigation, or touch affordance — the
-    deck stays the sole control surface and remains fully operable if this panel is
-    unplugged. It shares one SPI bus with the internal SD card
-    (<code>SD init first, TFT write-only, single lock</code>) per Rev D §5.2.
+    <b>Viewport contract:</b> the external ST7789 is read-only and has no duplicated deck chrome, navigation, or controls. It shares SPI2 with SD (8 MHz, one lock) and transmits only changed 40-pixel tile spans. Run <code>python3 tools/render_external_views.py --sync-guide-assets</code> to refresh all compiled PNGs after any UI change.
   </div>
 </section>
 
 <footer class="page">
   Sources: <code>firmware-cardputer/src/ui/*.cpp</code>,
   <code>firmware-cardputer/src/app/deck_navigation.cpp</code>,
-  <code>docs/brand/README.md</code>, <code>ROADMAP.md</code>. Generated by hand for
-  commit <code>60b81bc</code>, 2026-09-23 — re-check against source, don't trust this file
-  blind.
+  <code>docs/brand/README.md</code>. The previews are synthetic and should be kept in
+  sync with the source renderers when those layouts change.
 </footer>
 
 </main>
@@ -366,18 +594,23 @@
 'use strict';
 
 const COLORS = {
-  void: '#000000',       // literal TFT black, not brand Void Ink
-  paper: '#F4ECD9',
-  green: '#A8DF65',
-  pink: '#F05D9D',
-  yellow: '#F5D658',
-  red: '#EF514C',
-  slate: '#AAA0A5',
-  line: '#4B3C49',
-  dimGreen: '#51763D',
-  trackDark: '#263528',
-  panelDark: '#151018',
-  glow: '#241F0D',
+  void: '#080810',       // RGB565(kVoidInk)
+  paper: '#F7EBD6',
+  green: '#A5DF63',
+  pink: '#EF5D9C',
+  yellow: '#F7D75A',
+  red: '#EF514A',
+  slate: '#9CAE94',
+  line: '#4A3C4A',
+  dimGreen: '#527539',
+  trackDark: '#293429',
+  panelDark: '#181018',
+  glow: '#212010',
+  extGround: '#080808',
+  extPanel: '#080C08',
+  extBorder: '#212821',
+  extPlot: '#080808',
+  extAxis: '#4A614A',
 };
 
 const kBodyTop = 20, kFooterTop = 121, kW = 240, kH = 135;
@@ -429,8 +662,10 @@ function T(ctx, x, y, str, color, size) {
   size = size || 1;
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
-  ctx.font = (size === 2 ? '16px ' : '8px ') + CANVAS_MONO;
-  ctx.fillText(str, x, y);
+  ctx.font = (size === 3 ? '24px ' : size === 2 ? '16px ' : '8px ') + CANVAS_MONO;
+  /* Native M5GFX glyphs are 6 px wide at size 1; stretch the local 8 px
+   * monospace approximation to that fixed cell width. */
+  ctx.save(); ctx.scale(1.25, 1); ctx.fillText(str, x / 1.25, y); ctx.restore();
 }
 function Printer(ctx, size) {
   this.ctx = ctx; this.size = size || 1; this.cw = this.size === 2 ? 12 : 6; this.x = 0; this.y = 0;
@@ -448,23 +683,60 @@ function rowSel(ctx, y, h, selected) {
   R(ctx, 0, y - 2, 2, h, COLORS.yellow);
 }
 
-/* --- chrome: header + footer, shared by every screen --- */
+/* --- Observatory v2 typography helpers for Canvas (Chakra Petch + IBM Plex Mono) --- */
+function TD(ctx, x, y, text, color, px, align) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `700 ${px}px "Chakra Petch", "Nimbus Sans Narrow", sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = align || 'left';
+  ctx.fillText(String(text), x, y);
+  ctx.restore();
+}
+function TM(ctx, x, y, text, color, px, align) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `600 ${px}px "IBM Plex Mono", "JetBrainsMono Nerd Font", monospace`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = align || 'left';
+  ctx.fillText(String(text), x, y);
+  ctx.restore();
+}
+function segBar(ctx, x, y, count, sw, h, gap, filled, color) {
+  for (let i = 0; i < count; i++) {
+    R(ctx, x + i * (sw + gap), y, sw, h, i < filled ? color : COLORS.trackDark);
+  }
+}
+
+/* --- chrome: Observatory v2 header + footer, shared by every 240x135 screen --- */
 function drawChrome(ctx, chrome, bodyFn) {
   R(ctx, 0, 0, kW, kH, COLORS.void);
+  R(ctx, 0, 0, kW, kBodyTop, COLORS.panelDark);
 
-  T(ctx, 2, 5, clip(chrome.title, 16), COLORS.paper, 1);
+  TD(ctx, 4, 4, clip(String(chrome.title || '').toUpperCase(), chrome.debug ? 11 : 15), COLORS.paper, 11, 'left');
 
-  CIRC(ctx, 146, 9, 3, indicatorColour(linkIndicator(chrome.link)));
-  CIRC(ctx, 159, 9, 3, indicatorColour(chrome.gnss));
-  CIRC(ctx, 172, 9, 3, indicatorColour(chrome.storage));
-  CIRC(ctx, 185, 9, 3, indicatorColour(chrome.rf));
+  if (chrome.debug) {
+    R(ctx, 110, 4, 24, 11, COLORS.glow);
+    RO(ctx, 110, 4, 24, 11, COLORS.yellow);
+    T(ctx, 113, 6, 'DBG', COLORS.yellow, 1);
+  }
 
-  if (chrome.debug) T(ctx, 112, 5, 'DBG', COLORS.yellow, 1);
+  const dots = [
+    [146, linkIndicator(chrome.link)],
+    [159, chrome.gnss],
+    [172, chrome.storage],
+    [185, chrome.rf],
+  ];
+  dots.forEach(([x, st]) => {
+    CIRC(ctx, x, 9, 4, COLORS.void);
+    CIRC(ctx, x, 9, 3, indicatorColour(st));
+  });
 
   const pct = chrome.battery_pct;
   const pctText = (pct < 0 ? '--' : String(Math.max(0, Math.min(100, pct)))).padStart(3);
-  T(ctx, 194, 5, pctText, pct < 0 ? COLORS.slate : pct <= 20 ? COLORS.red : COLORS.paper, 1);
+  T(ctx, 194, 6, pctText, pct < 0 ? COLORS.slate : pct <= 20 ? COLORS.red : COLORS.paper, 1);
   const rectColor = (pct >= 0 && pct <= 20) ? COLORS.red : COLORS.paper;
+  R(ctx, 218, 4, 16, 10, COLORS.void);
   RO(ctx, 218, 4, 16, 10, rectColor);
   R(ctx, 234, 7, 2, 4, rectColor);
   if (pct > 0) {
@@ -474,22 +746,30 @@ function drawChrome(ctx, chrome, bodyFn) {
   if (chrome.charging) R(ctx, 214, 6, 2, 6, COLORS.yellow);
 
   HL(ctx, 0, kBodyTop - 1, kW, COLORS.dimGreen);
+  R(ctx, 0, kBodyTop - 2, 26, 2, COLORS.green);
 
   bodyFn(ctx);
 
-  R(ctx, 0, kFooterTop, kW, kH - kFooterTop, COLORS.void);
-  HL(ctx, 0, kFooterTop, kW, COLORS.line);
-  let cx = 3;
-  const fy = kFooterTop + 3;
   if (chrome.notice) {
-    T(ctx, cx, fy, clip(chrome.notice, 38), COLORS.yellow, 1);
+    R(ctx, 0, kFooterTop, kW, kH - kFooterTop, COLORS.glow);
+    HL(ctx, 0, kFooterTop, kW, COLORS.yellow);
+    R(ctx, 0, kFooterTop, 2, kH - kFooterTop, COLORS.yellow);
+    T(ctx, 5, kFooterTop + 3, clip(chrome.notice, 38), COLORS.yellow, 1);
     return;
   }
+  R(ctx, 0, kFooterTop, kW, kH - kFooterTop, COLORS.panelDark);
+  HL(ctx, 0, kFooterTop, kW, COLORS.line);
+
   const label = chrome.cached ? 'CACHED' : chrome.live ? 'LIVE' : 'IDLE';
-  const labelColor = chrome.cached ? COLORS.pink : chrome.live ? COLORS.green : COLORS.slate;
-  T(ctx, cx, fy, label, labelColor, 1); cx += label.length * 6;
-  T(ctx, cx, fy, '  ', COLORS.slate, 1); cx += 12;
-  T(ctx, cx, fy, clip(chrome.transport || '', 30), COLORS.slate, 1);
+  const fill = chrome.cached ? COLORS.void : chrome.live ? COLORS.trackDark : COLORS.void;
+  const border = chrome.cached ? COLORS.pink : chrome.live ? COLORS.green : COLORS.line;
+  const fg = chrome.cached ? COLORS.pink : chrome.live ? COLORS.green : COLORS.slate;
+  const pw = chrome.cached ? 42 : 30;
+  R(ctx, 2, kFooterTop + 2, pw, 11, fill);
+  RO(ctx, 2, kFooterTop + 2, pw, 11, border);
+  T(ctx, 5, kFooterTop + 4, label, fg, 1);
+  const maxC = Math.floor((kW - (pw + 8)) / 6);
+  T(ctx, pw + 6, kFooterTop + 4, clip(chrome.transport || '', maxC), COLORS.slate, 1);
 }
 
 /* =======================================================================
@@ -528,18 +808,20 @@ function drawLink(ctx, chrome, m, cursor) {
 
     HL(ctx, 4, kBodyTop + 80, kW - 8, COLORS.line);
     T(ctx, 4, kBodyTop + 85, 'CAPS', COLORS.slate, 1);
-    T(ctx, 38, kBodyTop + 85, m.caps, m.capsReady ? COLORS.green : COLORS.yellow, 1);
+    T(ctx, 38, kBodyTop + 85, m.capsReady ? m.caps : 'HANDSHAKE PENDING', m.capsReady ? COLORS.green : COLORS.yellow, 1);
   });
 }
 
 function drawSweep(ctx, chrome, scan, cursor) {
   const chX = 126, bandX = 154, rssiX = 186, meterX = 216;
   drawChrome(ctx, chrome, function (ctx) {
-    const p = new Printer(ctx, 1);
-    p.at(4, kBodyTop + 2).color(COLORS.slate).print(scan.header);
-    p.at(178, kBodyTop + 2).color(COLORS.slate).print(scan.rows.length ? 'RX' : '--');
+    const header = scan.continuous ? 'TOTAL ' + scan.rows.length + ' APs  LIVE ' + scan.elapsedSec + 's' :
+      scan.scanning ? 'SCAN IN PROGRESS  ' + scan.elapsedSec + 's' :
+      scan.aborted ? 'SCAN STOPPED' : 'TOTAL ' + scan.rows.length + ' APs  ' + scan.elapsedSec + 's';
+    T(ctx, 4, kBodyTop + 2, header, COLORS.slate, 1);
+    T(ctx, 178, kBodyTop + 2, scan.rows.length ? 'RX' : '--', COLORS.slate, 1);
 
-    const rows = scan.rows, listTop = kBodyTop + 16, rowH = 13, visible = 4;
+    const rows = scan.rows, listTop = kBodyTop + 14, rowH = 12, visible = 6;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < rows.length; i++) {
       const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
@@ -552,9 +834,13 @@ function drawSweep(ctx, chrome, scan, cursor) {
       const filled = Math.max(0, Math.min(5, Math.floor((r.rssi + 100) * 5 / 70)));
       for (let k = 0; k < 5; k++) R(ctx, meterX + k * 4, y + 1, 3, 5, k < filled ? rssiColour(r.rssi) : COLORS.trackDark);
     }
-    if (!rows.length) T(ctx, 4, listTop, 'NO OBSERVATIONS YET', COLORS.dimGreen, 1);
-
-    T(ctx, 4, kBodyTop + 83, scan.bottom, scan.bottomColor, 1);
+    if (!rows.length) {
+      if (scan.scanning) {
+        const dots = ['', '.', '..', '...'][Math.floor(Date.now() / 250) % 4];
+        T(ctx, 72, kBodyTop + 47, 'LISTENING' + dots.padEnd(3) + ' ' + String(scan.elapsedSec).padStart(2, '0') + 's', COLORS.yellow, 1);
+      } else T(ctx, 4, listTop, scan.aborted ? 'SCAN ABORTED / NO SNAPSHOT' : 'NO OBSERVATIONS YET', scan.aborted ? COLORS.yellow : COLORS.dimGreen, 1);
+    }
+    T(ctx, 4, kBodyTop + 92, 'ENTER DOSSIER / r SURVEY / c LIVE', COLORS.yellow, 1);
   });
 }
 
@@ -593,24 +879,21 @@ function drawTrace(ctx, chrome, row, insp) {
 }
 
 function drawContacts(ctx, chrome, model, tab, cursor) {
-  const chX = 104, bandX = 128, rssiX = 204;
+  const chX = 118, bandX = 145, rssiX = 204;
   drawChrome(ctx, chrome, function (ctx) {
     const clients = tab === 'clients';
     T(ctx, 4, kBodyTop + 2, 'CLIENTS ' + model.clients.length, clients ? COLORS.paper : COLORS.slate, 1);
     T(ctx, 76, kBodyTop + 2, 'PROBES ' + model.probes.length, clients ? COLORS.slate : COLORS.paper, 1);
     T(ctx, 142, kBodyTop + 2, 'CH ' + model.channel, COLORS.slate, 1);
-    let px = 184;
-    T(ctx, px, kBodyTop + 2, 'PKTS ' + model.pkts, COLORS.slate, 1); px += ('PKTS ' + model.pkts).length * 6;
-    if (model.malformed) T(ctx, px, kBodyTop + 2, ' BAD ' + model.malformed, COLORS.pink, 1);
 
     const rows = clients ? model.clients : model.probes;
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4;
+    const listTop = kBodyTop + 14, rowH = 12, visible = 5;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < rows.length; i++) {
       const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
       rowSel(ctx, y, rowH, sel);
       if (clients) {
-        T(ctx, 6, y, r.mac.padEnd(15), COLORS.paper, 1);
+        T(ctx, 6, y, r.mac.padEnd(17).slice(0, 17), COLORS.paper, 1);
         T(ctx, chX, y, String(r.ch).padStart(3), COLORS.slate, 1);
         T(ctx, bandX, y, r.band.padStart(4), COLORS.slate, 1);
         T(ctx, rssiX, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
@@ -620,39 +903,30 @@ function drawContacts(ctx, chrome, model, tab, cursor) {
         T(ctx, rssiX, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
       }
     }
+    if (!rows.length) T(ctx, 4, listTop, model.sniffing ? 'LISTENING FOR WIFI FRAMES...' : 'NO OBSERVATIONS YET', COLORS.dimGreen, 1);
 
-    if (model.lastSighting) {
-      let cx = 4;
-      T(ctx, cx, kBodyTop + 83, 'LAST ', COLORS.yellow, 1); cx += 30;
-      T(ctx, cx, kBodyTop + 83, model.lastSighting, model.sniffing ? COLORS.green : COLORS.slate, 1);
-    } else {
-      T(ctx, 4, kBodyTop + 83, 'CLIENTS ' + model.clients.length + ' · PROBES ' + model.probes.length + ' · PKTS ' + model.pkts,
-        model.sniffing ? COLORS.green : COLORS.slate, 1);
-    }
+    T(ctx, 4, kBodyTop + 78, 'LAST ', COLORS.slate, 1);
+    T(ctx, 34, kBodyTop + 78, model.lastSighting || 'NO SIGHTINGS', model.sniffing ? COLORS.green : COLORS.slate, 1);
+    T(ctx, 4, kBodyTop + 92, clients ? 'ENTER DETAIL / x REQUESTS' : 'ENTER DETAIL / x CLIENTS', COLORS.yellow, 1);
   });
 }
 
 function drawDeauth(ctx, chrome, model, cursor) {
   drawChrome(ctx, chrome, function (ctx) {
     T(ctx, 4, kBodyTop + 2, 'DETECTIONS ' + model.events.length + '  ' + (model.active ? 'WATCHING' : 'IDLE'), COLORS.slate, 1);
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4, events = model.events;
+    const listTop = kBodyTop + 14, rowH = 12, visible = 6, events = model.events;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < events.length; i++) {
       const e = events[first + i], sel = first + i === cursor, y = listTop + i * rowH;
       rowSel(ctx, y, rowH, sel);
-      const p = new Printer(ctx, 1);
-      p.at(6, y).color(e.disassoc ? COLORS.yellow : COLORS.pink).print(e.mac.padEnd(15));
-      p.color(COLORS.slate).print(' r' + String(e.reason).padEnd(3));
-      p.color(rssiColour(e.rssi)).print(' ' + String(e.rssi).padStart(4));
+      T(ctx, 6, y, e.mac.padEnd(17).slice(0, 17), e.disassoc ? COLORS.yellow : COLORS.pink, 1);
+      T(ctx, 114, y, e.ch ? ('C' + String(e.ch).padEnd(2)) : 'C--', COLORS.slate, 1);
+      T(ctx, 138, y, 'R' + String(e.reason).padEnd(3), COLORS.slate, 1);
+      T(ctx, 168, y, e.disassoc ? 'DIS' : 'DEA', e.disassoc ? COLORS.yellow : COLORS.pink, 1);
+      T(ctx, 204, y, String(e.rssi).padStart(4), rssiColour(e.rssi), 1);
     }
-    if (!events.length) T(ctx, 0, listTop, model.active ? 'LISTENING FOR MANAGEMENT FRAMES...' : 'NO DETECTIONS YET', COLORS.dimGreen, 1);
-
-    if (events.length && cursor < events.length) {
-      const e = events[cursor];
-      T(ctx, 4, kBodyTop + 83, e.mac + ' R' + e.reason + ' ' + e.rssi + ' dBm', COLORS.slate, 1);
-    } else {
-      T(ctx, 4, kBodyTop + 83, 'EVENTS ' + events.length + ' · ' + (model.active ? 'WATCHING' : 'IDLE'), model.active ? COLORS.green : COLORS.slate, 1);
-    }
+    if (!events.length) T(ctx, 4, listTop, model.active ? 'LISTENING FOR MANAGEMENT FRAMES...' : 'NO DETECTIONS YET', COLORS.dimGreen, 1);
+    T(ctx, 4, kBodyTop + 92, 's WATCH-STOP / ; . ROW', COLORS.yellow, 1);
   });
 }
 
@@ -662,33 +936,35 @@ function drawAntiSurv(ctx, chrome, model, cursor, starting) {
     T(ctx, 164, kBodyTop + 2, starting ? 'STARTING' : model.active ? 'WATCH' : 'IDLE',
       starting ? COLORS.yellow : model.active ? COLORS.green : COLORS.slate, 1);
 
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4, trackers = model.trackers;
+    const listTop = kBodyTop + 14, rowH = 12, visible = 5, trackers = model.trackers;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < trackers.length; i++) {
       const t = trackers[first + i], sel = first + i === cursor, y = listTop + i * rowH;
       rowSel(ctx, y, rowH, sel);
-      T(ctx, 6, y, t.mac.padEnd(15), t.alert ? COLORS.pink : COLORS.paper, 1);
-      T(ctx, 102, y, 'L' + t.legs, COLORS.slate, 1);
-      T(ctx, 132, y, 'N' + t.sightings, COLORS.slate, 1);
+      T(ctx, 6, y, t.mac.padEnd(17).slice(0, 17), t.alert ? COLORS.pink : COLORS.paper, 1);
+      T(ctx, 114, y, 'L' + t.legs, COLORS.slate, 1);
+      T(ctx, 140, y, 'N' + t.sightings, COLORS.slate, 1);
       T(ctx, 204, y, String(t.rssi).padStart(4), rssiColour(t.rssi), 1);
     }
+    if (!trackers.length) T(ctx, 4, listTop, starting ? 'STARTING PASSIVE WATCH...' : model.active ? 'WATCHING FOR PERSISTENT TRACKERS' : 'NO TRACKERS OBSERVED', COLORS.dimGreen, 1);
 
     const alert = trackers.find(t => t.alert);
     if (alert) {
-      T(ctx, 4, kBodyTop + 83, 'FOLLOW? ' + alert.mac + ' · ' + alert.legs + ' LEGS', COLORS.pink, 1);
+      T(ctx, 4, kBodyTop + 78, 'FOLLOW? ' + alert.mac + ' / ' + alert.legs + ' LEGS', COLORS.pink, 1);
     } else if (starting) {
-      T(ctx, 4, kBodyTop + 83, 'AWAITING PASSIVE TRACKER STREAM', COLORS.yellow, 1);
+      T(ctx, 4, kBodyTop + 78, 'AWAITING PASSIVE TRACKER STREAM', COLORS.yellow, 1);
     } else if (model.active) {
-      T(ctx, 4, kBodyTop + 83, (model.hasPosition ? 'FIX READY' : 'NO FRESH FIX') + ' · NEED 2 x 25m LEGS',
+      T(ctx, 4, kBodyTop + 78, (model.hasPosition ? 'FIX READY' : 'NO FRESH FIX') + ' / NEED 2 x 25m LEGS',
         model.hasPosition ? COLORS.green : COLORS.yellow, 1);
     } else if (trackers.length && cursor < trackers.length) {
       const t = trackers[cursor];
-      T(ctx, 4, kBodyTop + 83, t.mac + ' · ' + t.legs + '/2 LEGS · ' + t.traveled + 'm', COLORS.slate, 1);
+      T(ctx, 4, kBodyTop + 78, t.mac + ' / ' + t.legs + '/2 LEGS / ' + t.traveled + 'm', COLORS.slate, 1);
     } else if (trackers.length) {
-      T(ctx, 4, kBodyTop + 83, trackers.length + ' TRACKERS · RESULTS HELD IN RAM', COLORS.slate, 1);
+      T(ctx, 4, kBodyTop + 78, trackers.length + ' TRACKERS / RESULTS HELD IN RAM', COLORS.slate, 1);
     } else {
-      T(ctx, 4, kBodyTop + 83, 'PASSIVE ONLY · PRESS s TO WATCH', COLORS.dimGreen, 1);
+      T(ctx, 4, kBodyTop + 78, 'PASSIVE ONLY / PRESS s TO WATCH', COLORS.dimGreen, 1);
     }
+    T(ctx, 4, kBodyTop + 92, 's WATCH-STOP / ; . ROW', COLORS.yellow, 1);
   });
 }
 
@@ -725,7 +1001,7 @@ function drawZig(ctx, chrome, model, tab, cursor) {
       T(ctx, cx, kBodyTop + 2, ' BAD ' + model.malformed, COLORS.pink, 1);
     }
 
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4;
+    const listTop = kBodyTop + 14, rowH = 12, visible = 5;
     const rows = pansTab ? model.pans : model.nodes;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < rows.length; i++) {
@@ -748,22 +1024,23 @@ function drawZig(ctx, chrome, model, tab, cursor) {
     if (pansTab) {
       if (model.pans.length && cursor < model.pans.length) {
         const r = model.pans[cursor];
-        T(ctx, 4, kBodyTop + 83, r.pan + ' · ' + zigChannelCount(r.channels) + ' CH · N' + r.nodes + ' · RSSI ' + r.rssi, detailColor, 1);
+        T(ctx, 4, kBodyTop + 78, r.pan + ' / ' + zigChannelCount(r.channels) + ' CH / N' + r.nodes + ' / RSSI ' + r.rssi, detailColor, 1);
       } else {
-        T(ctx, 4, kBodyTop + 83, 'PANS ' + model.pans.length + ' · ' + (model.active ? 'LISTENING' : 'IDLE'), detailColor, 1);
+        T(ctx, 4, kBodyTop + 78, 'PANS ' + model.pans.length + ' / ' + (model.active ? 'LISTENING' : 'IDLE'), detailColor, 1);
       }
     } else {
       if (model.nodes.length && cursor < model.nodes.length) {
         const r = model.nodes[cursor];
         if (!r.short_addr && r.ext) {
-          T(ctx, 4, kBodyTop + 83, 'EXT ' + r.ext + ' · RSSI ' + r.rssi + ' LQI ' + r.lqi, detailColor, 1);
+          T(ctx, 4, kBodyTop + 78, 'EXT ' + r.ext + ' / RSSI ' + r.rssi + ' LQI ' + r.lqi, detailColor, 1);
         } else {
-          T(ctx, 4, kBodyTop + 83, r.pan + ' RSSI ' + r.rssi + ' LQI ' + r.lqi, detailColor, 1);
+          T(ctx, 4, kBodyTop + 78, r.pan + ' RSSI ' + r.rssi + ' LQI ' + r.lqi, detailColor, 1);
         }
       } else {
-        T(ctx, 4, kBodyTop + 83, 'NODES ' + model.nodes.length + ' · ' + (model.active ? 'LISTENING' : 'IDLE'), detailColor, 1);
+        T(ctx, 4, kBodyTop + 78, 'NODES ' + model.nodes.length + ' / ' + (model.active ? 'LISTENING' : 'IDLE'), detailColor, 1);
       }
     }
+    T(ctx, 4, kBodyTop + 92, pansTab ? 'x NODES / s START-STOP' : 'x PANS / s START-STOP', COLORS.yellow, 1);
   });
 }
 
@@ -781,114 +1058,72 @@ function loraProfileLabel(token) {
 
 function drawSubGhz(ctx, chrome, model, cursor, pendingProfileLabel) {
   drawChrome(ctx, chrome, function (ctx) {
-    T(ctx, 4, kBodyTop + 2, 'PACKETS ' + model.totalCount + '  ' + (model.active ? 'LISTENING' : 'IDLE'), COLORS.slate, 1);
-    if (model.hasConfig) T(ctx, 184, kBodyTop + 2, 'SF' + model.sf + ' BW' + model.bw, COLORS.slate, 1);
-    else T(ctx, 164, kBodyTop + 2, 'UNCONFIGURED', COLORS.yellow, 1);
-
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4, packets = model.packets;
-    const first = cursor >= visible ? cursor - visible + 1 : 0;
-    for (let i = 0; i < visible && first + i < packets.length; i++) {
-      const pkt = packets[first + i], sel = first + i === cursor, y = listTop + i * rowH;
-      rowSel(ctx, y, rowH, sel);
-      const p = new Printer(ctx, 1);
-      p.at(6, y).color(COLORS.paper).print(String(pkt.rssi).padStart(4));
-      p.color(pkt.snr >= 7 ? COLORS.green : pkt.snr >= 0 ? COLORS.yellow : COLORS.pink).print(' ' + pkt.snr.toFixed(1).padStart(5));
-      p.color(COLORS.slate).print(' ' + String(pkt.len).padStart(3) + ' ');
-      p.color(pkt.framing === 'M' ? COLORS.pink : pkt.framing === 'C' ? COLORS.green : pkt.framing === 'L' ? COLORS.paper : COLORS.slate).print(pkt.framing + ' ');
-      p.color(COLORS.dimGreen).print(pkt.hex.slice(0, 20));
+    T(ctx, 5, kBodyTop + 3, model.hasConfig ? (model.freqHz / 1e6).toFixed(3) + ' MHz' : 'CONFIG REQUIRED', COLORS.paper, 1);
+    if (model.hasConfig) T(ctx, 149, kBodyTop + 3, 'BW' + model.bw + ' SF' + model.sf, COLORS.green, 1);
+    HL(ctx, 5, kBodyTop + 14, 230, COLORS.dimGreen);
+    const packets = model.packets, visible = 5, first = cursor >= visible ? cursor - visible + 1 : 0;
+    for (let row = 0; row < visible && first + row < packets.length; row++) {
+      const i = first + row, pkt = packets[i], y = kBodyTop + 20 + row * 12, selected = i === cursor;
+      rowSel(ctx, y, 12, selected);
+      const framing = pkt.framing === 'Unknown' ? 'RAW ' + pkt.len + 'B' : String(pkt.framing).slice(0, 10) + '?';
+      T(ctx, 6, y, framing, selected ? COLORS.yellow : COLORS.paper, 1);
+      T(ctx, 116, y, pkt.rssi + ' dBm', selected ? COLORS.yellow : COLORS.paper, 1);
+      T(ctx, 184, y, (pkt.snr >= 0 ? '+' : '') + pkt.snr.toFixed(1), pkt.snr >= 0 ? COLORS.green : COLORS.pink, 1);
     }
-    if (!packets.length) T(ctx, 0, listTop, model.active ? 'LISTENING FOR LORA RX...' : model.hasConfig ? 'PRESS s TO START' : 'PRESS c TO CONFIGURE', COLORS.dimGreen, 1);
-
-    if (model.hasConfig) {
-      const mhz = (model.freqHz / 1e6).toFixed(3);
-      const appliedLabel = loraProfileLabel(model.profileToken);
-      const p = new Printer(ctx, 1);
-      p.at(4, kBodyTop + 83).color(model.active ? COLORS.green : COLORS.slate)
-        .print(mhz + ' SF' + model.sf + ' BW' + model.bw + ' ' + appliedLabel);
-      /* pendingProfileLabel tracks 'x' independently of the applied config
-       * (lora_profile_index_ keeps cycling after c is pressed) — only shown
-       * once it differs, so the common case stays quiet. Fixed 2026-09-23
-       * after it turned out this had no on-screen feedback at all once
-       * hasConfig() was true. */
-      if (pendingProfileLabel !== appliedLabel) {
-        p.color(COLORS.yellow).print(' x=' + pendingProfileLabel);
-      }
-      if (model.health && model.health.valid) {
-        const h = model.health;
-        const faulty = h.irq_drop || h.radio_drop || h.ocp_drop || h.hw_fault;
-        T(ctx, 4, kBodyTop + 92,
-          'RX' + h.rx + ' C' + h.crc_err + ' H' + h.header_err + ' D' + h.irq_drop + '/' + h.radio_drop + '/' + h.ocp_drop + ' F' + h.hw_fault,
-          faulty ? COLORS.yellow : COLORS.slate, 1);
-      }
-    } else {
-      T(ctx, 4, kBodyTop + 83, 'CFG REQUIRED - c=' + pendingProfileLabel + ' (x=next)', COLORS.yellow, 1);
-    }
+    if (!packets.length) T(ctx, 8, kBodyTop + 40,
+      model.active ? 'LISTENING FOR LORA FRAMES' : model.hasConfig ? 's START / x PROFILE / c APPLY' : 'x PROFILE / c CONFIGURE', COLORS.slate, 1);
+    HL(ctx, 5, kBodyTop + 86, 230, COLORS.dimGreen);
+    const appliedLabel = loraProfileLabel(model.profileToken);
+    if (!model.hasConfig || pendingProfileLabel !== appliedLabel) {
+      T(ctx, 5, kBodyTop + 92, 'c APPLY ' + pendingProfileLabel + ' / x NEXT', COLORS.yellow, 1);
+    } else if (model.health && model.health.valid && model.health.hw_fault) {
+      T(ctx, 5, kBodyTop + 92, 'RADIO FAULT / CHECK LINK STATUS', COLORS.red, 1);
+    } else T(ctx, 5, kBodyTop + 92, 'ENTER HEX / x PROFILE / c APPLY', COLORS.slate, 1);
   });
 }
 
-function drawSpectrumBroad(ctx, chrome, model, cursor) {
+function drawSpectrum(ctx, chrome, model, cursor) {
   drawChrome(ctx, chrome, function (ctx) {
     const readings = model.readings;
-    const maxPkts = Math.max(1, ...readings.map(r => r.pkts));
-    const chartTop = kBodyTop + 4, chartBottom = kBodyTop + 72, chartH = chartBottom - chartTop;
-    let barW = readings.length ? Math.floor(kW / readings.length) : 1;
-    barW = Math.max(1, Math.min(14, barW));
-    const chartW = Math.min(kW, barW * readings.length);
-    const chartLeft = Math.floor((kW - chartW) / 2);
-
-    readings.forEach((r, i) => {
-      const x = chartLeft + i * barW;
-      if (x >= kW) return;
-      let h = Math.round((r.pkts / maxPkts) * chartH);
-      if (h < 1 && r.pkts > 0) h = 1;
-      const w = barW > 1 ? barW - 1 : 1;
-      if (i === cursor) RO(ctx, x, chartTop, w, chartH, COLORS.paper);
-      const frac = r.pkts / maxPkts;
-      const barColor = frac > 0.66 ? COLORS.pink : frac > 0.33 ? COLORS.yellow : COLORS.green;
-      if (h > 0) R(ctx, x, chartBottom - h, w, h, barColor);
-      else R(ctx, x, chartBottom - 2, w, 2, COLORS.dimGreen);
-    });
-
-    if (cursor < readings.length) {
-      const r = readings[cursor];
-      T(ctx, 4, kBodyTop + 78, 'CH ' + r.ch + ' ' + r.band + '  ' + r.pkts + ' PKTS', COLORS.slate, 1);
-    } else if (!readings.length) {
-      T(ctx, 4, kBodyTop + 78, model.active ? 'CHANNELS 0 · WAITING' : 'NO CHANNEL READINGS', COLORS.slate, 1);
+    const locked = model.locked, scale = Math.max(1, ...readings.map(r => r.pkts));
+    const selected = locked ? 0 : cursor, visible = 5, first = selected >= visible ? selected - visible + 1 : 0;
+    T(ctx, 5, kBodyTop + 3, locked ? 'LOCKED / 1s WINDOW' : 'CHANNEL FIELD / DWELL', COLORS.paper, 1);
+    HL(ctx, 5, kBodyTop + 14, 230, COLORS.dimGreen);
+    for (let row = 0; row < visible && first + row < readings.length; row++) {
+      const i = first + row, r = readings[i], y = kBodyTop + 20 + row * 12, focus = i === selected;
+      const color = focus ? COLORS.pink : COLORS.paper;
+      rowSel(ctx, y, 12, focus);
+      T(ctx, 6, y, 'CH ' + String(r.ch).padEnd(3) + ' ' + (r.valid ? r.pkts : '--'), color, 1);
+      const ageColor = !model.active || r.ageMs >= 3000 ? COLORS.slate : color;
+      T(ctx, 165, y, !r.valid ? 'WAIT' : Math.floor(r.ageMs / 1000) + 's', ageColor, 1);
+      R(ctx, 201, y + 2, 28, 4, COLORS.trackDark);
+      if (r.valid && r.pkts) R(ctx, 201, y + 2, Math.max(1, Math.floor(r.pkts * 28 / scale)), 4, focus ? COLORS.pink : COLORS.green);
     }
-  });
-}
-function drawSpectrumLocked(ctx, chrome, model) {
-  drawChrome(ctx, chrome, function (ctx) {
-    T(ctx, 4, kBodyTop + 2, 'PACKET MONITOR LIVE  CH ' + model.lockedChannel, COLORS.green, 1);
-    T(ctx, 4, kBodyTop + 22, String(model.pkts), COLORS.yellow, 2);
-    T(ctx, 4, kBodyTop + 45, 'PACKETS / SEC  ·  PRESS ` TO RELEASE', COLORS.slate, 1);
+    if (!readings.length) T(ctx, 8, kBodyTop + 40, model.active ? 'WAITING FOR CHANNEL DATA' : 'NO CHANNEL DATA / START s', COLORS.slate, 1);
+    HL(ctx, 5, kBodyTop + 86, 230, COLORS.dimGreen);
+    T(ctx, 5, kBodyTop + 92, locked ? '` CHANNELS / s STOP-RESUME' : 'ENTER LOCK / ; . FOCUS', COLORS.yellow, 1);
   });
 }
 
 function drawGnss(ctx, chrome, model) {
   drawChrome(ctx, chrome, function (ctx) {
-    const stateColor = { Fixed: COLORS.green, FixLost: COLORS.pink, Searching: COLORS.yellow, NoUartData: COLORS.red }[model.state] || COLORS.slate;
-    T(ctx, 4, kBodyTop + 2, 'GNSS ' + model.stateName, stateColor, 1);
-    T(ctx, 154, kBodyTop + 2, model.alive ? 'UART DATA' : 'UART SILENT', model.alive ? COLORS.green : COLORS.red, 1);
-
-    function row(y, label, value, color) {
-      T(ctx, 4, y, label, COLORS.slate, 1);
-      T(ctx, 94, y, value, color, 1);
-    }
-    if (model.everFixed) {
-      row(kBodyTop + 16, 'POSITION', model.lat.toFixed(4) + ' ' + model.lon.toFixed(4), COLORS.paper);
-      row(kBodyTop + 29, 'ALT / HDOP', model.alt.toFixed(0) + 'm / ' + model.hdop.toFixed(1) + ' HDOP', COLORS.paper);
-      row(kBodyTop + 42, 'FIX AGE', model.fixAge, model.state === 'Fixed' ? COLORS.green : COLORS.pink);
-    } else {
-      row(kBodyTop + 16, 'POSITION', 'NO FIX THIS SESSION', COLORS.yellow);
-      row(kBodyTop + 29, 'FIX AGE', '--', COLORS.slate);
-      row(kBodyTop + 42, 'UTC', '--', COLORS.slate);
-    }
-    row(kBodyTop + 55, 'WARDRIVE', model.logOpen ? model.aps + ' AP / ' + model.trk + ' TRK' : 'IDLE', model.logOpen ? COLORS.green : COLORS.slate);
-
-    if (model.logOpen) T(ctx, 4, kBodyTop + 83, 'LOG ' + model.aps + ' AP · ' + model.trk + ' TRK', COLORS.green, 1);
-    else if (model.everFixed) T(ctx, 4, kBodyTop + 83, 'FIX AGE ' + model.fixAge + ' · LOG IDLE', COLORS.slate, 1);
-    else T(ctx, 4, kBodyTop + 83, 'NO FIX · LOG IDLE', COLORS.slate, 1);
+    const fresh = model.state === 'Fixed' && model.fixAgeMs < 3000;
+    T(ctx, 5, kBodyTop + 5, fresh ? model.lat.toFixed(4) + ' / ' + model.lon.toFixed(4) :
+      'GNSS ' + (model.state === 'Fixed' ? 'aged fix' : model.stateName), fresh ? COLORS.paper : COLORS.yellow, 1);
+    HL(ctx, 5, kBodyTop + 17, 230, COLORS.dimGreen);
+    const values = [model.aps + ' AP', fresh ? model.hdop.toFixed(1) + ' HDOP' :
+      model.state === 'FixLost' ? 'FIX LOST' : model.state === 'Fixed' ? 'AGED FIX' : model.uartAlive ? 'SEARCHING' : 'UART SILENT',
+      model.trackPoints + ' / ' + model.apsNoFix, model.logOpen ? 'RECORDING' : 'CLOSED'];
+    const labels = ['TARGETS SAVED', 'FIX QUALITY', 'TRACK / NOFIX', 'SD SESSION'];
+    values.forEach((v, i) => {
+      const y = kBodyTop + 25 + i * 15, selected = i === 1;
+      if (selected) { R(ctx, 4, y - 2, 232, 14, COLORS.glow); RO(ctx, 4, y - 2, 232, 14, COLORS.yellow); }
+      T(ctx, 7, y, labels[i], selected ? COLORS.yellow : COLORS.paper, 1);
+      T(ctx, 125, y, v, selected ? COLORS.yellow : COLORS.paper, 1);
+    });
+    HL(ctx, 5, kBodyTop + 84, 230, COLORS.dimGreen);
+    T(ctx, 5, kBodyTop + 88, model.logOpen ? 'l CLOSE LOG / FRESH FIX REQUIRED' : 'l START LOG / EXTERNAL TRACK',
+      model.logOpen ? COLORS.green : COLORS.slate, 1);
   });
 }
 
@@ -896,84 +1131,71 @@ function drawBt(ctx, chrome, model, cursor) {
   drawChrome(ctx, chrome, function (ctx) {
     const trackerCount = model.trackerCount;
     T(ctx, 4, kBodyTop + 2, 'DEVICES ' + model.devices.length, COLORS.slate, 1);
-    let cx = 132;
-    T(ctx, cx, kBodyTop + 2, 'TRACKERS ', COLORS.slate, 1); cx += 9 * 6;
-    T(ctx, cx, kBodyTop + 2, String(trackerCount), trackerCount ? COLORS.pink : COLORS.slate, 1);
+    T(ctx, 132, kBodyTop + 2, 'TRACKERS ', COLORS.slate, 1);
+    T(ctx, 186, kBodyTop + 2, String(trackerCount), trackerCount ? COLORS.pink : COLORS.slate, 1);
+    if (model.malformedRows) T(ctx, 198, kBodyTop + 2, 'BAD ' + model.malformedRows, COLORS.pink, 1);
 
-    const listTop = kBodyTop + 16, rowH = 13, visible = 4, rows = model.devices;
+    const showTracker = !!model.lastTracker;
+    const listTop = kBodyTop + 14, rowH = 12, visible = showTracker ? 5 : 6, rows = model.devices;
     const first = cursor >= visible ? cursor - visible + 1 : 0;
     for (let i = 0; i < visible && first + i < rows.length; i++) {
       const r = rows[first + i], sel = first + i === cursor, y = listTop + i * rowH;
       rowSel(ctx, y, rowH, sel);
-      const label = (r.name || r.mac).padEnd(18).slice(0, 18);
+      const label = (r.name || r.mac).padEnd(22).slice(0, 22);
       T(ctx, 6, y, label, r.name ? COLORS.paper : COLORS.dimGreen, 1);
       T(ctx, 156, y, r.tracker ? 'TRK' : '   ', r.tracker ? COLORS.pink : COLORS.slate, 1);
       T(ctx, 196, y, String(r.rssi).padStart(4), rssiColour(r.rssi), 1);
     }
 
-    if (model.lastTracker) {
-      T(ctx, 4, kBodyTop + 83, 'LAST TRACKER ' + model.lastTracker.mac + ' ' + model.lastTracker.rssi, COLORS.slate, 1);
-    } else if (cursor < rows.length) {
-      const r = rows[cursor];
-      const p = new Printer(ctx, 1);
-      p.at(4, kBodyTop + 83).color(COLORS.slate).print((r.name || r.mac).slice(0, 18));
-      p.color(rssiColour(r.rssi)).print('  ' + r.rssi + ' dBm');
-      p.color(COLORS.slate).print(' · ' + r.n + ' seen');
-    } else {
-      T(ctx, 4, kBodyTop + 83, 'NO BLE DEVICES', COLORS.slate, 1);
+    if (model.scanning && rows.length === 0) {
+      const dots = ['', '.', '..', '...'][Math.floor(Date.now() / 250) % 4];
+      T(ctx, 72, kBodyTop + 47, 'LISTENING' + dots.padEnd(3) + ' ' + String(model.scanningSec || 0).padStart(2, '0') + 's', COLORS.yellow, 1);
+    } else if (!rows.length) {
+      T(ctx, 4, listTop, 'NO BLE DEVICES', COLORS.dimGreen, 1);
     }
+    if (showTracker) {
+      T(ctx, 4, kBodyTop + 78, 'LAST TRACKER ' + model.lastTracker.mac + ' ' + model.lastTracker.rssi, COLORS.pink, 1);
+    }
+    T(ctx, 4, kBodyTop + 92, 'ENTER DOSSIER / s SCAN / c LIVE', COLORS.yellow, 1);
   });
 }
 
 function drawSettings(ctx, chrome, brightness) {
   drawChrome(ctx, chrome, function (ctx) {
-    T(ctx, 4, kBodyTop + 3, 'DISPLAY BRIGHTNESS', COLORS.green, 1);
     const pct = Math.round((brightness * 100 + 127) / 255);
-    T(ctx, 4, kBodyTop + 18, String(pct).padStart(3) + '%', COLORS.paper, 2);
-
-    const barX = 4, barY = kBodyTop + 42, segW = 18, gap = 3, count = 10;
-    const filled = Math.round((brightness * count + 254) / 255);
-    for (let i = 0; i < count; i++) R(ctx, barX + i * (segW + gap), barY, segW, 10, i < filled ? COLORS.green : COLORS.trackDark);
-
-    T(ctx, 4, kBodyTop + 62, '; .   BRIGHTER / DIMMER', COLORS.slate, 1);
-    T(ctx, 4, kBodyTop + 75, '`     BACK TO LINK', COLORS.slate, 1);
+    R(ctx, 4, kBodyTop + 4, 232, 54, COLORS.panelDark);
+    RO(ctx, 4, kBodyTop + 4, 232, 54, COLORS.line);
+    R(ctx, 4, kBodyTop + 4, 28, 2, COLORS.green);
+    T(ctx, 10, kBodyTop + 10, 'DISPLAY BRIGHTNESS', COLORS.slate, 1);
+    TD(ctx, 10, kBodyTop + 21, pct + '%', COLORS.yellow, 18, 'left');
+    const filled = Math.floor((brightness * 10 + 254) / 255);
+    segBar(ctx, 10, kBodyTop + 43, 10, 18, 9, 3, filled, COLORS.green);
+    T(ctx, 6, kBodyTop + 66, '; .   BRIGHTER / DIMMER', COLORS.slate, 1);
+    T(ctx, 6, kBodyTop + 79, '`     BACK TO LINK', COLORS.slate, 1);
   });
 }
 
-function drawInfo(ctx, chrome, model) {
+function drawInfo(ctx, chrome, m) {
   drawChrome(ctx, chrome, function (ctx) {
-    function heapColour(free, total) {
-      if (!total) return COLORS.slate;
-      const pct = free >= total ? 100 : free * 100 / total;
-      return pct <= 20 ? COLORS.red : pct <= 40 ? COLORS.yellow : COLORS.green;
-    }
-    function heapPanel(x, y, w, label, available, free, total) {
+    function heapPanel(x, y, w, label, accent, avail, freeB, totalB) {
       R(ctx, x, y, w, 58, COLORS.panelDark);
       RO(ctx, x, y, w, 58, COLORS.line);
-      T(ctx, x + 5, y + 4, label, COLORS.slate, 1);
-      if (!available) T(ctx, x + 5, y + 15, '--', COLORS.slate, 2);
-      else T(ctx, x + 5, y + 15, Math.floor(free / 1024) + ' KB', heapColour(free, total), 2);
-      T(ctx, x + 5, y + 37, available ? 'FREE' : 'WAITING', available ? COLORS.slate : COLORS.yellow, 1);
-      if (available && total) {
-        const pct = Math.min(100, Math.round(free * 100 / total));
-        T(ctx, x + w - 35, y + 37, String(pct).padStart(3) + '%', heapColour(free, total), 1);
-      }
-      const bx = x + 5, by = y + 47, segW = 8, gap = 2, count = 10;
-      let filled = 0;
-      if (available && total) filled = Math.ceil(Math.min(100, free * 100 / total) * count / 100);
-      for (let i = 0; i < count; i++) R(ctx, bx + i * (segW + gap), by, segW, 6, i < filled ? heapColour(free, total) : COLORS.trackDark);
+      R(ctx, x, y, 24, 2, accent);
+      T(ctx, x + 5, y + 5, label, COLORS.slate, 1);
+      const pct = avail && totalB ? Math.min(100, Math.floor(freeB * 100 / totalB)) : 0;
+      const col = !avail ? COLORS.slate : pct <= 20 ? COLORS.red : pct <= 40 ? COLORS.yellow : COLORS.green;
+      TD(ctx, x + 5, y + 17, avail ? Math.floor(freeB / 1024) + ' KB' : '--', col, 14, 'left');
+      T(ctx, x + 5, y + 37, avail ? 'FREE' : 'WAITING', avail ? COLORS.slate : COLORS.yellow, 1);
+      T(ctx, x + w - 35, y + 37, avail ? String(pct).padStart(3) + '%' : '--%', col, 1);
+      const filled = avail && totalB ? Math.floor((pct * 10 + 99) / 100) : 0;
+      segBar(ctx, x + 5, y + 47, 10, 8, 6, 2, filled, col);
     }
-    heapPanel(4, kBodyTop + 3, 112, 'DECK HEAP', true, model.deckFree, model.deckTotal);
-    heapPanel(124, kBodyTop + 3, 112, 'PROBE HEAP', model.probeAvailable, model.probeFree, model.probeTotal);
-
-    function metric(x, y, label, value, color) {
-      T(ctx, x, y, label, COLORS.slate, 1);
-      T(ctx, x + 48, y, value, color, 1);
-    }
-    metric(4, kBodyTop + 67, 'DECK UP', model.deckUptime, COLORS.slate);
-    metric(124, kBodyTop + 67, 'PROBE UP', model.probeAvailable ? model.probeUptime : '--', model.probeAvailable ? COLORS.slate : COLORS.yellow);
-    metric(4, kBodyTop + 83, 'LINK', model.linkName, model.ready ? COLORS.green : COLORS.red);
-    metric(124, kBodyTop + 83, 'SD', model.sdReady ? 'READY' : 'ABSENT', model.sdReady ? COLORS.green : COLORS.red);
+    heapPanel(4, kBodyTop + 3, 112, 'DECK HEAP', COLORS.green, true, m.deckFree, m.deckTotal);
+    heapPanel(124, kBodyTop + 3, 112, 'PROBE HEAP', m.probeAvailable ? COLORS.pink : COLORS.slate, m.probeAvailable, m.probeFree, m.probeTotal);
+    T(ctx, 4, kBodyTop + 67, 'DECK UP', COLORS.slate, 1); T(ctx, 52, kBodyTop + 67, m.deckUptime, COLORS.slate, 1);
+    T(ctx, 124, kBodyTop + 67, 'PROBE UP', COLORS.slate, 1); T(ctx, 172, kBodyTop + 67, m.probeAvailable ? m.probeUptime : '--', m.probeAvailable ? COLORS.slate : COLORS.yellow, 1);
+    T(ctx, 4, kBodyTop + 83, 'LINK', COLORS.slate, 1); T(ctx, 52, kBodyTop + 83, m.linkName, m.ready ? COLORS.green : COLORS.red, 1);
+    T(ctx, 124, kBodyTop + 83, 'SD', COLORS.slate, 1); T(ctx, 172, kBodyTop + 83, m.sdReady ? 'READY' : 'ABSENT', m.sdReady ? COLORS.green : COLORS.red, 1);
   });
 }
 
@@ -1007,7 +1229,7 @@ function drawBoot(ctx) {
   ctx.closePath(); ctx.stroke();
   CIRC(ctx, cx, cy, 3, COLORS.yellow);
 
-  T(ctx, 78, 88, 'OSCILLA', COLORS.paper, 2);
+  T(ctx, 78, 88, 'oscilla', COLORS.paper, 2);
 }
 
 /* =======================================================================
@@ -1031,6 +1253,9 @@ const CONTEXT_SCREENS = [
   { screen: 'trace', section: '(context)', label: 'AP DETAIL', file: 'trace_view.cpp', note: 'Enter on a Wi-Fi Scan row' },
   { screen: 'settings', section: '(context)', label: 'SETTINGS', file: 'settings_view.cpp', note: '` from Link' },
 ];
+const SIM_SPECIAL_SCREENS = [
+  { screen: 'boot', section: '(startup)', label: 'BOOT', file: 'boot_screen.cpp', note: 'Startup hold' },
+];
 
 const CHROME_BASE = { debug: false, battery_pct: 84, charging: false };
 
@@ -1043,38 +1268,37 @@ const DATA = {
   sweep: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'WIFI SCAN', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'RX 2.4/5G · CH HOP' }),
     rows: [
-      { ssid: 'CoffeeShop_5G', ch: 149, band: '5G', rssi: -47, auth: 'WPA2-PSK' },
-      { ssid: '', hidden: true, ch: 6, band: '2.4G', rssi: -52, auth: 'WPA3' },
-      { ssid: 'NETGEAR-24', ch: 11, band: '2.4G', rssi: -61, auth: 'WPA2' },
-      { ssid: 'IoT_Cam_02', ch: 1, band: '2.4G', rssi: -74, auth: 'OPEN' },
-      { ssid: 'Lobby-Guest', ch: 36, band: '5G', rssi: -58, auth: 'WPA2' },
-      { ssid: 'PrintServer', ch: 6, band: '2.4G', rssi: -81, auth: 'WPA2' },
-      { ssid: 'xfinitywifi', ch: 11, band: '2.4G', rssi: -88, auth: 'OPEN' },
+      { ssid: 'CoffeeShop_5G', bssid:'10:20:30:40:50:01', ch: 149, band: '5G', rssi: -47, auth: 'WPA2-PSK' },
+      { ssid: '', hidden: true, bssid:'10:20:30:40:50:02', ch: 6, band: '2.4G', rssi: -52, auth: 'WPA3' },
+      { ssid: 'NETGEAR-24', bssid:'A4:5E:60:12:34:56', ch: 11, band: '2.4G', rssi: -61, auth: 'WPA2' },
+      { ssid: 'IoT_Cam_02', bssid:'10:20:30:40:50:04', ch: 1, band: '2.4G', rssi: -74, auth: 'OPEN' },
+      { ssid: 'Lobby-Guest', bssid:'10:20:30:40:50:05', ch: 36, band: '5G', rssi: -58, auth: 'WPA2' },
+      { ssid: 'PrintServer', bssid:'10:20:30:40:50:06', ch: 6, band: '2.4G', rssi: -81, auth: 'WPA2' },
+      { ssid: 'xfinitywifi', bssid:'10:20:30:40:50:07', ch: 11, band: '2.4G', rssi: -88, auth: 'OPEN' },
     ],
     cursor: 2,
-    header: 'TOTAL 7 APs  LIVE 42s',
-    bottom: 'CH 11 2.4G · -61 dBm · WPA2', bottomColor: COLORS.green,
+    elapsedSec: 42, scanning: false, continuous: true, aborted: false,
   },
   trace: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'AP DETAIL', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 11 CAPTURE' }),
-    row: { ssid: 'NETGEAR-24', ch: 11, band5: false, rssi: -61, auth: 'WPA2-PSK' },
+    row: { ssid: 'NETGEAR-24', bssid: 'A4:5E:60:12:34:56', ch: 11, band5: false, rssi: -61, auth: 'WPA2-PSK' },
     insp: { valid: true, listening: false, beacons: 112, interval_ms: 102, rsn: true, mfp_required: false, mfp_capable: true, aborted: false },
   },
   contacts: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'SNIFFER', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 6 CAPTURE' }),
     model: {
-      channel: 6, pkts: 1842, malformed: 3, sniffing: true,
+      channel: 6, pkts: 1842, malformed: 3, sniffing: true, clientAge: 900, probeAge: 1200,
       lastSighting: 'AA:BB:CC:11:22:33 assoc CoffeeShop_5G',
       clients: [
-        { mac: 'AA:BB:CC:11:22:33', ch: 6, band: '2.4G', rssi: -55 },
-        { mac: 'DE:AD:BE:EF:00:01', ch: 6, band: '2.4G', rssi: -63 },
-        { mac: '12:34:56:78:9A:BC', ch: 11, band: '2.4G', rssi: -71 },
-        { mac: 'FE:ED:FA:CE:01:02', ch: 1, band: '2.4G', rssi: -48 },
+        { mac: 'AA:BB:CC:11:22:33', bssid: 'A4:5E:60:12:34:56', ch: 6, band: '2.4G', rssi: -55, pkts: 18 },
+        { mac: 'DE:AD:BE:EF:00:01', bssid: 'A4:5E:60:12:34:56', ch: 6, band: '2.4G', rssi: -63, pkts: 11 },
+        { mac: '12:34:56:78:9A:BC', bssid: '00:11:22:33:44:55', ch: 11, band: '2.4G', rssi: -71, pkts: 6 },
+        { mac: 'FE:ED:FA:CE:01:02', bssid: '22:33:44:55:66:77', ch: 1, band: '2.4G', rssi: -48, pkts: 24 },
       ],
       probes: [
-        { ssid: 'CoffeeShop_5G', rssi: -50 },
-        { ssid: '', rssi: -66 },
-        { ssid: 'HomeNet', rssi: -74 },
+        { mac: '02:11:22:33:44:50', ssid: 'CoffeeShop_5G', rssi: -50, pkts: 8 },
+        { mac: '02:11:22:33:44:66', ssid: '', rssi: -66, pkts: 4 },
+        { mac: '02:11:22:33:44:74', ssid: 'HomeNet', rssi: -74, pkts: 3 },
       ],
     },
     tab: 'clients', cursor: 0,
@@ -1084,10 +1308,10 @@ const DATA = {
     model: {
       active: true,
       events: [
-        { mac: 'AA:11:22:33:44:55', reason: 7, rssi: -58, disassoc: false },
-        { mac: '66:77:88:99:AA:BB', reason: 3, rssi: -66, disassoc: true },
-        { mac: 'CC:DD:EE:FF:00:11', reason: 7, rssi: -72, disassoc: false },
-        { mac: '22:33:44:55:66:77', reason: 6, rssi: -80, disassoc: false },
+        { mac: 'AA:11:22:33:44:55', reason: 7, rssi: -58, ch:6, disassoc: false },
+        { mac: '66:77:88:99:AA:BB', reason: 3, rssi: -66, ch:6, disassoc: true },
+        { mac: 'CC:DD:EE:FF:00:11', reason: 7, rssi: -72, ch:11, disassoc: false },
+        { mac: '22:33:44:55:66:77', reason: 6, rssi: -80, ch:1, disassoc: false },
       ],
     },
     cursor: 0,
@@ -1108,16 +1332,16 @@ const DATA = {
     model: {
       active: true, malformed: 1,
       pans: [
-        { pan: 'FACE', nodes: 2, rssi: -61, lqi: 210, channels: '0800' },
-        { pan: 'BEEF', nodes: 1, rssi: -69, lqi: 180, channels: '07FF' },
+        { pan: 'FACE', nodes: 2, rssi: -61, lqi: 210, channels: '0800', proto: 'UNKNOWN' },
+        { pan: 'BEEF', nodes: 1, rssi: -69, lqi: 180, channels: '07FF', proto: 'UNKNOWN' },
       ],
       nodes: [
-        { pan: 'FACE', short_addr: '1A2B', ext: '', rssi: -61, lqi: 210 },
-        { pan: 'FACE', short_addr: '3C4D', ext: '', rssi: -74, lqi: 140 },
+        { pan: 'FACE', short_addr: '1A2B', ext: '00124B00021A1A2B', rssi: -61, lqi: 210, seen: 14, role: 'UNKNOWN' },
+        { pan: 'FACE', short_addr: '3C4D', ext: '00124B00021A3C4D', rssi: -74, lqi: 140, seen: 7, role: 'UNKNOWN' },
         /* No short address (802.15.4 src addressing mode 3) — the case
          * zig_view.cpp's addrColumn() was fixed 2026-09-21 to show pink
          * and truncated instead of a blank "--------". */
-        { pan: 'BEEF', short_addr: '', ext: '00124B00021A3C4D', rssi: -69, lqi: 180 },
+        { pan: 'BEEF', short_addr: '', ext: '00124B00021A3C4D', rssi: -69, lqi: 180, seen: 9, role: 'UNKNOWN' },
       ],
     },
     tab: 'pans', cursor: 0,
@@ -1132,9 +1356,9 @@ const DATA = {
       totalCount: 47,
       health: { valid: true, rx: 47, crc_err: 2, header_err: 0, irq_drop: 0, radio_drop: 0, ocp_drop: 0, hw_fault: 0 },
       packets: [
-        { rssi: -102, snr: 8.2, len: 34, framing: 'M', hex: 'A3F1B02C99DEADBEEF001122' },
-        { rssi: -110, snr: 3.1, len: 22, framing: 'L', hex: '10203040AABBCCDDEE' },
-        { rssi: -96, snr: -1.4, len: 18, framing: '-', hex: 'FF00FF00CAFEBABE' },
+        { rssi: -102, snr: 8.2, len: 34, framing: 'Meshtastic', hex: 'A3F1B02C99DEADBEEF00112233445566778899AABBCCDDEEFF00112233445566778899', ageMs: 600 },
+        { rssi: -110, snr: 3.1, len: 22, framing: 'LoRaWAN', hex: '10203040AABBCCDDEEFF00112233445566778899AABB', ageMs: 5200 },
+        { rssi: -96, snr: -1.4, len: 18, framing: 'Unknown', hex: 'FF00FF00CAFEBABE102030405060708090', ageMs: 14200 },
       ],
     },
     cursor: 0,
@@ -1143,29 +1367,42 @@ const DATA = {
     chrome: Object.assign({}, CHROME_BASE, { title: 'PACKET MONITOR', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'FULL SWEEP 2.4/5G' }),
     model: {
       active: true,
-      readings: [1, 6, 11].map(ch => ({ ch, band: '2.4G', pkts: Math.floor(Math.random() * 40) })).concat(
-        [36, 40, 44, 149, 153, 157].map(ch => ({ ch, band: '5G', pkts: Math.floor(Math.random() * 90) }))
-      ),
+      locked: false,
+      readings: [
+        { ch: 1, band: '2.4G', pkts: 18, valid: true, ageMs: 450, history: [{pkts:13,ageMs:28000},{pkts:18,ageMs:16000},{pkts:18,ageMs:450}] },
+        { ch: 6, band: '2.4G', pkts: 52, valid: true, ageMs: 700, history: [{pkts:16,ageMs:28000},{pkts:39,ageMs:19000},{pkts:52,ageMs:700}] },
+        { ch: 11, band: '2.4G', pkts: 31, valid: true, ageMs: 1200, history: [{pkts:11,ageMs:26000},{pkts:24,ageMs:14000},{pkts:31,ageMs:1200}] },
+        { ch: 36, band: '5G', pkts: 15, valid: true, ageMs: 850, history: [{pkts:9,ageMs:22000},{pkts:15,ageMs:850}] },
+        { ch: 40, band: '5G', pkts: 43, valid: true, ageMs: 520, history: [{pkts:23,ageMs:29000},{pkts:43,ageMs:520}] },
+        { ch: 44, band: '5G', pkts: 23, valid: true, ageMs: 1100, history: [{pkts:23,ageMs:12000},{pkts:23,ageMs:1100}] },
+        { ch: 149, band: '5G', pkts: 74, valid: true, ageMs: 350, history: [{pkts:12,ageMs:27000},{pkts:48,ageMs:12000},{pkts:74,ageMs:350}] },
+        { ch: 153, band: '5G', pkts: 12, valid: true, ageMs: 1800, history: [{pkts:12,ageMs:1800}] },
+        { ch: 157, band: '5G', pkts: 38, valid: true, ageMs: 600, history: [{pkts:18,ageMs:21000},{pkts:38,ageMs:600}] },
+      ],
     },
     cursor: 3,
   },
   spectrumLocked: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'PACKET MONITOR', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'CH 6 LOCKED' }),
-    model: { lockedChannel: 6, pkts: 214 },
+      model: { lockedChannel: 6, pkts: 214 },
   },
   drive: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'WARDRIVE', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'GNSS + SD LOG' }),
-    model: { state: 'Fixed', stateName: 'FIXED', alive: true, everFixed: true, lat: 37.7749, lon: -122.4194, alt: 52, hdop: 1.1, fixAge: '4s', logOpen: true, aps: 132, trk: 884 },
+    model: { state: 'Fixed', stateName: 'FIXED', uartAlive: true, everFixed: true, fixAgeMs: 900,
+      lat: 37.7749, lon: -122.4194, hdop: 1.1, logOpen: true, aps: 132, trackPoints: 884,
+      apsNoFix: 7, position: '37.7749 / -122.4194', duration: '00:12:34', distance: '84m', cached: false,
+      trailPoints: [[-20,-5],[-8,3],[2,8],[14,5],[22,11],[33,18],[41,12]] },
   },
   beacons: {
     chrome: Object.assign({}, CHROME_BASE, { title: 'BLE SCAN', link: 'ready', gnss: 'ready', storage: 'ready', rf: 'active', live: true, transport: 'BLE ADV SCAN' }),
     model: {
       trackerCount: 2,
+      scanning: true, continuous: false, trackerWatch: false, malformedRows: 0,
       devices: [
-        { name: 'AirTag 4F2E', mac: 'D1:9A:0F:22:11:03', tracker: true, rssi: -55, n: 22 },
-        { name: '', mac: 'DE:AD:00:11:22:33', tracker: false, rssi: -62, n: 4 },
-        { name: 'Pixel Buds', mac: 'C4:11:99:AA:BB:CC', tracker: false, rssi: -70, n: 9 },
-        { name: 'SmartTag_88', mac: '90:0F:A1:BB:22:44', tracker: true, rssi: -80, n: 3 },
+        { name: 'AirTag 4F2E', mac: 'D1:9A:0F:22:11:03', tracker: true, rssi: -55, n: 22, mfr: '004C' },
+        { name: '', mac: 'DE:AD:00:11:22:33', tracker: false, rssi: -62, n: 4, mfr: '' },
+        { name: 'Pixel Buds', mac: 'C4:11:99:AA:BB:CC', tracker: false, rssi: -70, n: 9, mfr: '00E0' },
+        { name: 'SmartTag_88', mac: '90:0F:A1:BB:22:44', tracker: true, rssi: -80, n: 3, mfr: '0075' },
       ],
       lastTracker: { mac: 'F0:9E:4A:1B:2C:3D', rssi: -51 },
     },
@@ -1188,16 +1425,415 @@ const DATA = {
 };
 
 /* =======================================================================
+ * External ST7789 renderers — ports of external_*_view.cpp. The panel is
+ * represented as one 320x240 canvas; firmware paints the same page in ten
+ * 24px strips and diffs physical rows before writing them.
+ * ===================================================================== */
+const EXW = 320, EXH = 240;
+function ER(ctx,x,y,w,h,c) { R(ctx,x,y,w,h,c); }
+function EO(ctx,x,y,w,h,c) { RO(ctx,x,y,w,h,c); }
+function EL(ctx,x,y,xx,yy,c) {
+  ctx.strokeStyle=c; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+.5,y+.5); ctx.lineTo(xx+.5,yy+.5); ctx.stroke();
+}
+function EC(ctx,x,y,r,c,outline) {
+  ctx.lineWidth=1; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  if(outline) {ctx.strokeStyle=c;ctx.stroke();} else {ctx.fillStyle=c;ctx.fill();}
+}
+function ET(ctx,x,y,s,c) { T(ctx,x,y,String(s),c,1); }
+function ESAFE(s,n) { return String(s || '').replace(/[^\x20-\x7e]/g,'.').slice(0,n); }
+function obsMicro(ctx,x,y,s,c,align) {
+  const txt=ESAFE(s,52), w=txt.length*6;
+  const dx=align==='right'?x-w:align==='center'?Math.round(x-w/2):x;
+  T(ctx,Math.max(0,dx),y,txt,c,1);
+}
+function obsDashH(ctx,x0,x1,y,c,on=2,off=3) { for(let x=x0;x<=x1;x+=on+off) EL(ctx,x,y,Math.min(x1,x+on-1),y,c); }
+function obsDashV(ctx,x,y0,y1,c,on=2,off=3) { for(let y=y0;y<=y1;y+=on+off) EL(ctx,x,y,x,Math.min(y1,y+on-1),c); }
+function obsDashCircle(ctx,cx,cy,r,c,segs=36) {
+  for(let i=0;i<segs;i+=2) {
+    const a0=i*Math.PI*2/segs, a1=(i+1)*Math.PI*2/segs;
+    EL(ctx,Math.round(cx+Math.cos(a0)*r),Math.round(cy+Math.sin(a0)*r),Math.round(cx+Math.cos(a1)*r),Math.round(cy+Math.sin(a1)*r),c);
+  }
+}
+function obsHex(ctx,cx,cy,r,c) {
+  const pts=[]; for(let i=0;i<6;i++){const a=(i*60-90)*Math.PI/180;pts.push([Math.round(cx+Math.cos(a)*r),Math.round(cy+Math.sin(a)*r)]);}
+  pts.forEach((p,i)=>EL(ctx,p[0],p[1],pts[(i+1)%6][0],pts[(i+1)%6][1],c));
+}
+function obsDiamond(ctx,x,y,r,c,fill) {
+  ctx.beginPath(); ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y); ctx.closePath();
+  if(fill){ctx.fillStyle=c;ctx.fill();} else {ctx.strokeStyle=c;ctx.lineWidth=1;ctx.stroke();}
+}
+function obsLock(ctx,x,y,h,c) {
+  const a=4;
+  [[x-h,y-h,x-h+a,y-h],[x-h,y-h,x-h,y-h+a],[x+h,y-h,x+h-a,y-h],[x+h,y-h,x+h,y-h+a],
+   [x-h,y+h,x-h+a,y+h],[x-h,y+h,x-h,y+h-a],[x+h,y+h,x+h-a,y+h],[x+h,y+h,x+h,y+h-a]].forEach(l=>EL(ctx,l[0],l[1],l[2],l[3],c));
+}
+function obsSeg(ctx,x,y,w,h,segs,pct,c) {
+  const active=Math.round(Math.max(0,Math.min(100,pct))*segs/100), gap=2, step=Math.floor((w+gap)/segs), sw=Math.max(2,step-gap);
+  for(let i=0;i<segs;i++) ER(ctx,x+i*step,y,sw,h,i<active?c:COLORS.trackDark);
+}
+function obsFrame(ctx,title,badge,tone) {
+  ER(ctx,0,0,EXW,EXH,COLORS.void);
+  obsHex(ctx,14,12,5,COLORS.green); EC(ctx,14,12,1.5,COLORS.yellow);
+  TD(ctx,25,6,title,COLORS.paper,11,'left');
+  const fill=tone==='live'?COLORS.trackDark:tone==='warn'?COLORS.glow:COLORS.panelDark;
+  const stroke=tone==='live'?COLORS.green:tone==='warn'?COLORS.yellow:tone==='fault'?COLORS.red:COLORS.line;
+  const fg=tone==='live'?COLORS.green:tone==='warn'?COLORS.yellow:tone==='fault'?COLORS.red:COLORS.slate;
+  const bw=Math.max(46,badge.length*6+18), bx=312-bw;
+  ER(ctx,bx+1,6,bw-2,12,fill);
+  [[bx+4,5,308,5],[308,5,312,9],[312,9,312,18],[bx,18,312,18],[bx,9,bx,18],[bx,9,bx+4,5]].forEach(l=>EL(ctx,l[0],l[1],l[2],l[3],stroke));
+  if(tone==='live') ER(ctx,bx+6,10,3,3,fg); else EO(ctx,bx+6,10,3,3,fg);
+  ET(ctx,bx+12,8,badge,fg);
+  [[14,25,306,25],[306,25,312,31],[312,31,312,145],[312,145,306,151],[306,151,14,151],[14,151,8,145],[8,145,8,31],[8,31,14,25]].forEach(l=>EL(ctx,l[0],l[1],l[2],l[3],COLORS.dimGreen));
+  [[8,41,8,31],[8,31,14,25],[14,25,24,25],[296,25,306,25],[306,25,312,31],[312,31,312,41],
+   [8,135,8,145],[8,145,14,151],[14,151,24,151],[296,151,306,151],[306,151,312,145],[312,145,312,135]].forEach(l=>EL(ctx,l[0],l[1],l[2],l[3],COLORS.green));
+  ER(ctx,154,25,12,2,COLORS.green); ER(ctx,154,150,12,2,COLORS.green);
+}
+function obsDock(ctx,accent,threeBays=true) {
+  ER(ctx,0,156,320,84,COLORS.panelDark); EL(ctx,0,156,319,156,COLORS.dimGreen); ER(ctx,8,155,42,2,accent);
+  EL(ctx,12,198,308,198,COLORS.line);
+  if(threeBays){EL(ctx,112,202,112,235,COLORS.line);EL(ctx,214,202,214,235,COLORS.line);}
+}
+function obsCard(ctx,x,y,w,h,accent) {
+  ER(ctx,x+1,y+1,w-2,h-2,COLORS.panelDark);
+  [[x,y,x+w-5,y],[x+w-5,y,x+w-1,y+4],[x+w-1,y+4,x+w-1,y+h-1],[x,y+h-1,x+w-1,y+h-1],[x,y,x,y+h-1]].forEach(l=>EL(ctx,l[0],l[1],l[2],l[3],COLORS.line));
+  ER(ctx,x,y,32,2,accent);
+}
+function obsBadge(ctx,x,y,w,h,txt,fill,stroke,fg) {
+  ER(ctx,x,y,w,h,fill); EO(ctx,x,y,w,h,stroke); obsMicro(ctx,x+w/2,y+Math.floor((h-7)/2),txt,fg,'center');
+}
+function obsBay(ctx,x,label,val,col,unit) {
+  obsMicro(ctx,x,203,label,COLORS.slate);
+  const s=String(val);
+  TD(ctx,x,215,s,col,s.length>5?14:18,'left');
+  if(unit) obsMicro(ctx,x+Math.min(58,s.length*(s.length>5?9:11)+4),224,unit,COLORS.slate);
+}
+function obsHashAngle(id) {
+  let h=2166136261>>>0; for(let i=0;i<id.length;i++) h=Math.imul(h^id.charCodeAt(i),16777619)>>>0;
+  return ((h%360)*Math.PI)/180;
+}
+function obsRadarPt(id,rssi,cx=84,cy=88) {
+  const r=Math.max(10,Math.min(51,10+Math.round((-rssi-30)*41/70))), a=obsHashAngle(String(id));
+  return {x:Math.round(cx+Math.cos(a)*r), y:Math.round(cy+Math.sin(a)*r)};
+}
+function obsRadar(ctx,cx=84,cy=88) {
+  obsHex(ctx,cx,cy,56,COLORS.trackDark);
+  obsDashCircle(ctx,cx,cy,51,COLORS.dimGreen,36);
+  EC(ctx,cx,cy,35,COLORS.dimGreen,true); EC(ctx,cx,cy,18,COLORS.trackDark,true);
+  EL(ctx,cx-54,cy,cx+54,cy,COLORS.trackDark); EL(ctx,cx,cy-54,cx,cy+54,COLORS.trackDark);
+  [[18,'-40'],[35,'-65'],[51,'-95']].forEach(([r,lbl])=>{ER(ctx,cx-10,cy-r-4,20,8,COLORS.void);obsMicro(ctx,cx,cy-r-3,lbl,COLORS.slate,'center');});
+  obsDiamond(ctx,cx,cy,4,COLORS.paper,false); EC(ctx,cx,cy,1.5,COLORS.green);
+}
+function obsRadarNode(ctx,p,sel,diamond,cached) {
+  if(!sel){const c=cached?COLORS.slate:COLORS.green; if(diamond){obsDiamond(ctx,p.x,p.y,3,c,false);} else EC(ctx,p.x,p.y,2,c); return;}
+  obsDashCircle(ctx,p.x,p.y,8,COLORS.pink,16); obsLock(ctx,p.x,p.y,11,COLORS.yellow);
+  if(diamond) obsDiamond(ctx,p.x,p.y,4,COLORS.yellow,true); else EC(ctx,p.x,p.y,3,COLORS.yellow);
+}
+function drawExtMark(ctx,cx,cy) {
+  const hex=[[0,-40],[35,-20],[35,20],[0,40],[-35,20],[-35,-20]];
+  hex.forEach((p,i)=>EL(ctx,cx+p[0],cy+p[1],cx+hex[(i+1)%6][0],cy+hex[(i+1)%6][1],COLORS.green));
+  for(let axis=0;axis<2;axis++){let last=null;for(let i=0;i<=48;i++){const a=i*Math.PI*2/48,p=[cx+Math.cos(a)*(axis?13:33),cy+Math.sin(a)*(axis?33:13)];if(last)EL(ctx,last[0],last[1],p[0],p[1],axis?COLORS.dimGreen:COLORS.green);last=p;}}
+  const lens=[[-16,0],[-10,-7],[0,-9],[10,-7],[16,0],[10,7],[0,9],[-10,7]];
+  lens.forEach((p,i)=>EL(ctx,cx+p[0],cy+p[1],cx+lens[(i+1)%8][0],cy+lens[(i+1)%8][1],COLORS.paper));
+  EC(ctx,cx,cy,5,COLORS.yellow);
+}
+function drawExtStartup(ctx) {
+  ER(ctx,0,0,EXW,EXH,COLORS.void); EL(ctx,14,12,306,12,COLORS.dimGreen); EL(ctx,14,228,306,228,COLORS.dimGreen);
+  drawExtMark(ctx,160,86);
+  TD(ctx,160,140,'OSCILLA',COLORS.paper,20,'center');
+  TD(ctx,160,172,'OBSERVE THE NOISE.',COLORS.green,11,'center');
+  obsMicro(ctx,160,202,'PASSIVE RF OBSERVATORY / VIEWPORT READY',COLORS.slate,'center');
+}
+function drawExtSdTile() {}
+function drawExtGps(ctx,m) {
+  const fresh=m.state==='Fixed'&&m.fixAgeMs<3000;
+  const badge=fresh?'LIVE FIX':m.state==='FixLost'?'FIX LOST':m.uartAlive?'SEARCH':'NO UART';
+  const tone=fresh?'live':m.state==='NoUartData'?'fault':'warn';
+  obsFrame(ctx,'GNSS // FIX RETICLE',badge,tone);
+  obsDock(ctx,fresh?COLORS.green:COLORS.yellow,true);
+  const cx=84,cy=83, tier=!fresh?0:m.hdop<=1.5?1:m.hdop<=3?2:3;
+  obsHex(ctx,cx,cy,50,COLORS.trackDark);
+  obsDashCircle(ctx,cx,cy,43,tier===3?COLORS.yellow:COLORS.trackDark,32);
+  EC(ctx,cx,cy,29,tier===2?COLORS.green:COLORS.dimGreen,true);
+  if(tier===1) EC(ctx,cx,cy,14,COLORS.trackDark);
+  EC(ctx,cx,cy,15,tier===1?COLORS.green:COLORS.line,true);
+  EL(ctx,cx-50,cy,cx-19,cy,COLORS.dimGreen); EL(ctx,cx+19,cy,cx+50,cy,COLORS.dimGreen);
+  EL(ctx,cx,cy-50,cx,cy-19,COLORS.dimGreen); EL(ctx,cx,cy+19,cx,cy+50,COLORS.dimGreen);
+  obsLock(ctx,cx,cy,10,fresh?COLORS.yellow:COLORS.pink);
+  if(fresh){EC(ctx,cx,cy,4,COLORS.green);EC(ctx,cx,cy,1.5,COLORS.paper);}
+  else {EL(ctx,cx-4,cy-4,cx+4,cy+4,COLORS.pink);EL(ctx,cx+4,cy-4,cx-4,cy+4,COLORS.pink);}
+  obsMicro(ctx,cx+16,cy-17,'1.5',tier===1?COLORS.green:COLORS.slate);
+  obsMicro(ctx,cx+27,cy-28,'3.0',tier===2?COLORS.green:COLORS.slate);
+  obsMicro(ctx,cx+38,cy-39,'6.0',tier===3?COLORS.yellow:COLORS.dimGreen);
+  obsMicro(ctx,cx,138,'HDOP PRECISION TIERS',COLORS.slate,'center');
+  obsCard(ctx,164,36,140,103,fresh?COLORS.green:COLORS.pink);
+  obsMicro(ctx,172,42,'FIX QUALITY',COLORS.slate);
+  TD(ctx,172,54,fresh?(tier===1?'TIGHT <1.5':tier===2?'GOOD <3.0':'WIDE >3.0'):badge,fresh?COLORS.green:COLORS.pink,14,'left');
+  EL(ctx,172,76,296,76,COLORS.line);
+  obsMicro(ctx,172,83,'UTC CLOCK',COLORS.slate); obsMicro(ctx,296,83,'22:14:08Z',COLORS.paper,'right');
+  obsMicro(ctx,172,98,'NMEA LINK',COLORS.slate); obsMicro(ctx,296,98,m.uartAlive?'UART ACTIVE':'SILENT',m.uartAlive?COLORS.green:COLORS.red,'right');
+  obsMicro(ctx,172,113,'FIX FRESHNESS (3S)',COLORS.slate);
+  obsSeg(ctx,172,123,124,9,12,fresh?92:0,COLORS.green);
+  TD(ctx,12,163,fresh?'POSITION FIXED':m.state==='FixLost'?'POSITION FIX LOST':m.uartAlive?'SEARCHING FOR FIX':'RECEIVER SILENT',fresh?COLORS.green:COLORS.yellow,15,'left');
+  TM(ctx,12,184,fresh?(Math.abs(m.lat).toFixed(5)+' N   '+Math.abs(m.lon).toFixed(5)+' W'):'POSITION UNAVAILABLE',fresh?COLORS.paper:COLORS.yellow,10,'left');
+  obsBay(ctx,12,'HDOP',fresh?m.hdop.toFixed(1):'--',COLORS.yellow);
+  obsBay(ctx,122,'ALTITUDE',fresh?'48.2':'--',COLORS.paper,fresh?'m':'');
+  obsBay(ctx,224,'FIX AGE',fresh?Math.floor(m.fixAgeMs/1000)+'s':'--',fresh?COLORS.green:COLORS.pink);
+}
+function drawExtSystem(ctx,s,now,info) {
+  const ready=!s.offline&&!s.mismatch&&!s.syncing;
+  const st=s.offline?'OFFLINE':s.mismatch?'MISMATCH':s.syncing?'SYNCING':'READY';
+  const tone=ready?'live':s.mismatch?'fault':'warn';
+  if(info){
+    obsFrame(ctx,'SYSTEM // HEAP FREE %',st,tone); obsDock(ctx,ready?COLORS.green:COLORS.yellow,false);
+    obsMicro(ctx,18,31,'DECK 174 KB',COLORS.green); obsMicro(ctx,302,31,s.probeAvailable?'PROBE 138 KB':'PROBE / NO SAMPLE',s.probeAvailable?COLORS.pink:COLORS.slate,'right');
+    for(let i=0;i<=4;i++) obsDashV(ctx,36+i*66,48,130,COLORS.trackDark);
+    obsDashH(ctx,36,300,48,COLORS.trackDark); obsDashH(ctx,36,300,89,COLORS.trackDark); EL(ctx,36,130,300,130,COLORS.dimGreen);
+    obsMicro(ctx,32,45,'65',COLORS.slate,'right'); obsMicro(ctx,32,86,'55',COLORS.slate,'right'); obsMicro(ctx,32,126,'45',COLORS.slate,'right');
+    let px=36,py=82,qx=36,qy=96;
+    for(let i=1;i<=24;i++){const x=36+i*11,y=82+Math.round(Math.sin(i*.45)*14),y2=96+Math.round(Math.cos(i*.35)*16);EL(ctx,px,py,x,y,COLORS.green);if(s.probeAvailable)EL(ctx,qx,qy,x,y2,COLORS.pink);px=x;py=y;qx=x;qy=y2;}
+    obsMicro(ctx,36,136,'-60s',COLORS.slate); obsMicro(ctx,168,136,'-30s / AUTO SCALE',COLORS.slate,'center'); obsMicro(ctx,300,136,'NOW',COLORS.yellow,'right');
+    TD(ctx,12,163,'SUBSYSTEM ACTIVITY',COLORS.paper,11,'left'); obsMicro(ctx,308,165,s.probeAvailable?'PROBE 0s AGO':'WAITING FOR PROBE',s.probeAvailable?COLORS.slate:COLORS.yellow,'right');
+    obsMicro(ctx,12,185,'DECK GREEN / PROBE PINK / AUTO % AXIS',COLORS.slate);
+    EL(ctx,160,202,160,235,COLORS.line);
+    obsMicro(ctx,12,205,'PHY',COLORS.slate); obsMicro(ctx,48,205,s.probeAvailable?'IDLE':'UNKNOWN',COLORS.paper);
+    obsMicro(ctx,12,222,'LORA',COLORS.slate); obsMicro(ctx,48,222,s.probeAvailable?'RX':'UNKNOWN',COLORS.green);
+    obsMicro(ctx,170,205,'GNSS',COLORS.slate); obsMicro(ctx,210,205,'FIXED',COLORS.green);
+    obsMicro(ctx,170,222,'LOG',COLORS.slate); obsMicro(ctx,210,222,'IDLE',COLORS.slate);
+    return;
+  }
+  obsFrame(ctx,'DECK // PROBE LINK',st,tone); obsDock(ctx,ready?COLORS.green:COLORS.yellow,true);
+  drawExtMark(ctx,74,88);
+  obsCard(ctx,134,36,170,103,ready?COLORS.green:COLORS.yellow);
+  obsMicro(ctx,144,42,'PROBE LINK',COLORS.slate); TD(ctx,144,54,st,ready?COLORS.green:COLORS.yellow,15,'left');
+  EL(ctx,144,75,296,75,COLORS.line);
+  obsMicro(ctx,144,82,'GNSS RECEIVER',COLORS.slate); TD(ctx,144,94,'FIXED',COLORS.green,15,'left');
+  obsMicro(ctx,144,121,ready?'GROVE UART / OCP v1':'LINK UNSYNCHRONIZED',COLORS.slate);
+  TD(ctx,12,163,ready?'LINK SYNCHRONIZED':'AWAITING PROBE',ready?COLORS.green:COLORS.yellow,15,'left');
+  obsMicro(ctx,12,185,s.offline?'ERR 3   TIMEOUT 2   RESET 1':'ERR 0   TIMEOUT 0   RESET 0',s.offline?COLORS.yellow:COLORS.slate);
+  obsBay(ctx,12,'SD CARD','READY',COLORS.green); obsBay(ctx,122,'BUS',ready?'OCP':'WAIT',COLORS.paper,ready?'UART':''); obsBay(ctx,224,'FAULTS',s.offline?'5':'0',s.offline?COLORS.pink:COLORS.green);
+}
+function drawExtWifi(ctx,scan,cursor) {
+  const rows=scan.rows||[], live=scan.continuous, cached=!live&&!scan.scanning;
+  obsFrame(ctx,'AP CONSTELLATION',live?'LIVE':scan.scanning?'SCAN':'CACHED',live?'live':scan.scanning?'warn':'cached');
+  obsRadar(ctx,84,88);
+  rows.slice(0,24).forEach((r,i)=>{if(i!==cursor)obsRadarNode(ctx,obsRadarPt(r.bssid||r.ssid,r.rssi),false,true,cached);});
+  obsCard(ctx,164,36,140,103,cursor<rows.length?COLORS.yellow:COLORS.slate);
+  obsDock(ctx,cached?COLORS.slate:COLORS.green,true);
+  if(cursor>=rows.length){obsMicro(ctx,172,42,'SELECTED AP',COLORS.slate);TD(ctx,172,58,'NO APs YET',COLORS.yellow,14,'left');TD(ctx,12,163,'PASSIVE WI-FI SURVEY',COLORS.paper,15,'left');obsBay(ctx,12,'SIGNAL / dBm','--',COLORS.yellow);obsBay(ctx,122,'APs OBSERVED','0',COLORS.paper);obsBay(ctx,224,'SECURITY','--',COLORS.slate);return;}
+  const r=rows[cursor], pt=obsRadarPt(r.bssid||r.ssid,r.rssi);
+  obsRadarNode(ctx,pt,true,true,cached);
+  const lx=Math.min(148,pt.x+11); EL(ctx,lx,pt.y,148,pt.y,COLORS.pink); EL(ctx,148,pt.y,164,56,COLORS.pink);
+  obsMicro(ctx,172,42,'SELECTED AP',COLORS.slate); TD(ctx,172,54,'CH '+String(r.ch).padStart(2,'0'),COLORS.yellow,18,'left');
+  obsBadge(ctx,240,55,56,15,r.band==='5G'?'5 GHz':'2.4 GHz',COLORS.trackDark,COLORS.dimGreen,COLORS.paper);
+  EL(ctx,172,78,296,78,COLORS.line);
+  TM(ctx,172,84,ESAFE(r.auth||'OPEN',14),COLORS.green,10,'left');
+  obsMicro(ctx,172,99,'NO CLIENT CACHE',COLORS.slate); obsMicro(ctx,172,113,'RSSI STRENGTH',COLORS.slate);
+  obsSeg(ctx,172,123,124,9,14,Math.round((r.rssi+100)*100/70),cached?COLORS.slate:COLORS.green);
+  TD(ctx,12,163,r.hidden?'<HIDDEN>':ESAFE(r.ssid,22),COLORS.paper,15,'left');
+  TM(ctx,12,184,r.bssid||'--',COLORS.slate,10,'left'); obsMicro(ctx,308,186,'STRENGTH / NO BEARING',COLORS.slate,'right');
+  obsBay(ctx,12,'SIGNAL / dBm',r.rssi,COLORS.yellow); obsBay(ctx,122,'APs OBSERVED',rows.length,COLORS.paper); obsBay(ctx,224,'SECURITY',ESAFE(r.auth||'OPEN',6),COLORS.green);
+}
+function drawExtZig(ctx,m,pans,cursor) {
+  const rows=pans?m.pans:m.nodes, live=m.active;
+  obsFrame(ctx,pans?'802.15.4 // PAN FIELD':'802.15.4 // NODE FIELD',live?'LIVE':'CACHED',live?'live':'cached');
+  obsDock(ctx,live?COLORS.green:COLORS.slate,true);
+  for(let i=0;i<=4;i++){const y=46+i*19; if(i===4)EL(ctx,36,y,300,y,COLORS.dimGreen); else obsDashH(ctx,36,300,y,COLORS.trackDark);}
+  obsMicro(ctx,32,43,'255',COLORS.slate,'right'); obsMicro(ctx,32,81,'128',COLORS.slate,'right'); obsMicro(ctx,32,118,'0',COLORS.slate,'right');
+  obsMicro(ctx,36,32,'LINK QUALITY (LQI)',COLORS.dimGreen); obsMicro(ctx,300,32,'NO TOPOLOGY INFERRED',COLORS.slate,'right');
+  if(!rows.length){obsMicro(ctx,160,82,'NO MAC INVENTORY OBSERVATIONS',COLORS.yellow,'center');TD(ctx,12,163,pans?'PAN INVENTORY':'NODE INVENTORY',COLORS.paper,15,'left');obsBay(ctx,12,'LQI','--',COLORS.yellow);obsBay(ctx,122,'RSSI / dBm','--',COLORS.paper);obsBay(ctx,224,pans?'NODES':'SEEN','--',COLORS.slate);return;}
+  const vis=rows.slice(0,12), step=Math.min(36,Math.floor(264/vis.length)), sx=36+Math.floor((264-step*vis.length)/2), bw=Math.max(8,step-6);
+  vis.forEach((r,i)=>{const sel=i===cursor, x=sx+i*step+3, bh=Math.max(2,Math.round(r.lqi*76/255)); ER(ctx,x,122-bh,bw,bh,sel?COLORS.dimGreen:COLORS.trackDark); EL(ctx,x,122-bh,x+bw-1,122-bh,sel?COLORS.yellow:COLORS.green); if(sel)obsLock(ctx,x+Math.floor(bw/2),84,Math.floor(bw/2)+2,COLORS.pink); obsMicro(ctx,x+bw/2,128,String(pans?r.pan:r.short_addr||'NODE').slice(-4).toUpperCase(),sel?COLORS.yellow:COLORS.slate,'center');});
+  const r=rows[Math.min(cursor,rows.length-1)];
+  TD(ctx,12,163,pans?'PAN '+String(r.pan).toUpperCase():String(r.pan+' / '+(r.short_addr||'')).toUpperCase(),COLORS.paper,15,'left');
+  obsMicro(ctx,12,185,pans?'CH '+(r.channels||'--'):'PASSIVE MAC INVENTORY',COLORS.slate); obsMicro(ctx,308,185,'NO TOPOLOGY',COLORS.slate,'right');
+  obsBay(ctx,12,'LQI / 255',r.lqi,COLORS.yellow); obsBay(ctx,122,'RSSI / dBm',r.rssi,COLORS.paper); obsBay(ctx,224,pans?'NODES':'SEEN',pans?r.nodes:r.seen,COLORS.green);
+}
+function drawExtContacts(ctx,m,probes,cursor) {
+  const rows=probes?m.probes:m.clients, live=m.sniffing, have=rows.length>0;
+  obsFrame(ctx,probes?'REQUEST CLUSTER':'AP / CLIENT CLUSTER',!live?'CACHED':!have?'WAIT':'LIVE',!live?'cached':have?'live':'warn');
+  obsRadar(ctx,84,88); obsCard(ctx,164,36,140,103,have?COLORS.yellow:COLORS.slate); obsDock(ctx,live?COLORS.green:COLORS.slate,true);
+  if(!have||cursor>=rows.length){obsMicro(ctx,172,42,probes?'REQUESTED SSID':'AP / BSSID',COLORS.slate);TD(ctx,172,58,probes?'NO REQUESTS':'NO LINKS',COLORS.yellow,14,'left');TD(ctx,12,163,'PASSIVE SNIFFER',COLORS.paper,15,'left');obsBay(ctx,12,'RSSI / dBm','--',COLORS.yellow);obsBay(ctx,122,'PACKETS','--',COLORS.paper);obsBay(ctx,224,'AGE / s','--',COLORS.slate);return;}
+  const r=rows[cursor];
+  rows.slice(0,12).forEach((row,i)=>{const pt=obsRadarPt(row.mac,row.rssi); EL(ctx,84,88,pt.x,pt.y,i===cursor?COLORS.pink:COLORS.dimGreen); obsRadarNode(ctx,pt,i===cursor,false,!live);});
+  obsDiamond(ctx,84,88,4,COLORS.paper,false); EC(ctx,84,88,2,probes?COLORS.yellow:COLORS.green);
+  obsMicro(ctx,172,42,probes?'REQUESTED SSID':'AP / BSSID',COLORS.slate); TM(ctx,172,55,ESAFE(probes?(r.ssid||'<WILDCARD>'):r.bssid,17),COLORS.yellow,9.5,'left');
+  EL(ctx,172,72,296,72,COLORS.line); TD(ctx,172,78,rows.length+(probes?' REQ':' LINKS'),COLORS.paper,14,'left');
+  obsBadge(ctx,172,99,86,14,probes?'NOT ASSOCIATION':'CH '+r.ch+' '+r.band,probes?COLORS.panelDark:COLORS.trackDark,probes?COLORS.line:COLORS.dimGreen,probes?COLORS.slate:COLORS.green);
+  obsMicro(ctx,172,122,Math.min(12,rows.length)+'/'+rows.length+' DRAWN  @PROBE',COLORS.slate);
+  TD(ctx,12,163,r.mac,COLORS.paper,15,'left');
+  obsMicro(ctx,12,185,probes?'OBSERVED REQUESTS':'OBSERVED CLIENT LINKS',COLORS.slate); obsMicro(ctx,308,185,'RSSI @ PROBE / NO BEARING',COLORS.slate,'right');
+  obsBay(ctx,12,'RSSI / dBm',r.rssi,COLORS.yellow); obsBay(ctx,122,'PACKETS',r.pkts,COLORS.paper); obsBay(ctx,224,'AGE / s',Math.floor((probes?m.probeAge:m.clientAge)/1000),COLORS.slate,'s');
+}
+function drawExtBt(ctx,m,cursor) {
+  const rows=m.devices||[], active=m.scanning||m.continuous||m.trackerWatch, cached=!active;
+  obsFrame(ctx,'BLE CONSTELLATION',active?'LIVE':'CACHED',active?'live':'cached');
+  obsRadar(ctx,84,88);
+  rows.slice(0,24).forEach((r,i)=>{if(i!==cursor)obsRadarNode(ctx,obsRadarPt(r.mac,r.rssi),false,r.tracker,cached);});
+  obsCard(ctx,164,36,140,103,rows[cursor]&&rows[cursor].tracker?COLORS.pink:COLORS.yellow); obsDock(ctx,cached?COLORS.slate:COLORS.green,true);
+  if(cursor>=rows.length){obsMicro(ctx,172,42,'COMPANY ID',COLORS.slate);TD(ctx,172,58,'NO DEVICES',COLORS.yellow,14,'left');TD(ctx,12,163,'PASSIVE BLE DISCOVERY',COLORS.paper,15,'left');obsBay(ctx,12,'SIGNAL / dBm','--',COLORS.yellow);obsBay(ctx,122,'DEVICES','0',COLORS.paper);obsBay(ctx,224,'CLASS','--',COLORS.slate);return;}
+  const r=rows[cursor], pt=obsRadarPt(r.mac,r.rssi), strongest=Math.max(...rows.map(x=>x.rssi));
+  obsRadarNode(ctx,pt,true,r.tracker,cached);
+  const lx=Math.min(148,pt.x+11); EL(ctx,lx,pt.y,148,pt.y,COLORS.pink); EL(ctx,148,pt.y,164,56,COLORS.pink);
+  obsMicro(ctx,172,42,'COMPANY ID',COLORS.slate); TD(ctx,172,54,(r.mfr||'UNKNOWN').toUpperCase(),COLORS.paper,14,'left');
+  EL(ctx,172,76,296,76,COLORS.line);
+  obsBadge(ctx,172,81,86,14,r.tracker?'TRACKER FLAG':'ADVERTISER',r.tracker?COLORS.panelDark:COLORS.trackDark,r.tracker?COLORS.pink:COLORS.dimGreen,r.tracker?COLORS.pink:COLORS.green);
+  obsMicro(ctx,172,100,Math.max(0,strongest-r.rssi)+'dB BELOW MAX',COLORS.yellow);
+  obsMicro(ctx,172,113,'RSSI STRENGTH',COLORS.slate); obsSeg(ctx,172,123,124,9,14,Math.round((r.rssi+100)*100/70),cached?COLORS.slate:(r.tracker?COLORS.pink:COLORS.green));
+  TD(ctx,12,163,ESAFE(r.name||'UNNAMED DEVICE',22),COLORS.paper,15,'left'); TM(ctx,12,184,r.mac,COLORS.slate,10,'left'); obsMicro(ctx,308,186,'STRENGTH / NO BEARING',COLORS.slate,'right');
+  obsBay(ctx,12,'SIGNAL / dBm',r.rssi,COLORS.yellow); obsBay(ctx,122,'DEVICES',rows.length,COLORS.paper); obsBay(ctx,224,'CLASS',r.tracker?'TRACK':'ADV',r.tracker?COLORS.pink:COLORS.green);
+}
+function drawExtDrive(ctx,m) {
+  const fresh=m.state==='Fixed'&&m.fixAgeMs<3000, cached=!!m.cached;
+  obsFrame(ctx,'DRIVE BREADCRUMB // N-UP',cached?'CACHED':fresh?'FIX':'NO FIX',cached?'cached':fresh?'live':'warn');
+  obsDock(ctx,fresh&&!cached?COLORS.green:COLORS.yellow,true);
+  EO(ctx,20,34,280,108,COLORS.trackDark);
+  for(let gx=40;gx<=280;gx+=40)for(let gy=46;gy<=130;gy+=21){EL(ctx,gx-2,gy,gx+2,gy,COLORS.trackDark);EL(ctx,gx,gy-2,gx,gy+2,COLORS.trackDark);}
+  EC(ctx,278,59,11,COLORS.panelDark); EC(ctx,278,59,12,COLORS.dimGreen,true);
+  EL(ctx,278,56,278,65,COLORS.green); EL(ctx,278,51,278,57,COLORS.pink); EL(ctx,276,55,280,55,COLORS.pink); obsMicro(ctx,278,38,'N',COLORS.yellow,'center');
+  const pts=m.trailPoints||[];
+  if(!pts.length){obsLock(ctx,152,84,18,COLORS.yellow); obsMicro(ctx,152,114,'WAITING FOR FRESH GNSS FIX',COLORS.yellow,'center');}
+  else {
+    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+    const sc=Math.max((maxx-minx)/215,(maxy-miny)/62,.5); let last=null;
+    pts.forEach((p,i)=>{const x=Math.round(152+(p[0]-(minx+maxx)/2)/sc),y=Math.round(79-(p[1]-(miny+maxy)/2)/sc); if(last)EL(ctx,last[0],last[1],x,y,cached||!fresh?COLORS.slate:i<pts.length/2?COLORS.dimGreen:COLORS.green); if(i===0){ER(ctx,x-3,y-3,7,7,COLORS.panelDark);EO(ctx,x-3,y-3,7,7,COLORS.green);obsMicro(ctx,x-9,y-3,'S',COLORS.slate);} else if(i===pts.length-1){obsDiamond(ctx,x,y,8,COLORS.pink,false);EC(ctx,x,y,3,COLORS.yellow);} else ER(ctx,x-1,y-1,2,2,COLORS.paper); last=[x,y];});
+    EL(ctx,28,134,76,134,COLORS.slate); EL(ctx,28,131,28,137,COLORS.slate); EL(ctx,76,131,76,137,COLORS.slate); obsMicro(ctx,52,123,Math.max(10,Math.round(sc*48/10)*10)+'m',COLORS.slate,'center');
+  }
+  obsMicro(ctx,294,131,'RAW GNSS / UNFILTERED',COLORS.slate,'right');
+  ER(ctx,12,167,6,6,m.logOpen?COLORS.green:COLORS.slate);
+  TD(ctx,24,163,m.logOpen?'SESSION RECORDING':'SESSION IDLE',m.logOpen?COLORS.green:COLORS.paper,15,'left');
+  obsMicro(ctx,308,167,'UTC 22:14:08Z',COLORS.slate,'right');
+  obsMicro(ctx,12,185,fresh?(m.position||'45.51820 N  122.67640 W'):'FIX UNAVAILABLE',fresh?COLORS.slate:COLORS.yellow);
+  obsBay(ctx,12,'RAW PATH',m.distance||'--',COLORS.yellow); obsBay(ctx,122,'SAVED APs',m.aps||0,COLORS.paper,m.logOpen?'REC':'IDLE'); obsBay(ctx,224,'HDOP',fresh?m.hdop.toFixed(1):'--',fresh?COLORS.green:COLORS.yellow,fresh?'TIGHT':'WAIT');
+}
+function drawExtLora(ctx,m,cursor) {
+  const packets=m.packets||[], p=packets[cursor], live=m.active;
+  obsFrame(ctx,'LORA PULSE CADENCE',live?'LIVE':'CACHED',live?'live':'cached');
+  obsDock(ctx,live?COLORS.yellow:COLORS.slate,true);
+  const r2y=r=>102-Math.max(5,Math.min(60,Math.round((Math.max(-120,Math.min(-30,r))+120)*64/90)));
+  obsDashH(ctx,38,300,r2y(-40),COLORS.trackDark); obsDashH(ctx,38,300,r2y(-80),COLORS.trackDark); EL(ctx,38,102,300,102,COLORS.dimGreen);
+  obsMicro(ctx,34,r2y(-40)-3,'-40',COLORS.slate,'right'); obsMicro(ctx,34,r2y(-80)-3,'-80',COLORS.slate,'right'); obsMicro(ctx,34,98,'-120',COLORS.slate,'right');
+  packets.forEach((q,i)=>{const age=q.ageMs||0; if(age>=30000)return; const x=38+Math.round((30000-age)*262/30000),y=r2y(q.rssi),cap=Math.max(4,Math.min(10,Math.round(q.len/4)));
+    if(i===cursor){ER(ctx,x-6,40,13,62,COLORS.glow);EL(ctx,x,y,x,102,COLORS.yellow);ER(ctx,x-Math.floor(cap/2),y-1,cap,3,COLORS.yellow);obsDiamond(ctx,x,y-5,3,COLORS.pink,true);
+      const tag=q.rssi+'dBm '+q.len+'B', bw=tag.length*6+10, bx=x+14+bw<=304?x+14:Math.max(40,x-14-bw);
+      EL(ctx,x+4,y-5,bx,42,COLORS.pink); obsBadge(ctx,bx,34,bw,15,tag,COLORS.panelDark,COLORS.pink,COLORS.yellow);
+    } else {EL(ctx,x,y,x,102,live?COLORS.green:COLORS.slate);ER(ctx,x-Math.floor(cap/2),y-1,cap,2,live?COLORS.green:COLORS.slate);}});
+  if(!p) obsMicro(ctx,169,66,'NO RECEIVED FRAME YET',COLORS.yellow,'center');
+  obsMicro(ctx,38,108,'-30s',COLORS.slate); obsMicro(ctx,169,108,'HEIGHT=RSSI / CAP=LEN',COLORS.slate,'center'); obsMicro(ctx,300,108,live?'NOW':'HOLD',live?COLORS.yellow:COLORS.slate,'right');
+  obsMicro(ctx,20,120,'RSSI LEVEL',COLORS.slate); obsSeg(ctx,20,130,148,10,16,p?Math.round((p.rssi+120)*100/90):0,live?COLORS.green:COLORS.slate);
+  obsMicro(ctx,186,120,'SNR MARGIN',COLORS.slate); if(p)obsMicro(ctx,300,120,(p.snr>=0?'+':'')+p.snr.toFixed(1)+'dB',p.snr>=0?COLORS.green:COLORS.pink,'right');
+  ER(ctx,186,130,114,10,COLORS.trackDark); const zx=186+Math.round(114*20/35);
+  if(p){const vx=186+Math.round((Math.max(-20,Math.min(15,p.snr))+20)*114/35); ER(ctx,Math.min(zx,vx),130,Math.max(1,Math.abs(vx-zx)),10,live?(p.snr>=0?COLORS.yellow:COLORS.pink):COLORS.slate);}
+  EL(ctx,zx,128,zx,142,COLORS.paper);
+  TD(ctx,12,163,m.hasConfig?(m.freqHz/1e6).toFixed(3)+' MHz':'LORA / NO CONFIG',COLORS.paper,15,'left');
+  if(m.hasConfig) obsBadge(ctx,126,164,72,15,'SF'+m.sf+' BW'+m.bw,COLORS.trackDark,COLORS.dimGreen,COLORS.green);
+  obsMicro(ctx,308,168,p?(p.framing==='Unknown'?'UNCLASSIFIED?':String(p.framing).toUpperCase()+'?'):'WAIT',COLORS.slate,'right');
+  obsMicro(ctx,12,185,'RAW RX FRAME / NO PAYLOAD DECODE',COLORS.slate);
+  obsBay(ctx,12,'RSSI / dBm',p?p.rssi:'--',COLORS.yellow); obsBay(ctx,122,'SNR / dB',p?(p.snr>=0?'+':'')+p.snr.toFixed(1):'--',COLORS.green); obsBay(ctx,224,'BYTES',p?p.len:'--',COLORS.paper,p?'RAW':'');
+}
+function drawExtSpectrum(ctx,m,cursor) {
+  const rows=m.readings||[], sel=m.locked?0:cursor, r=rows[sel], live=m.active;
+  obsFrame(ctx,m.locked?'PACKET SCOPE // 1S':'CHANNEL FIELD // DWELL',!live?'CACHED':!r||!r.valid?'WAIT':'LIVE',!live?'cached':r&&r.valid?'live':'warn');
+  obsDock(ctx,live?COLORS.green:COLORS.slate,true);
+  for(let i=0;i<=4;i++){const y=46+i*21; if(i===4)EL(ctx,34,y,298,y,COLORS.dimGreen); else obsDashH(ctx,34,298,y,COLORS.trackDark);}
+  for(let i=0;i<=6;i++) obsDashV(ctx,34+i*44,46,130,COLORS.trackDark);
+  let peak=0, sum=0, nValid=0;
+  if(m.locked&&r){
+    const hist=(r.history||[]).filter(h=>h.ageMs<30000).sort((a,b)=>b.ageMs-a.ageMs);
+    hist.forEach(h=>{peak=Math.max(peak,h.pkts);sum+=h.pkts;nValid++;});
+    let sc=8; while(sc<peak)sc*=2;
+    obsMicro(ctx,30,43,sc,COLORS.slate,'right'); obsMicro(ctx,30,85,sc/2,COLORS.slate,'right'); obsMicro(ctx,30,126,'0',COLORS.slate,'right');
+    obsMicro(ctx,34,32,'PKTS / 1S WINDOW',COLORS.dimGreen);
+    if(nValid){const py=130-Math.round(peak*84/sc); obsDashH(ctx,34,298,py,COLORS.pink,3,3); obsBadge(ctx,148,29,56,13,'PEAK '+peak,COLORS.panelDark,COLORS.pink,COLORS.pink);}
+    let prev=null;
+    hist.forEach((h,i)=>{const x=34+Math.round((30000-h.ageMs)*264/30000),y=130-Math.round(h.pkts*84/sc); EL(ctx,x,y+2,x,129,COLORS.trackDark); if(prev)EL(ctx,prev[0],prev[1],x,y,live?COLORS.green:COLORS.slate); if(i===hist.length-1){EC(ctx,x,y,5,COLORS.pink,true);ER(ctx,x-2,y-2,5,5,COLORS.yellow);} else ER(ctx,x-1,y-1,3,3,live?COLORS.green:COLORS.slate); prev=[x,y];});
+    obsMicro(ctx,34,136,'-30s',COLORS.slate); obsMicro(ctx,166,136,'-15s / MEASURED ONLY',COLORS.slate,'center'); obsMicro(ctx,298,136,live?'NOW':'FROZEN',live?COLORS.yellow:COLORS.slate,'right');
+  } else {
+    const vis=rows.slice(0,12); vis.forEach(x=>{if(x.valid){peak=Math.max(peak,x.pkts);sum+=x.pkts;nValid++;}});
+    let sc=8; while(sc<peak)sc*=2;
+    obsMicro(ctx,30,43,sc,COLORS.slate,'right'); obsMicro(ctx,30,126,'0',COLORS.slate,'right'); obsMicro(ctx,34,32,'DWELL PACKETS / CHANNEL',COLORS.dimGreen);
+    const step=vis.length?Math.floor(264/vis.length):264;
+    vis.forEach((x,i)=>{const xx=34+i*step, bw=Math.max(6,step-5), bh=Math.max(2,Math.round(x.pkts*84/sc)), isSel=i===sel; ER(ctx,xx,130-bh,bw,bh,isSel?COLORS.dimGreen:COLORS.trackDark); EL(ctx,xx,130-bh,xx+bw-1,130-bh,isSel?COLORS.yellow:COLORS.green); if(isSel)obsLock(ctx,xx+Math.floor(bw/2),88,Math.floor(bw/2)+2,COLORS.pink); obsMicro(ctx,xx+bw/2,136,x.ch,isSel?COLORS.yellow:COLORS.slate,'center');});
+  }
+  TD(ctx,12,163,r?'CH '+String(r.ch).padStart(2,'0')+' / '+(r.band==='5G'?'5 GHz':'2.4 GHz'):'NO CHANNEL SELECTED',COLORS.paper,15,'left');
+  obsMicro(ctx,12,185,(m.locked?'LOCKED CHANNEL / ':'CHANNEL SURVEY / ')+nValid+(m.locked?' WINDOWS':' VISIBLE'),COLORS.slate);
+  obsBay(ctx,12,m.locked?'LATEST 1S':'LATEST DWELL',r&&r.valid?r.pkts:'--',COLORS.green,'pkts');
+  obsBay(ctx,122,m.locked?'PEAK / 30S':'VISIBLE MAX',nValid?peak:'--',COLORS.pink,'pkts');
+  obsBay(ctx,224,m.locked?'30S MEAN':'MEAN',nValid?(sum/nValid).toFixed(1):'--',COLORS.paper,m.locked?'/s':'');
+}
+function drawExtTrace(ctx,row,insp,listening) {
+  obsFrame(ctx,'AP // RADIO DOSSIER',listening?'CAPTURE':'OBSERVED',listening?'warn':'live');
+  obsRadar(ctx,84,88); obsCard(ctx,164,36,140,103,COLORS.yellow); obsDock(ctx,COLORS.green,true);
+  if(!row){obsMicro(ctx,172,42,'AP DOSSIER',COLORS.slate);TD(ctx,172,58,'NO AP',COLORS.yellow,14,'left');TD(ctx,12,163,'NO AP SELECTED',COLORS.paper,15,'left');return;}
+  obsRadarNode(ctx,{x:84,y:88},true,true,false);
+  obsMicro(ctx,172,42,'SECURITY',COLORS.slate); TD(ctx,172,54,ESAFE(row.auth||'OPEN',12),COLORS.paper,14,'left');
+  EL(ctx,172,74,296,74,COLORS.line);
+  obsMicro(ctx,172,80,'MFP / '+(insp&&insp.valid?(insp.mfp_required?'REQUIRED':insp.mfp_capable?'CAPABLE':'OFF'):'UNKNOWN'),COLORS.green);
+  obsMicro(ctx,172,94,insp&&insp.valid?insp.beacons+' BEACONS':'NO BEACON DATA',COLORS.paper);
+  obsMicro(ctx,172,109,insp&&insp.valid?insp.interval_ms+'ms / 0s OLD':'INTERVAL / --',COLORS.slate);
+  TD(ctx,12,163,ESAFE(row.ssid||'<HIDDEN>',22),COLORS.paper,15,'left'); TM(ctx,12,184,row.bssid||'--',COLORS.slate,10,'left'); obsMicro(ctx,308,186,'NO BEARING',COLORS.slate,'right');
+  obsBay(ctx,12,'RSSI / dBm',row.rssi,COLORS.yellow); obsBay(ctx,122,'CHANNEL',row.ch,COLORS.paper); obsBay(ctx,224,'AGE / s','0',COLORS.slate,'s');
+}
+function drawExtDeauth(ctx,m,cursor) {
+  const rows=m.events||[], live=m.active, sel=rows[cursor];
+  obsFrame(ctx,'MANAGEMENT EVENTS // RX',live?'LIVE':'CACHED',live?'live':'cached');
+  obsDock(ctx,m.recent&&live?COLORS.pink:COLORS.green,true);
+  for(let i=0;i<=4;i++){const y=46+i*19; if(i===4)EL(ctx,36,y,300,y,COLORS.dimGreen); else obsDashH(ctx,36,300,y,COLORS.trackDark);}
+  obsMicro(ctx,36,32,'EVENTS BY CHANNEL',COLORS.dimGreen);
+  if(m.recent&&live) obsBadge(ctx,260,29,40,13,'BURST',COLORS.panelDark,COLORS.pink,COLORS.pink);
+  const byCh={}; rows.forEach(r=>{byCh[r.ch]=(byCh[r.ch]||0)+1;});
+  const chs=Object.keys(byCh), maxC=Math.max(1,...Object.values(byCh));
+  obsMicro(ctx,32,43,maxC,COLORS.slate,'right'); obsMicro(ctx,32,118,'0',COLORS.slate,'right');
+  const step=chs.length?Math.min(36,Math.floor(264/chs.length)):264, sx=36+Math.floor((264-step*chs.length)/2), bw=Math.max(8,step-6);
+  chs.forEach((ch,i)=>{const bh=Math.max(2,Math.round(byCh[ch]*76/maxC)), x=sx+i*step+3, foc=sel&&String(sel.ch)===ch; ER(ctx,x,122-bh,bw,bh,foc?COLORS.pink:COLORS.dimGreen); EL(ctx,x,122-bh,x+bw-1,122-bh,foc?COLORS.yellow:COLORS.green); obsMicro(ctx,x+bw/2,128,ch,foc?COLORS.yellow:COLORS.slate,'center');});
+  if(!sel){obsMicro(ctx,160,82,'WATCHING / NO EVENTS',COLORS.yellow,'center');TD(ctx,12,163,'PASSIVE DETECTION',COLORS.paper,15,'left');obsBay(ctx,12,'REASON','--',COLORS.yellow);obsBay(ctx,122,'RSSI / dBm','--',COLORS.paper);obsBay(ctx,224,'CHANNEL','--',COLORS.slate);return;}
+  TD(ctx,12,163,sel.disassoc?'DISASSOCIATION':'DEAUTHENTICATION',COLORS.pink,15,'left'); TM(ctx,12,184,sel.mac,COLORS.slate,10,'left');
+  obsBay(ctx,12,'REASON',sel.reason,COLORS.yellow); obsBay(ctx,122,'RSSI / dBm',sel.rssi,COLORS.paper); obsBay(ctx,224,'CHANNEL',sel.ch,COLORS.green);
+}
+function drawExtAnti(ctx,m,cursor) {
+  const rows=m.trackers||[], r=rows[cursor];
+  obsFrame(ctx,'MOVEMENT CORRELATION',m.starting?'START':m.active?'WATCH':'CACHED',m.starting?'warn':m.active?'live':'cached');
+  obsDock(ctx,r&&r.alert?COLORS.pink:COLORS.green,true);
+  obsMicro(ctx,20,33,'COINCIDENT SIGHTING STAGES',COLORS.dimGreen);
+  for(let i=0;i<3;i++){const x=56+i*104, reached=r&&r.legs>=i; if(i)EL(ctx,x-86,80,x-18,80,reached?(i===2&&r.alert?COLORS.pink:COLORS.green):COLORS.trackDark); if(i===2&&r&&r.alert)obsHex(ctx,x,80,22,COLORS.pink); EC(ctx,x,80,15,reached?(i===2&&r.alert?COLORS.pink:COLORS.green):COLORS.trackDark,true); EC(ctx,x,80,10,reached?COLORS.dimGreen:COLORS.line,true); if(reached)EC(ctx,x,80,5,i===2&&r.alert?COLORS.pink:COLORS.yellow); obsMicro(ctx,x,104,i?i*25+'m':'SEEN',reached?COLORS.paper:COLORS.slate,'center');}
+  obsBadge(ctx,20,127,280,16,m.hasPosition?'GNSS MOVEMENT CONTEXT ACTIVE':'MOVEMENT PAUSED / NO FRESH GNSS',COLORS.panelDark,m.hasPosition?COLORS.dimGreen:COLORS.yellow,m.hasPosition?COLORS.slate:COLORS.yellow);
+  if(!r){TD(ctx,12,163,'NO TRACKER OBSERVATIONS',COLORS.paper,15,'left');obsBay(ctx,12,'SIGHTINGS','0',COLORS.yellow);obsBay(ctx,122,'LEGS','0',COLORS.paper);obsBay(ctx,224,'AGE / s','--',COLORS.slate);return;}
+  TD(ctx,12,163,r.mac,r.alert?COLORS.pink:COLORS.paper,15,'left');
+  obsMicro(ctx,12,185,r.alert?'REVIEW PATTERN / NOT PROOF OF FOLLOWING':'COINCIDENT SIGHTINGS / NO ALERT',r.alert?COLORS.pink:COLORS.slate);
+  obsBay(ctx,12,'SIGHTINGS',r.sightings,COLORS.yellow); obsBay(ctx,122,'LEGS',r.legs,COLORS.paper,'/ 2'); obsBay(ctx,224,'AGE / s','1',COLORS.slate,'s');
+}
+function drawExtSettings(ctx,brightness) {
+  const pct=Math.round((brightness*100+127)/255);
+  obsFrame(ctx,'DECK DISPLAY // LUMINANCE','SETTING','cached'); obsDock(ctx,COLORS.yellow,false);
+  obsCard(ctx,36,44,248,86,COLORS.green);
+  obsMicro(ctx,48,52,'CARDPUTER LCD BACKLIGHT',COLORS.slate); obsMicro(ctx,272,52,pct+'%',COLORS.yellow,'right');
+  obsSeg(ctx,48,70,224,34,16,pct,COLORS.green);
+  obsMicro(ctx,48,112,'0%',COLORS.slate); obsMicro(ctx,160,112,'50%',COLORS.slate,'center'); obsMicro(ctx,272,112,'100%',COLORS.slate,'right');
+  TD(ctx,12,163,'DECK DISPLAY',COLORS.paper,15,'left');
+  obsMicro(ctx,12,185,'ADJUSTS CARDPUTER PANEL ONLY / EXTERNAL FIXED',COLORS.slate);
+  obsBay(ctx,12,'BRIGHTNESS',pct+'%',COLORS.yellow); obsBay(ctx,168,'EXTERNAL TFT','FIXED ON',COLORS.green);
+}
+
+/* =======================================================================
  * Static gallery
  * ===================================================================== */
 
-function mkCanvas(scale) {
+function mkCanvas(scale, width, height) {
+  width = width || kW; height = height || kH;
   const c = document.createElement('canvas');
-  c.width = kW * scale; c.height = kH * scale;
+  c.width = width * scale; c.height = height * scale;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.scale(scale, scale);
   return { canvas: c, ctx: ctx };
+}
+
+function lockedSpectrumModel(base, channel) {
+  const reading = base.readings.find(r => r.ch === channel);
+  return {
+    active: true,
+    locked: true,
+    readings: reading ? [JSON.parse(JSON.stringify(reading))] : [],
+  };
 }
 
 const GALLERY_SCALE = 3;
@@ -1208,8 +1844,8 @@ const GALLERY = [
   { key: 'beacons', title: 'Observe / BLE Scan', file: 'bt_view.cpp', tags: ['OBSERVE'], draw: ctx => drawBt(ctx, DATA.beacons.chrome, DATA.beacons.model, DATA.beacons.cursor) },
   { key: 'zig', title: 'Observe / 802.15.4', file: 'zig_view.cpp', tags: ['OBSERVE'], draw: ctx => drawZig(ctx, DATA.zig.chrome, DATA.zig.model, DATA.zig.tab, DATA.zig.cursor) },
   { key: 'subghz', title: 'Observe / LoRa RX', file: 'subghz_view.cpp', tags: ['OBSERVE'], draw: ctx => drawSubGhz(ctx, DATA.subghz.chrome, DATA.subghz.model, DATA.subghz.cursor, 'MTASTIC') },
-  { key: 'spectrumBroad', title: 'Analyze / Packet Monitor (broad)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrumBroad(ctx, DATA.spectrumBroad.chrome, DATA.spectrumBroad.model, DATA.spectrumBroad.cursor) },
-  { key: 'spectrumLocked', title: 'Analyze / Packet Monitor (locked)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrumLocked(ctx, DATA.spectrumLocked.chrome, DATA.spectrumLocked.model) },
+  { key: 'spectrumBroad', title: 'Analyze / Packet Monitor (channel field)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrum(ctx, DATA.spectrumBroad.chrome, DATA.spectrumBroad.model, DATA.spectrumBroad.cursor) },
+  { key: 'spectrumLocked', title: 'Analyze / Packet Monitor (locked)', file: 'spectrum_view.cpp', tags: ['ANALYZE'], draw: ctx => drawSpectrum(ctx, DATA.spectrumLocked.chrome, lockedSpectrumModel(DATA.spectrumBroad.model, 6), 0) },
   { key: 'contacts', title: 'Analyze / Sniffer', file: 'contacts_view.cpp', tags: ['ANALYZE'], draw: ctx => drawContacts(ctx, DATA.contacts.chrome, DATA.contacts.model, DATA.contacts.tab, DATA.contacts.cursor) },
   { key: 'deauth', title: 'Analyze / Deauth Detect', file: 'deauth_view.cpp', tags: ['ANALYZE'], draw: ctx => drawDeauth(ctx, DATA.deauth.chrome, DATA.deauth.model, DATA.deauth.cursor) },
   { key: 'antisurv', title: 'Analyze / Anti-Surveillance', file: 'anti_surveillance_view.cpp', tags: ['ANALYZE'], draw: ctx => drawAntiSurv(ctx, DATA.antisurv.chrome, DATA.antisurv.model, DATA.antisurv.cursor, DATA.antisurv.starting) },
@@ -1234,7 +1870,66 @@ function buildGallery() {
     card.appendChild(frame);
     grid.appendChild(card);
     entry.draw(ctx);
+    card.addEventListener('click', () => {
+      if (entry.key === 'help') {
+        SIM.externalOverride = null;
+        SIM.helpVisible = true;
+        renderSim(); document.getElementById('simulator').scrollIntoView({behavior:'smooth'});
+        return;
+      }
+      SIM.screen = entry.key === 'spectrumBroad' || entry.key === 'spectrumLocked' ? 'spectrum' : entry.key;
+      SIM.externalOverride = null;
+      if (entry.key === 'spectrumLocked') { SIM.states.spectrumLocked = true; SIM.spectrumLockedChannel = 6; SIM.cursor.spectrum = 0; }
+      else if (entry.key === 'spectrumBroad') SIM.states.spectrumLocked = false;
+      SIM.helpVisible = false; renderSim(); document.getElementById('simulator').scrollIntoView({behavior:'smooth'});
+    });
+    card.classList.add('gallery-jump');
   });
+}
+
+function buildExternalGallery() {
+  const grid=document.getElementById('externalGalleryGrid');
+  const model=fixtureData();
+  const wifi=Object.assign({},model.sweep,{inspectable:true,truncated:false});
+  const deauth=Object.assign({},model.deauth.model,{totalCount:model.deauth.model.events.length,recent:true});
+  const anti=Object.assign({},model.antisurv.model,{alerts:model.antisurv.model.alertCount,recent:true});
+  const gallery=[
+    {screen:'link',title:'System / Link',file:'external_system_view.cpp',draw:c=>drawExtSystem(c,{offline:false,probeAvailable:true},42000,false)},
+    {screen:'info',title:'System / Diagnostics',file:'external_system_view.cpp',draw:c=>drawExtSystem(c,{offline:false,probeAvailable:true},42000,true)},
+    {screen:'sweep',title:'Wi-Fi Scan',file:'external_wifi_view.cpp',draw:c=>drawExtWifi(c,wifi,2,42000)},
+    {screen:'zig',tab:'pans',title:'802.15.4 / PANs',file:'external_zig_view.cpp',draw:c=>drawExtZig(c,model.zig.model,true,0)},
+    {screen:'zig',tab:'nodes',title:'802.15.4 / Nodes',file:'external_zig_view.cpp',draw:c=>drawExtZig(c,model.zig.model,false,1)},
+    {screen:'contacts',tab:'clients',title:'Sniffer / Clients',file:'external_contacts_view.cpp',draw:c=>drawExtContacts(c,model.contacts.model,false,0,42000)},
+    {screen:'contacts',tab:'probes',title:'Sniffer / Probe requests',file:'external_contacts_view.cpp',draw:c=>drawExtContacts(c,model.contacts.model,true,0,42000)},
+    {screen:'beacons',title:'BLE Scan',file:'external_bt_view.cpp',draw:c=>drawExtBt(c,model.beacons.model,0)},
+    {screen:'drive',title:'Wardrive / GNSS',file:'external_drive_view.cpp',draw:c=>drawExtDrive(c,model.drive.model,42000)},
+    {screen:'subghz',title:'LoRa RX',file:'external_lora_view.cpp',draw:c=>drawExtLora(c,model.subghz.model,0,42000)},
+    {screen:'spectrum',title:'Packet Monitor',file:'external_spectrum_view.cpp',draw:c=>drawExtSpectrum(c,model.spectrumBroad.model,2,42000)},
+    {screen:'trace',title:'AP Detail',file:'external_card_views.cpp',draw:c=>drawExtTrace(c,model.trace.row,model.trace.insp,false)},
+    {screen:'deauth',title:'Deauth Detect',file:'external_card_views.cpp',draw:c=>drawExtDeauth(c,deauth,0,42000)},
+    {screen:'antisurv',title:'Anti-Surveillance',file:'external_card_views.cpp',draw:c=>drawExtAnti(c,anti,0,42000)},
+    {screen:'settings',title:'Settings',file:'external_card_views.cpp',draw:c=>drawExtSettings(c,model.settings.brightness)},
+    {screen:'gps',title:'GPS status / fallback',file:'external_gps_display.cpp',draw:c=>drawExtGps(c,model.drive.model)},
+    {screen:'startup',title:'Startup / fallback',file:'external_system_view.cpp',draw:c=>drawExtStartup(c)},
+  ];
+  gallery.forEach(entry=>{
+    const card=document.createElement('div');card.className='gcard gallery-jump';
+    card.innerHTML=`<div class="tags"><span class="tag">ST7789 · 320 × 240</span></div><h4>${entry.title}</h4><span class="path">ui/${entry.file}</span>`;
+    const frame=document.createElement('div');frame.className='device-frame';const {canvas,ctx}=mkCanvas(1,EXW,EXH);canvas.className='external-gallery-canvas';
+    frame.appendChild(canvas);card.appendChild(frame);grid.appendChild(card);entry.draw(ctx);if(SIM.externalProfile==='no-cs')drawExtSdTile(ctx,currentSdIndicator(model),SIM.sdWrites);
+    card.addEventListener('click',()=>{
+      if(entry.screen==='gps'||entry.screen==='startup') SIM.externalOverride=entry.screen;
+      else {SIM.screen=entry.screen;SIM.externalOverride=null;}
+      if(entry.tab){if(entry.screen==='zig')SIM.zigTab=entry.tab;else SIM.contactsTab=entry.tab;}
+      SIM.helpVisible=false;renderSim();document.getElementById('simulator').scrollIntoView({behavior:'smooth'});
+    });
+  });
+}
+
+function rebuildExternalGallery() {
+  const grid=document.getElementById('externalGalleryGrid');
+  grid.innerHTML='';
+  buildExternalGallery();
 }
 
 function buildNavTable() {
@@ -1243,7 +1938,7 @@ function buildNavTable() {
     body.insertAdjacentHTML('beforeend',
       `<tr><td class="mono">${i + 1}</td><td>${n.section}</td><td class="mono">${n.label}</td><td class="mono">${n.screen}</td><td class="mono">ui/${n.file}</td></tr>`);
   });
-  CONTEXT_SCREENS.forEach(n => {
+  [...CONTEXT_SCREENS, ...SIM_SPECIAL_SCREENS].forEach(n => {
     body.insertAdjacentHTML('beforeend',
       `<tr><td class="mono">—</td><td>${n.section}</td><td class="mono">${n.label}</td><td class="mono">${n.screen}</td><td class="mono">ui/${n.file}<br><span style="color:var(--muted-dim)">${n.note}</span></td></tr>`);
   });
@@ -1263,18 +1958,18 @@ function buildDotLegend() {
 function buildPalette() {
   const wrap = document.getElementById('paletteSwatches');
   const entries = [
-    ['Void Ink (screen)', '#000000', 'kVoidInk'],
-    ['Paper Phosphor', '#F4ECD9', 'kPaperPhosphor'],
-    ['Field Green', '#A8DF65', 'kFieldGreen'],
-    ['Signal Pink', '#F05D9D', 'kSignalPink'],
-    ['Calibration Yellow', '#F5D658', 'kCalibrationYellow'],
-    ['Fault Red', '#EF514C', 'kFaultRed'],
-    ['Muted Slate', '#AAA0A5', 'kMutedSlate'],
-    ['Line Border', '#4B3C49', 'kLineBorder'],
-    ['Dim Green', '#51763D', 'kDimGreen'],
-    ['Track Dark', '#263528', 'kTrackDark'],
-    ['Panel Dark', '#151018', 'kPanelDark'],
-    ['Selection Glow', '#241F0D', 'kSelectionGlow'],
+    ['Void Ink', '#080810', 'kVoidInk'],
+    ['Paper Phosphor', '#F7EBD6', 'kPaperPhosphor'],
+    ['Field Green', '#A5DF63', 'kFieldGreen'],
+    ['Signal Pink', '#EF5D9C', 'kSignalPink'],
+    ['Calibration Yellow', '#F7D75A', 'kCalibrationYellow'],
+    ['Fault Red', '#EF514A', 'kFaultRed'],
+    ['Muted Slate', '#9CAE94', 'kMutedSlate'],
+    ['Line Border', '#4A3C4A', 'kLineBorder'],
+    ['Dim Green', '#527539', 'kDimGreen'],
+    ['Track Dark', '#293429', 'kTrackDark'],
+    ['Panel Dark', '#181018', 'kPanelDark'],
+    ['Selection Glow', '#212010', 'kSelectionGlow'],
   ];
   entries.forEach(([name, hex, constName]) => {
     wrap.insertAdjacentHTML('beforeend', `
@@ -1294,135 +1989,355 @@ const SIM = {
   screen: 'link',
   cursor: {},
   helpVisible: false,
+  fixture: 'live',
+  linkState: 'auto',
+  gnssState: 'auto',
+  loraConfig: 'auto',
+  externalProfile: 'no-cs',
+  storageState: 'auto',
+  sdIndicator: 'auto',
+  batteryState: 'normal',
+  antiState: 'auto',
+  externalOverride: null,
+  sdWrites: 42,
+  scanAborted: false,
+  brightness: DATA.settings.brightness,
   states: {
-    deauthWatch: true, antisurvWatch: true, subghzListen: true, zigListen: true, beaconsListen: true,
+    deauthWatch: true, antisurvWatch: true, subghzListen: true, zigListen: true,
+    beaconsScan: true, beaconsContinuous: false, beaconsTracker: false,
+    wifiContinuous: true, wifiScanning: false, sniffer: true,
+    spectrumActive: true, spectrumLocked: false, driveLog: true,
   },
+  spectrumLockedChannel: 0,
   zigTab: 'pans',
+  contactsTab: 'clients',
   /* Independent of DATA.subghz.model.hasConfig — mirrors lora_profile_index_,
    * which keeps advancing on 'x' whether or not a config has ever been
    * applied. Starts at 0 (MCORE); the applied profile here is 'manual',
    * so the x= indicator is visible from the start, same as real hardware
    * would show after a debug-console lora_manual call. */
   subghzProfileIndex: 0,
-  trace: { row: DATA.sweep.rows[2], insp: { valid: false } },
+  trace: { row: DATA.sweep.rows[2], insp: { valid: false }, listening: false },
 };
 SIM_ORDER.forEach(s => (SIM.cursor[s] = 0));
+SIM.cursor.spectrum = DATA.spectrumBroad.cursor;
 
 const simCanvasWrap = mkCanvas(4);
 document.getElementById('simCanvas').replaceWith(simCanvasWrap.canvas);
 simCanvasWrap.canvas.id = 'simCanvas';
 const simCtx = simCanvasWrap.ctx;
+const externalCanvasWrap = mkCanvas(2, EXW, EXH);
+document.getElementById('externalCanvas').replaceWith(externalCanvasWrap.canvas);
+externalCanvasWrap.canvas.id = 'externalCanvas';
+const externalCtx = externalCanvasWrap.ctx;
+
+function setFixture(value) {
+  SIM.fixture = value;
+  SIM.scanAborted = false;
+  const live = value === 'live';
+  Object.keys(SIM.states).forEach(k => SIM.states[k] = live);
+  SIM.states.wifiScanning = false; SIM.states.spectrumLocked = false;
+  SIM.states.beaconsContinuous = false; SIM.states.beaconsTracker = false;
+  renderSim();
+}
+
+function fixtureData() {
+  const d = JSON.parse(JSON.stringify(DATA));
+  const empty = SIM.fixture === 'empty', fault = SIM.fixture === 'fault';
+  const storageReady = SIM.storageState === 'auto' || SIM.storageState === 'ready';
+  const linkState = SIM.linkState === 'auto' ? (fault ? 'offline' : 'ready') : SIM.linkState;
+  const linkStateName = {ready:'ACTIVE',syncing:'SYNCING',offline:'OFFLINE',mismatch:'MISMATCH'}[linkState];
+  const linkStateColor = {ready:COLORS.green,syncing:COLORS.yellow,offline:COLORS.red,mismatch:COLORS.pink}[linkState];
+  let gnss = SIM.gnssState;
+  if (gnss === 'auto') gnss = SIM.fixture === 'live' ? 'Fixed' : SIM.fixture === 'cached' ? 'FixLost' : fault ? 'NoUartData' : 'Searching';
+  const gnssName = {Fixed:'FIXED',Searching:'SEARCHING',FixLost:'FIX LOST',NoUartData:'NO UART DATA'}[gnss];
+  const gnssFresh = gnss === 'Fixed';
+  const battery = {normal:[84,false],low:[12,false],charging:[64,true],unknown:[-1,false]}[SIM.batteryState];
+  const activity = {
+    link: false, info: false,
+    sweep: SIM.states.wifiContinuous || SIM.states.wifiScanning,
+    trace: SIM.trace.listening,
+    contacts: SIM.states.sniffer,
+    beacons: SIM.states.beaconsScan || SIM.states.beaconsContinuous || SIM.states.beaconsTracker,
+    zig: SIM.states.zigListen, subghz: SIM.states.subghzListen,
+    spectrum: SIM.states.spectrumActive, deauth: SIM.states.deauthWatch,
+    antisurv: SIM.antiState === 'watch' || (SIM.antiState === 'auto' && SIM.states.antisurvWatch), drive: SIM.states.driveLog,
+    settings: false,
+  };
+  Object.entries(d).forEach(([key,value]) => {
+    if (!value.chrome) return;
+    value.chrome.link = linkState === 'syncing' ? 'hello' : linkState === 'mismatch' ? 'incompatible' : linkState === 'offline' ? 'disconnected' : 'ready';
+    value.chrome.gnss = gnss === 'Fixed' ? 'ready' : gnss === 'NoUartData' ? 'fault' : 'pending';
+    value.chrome.storage = storageReady ? 'ready' : 'fault';
+    value.chrome.battery_pct = battery[0];
+    value.chrome.charging = battery[1];
+    value.chrome.rf = activity[key] ? 'active' : 'off';
+    value.chrome.live = !!activity[key];
+    value.chrome.cached = (SIM.fixture === 'cached' || fault) && !activity[key] && !empty;
+    value.chrome.debug = !!SIM.debug;
+    value.chrome.notice = '';
+    if (linkState === 'offline') value.chrome.transport = 'BPK OFFLINE';
+    else if (linkState === 'mismatch') value.chrome.transport = 'PROTOCOL MISMATCH';
+    else if (linkState === 'syncing') value.chrome.transport = 'HELLO / SYNCING';
+    else if (empty && !activity[key]) value.chrome.transport = '';
+  });
+  d.link.model.disconnected = linkState === 'offline';
+  d.link.model.linkStatus = linkStateName;
+  d.link.model.linkColor = linkStateColor;
+  d.link.model.gnssValue = gnssFresh ? 'FIXED' : gnss === 'NoUartData' ? 'NO DATA' : 'SEARCHING';
+  d.link.model.sdReady = storageReady;
+  d.link.model.busText = fault ? 'FAULT R1 T2 E3' : linkState === 'ready' ? 'OK R0 T0 E0' : 'WAIT R0 T0 E0';
+  d.link.model.busColor = fault ? COLORS.pink : linkState === 'ready' ? COLORS.green : COLORS.yellow;
+  d.link.model.capsReady = linkState === 'ready';
+  d.info.model.probeAvailable = linkState === 'ready';
+  d.info.model.linkName = linkState === 'offline' ? 'OFFLINE' : linkState === 'mismatch' ? 'MISMATCH' : linkStateName;
+  d.info.model.ready = linkState === 'ready';
+  d.info.model.sdReady = storageReady;
+  d.sweep.elapsedSec = 42;
+  d.sweep.scanning = SIM.states.wifiScanning;
+  d.sweep.continuous = SIM.states.wifiContinuous;
+  d.sweep.aborted = SIM.scanAborted;
+  d.sweep.inspectable = !empty && !d.sweep.scanning && !d.sweep.continuous;
+  d.sweep.truncated = false;
+  if (empty || SIM.scanAborted) d.sweep.rows = [];
+  d.contacts.model.sniffing = SIM.states.sniffer;
+  if (empty) { d.contacts.model.clients=[]; d.contacts.model.probes=[]; d.contacts.model.pkts=0; d.contacts.model.malformed=0; d.contacts.model.lastSighting=''; }
+  d.deauth.model.active = SIM.states.deauthWatch;
+  d.deauth.model.totalCount = d.deauth.model.events.length;
+  if (empty) { d.deauth.model.events=[]; d.deauth.model.totalCount=0; }
+  d.antisurv.model.starting = SIM.antiState === 'starting';
+  d.antisurv.model.active = SIM.antiState === 'watch' || (SIM.antiState === 'auto' && SIM.states.antisurvWatch);
+  d.antisurv.model.hasPosition = gnssFresh && d.drive.model.fixAgeMs < 10000;
+  d.antisurv.model.alertCount = d.antisurv.model.trackers.filter(t=>t.alert).length;
+  if (empty) { d.antisurv.model.trackers=[]; d.antisurv.model.alertCount=0; }
+  d.zig.model.active = SIM.states.zigListen;
+  if (empty) { d.zig.model.pans=[]; d.zig.model.nodes=[]; d.zig.model.malformed=0; }
+  d.subghz.model.active = SIM.states.subghzListen;
+  const loraMode = SIM.loraConfig === 'auto' ? (empty ? 'required' : 'configured') : SIM.loraConfig;
+  d.subghz.model.hasConfig = loraMode !== 'required';
+  d.subghz.model.health.hw_fault = loraMode === 'fault' ? 1 : 0;
+  d.subghz.model.health.valid = loraMode === 'fault' || !empty;
+  if (empty) { d.subghz.model.packets=[]; d.subghz.model.totalCount=0; }
+  d.spectrumBroad.model.active = SIM.states.spectrumActive;
+  d.spectrumBroad.model.locked = SIM.states.spectrumLocked;
+  if (SIM.states.spectrumLocked) {
+    const reading = d.spectrumBroad.model.readings.find(r => r.ch === SIM.spectrumLockedChannel);
+    d.spectrumBroad.model.readings = reading ? [reading] : [];
+  }
+  if (empty) d.spectrumBroad.model.readings=[];
+  d.beacons.model.scanning = SIM.states.beaconsScan;
+  d.beacons.model.continuous = SIM.states.beaconsContinuous;
+  d.beacons.model.trackerWatch = SIM.states.beaconsTracker;
+  d.beacons.model.trackerCount = d.beacons.model.devices.filter(r=>r.tracker).length;
+  if (empty) { d.beacons.model.devices=[]; d.beacons.model.trackerCount=0; d.beacons.model.lastTracker=null; }
+  d.drive.model.state = gnss;
+  d.drive.model.stateName = gnssName;
+  d.drive.model.uartAlive = gnss !== 'NoUartData';
+  d.drive.model.everFixed = gnss === 'Fixed' || gnss === 'FixLost' || SIM.fixture === 'cached' || fault;
+  d.drive.model.fixAgeMs = gnssFresh ? 900 : 14000;
+  d.drive.model.logOpen = SIM.states.driveLog && !empty && storageReady;
+  d.drive.model.cached = !d.drive.model.logOpen && d.drive.model.everFixed;
+  d.drive.model.aps = empty ? 0 : 132;
+  d.drive.model.trackPoints = empty ? 0 : 884;
+  d.drive.model.apsNoFix = empty ? 0 : 7;
+  d.drive.model.trailPoints = d.drive.model.everFixed && !empty ? d.drive.model.trailPoints : [];
+  d.drive.model.position = d.drive.model.lat.toFixed(5)+' / '+d.drive.model.lon.toFixed(5);
+  d.trace.row = (empty || SIM.scanAborted) ? null : (SIM.trace.row || d.sweep.rows[2] || DATA.trace.row);
+  d.trace.insp = SIM.trace.insp;
+  d.trace.listening = SIM.trace.listening;
+  d.settings.brightness = SIM.brightness;
+  if (SIM.notice) d.drive.chrome.notice = SIM.notice;
+  return d;
+}
+
+function activeData(key, d) {
+  if (key === 'sweep') return d.sweep.scanning || d.sweep.continuous;
+  if (key === 'beacons') return d.beacons.model.scanning || d.beacons.model.continuous || d.beacons.model.trackerWatch;
+  if (key === 'zig') return d.zig.model.active;
+  if (key === 'subghz') return d.subghz.model.active;
+  if (key === 'spectrum') return d.spectrumBroad.model.active;
+  if (key === 'contacts') return d.contacts.model.sniffing;
+  if (key === 'deauth') return d.deauth.model.active;
+  if (key === 'antisurv') return d.antisurv.model.active;
+  if (key === 'drive') return d.drive.model.logOpen;
+  return false;
+}
+
+function renderExternal(d) {
+  const screen = SIM.externalOverride || SIM.screen, now = 40000;
+  const name = screen === 'link' ? 'GROVE LINK' : screen === 'info' ? 'SYSTEM HEALTH' :
+    screen === 'sweep' ? 'WIFI SCAN' : screen === 'trace' ? 'AP DETAIL' :
+    screen === 'zig' ? (SIM.zigTab === 'pans' ? '802.15.4 / PAN' : '802.15.4 / NODES') :
+    screen === 'contacts' ? (SIM.contactsTab === 'clients' ? 'SNIFFER / CLIENTS' : 'SNIFFER / PROBES') :
+    screen === 'beacons' ? 'BLE FIELD' : screen === 'drive' ? 'WARDIVE / GNSS' :
+    screen === 'subghz' ? 'LORA RX' : screen === 'spectrum' ? 'PACKET HISTORY' :
+    screen === 'deauth' ? 'DEAUTH DETECT' : screen === 'antisurv' ? 'ANTI-SURVEILLANCE' :
+    screen === 'settings' ? 'SYSTEM SETTINGS' : screen === 'gps' ? 'GPS STATUS' : screen === 'startup' || screen === 'boot' ? 'VIEWPORT STARTUP' : 'GPS STARTUP';
+  document.getElementById('externalScreenName').textContent = name;
+  switch(screen) {
+    case 'link': drawExtSystem(externalCtx,{offline:d.link.model.disconnected,syncing:d.link.chrome.link==='hello',mismatch:d.link.chrome.link==='incompatible',probeAvailable:d.link.chrome.link==='ready'},now,false); break;
+    case 'info': drawExtSystem(externalCtx,{offline:d.link.model.disconnected,syncing:d.link.chrome.link==='hello',mismatch:d.link.chrome.link==='incompatible',probeAvailable:d.info.model.probeAvailable},now,true); break;
+    case 'sweep': drawExtWifi(externalCtx,Object.assign({},d.sweep,{inspectable:d.sweep.inspectable}),SIM.cursor.sweep||0,now); break;
+    case 'trace': drawExtTrace(externalCtx,d.trace.row,d.trace.insp,d.trace.listening); break;
+    case 'zig': drawExtZig(externalCtx,d.zig.model,SIM.zigTab==='pans',SIM.cursor.zig||0); break;
+    case 'contacts': drawExtContacts(externalCtx,Object.assign({},d.contacts.model,{clientAge:d.contacts.model.clientAge||900,probeAge:d.contacts.model.probeAge||1200}),SIM.contactsTab==='probes',SIM.cursor.contacts||0,now); break;
+    case 'beacons': drawExtBt(externalCtx,d.beacons.model,SIM.cursor.beacons||0); break;
+    case 'drive': drawExtDrive(externalCtx,d.drive.model,now); break;
+    case 'subghz': drawExtLora(externalCtx,d.subghz.model,SIM.cursor.subghz||0,now); break;
+    case 'spectrum': drawExtSpectrum(externalCtx,d.spectrumBroad.model,SIM.cursor.spectrum||0,now); break;
+    case 'deauth': drawExtDeauth(externalCtx,d.deauth.model,SIM.cursor.deauth||0,now); break;
+    case 'antisurv': drawExtAnti(externalCtx,Object.assign({},d.antisurv.model,{alerts:d.antisurv.model.alertCount}),SIM.cursor.antisurv||0,now); break;
+    case 'settings': drawExtSettings(externalCtx,d.settings.brightness); break;
+    case 'gps': drawExtGps(externalCtx,d.drive.model); break;
+    case 'startup': drawExtStartup(externalCtx); break;
+    case 'boot': drawExtStartup(externalCtx); break;
+    default: drawExtStartup(externalCtx);
+  }
+  if (SIM.externalProfile === 'no-cs') drawExtSdTile(externalCtx, currentSdIndicator(d), SIM.sdWrites);
+}
+
+function currentSdIndicator(d) {
+  if (SIM.sdIndicator !== 'auto') return SIM.sdIndicator;
+  return d.link.model.sdReady ? 'ready' : 'fault';
+}
 
 function rowsForScreen(screen) {
+  const d = fixtureData();
   switch (screen) {
-    case 'sweep': return DATA.sweep.rows;
-    case 'contacts': return DATA.contacts.tab === 'clients' ? DATA.contacts.model.clients : DATA.contacts.model.probes;
-    case 'deauth': return DATA.deauth.model.events;
-    case 'antisurv': return DATA.antisurv.model.trackers;
-    case 'zig': return SIM.zigTab === 'pans' ? DATA.zig.model.pans : DATA.zig.model.nodes;
-    case 'subghz': return DATA.subghz.model.packets;
-    case 'beacons': return DATA.beacons.model.devices;
-    case 'spectrumBroad': return DATA.spectrumBroad.model.readings;
+    case 'sweep': return d.sweep.rows;
+    case 'contacts': return SIM.contactsTab === 'clients' ? d.contacts.model.clients : d.contacts.model.probes;
+    case 'deauth': return d.deauth.model.events;
+    case 'antisurv': return d.antisurv.model.trackers;
+    case 'zig': return SIM.zigTab === 'pans' ? d.zig.model.pans : d.zig.model.nodes;
+    case 'subghz': return d.subghz.model.packets;
+    case 'beacons': return d.beacons.model.devices;
+    case 'spectrum': return d.spectrumBroad.model.readings;
+    case 'link': return [0,1,2,3];
     default: return [];
   }
 }
 
 function renderSim() {
   const screen = SIM.screen;
+  const d = fixtureData();
   const nameEl = document.getElementById('simScreenName');
   const statusEl = document.getElementById('simStatusName');
   const sectionEl = document.getElementById('simStatusSection');
+  const picker = document.getElementById('screenPicker');
+  if (picker) picker.value = screen;
+  document.getElementById('fixturePicker').value = SIM.fixture;
+  document.getElementById('linkPicker').value = SIM.linkState;
+  document.getElementById('storagePicker').value = SIM.storageState;
+  document.getElementById('sdIndicatorPicker').value = SIM.sdIndicator;
+  document.getElementById('batteryPicker').value = SIM.batteryState;
+  document.getElementById('antiPicker').value = SIM.antiState;
+  document.getElementById('gnssPicker').value = SIM.gnssState;
+  document.getElementById('loraPicker').value = SIM.loraConfig;
+  document.getElementById('externalProfilePicker').value = SIM.externalProfile;
+  const fixtureText = {
+    live:'Synthetic live fixture · no device data is loaded.',
+    cached:'Synthetic cached fixture · retained sample observations with the receiver stopped.',
+    empty:'Empty / idle fixture · no observations; useful for blank and waiting layouts.',
+    fault:'Link fault fixture · offline probe with cached sample observations.',
+  };
+  document.getElementById('fixtureNote').textContent = fixtureText[SIM.fixture];
 
   if (SIM.helpVisible) {
-    drawHelp(simCtx, Object.assign({}, DATA.link.chrome, { title: 'HELP' }));
+    drawHelp(simCtx, Object.assign({}, d.link.chrome, { title: 'HELP' }));
+    renderExternal(d);
     nameEl.textContent = 'HELP'; statusEl.textContent = 'HELP OVERLAY'; sectionEl.textContent = '(overlay)';
     return;
   }
 
-  const navEntry = NAV.find(n => n.screen === screen) || CONTEXT_SCREENS.find(n => n.screen === screen);
+  const navEntry = NAV.find(n => n.screen === screen) || CONTEXT_SCREENS.find(n => n.screen === screen) || SIM_SPECIAL_SCREENS.find(n => n.screen === screen);
   nameEl.textContent = navEntry ? navEntry.label : screen.toUpperCase();
   statusEl.textContent = navEntry ? navEntry.label : screen.toUpperCase();
   sectionEl.textContent = navEntry ? navEntry.section : '';
 
   const cursor = SIM.cursor[screen] || 0;
   switch (screen) {
-    case 'link': drawLink(simCtx, DATA.link.chrome, DATA.link.model, cursor); break;
-    case 'info': drawInfo(simCtx, DATA.info.chrome, DATA.info.model); break;
-    case 'sweep': drawSweep(simCtx, DATA.sweep.chrome, DATA.sweep, cursor); break;
-    case 'beacons': {
-      const chrome = Object.assign({}, DATA.beacons.chrome, { rf: SIM.states.beaconsListen ? 'active' : 'off' });
-      drawBt(simCtx, chrome, DATA.beacons.model, cursor);
-      break;
-    }
-    case 'zig': {
-      const model = Object.assign({}, DATA.zig.model, { active: SIM.states.zigListen });
-      drawZig(simCtx, DATA.zig.chrome, model, SIM.zigTab, cursor);
-      break;
-    }
-    case 'subghz': {
-      const model = Object.assign({}, DATA.subghz.model, { active: SIM.states.subghzListen });
-      const pendingLabel = LORA_PROFILES[SIM.subghzProfileIndex].label;
-      drawSubGhz(simCtx, DATA.subghz.chrome, model, cursor, pendingLabel);
-      break;
-    }
-    case 'spectrumBroad': drawSpectrumBroad(simCtx, DATA.spectrumBroad.chrome, DATA.spectrumBroad.model, cursor); break;
-    case 'contacts': drawContacts(simCtx, DATA.contacts.chrome, DATA.contacts.model, DATA.contacts.tab, cursor); break;
-    case 'deauth': {
-      const model = Object.assign({}, DATA.deauth.model, { active: SIM.states.deauthWatch });
-      drawDeauth(simCtx, DATA.deauth.chrome, model, cursor);
-      break;
-    }
-    case 'antisurv': {
-      const model = Object.assign({}, DATA.antisurv.model, { active: SIM.states.antisurvWatch });
-      drawAntiSurv(simCtx, DATA.antisurv.chrome, model, cursor, false);
-      break;
-    }
-    case 'drive': drawGnss(simCtx, DATA.drive.chrome, DATA.drive.model); break;
-    case 'trace': drawTrace(simCtx, DATA.trace.chrome, SIM.trace.row, SIM.trace.insp); break;
-    case 'settings': drawSettings(simCtx, DATA.settings.chrome, DATA.settings.brightness); break;
+    case 'link': drawLink(simCtx, d.link.chrome, d.link.model, cursor); break;
+    case 'info': drawInfo(simCtx, d.info.chrome, d.info.model); break;
+    case 'sweep': drawSweep(simCtx, d.sweep.chrome, d.sweep, cursor); break;
+    case 'beacons': drawBt(simCtx, d.beacons.chrome, d.beacons.model, cursor); break;
+    case 'zig': drawZig(simCtx, d.zig.chrome, d.zig.model, SIM.zigTab, cursor); break;
+    case 'subghz': drawSubGhz(simCtx, d.subghz.chrome, d.subghz.model, cursor, LORA_PROFILES[SIM.subghzProfileIndex].label); break;
+    case 'spectrum': drawSpectrum(simCtx, d.spectrumBroad.chrome, d.spectrumBroad.model, cursor); break;
+    case 'contacts': drawContacts(simCtx, d.contacts.chrome, d.contacts.model, SIM.contactsTab, cursor); break;
+    case 'deauth': drawDeauth(simCtx, d.deauth.chrome, d.deauth.model, cursor); break;
+    case 'antisurv': drawAntiSurv(simCtx, d.antisurv.chrome, d.antisurv.model, cursor, d.antisurv.model.starting); break;
+    case 'drive': drawGnss(simCtx, d.drive.chrome, d.drive.model); break;
+    case 'trace': drawTrace(simCtx, d.trace.chrome, d.trace.row, d.trace.insp); break;
+    case 'settings': drawSettings(simCtx, d.settings.chrome, d.settings.brightness); break;
+    case 'boot': drawBoot(simCtx); break;
     default: drawLink(simCtx, DATA.link.chrome, DATA.link.model, cursor);
   }
+  renderExternal(d);
 }
 
 function simCycleCard(dir) {
-  if (SIM.screen === 'trace' || SIM.screen === 'settings') { SIM.screen = 'link'; renderSim(); return; }
   const idx = SIM_ORDER.indexOf(SIM.screen);
-  const next = idx === -1 ? 0 : (idx + dir + SIM_ORDER.length) % SIM_ORDER.length;
+  if (idx === -1) return;
+  const next = (idx + dir + SIM_ORDER.length) % SIM_ORDER.length;
   SIM.screen = SIM_ORDER[next];
+  SIM.externalOverride = null;
   renderSim();
 }
 function simMoveRow(dir) {
+  if (SIM.screen === 'settings') { SIM.brightness = Math.max(24,Math.min(255,SIM.brightness+dir*24)); renderSim(); return; }
   const rows = rowsForScreen(SIM.screen);
   if (!rows.length) return;
-  SIM.cursor[SIM.screen] = ((SIM.cursor[SIM.screen] || 0) + dir + rows.length) % rows.length;
+  SIM.cursor[SIM.screen] = Math.max(0, Math.min(rows.length - 1, (SIM.cursor[SIM.screen] || 0) + dir));
   renderSim();
 }
 function simEnter() {
-  if (SIM.screen === 'sweep') {
-    SIM.trace.row = DATA.sweep.rows[SIM.cursor.sweep] || DATA.sweep.rows[0];
-    SIM.trace.insp = { valid: false };
+  const d = fixtureData();
+  if (SIM.screen === 'link') {
+    if (SIM.cursor.link === 1) SIM.screen = 'drive';
+    else if (SIM.cursor.link === 2) SIM.screen = 'info';
+  } else if (SIM.screen === 'sweep') {
+    if (d.sweep.scanning) return;
+    if (d.sweep.continuous) { SIM.states.wifiContinuous=false; renderSim(); return; }
+    if (!d.sweep.rows.length || !d.sweep.inspectable) return;
+    SIM.trace.row = d.sweep.rows[SIM.cursor.sweep] || d.sweep.rows[0] || null;
+    SIM.trace.insp = { valid: false }; SIM.trace.listening = false;
     SIM.screen = 'trace';
-  } else if (SIM.screen === 'trace' && SIM.trace.row) {
-    SIM.trace.insp = { valid: true, listening: false, beacons: 88, interval_ms: 102, rsn: true, mfp_required: true, mfp_capable: true, aborted: false };
+  } else if (SIM.screen === 'trace' && d.trace.row) {
+    if (!SIM.trace.insp.valid && !SIM.trace.listening) SIM.trace.listening = true;
+    else {
+      SIM.trace.insp = { valid: true, beacons: 88, interval_ms: 102, uptime_s: 36, rsn: true, mfp_required: true, mfp_capable: true, aborted: false };
+      SIM.trace.listening = false;
+    }
+  } else if (SIM.screen === 'spectrum' && !SIM.states.spectrumLocked) {
+    const reading = d.spectrumBroad.model.readings[SIM.cursor.spectrum || 0];
+    if (reading) {
+      SIM.spectrumLockedChannel = reading.ch;
+      SIM.states.spectrumLocked = true;
+      SIM.cursor.spectrum = 0;
+    }
   }
   renderSim();
 }
 function simBack() {
-  if (SIM.screen === 'link') SIM.screen = 'settings';
+  if (SIM.helpVisible) SIM.helpVisible = false;
+  else if (SIM.screen === 'link') SIM.screen = 'settings';
+  else if (SIM.screen === 'settings') SIM.screen = 'link';
+  else if (SIM.screen === 'trace') SIM.screen = 'sweep';
   else SIM.screen = 'link';
+  SIM.externalOverride = null;
   renderSim();
 }
 function simToggleStart() {
-  const map = { deauth: 'deauthWatch', antisurv: 'antisurvWatch', subghz: 'subghzListen', zig: 'zigListen', beacons: 'beaconsListen' };
-  const key = map[SIM.screen];
-  if (key) SIM.states[key] = !SIM.states[key];
+  const map = { sweep:'wifiContinuous', contacts:'sniffer', spectrum:'spectrumActive', beacons:'beaconsScan', zig:'zigListen', subghz:'subghzListen', deauth:'deauthWatch', antisurv:'antisurvWatch' };
+  if (SIM.screen === 'antisurv') SIM.antiState = 'auto';
+  const key = map[SIM.screen]; if (key) SIM.states[key] = !SIM.states[key];
   renderSim();
 }
 /* 'x': Sniffer/802.15.4 switch tab, LoRa RX cycles the profile 'c' would
  * apply next — the three real onKeys() cases for this key. */
 function simCycleX() {
   if (SIM.screen === 'contacts') {
-    DATA.contacts.tab = DATA.contacts.tab === 'clients' ? 'probes' : 'clients';
+    SIM.contactsTab = SIM.contactsTab === 'clients' ? 'probes' : 'clients';
     SIM.cursor.contacts = 0;
   } else if (SIM.screen === 'zig') {
     SIM.zigTab = SIM.zigTab === 'pans' ? 'nodes' : 'pans';
@@ -1434,11 +2349,9 @@ function simCycleX() {
 }
 function simMark() {
   if (SIM.screen !== 'drive') return;
-  const chrome = DATA.drive.chrome;
-  const prevNotice = chrome.notice;
-  chrome.notice = 'MARKER LOGGED';
+  SIM.notice = 'MARKER LOGGED';
   renderSim();
-  setTimeout(() => { chrome.notice = prevNotice; renderSim(); }, 900);
+  setTimeout(() => { SIM.notice = ''; renderSim(); }, 900);
 }
 function simToggleHelp() { SIM.helpVisible = !SIM.helpVisible; renderSim(); }
 
@@ -1446,11 +2359,25 @@ document.getElementById('simFrame').addEventListener('keydown', function (e) {
   switch (e.key) {
     case ',': simCycleCard(-1); e.preventDefault(); break;
     case '/': simCycleCard(1); e.preventDefault(); break;
-    case ';': simMoveRow(-1); e.preventDefault(); break;
-    case '.': simMoveRow(1); e.preventDefault(); break;
+    case ';': simMoveRow(SIM.screen==='settings'?1:-1); e.preventDefault(); break;
+    case '.': simMoveRow(SIM.screen==='settings'?-1:1); e.preventDefault(); break;
     case 'Enter': simEnter(); e.preventDefault(); break;
     case '`': simBack(); e.preventDefault(); break;
     case 's': simToggleStart(); e.preventDefault(); break;
+    case 'c':
+      if(SIM.screen==='sweep'){SIM.states.wifiContinuous=!SIM.states.wifiContinuous;SIM.states.wifiScanning=false;SIM.scanAborted=false;}
+      else if(SIM.screen==='beacons')SIM.states.beaconsContinuous=!SIM.states.beaconsContinuous;
+      else if(SIM.screen==='subghz')SIM.loraConfig='configured';
+      renderSim();e.preventDefault();break;
+    case 'r': if(SIM.screen==='sweep'){
+      if(SIM.states.wifiScanning){SIM.states.wifiScanning=false;SIM.states.wifiContinuous=false;SIM.scanAborted=true;}
+      else {SIM.states.wifiScanning=true;SIM.states.wifiContinuous=false;SIM.scanAborted=false;}
+    }renderSim();e.preventDefault();break;
+    case 'a': if(SIM.screen==='beacons')SIM.states.beaconsTracker=!SIM.states.beaconsTracker;renderSim();e.preventDefault();break;
+    case 'w': if(SIM.screen==='link'){SIM.screen='sweep';SIM.states.wifiScanning=true;}renderSim();e.preventDefault();break;
+    case 'i': if(SIM.screen==='trace'){SIM.trace.listening=true;renderSim();}e.preventDefault();break;
+    case 'l': if(SIM.screen==='drive')SIM.states.driveLog=!SIM.states.driveLog;renderSim();e.preventDefault();break;
+    case 'd': SIM.debug=!SIM.debug;renderSim();e.preventDefault();break;
     case 'x': simCycleX(); e.preventDefault(); break;
     case 'm': simMark(); e.preventDefault(); break;
     case 'h': simToggleHelp(); e.preventDefault(); break;
@@ -1474,13 +2401,38 @@ document.querySelectorAll('.sim-touch [data-act]').forEach(btn => {
   });
 });
 
+const screenPicker=document.getElementById('screenPicker');
+[...NAV,...CONTEXT_SCREENS,...SIM_SPECIAL_SCREENS].forEach(item=>{const o=document.createElement('option');o.value=item.screen;o.textContent=item.section+' / '+item.label;screenPicker.appendChild(o);});
+screenPicker.addEventListener('change',()=>{SIM.helpVisible=false;SIM.externalOverride=null;SIM.screen=screenPicker.value;renderSim();});
+document.getElementById('fixturePicker').addEventListener('change',e=>setFixture(e.target.value));
+document.getElementById('linkPicker').addEventListener('change',e=>{SIM.linkState=e.target.value;renderSim();});
+document.getElementById('storagePicker').addEventListener('change',e=>{SIM.storageState=e.target.value;rebuildExternalGallery();renderSim();});
+document.getElementById('sdIndicatorPicker').addEventListener('change',e=>{SIM.sdIndicator=e.target.value;rebuildExternalGallery();renderSim();});
+document.getElementById('batteryPicker').addEventListener('change',e=>{SIM.batteryState=e.target.value;renderSim();});
+document.getElementById('antiPicker').addEventListener('change',e=>{SIM.antiState=e.target.value;rebuildExternalGallery();renderSim();});
+document.getElementById('gnssPicker').addEventListener('change',e=>{SIM.gnssState=e.target.value;renderSim();});
+document.getElementById('loraPicker').addEventListener('change',e=>{SIM.loraConfig=e.target.value;renderSim();});
+document.getElementById('externalProfilePicker').addEventListener('change',e=>{SIM.externalProfile=e.target.value;rebuildExternalGallery();renderSim();});
+
 buildGallery();
+buildExternalGallery();
 buildNavTable();
 buildDotLegend();
 buildPalette();
 renderSim();
 
 })();
+</script>
+<script>
+document.querySelectorAll('.obs-state-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.obsMode;
+    document.querySelectorAll('.obs-state-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    document.querySelectorAll('.obs-ext-img').forEach(img => {
+      img.src = 'brand/assets/external/' + img.dataset.slug + '-' + mode + '.png';
+    });
+  });
+});
 </script>
 </body>
 </html>
