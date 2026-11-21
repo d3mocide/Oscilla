@@ -14,6 +14,7 @@ idf_component_register(
          "wifi_sniff.c"
          "sniff_track.c"
          "wifi_channels.c"
+         "wifi_channel_picker.c"
          "wifi_deauth.c"
          "wifi_spectrum.c"
          "lora_radio.c"

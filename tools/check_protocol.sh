@@ -79,6 +79,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/wifi_channels_test.c firmware-c5/main/wifi_channels.c
 "$out/wifi_channels_test" | sed 's/^/  /'
 
+# D-UCB adaptive Wi-Fi channel picker (D-6).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-c5/main -o "$out/wifi_channel_picker_test" \
+    firmware-c5/test/host/wifi_channel_picker_test.c firmware-c5/main/wifi_channel_picker.c -lm
+"$out/wifi_channel_picker_test" | sed 's/^/  /'
+
 # LoRa event hex encoding: zero-length packets must still produce an empty,
 # terminated field, and undersized output must fail without partial writes.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \

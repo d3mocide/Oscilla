@@ -27,6 +27,7 @@
 #include "ocp_frame.h"
 #include "ocp_text.h"
 #include "radio_arbiter.h"
+#include "wifi_channel_picker.h"
 #include "wifi_channels.h"
 #include "wifi_network_table.h"
 
@@ -38,7 +39,9 @@ static SemaphoreHandle_t s_lock;
 static QueueHandle_t s_event_queue;
 static esp_timer_handle_t s_hop_timer;
 static wifi_network_table_t *s_table;
+static wifi_channel_picker_t s_picker;
 static uint8_t s_chan_idx;
+static uint32_t s_dwell_hits;
 static uint32_t s_session;
 static bool s_running;
 
@@ -90,6 +93,7 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
 
     wifi_network_t row;
     xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_dwell_hits++;
     uint8_t channel = k_channels[s_chan_idx];
     bool is_new = wifi_network_table_upsert(s_table, &info, channel,
                                             pkt->rx_ctrl.rssi, &row);
@@ -107,7 +111,9 @@ static void on_hop(void *arg)
 {
     (void)arg;
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    s_chan_idx = (uint8_t)((s_chan_idx + 1) % k_num_channels);
+    uint32_t hits = s_dwell_hits;
+    s_dwell_hits = 0;
+    s_chan_idx = (uint8_t)wifi_channel_picker_step(&s_picker, s_chan_idx, hits);
     uint8_t next = k_channels[s_chan_idx];
     xSemaphoreGive(s_lock);
 
@@ -157,7 +163,9 @@ void wifi_cmd_start_network_scan(void)
     xSemaphoreTake(s_lock, portMAX_DELAY);
     wifi_network_table_reset(s_table);
     s_chan_idx = 0;
-    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
+    s_dwell_hits = 0;
+    k_channels = wifi_channels(&k_num_channels);   /* region/band/channels may have changed */
+    wifi_channel_picker_reset(&s_picker, k_num_channels);
     s_session++;
     if (s_session == 0) s_session = 1;
     s_running = false;

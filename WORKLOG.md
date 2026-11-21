@@ -1,3 +1,22 @@
+## 2026-11-21 — D-UCB adaptive Wi-Fi channel picker (WP-4, D-6)
+
+- Implemented `firmware-c5/main/wifi_channel_picker.{h,c}` (pure C, zero heap
+  allocation, fixed 24-arm state) using discounted UCB1 (`gamma=0.95`,
+  saturating per-dwell reward `hits / (hits + 2)`, exploration constant `0.90`,
+  guaranteed initial full-list sweep so every active channel is sampled before
+  adaptive weighting begins).
+- Wired into `wifi_sniff.c` (frame hits), `wifi_networks.c` (beacon hits), and
+  `wifi_deauth.c` (deauth/disassoc hits; degrades to balanced round-robin when
+  quiet). `wifi_spectrum.c` (`channel_view`) stays uniform round-robin so
+  per-channel density bars remain unbiased. Updated `DESIGN.md` §6.1.
+- **Checks:** `check_protocol.sh` (new ASan/UBSan `wifi_channel_picker_test`
+  covering single-channel safety, initial sweep, quiet balance, >=3x busy
+  focus with starvation-freedom, and non-stationary shift adaptation),
+  mutation proof (disabling discounting `GAMMA=1.0` fails shift adaptation),
+  and `build_firmware.sh` (both `esp32c5` and `esp32s3` + stack guards).
+- **Not yet verified on hardware:** live dwell distribution under real
+  dual-band traffic.
+
 ## 2026-11-21 — Richer 802.11 beacon & RSN inspection (WP-7)
 
 - Extended passive 802.11 beacon/probe-response parsing (`beacon_parse.{h,c}`)

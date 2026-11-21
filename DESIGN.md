@@ -272,6 +272,7 @@ isolated third-party dependencies.
 | `wifi_recon.c` | **Passive** dual-band scan, RSSI-sorted store, paging (OCP-SPEC §10) |
 | `wifi_networks.c` | Continuous passive beacon/probe-response discovery; channel hop, first-sighting `[EVT] kind=network` stream |
 | `wifi_network_table.c` | Capped BSSID dedup/update table for continuous Wi-Fi discovery; pure C, host-tested |
+| `wifi_channel_picker.c` | D-UCB discounted bandit adaptive channel picker for sniffer/discovery/deauth (D-6); pure C, host-tested |
 | `wifi_inspect.c` | Passive beacon capture from one AP → MFP, uptime, interval |
 | `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
 | `radio_arbiter.c` | **Single-owner PHY arbitration** + power interlock. The load-bearing safety invariant. |

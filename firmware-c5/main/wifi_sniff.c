@@ -36,6 +36,7 @@
 #include "probe_parse.h"
 #include "radio_arbiter.h"
 #include "sniff_track.h"
+#include "wifi_channel_picker.h"
 #include "wifi_channels.h"
 
 static const char *TAG = "sniff";
@@ -47,8 +48,10 @@ static SemaphoreHandle_t s_lock;
 static esp_timer_handle_t s_hop_timer;
 
 static sniff_track_t *s_track;
+static wifi_channel_picker_t s_picker;
 static uint8_t s_chan_idx;
 static uint32_t s_total_pkts;
+static uint32_t s_dwell_hits;
 static int64_t s_started_us;
 
 /* Runs in the Wi-Fi driver task (see wifi_inspect.c's on_frame). Filter is
@@ -68,6 +71,7 @@ static void on_frame(void *buf, wifi_promiscuous_pkt_type_t type)
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_total_pkts++;
+    s_dwell_hits++;
     uint8_t ch = k_channels[s_chan_idx];
 
     if (type == WIFI_PKT_MGMT) {
@@ -107,7 +111,9 @@ static void on_hop(void *arg)
     xSemaphoreTake(s_lock, portMAX_DELAY);
     uint8_t finished_ch = k_channels[s_chan_idx];
     uint32_t pkts = s_total_pkts;
-    s_chan_idx = (uint8_t)((s_chan_idx + 1) % k_num_channels);
+    uint32_t hits = s_dwell_hits;
+    s_dwell_hits = 0;
+    s_chan_idx = (uint8_t)wifi_channel_picker_step(&s_picker, s_chan_idx, hits);
     uint8_t next_ch = k_channels[s_chan_idx];
     xSemaphoreGive(s_lock);
 
@@ -157,8 +163,10 @@ void wifi_cmd_start_sniffer(void)
     xSemaphoreTake(s_lock, portMAX_DELAY);
     sniff_track_reset(s_track);
     s_total_pkts = 0;
+    s_dwell_hits = 0;
     s_chan_idx = 0;
-    k_channels = wifi_channels(&k_num_channels);   /* region may have changed */
+    k_channels = wifi_channels(&k_num_channels);   /* region/band/channels may have changed */
+    wifi_channel_picker_reset(&s_picker, k_num_channels);
     s_started_us = esp_timer_get_time();
     xSemaphoreGive(s_lock);
 
