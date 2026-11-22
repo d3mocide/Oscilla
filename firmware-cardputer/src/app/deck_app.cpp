@@ -243,14 +243,22 @@ void DeckApp::onReply(const ocp::Item &it)
         const bool bt_scan_rejected = bt_scan_pending_;
         const bool bt_continuous_rejected = bt_continuous_pending_;
         const bool bt_airtag_rejected = bt_airtag_pending_;
+        const bool wardrive_rejected = wardrive_stream_pending_;
         bt_scan_pending_ = false;
         bt_continuous_pending_ = false;
         bt_airtag_pending_ = false;
+        wardrive_stream_pending_ = false;
         if (bt_scan_rejected) bt_.stop();
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
+        if (wardrive_rejected && code && *code == OCP_ERR_UNKNOWN &&
+            storage::wardriveLogStats().open && !wardrive_closing_) {
+            log("wardrive fallback: scan_networks");
+            requestScan(now_);
+            return;
+        }
         if (code && *code == OCP_ERR_BUSY &&
-            (bt_scan_rejected || bt_continuous_rejected || bt_airtag_rejected || spectrum_rejected)) {
+            (bt_scan_rejected || bt_continuous_rejected || bt_airtag_rejected || spectrum_rejected || wardrive_rejected)) {
             notice("PHY busy - stop current tool first");
         } else {
             notice(std::string("error ") + (code ? *code : "?") + ": " + (msg ? *msg : ""));
@@ -297,6 +305,13 @@ void DeckApp::onReply(const ocp::Item &it)
     }
     if (it.tag == OCP_MARK_CFG && wifi_continuous_pending_) {
         wifi_continuous_pending_ = false;
+    }
+    if (it.tag == OCP_MARK_CFG && wardrive_stream_pending_) {
+        wardrive_stream_pending_ = false;
+        wardrive_stream_active_ = true;
+        scan_.beginContinuous();
+        bt_.beginContinuous();
+        log("wardrive stream active");
     }
     if (it.tag == OCP_MARK_CFG && bt_continuous_pending_) {
         bt_continuous_pending_ = false;
@@ -469,6 +484,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     }
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     absorbDeviceEvent(it);         /* kind=airtag is the only source of truth here too */
+    enqueueWardriveEvent(it);      /* receipt-time GNSS geotag for start_wardrive */
     anti_.absorbEvent(it, now_); /* kind=airtag + deck-local movement correlation */
 
 }
@@ -494,7 +510,7 @@ bool DeckApp::phyEngineActive() const
 {
     return scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
            spectrum_.active() || deauth_.active() || bt_.scanning() || bt_.continuousActive() ||
-           bt_.airtagActive() || anti_.active() || zig_.active();
+           bt_.airtagActive() || anti_.active() || zig_.active() || wardrive_stream_active_;
 }
 
 void DeckApp::clearPhyBelief()
@@ -504,6 +520,8 @@ void DeckApp::clearPhyBelief()
     bt_continuous_pending_ = false;
     bt_airtag_pending_ = false;
     spectrum_start_pending_ = false;
+    wardrive_stream_active_ = false;
+    wardrive_stream_pending_ = false;
     scan_.stop();
     contacts_.stopSniffing();
     spectrum_.stop();
@@ -524,7 +542,8 @@ bool DeckApp::phyToolActive() const
 {
     return phyEngineActive() || scan_pending_ || wifi_continuous_pending_ ||
            spectrum_start_pending_ || bt_scan_pending_ || bt_continuous_pending_ ||
-           bt_airtag_pending_ || anti_start_pending_ || zig_start_pending_;
+           bt_airtag_pending_ || anti_start_pending_ || zig_start_pending_ ||
+           wardrive_stream_pending_;
 }
 
 bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
@@ -910,9 +929,12 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
 {
     if (storage::wardriveLogStats().open) {
         wardrive_closing_=true;wardrive_rescan_=false;
+        if (wardrive_stream_active_ || wardrive_stream_pending_) stopPhy(now_ms);
         notice("finishing queued rows...");return;
     }
     wardrive_closing_=false;wardrive_rescan_=false;
+    wardrive_ap_queue_.clear();wardrive_bt_queue_.clear();
+    wardrive_stream_active_=false;wardrive_stream_pending_=false;
 
     if (!storage::wardriveLogBegin(gnss_.fix())) {
         notice("no SD: logging unavailable");
@@ -925,13 +947,12 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
     notice(std::string("logging ") + storage::wardriveLogName());
     log("wardrive log begin " + std::string(storage::wardriveLogName()));
 
-    /* A wardrive session that just sits there until you separately go to
-     * Sweep isn't a wardrive mode, it's a hook - kick a survey off now, and
-     * the SCAN handler keeps it looping (onReply(), OCP_MARK_SCAN) for as
-     * long as the log stays open. Skipped if one's already running: let it
-     * finish rather than restarting it and losing its progress. */
-    if (!scan_.scanning() && preparePhyStart([this](uint32_t now) { requestScan(now); }, now_ms)) {
-        requestScan(now_ms);
+    /* Prefer probe-driven multi-band `start_wardrive` (Wi-Fi + duty-cycled
+     * passive BLE); older probes answering `unknown` fall back cleanly to
+     * looping `scan_networks`. */
+    if (client_.state() == ocp::LinkState::Ready &&
+        preparePhyStart([this](uint32_t now) { startWardriveStream(now); }, now_ms)) {
+        startWardriveStream(now_ms);
     }
 }
 
@@ -1545,8 +1566,16 @@ void DeckApp::tick(uint32_t now_ms)
     }
 
     client_.tick(now_ms);
-    tickWardrive(now_ms);
+    if (!drainWardriveStream()) tickWardrive(now_ms);
     tickSessions(now_ms);
+
+    if (wardrive_stream_pending_ && !client_.pending()) {
+        wardrive_stream_pending_ = false;
+        if (storage::wardriveLogStats().open && !wardrive_closing_) {
+            log("wardrive start timeout; fallback scan_networks");
+            requestScan(now_ms);
+        }
+    }
 
     /* Client timeouts intentionally have no callback. Clean up the optimistic
      * UI state here so a lost/invalid CFG cannot leave anti-surveillance

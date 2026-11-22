@@ -272,6 +272,8 @@ isolated third-party dependencies.
 | `wifi_recon.c` | **Passive** dual-band scan, RSSI-sorted store, paging (OCP-SPEC §10) |
 | `wifi_networks.c` | Continuous passive beacon/probe-response discovery; channel hop, first-sighting `[EVT] kind=network` stream |
 | `wifi_network_table.c` | Capped BSSID dedup/update table for continuous Wi-Fi discovery; pure C, host-tested |
+| `wardrive_cache.c` | Bounded TTL + RSSI-jump + LRU dedup cache for moving multi-band wardrives; pure C, host-tested |
+| `wifi_wardrive.c` | Probe-driven `start_wardrive` (`PHY_OWNER_WARDRIVE`): sequential passive Wi-Fi hop + duty-cycled passive BLE sweep streaming `[EVT] kind=network` and `kind=ble` |
 | `wifi_channel_picker.c` | D-UCB discounted bandit adaptive channel picker for sniffer/discovery/deauth (D-6); pure C, host-tested |
 | `wifi_inspect.c` | Passive beacon capture from one AP → MFP, uptime, interval |
 | `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
@@ -447,7 +449,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **BLE Scan** | `scan_bt` / `start_ble_scan` / `scan_airtag` | BLE device list — a bounded scan (`s`), continuous live discovery (`c`), or tracker-only stream (`a`); all share the passive BLE PHY owner. |
 | **802.15.4** | `start_zig_recon` + `zig_*` | PAN → node inventory, protocol guess, signal quality. Receive-only. |
 | **LoRa RX** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
-| **Drive** | local GNSS + `scan_networks` (+ probe's `start_wardrive` in P7) | Fix status, running counts, session control; rows written to deck SD. `l` opens a session and auto-loops `scan_networks` for as long as it stays open — screen-independent, same as every other engine — draining one AP row per main loop against its page-receipt fix snapshot before fetching another page or repeating the survey; the probe's own `start_wardrive` verb is declared in `ocp.h` but has no handler yet, so a probe-driven survey mode is P7. |
+| **Drive** | local GNSS + `start_wardrive` (fallback: `scan_networks`) | Fix status, running AP + BT counts, session control; rows written to deck SD as WigleWifi-1.6 CSV (`Type=WIFI` and `Type=BLE`, with `MfgrId` populated) + KML track/placemarks/waypoints. `l` opens a session and starts `start_wardrive` (streaming receipt-time geotagged Wi-Fi + duty-cycled BLE events through a bounded 1-row/loop SD queue, falling back cleanly to looping `scan_networks` on older probes). |
 | **Log** | local SD browse | `o` opens saved wardrive/LoRa sessions without stopping reception; grouped inventory, observed record span/counts, six-record pages and saved raw packet hex/ASCII. `x` filters All/Drive/LoRa, `r` refreshes inventory, Enter drills down and Back steps out. |
 
 ### 7.3 Interaction & state

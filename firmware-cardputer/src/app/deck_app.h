@@ -22,6 +22,7 @@
 #include "model/gnss_noise.h"
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <string>
 
@@ -223,12 +224,30 @@ private:
     void toggleAntisurveillance(uint32_t now_ms);
     void toggleZig(uint32_t now_ms);
     void toggleWardriveLog(uint32_t now_ms);
+    void startWardriveStream(uint32_t now_ms);
+    void enqueueWardriveEvent(const ocp::Item &it);
+    bool drainWardriveStream();
     void logScanRows();
     bool wardriveRowsPending() const;
     void tickWardrive(uint32_t now);
     void finishWardrive();
     void gnssDiagnostic(const std::string &arg,uint32_t now);
     model::GnssNoise gnss_noise_;
+    struct QueuedWardriveAp {
+        model::ApRow ap;
+        model::GnssFix fix;
+        uint32_t fix_age_ms = 0;
+    };
+    struct QueuedWardriveBt {
+        model::BtDevice dev;
+        model::GnssFix fix;
+        uint32_t fix_age_ms = 0;
+    };
+    static constexpr size_t kMaxWardriveQueue = 64;
+    std::deque<QueuedWardriveAp> wardrive_ap_queue_;
+    std::deque<QueuedWardriveBt> wardrive_bt_queue_;
+    bool wardrive_stream_active_ = false;
+    bool wardrive_stream_pending_ = false;
     bool wardrive_rescan_=false,wardrive_closing_=false;
     model::GnssFix wardrive_page_fix_;
     uint32_t wardrive_page_fix_ms_=0,scan_wait_started_ms_=0;

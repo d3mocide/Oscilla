@@ -30,6 +30,7 @@
 
 #include <string>
 
+#include "model/bt_model.h"
 #include "model/scan_model.h"
 
 namespace storage {
@@ -51,5 +52,11 @@ std::string wardriveCsvColumnHeader();
 std::string wardriveCsvRow(const model::ApRow &ap,
                            int year, int month, int day, int hour, int min, int sec,
                            double lat, double lon, double alt_m, float accuracy_m);
+
+/* One Bluetooth LE observation row (14-column WigleWifi-1.6, Type=BLE,
+ * MfgrId populated with 4-hex company ID when present). */
+std::string wardriveCsvBtRow(const model::BtDevice &dev,
+                             int year, int month, int day, int hour, int min, int sec,
+                             double lat, double lon, double alt_m, float accuracy_m);
 
 }  // namespace storage

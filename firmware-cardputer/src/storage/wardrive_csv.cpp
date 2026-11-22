@@ -52,6 +52,7 @@ std::string authModeTag(const std::string &auth)
     if (auth == "WEP") return "[WEP][ESS]";
     if (auth == "WPA") return "[WPA-PSK][ESS]";
     if (auth == "WPA2") return "[WPA2-PSK][ESS]";
+    if (auth == "RSN") return "[RSN][ESS]";
     if (auth == "WPA/WPA2") return "[WPA-PSK][WPA2-PSK][ESS]";
     if (auth == "WPA3") return "[WPA3-SAE][ESS]";
     if (auth == "WPA2/WPA3") return "[WPA2-PSK][WPA3-SAE][ESS]";
@@ -113,6 +114,29 @@ std::string wardriveCsvRow(const model::ApRow &ap,
         year, month, day, hour, min, sec,
         (unsigned)ap.ch, freq, ap.rssi,
         lat, lon, static_cast<double>(alt_m), static_cast<double>(accuracy_m));
+    if (n < 0) return "";
+    size_t len = static_cast<size_t>(n) < sizeof buf ? static_cast<size_t>(n) : sizeof buf - 1;
+    return std::string(buf, len);
+}
+
+std::string wardriveCsvBtRow(const model::BtDevice &dev,
+                             int year, int month, int day, int hour, int min, int sec,
+                             double lat, double lon, double alt_m, float accuracy_m)
+{
+    std::string name = csvMunge(dev.name);
+    std::string mfr = csvMunge(dev.mfr);
+    std::string auth = dev.tracker && !dev.tracker_kind.empty()
+                           ? ("[BLE][" + csvMunge(dev.tracker_kind) + "]")
+                           : std::string("[BLE]");
+
+    char buf[512];
+    int n = std::snprintf(buf, sizeof buf,
+        "%s,%s,%s,%04d-%02d-%02d %02d:%02d:%02d,0,0,%d,%.6f,%.6f,%f,%.1f,,%s,BLE\n",
+        dev.mac.c_str(), name.c_str(), auth.c_str(),
+        year, month, day, hour, min, sec,
+        dev.rssi,
+        lat, lon, static_cast<double>(alt_m), static_cast<double>(accuracy_m),
+        mfr.c_str());
     if (n < 0) return "";
     size_t len = static_cast<size_t>(n) < sizeof buf ? static_cast<size_t>(n) : sizeof buf - 1;
     return std::string(buf, len);

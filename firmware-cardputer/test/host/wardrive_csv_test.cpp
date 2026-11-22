@@ -130,6 +130,40 @@ int main()
         for (char c : row) if (c == ',') commas++;
         check(commas == 13, "exactly 13 commas -> 14 columns, matching the declared column header");
     }
+    {
+        auto a = ap("LiveAP", "00:00:00:00:00:05", 6, "RSN", -58, false);
+        std::string row = storage::wardriveCsvRow(a, 2026, 11, 21, 15, 0, 0, 47.0, -122.0, 10.0, 0.0f);
+        check(row.find(",[RSN][ESS],") != std::string::npos,
+              "continuous-discovery RSN auth maps to truthful [RSN][ESS]");
+    }
+    {
+        model::BtDevice dev;
+        dev.mac = "aa:bb:cc:dd:ee:01";
+        dev.name = "Headset,Pro";
+        dev.mfr = "004c";
+        dev.tracker = true;
+        dev.tracker_kind = "airtag";
+        dev.rssi = -64;
+        std::string row = storage::wardriveCsvBtRow(dev, 2026, 11, 21, 15, 30, 12,
+                                                    47.283, -122.419, 120.0, 0.0f);
+        check(row == "aa:bb:cc:dd:ee:01,Headset\\054Pro,[BLE][airtag],2026-11-21 15:30:12,0,0,-64,"
+                     "47.283000,-122.419000,120.000000,0.0,,004c,BLE\n",
+              "WigleWifi-1.6 BLE row carries munged name, tracker tag, MfgrId and Type=BLE");
+        size_t commas = 0;
+        for (char c : row) if (c == ',') commas++;
+        check(commas == 13, "BLE row has exactly 13 commas -> 14 columns");
+    }
+    {
+        model::BtDevice dev;
+        dev.mac = "aa:bb:cc:dd:ee:02";
+        dev.name = "=EVIL()";
+        dev.rssi = -81;
+        std::string row = storage::wardriveCsvBtRow(dev, 2026, 11, 21, 15, 30, 13,
+                                                    0.0, 0.0, 0.0, 0.0f);
+        check(row.find(",\\075EVIL(),[BLE],") != std::string::npos &&
+              row.find(",,,BLE\n") != std::string::npos,
+              "BLE row neutralizes formula prefix and emits blank MfgrId cleanly");
+    }
 
     std::printf("\n%s: %d passed, %d failed\n", g_fail ? "wardrive csv test FAILED" : "wardrive csv test OK",
                g_pass, g_fail);

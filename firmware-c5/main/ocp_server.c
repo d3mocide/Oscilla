@@ -21,6 +21,7 @@
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
+#include "wifi_wardrive.h"
 #include "zig_recon.h"
 
 #include "freertos/FreeRTOS.h"
@@ -366,6 +367,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_SET_CHANNELS:
         cmd_set_channels(argv[1]);
+        break;
+
+    case OCP_VID_START_WARDRIVE:
+        wifi_cmd_start_wardrive(argc, argv);
         break;
 
     case OCP_VID_REBOOT:

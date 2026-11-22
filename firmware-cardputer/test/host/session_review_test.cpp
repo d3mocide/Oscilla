@@ -32,10 +32,13 @@ int main() {
     }
     {
         model::ApRow ap;ap.bssid="02:00:00:00:00:01";ap.ssid="test,\"\n";ap.auth="WPA2";ap.ch=6;ap.rssi=-128;
+        model::BtDevice bt;bt.mac="02:00:00:00:00:bb";bt.name="Beacon,1";bt.mfr="004c";bt.rssi=-66;
         model::SessionParser roundtrip;roundtrip.begin(SessionKind::Drive);
-        auto saved=storage::wardriveCsvHeader("test")+storage::wardriveCsvColumnHeader()+storage::wardriveCsvRow(ap,2026,11,17,12,30,0,45.0,-123.0,5.0,4.0);
+        auto saved=storage::wardriveCsvHeader("test")+storage::wardriveCsvColumnHeader()
+            +storage::wardriveCsvRow(ap,2026,11,17,12,30,0,45.0,-123.0,5.0,4.0)
+            +storage::wardriveCsvBtRow(bt,2026,11,17,12,30,5,45.0,-123.0,5.0,4.0);
         for(char ch:saved)roundtrip.feed(ch);
-        roundtrip.finish();assert(roundtrip.summary.valid==1&&roundtrip.summary.bad==0&&roundtrip.page[0].name==ap.ssid);
+        roundtrip.finish();assert(roundtrip.summary.valid==2&&roundtrip.summary.bad==0&&roundtrip.page[0].name==ap.ssid&&roundtrip.page[1].name==bt.name);
     }
     SessionParser p;
     p.begin(SessionKind::Lora);

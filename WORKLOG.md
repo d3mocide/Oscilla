@@ -1,3 +1,38 @@
+## 2026-11-21 — Probe-driven multi-band `start_wardrive` & WigleWifi-1.6 BLE CSV (WP-3)
+
+- **Probe (`firmware-c5/main/wardrive_cache.{h,c}`, `wifi_wardrive.{h,c}`,
+  `ble_recon.{h,c}`, `radio_arbiter.{h,c}`, `ocp_server.c`, `protocol/ocp.h`):**
+  - Added `PHY_OWNER_WARDRIVE` / `OCP_OWNER_WARDRIVE` (`"wardrive"`), modelling
+    Wi-Fi + duty-cycled BLE coexistence as a single combined PHY owner (DESIGN §6.2).
+  - Added pure-C `wardrive_cache.{h,c}` (256 Wi-Fi + 128 BLE slots, TTL
+    re-emission, `>= +10 dB` RSSI-jump re-emission, clock-wrap safe, LRU
+    eviction when full) so moving drives never stall on fixed tables.
+  - Added `wifi_wardrive.{h,c}` handling `start_wardrive [ble] [wifi_dwell_ms]
+    [ble_dwell_ms] [ttl_s]` (OCP-SPEC §10.10): sequentially alternates passive
+    Wi-Fi hopping (`beacon_parse`, zero probe requests) with bounded passive
+    BLE sweeps via `ble_recon_wardrive_window()` routed through `ble_recon.c`'s
+    single audited `start_disc()` choke point (`params.passive = 1`), emitting
+    `[EVT] kind=network` and `[EVT] kind=ble` through non-blocking
+    `ocp_event_submit()`, with <= 25 ms stop responsiveness.
+- **Deck (`storage/wardrive_csv.{h,cpp}`, `storage/wardrive_logger.{h,cpp}`,
+  `model/session_review.cpp`, `app/deck_app.{h,cpp}`, `app/deck_wardrive.cpp`,
+  `app/deck_debug_snapshot.cpp`, `ui/gnss_view.cpp`):**
+  - Added 14-column WigleWifi-1.6 `wardriveCsvBtRow()` (`Type=BLE`, `Channel=0`,
+    `Frequency=0`, `MfgrId` populated, hostile name/formula neutralization) and
+    `[RSN][ESS]` mapping for continuous-discovery Wi-Fi rows; updated
+    `session_review.cpp` so LOGS reads mixed `WIFI` + `BLE` Drive CSVs cleanly.
+  - Wired `DeckApp::toggleWardriveLog()` to start `OCP_V_START_WARDRIVE` with
+    bounded receipt-time-geotagged Wi-Fi/BT queues drained 1 row/loop (falling
+    back automatically to legacy `scan_networks` on `code=unknown` from older
+    probes), preserving `test_wardrive_scan_cursor.py` unchanged.
+- **Checks:** `check_protocol.sh` (ASan/UBSan `wardrive_cache_test`, expanded
+  `wardrive_csv_test` 24/24, `session_review_test`, `check_rx_only.py` across
+  262 source files, `test_wardrive_scan_cursor.py`), two mutation proofs
+  (disabling LRU eviction and altering `Type=BLE` column both caught),
+  `render_external_views.py`, and `build_firmware.sh` (both boards + stack guards).
+- **Not yet verified on hardware:** live `start_wardrive` Wi-Fi+BLE cycling,
+  stop teardown latency, and real WiGLE CSV import check on reflashed boards.
+
 ## 2026-11-21 — Probe NVS configuration persistence (WP-5)
 
 - Added pure-C `firmware-c5/main/config_codec.{h,c}` implementing a fixed

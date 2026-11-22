@@ -111,16 +111,25 @@ bool parseRecord(SessionKind kind, const std::string &line, SavedRecord &r) {
         r.name = "RAW PACKET";
         return true;
     }
-    if (f.size() != 14 || !mac(f[0]) || f[13] != "WIFI" || f[1].size() > 128) return false;
+    const bool is_wifi = f[13] == "WIFI";
+    const bool is_bt = f[13] == "BLE";
+    if (f.size() != 14 || !mac(f[0]) || (!is_wifi && !is_bt) || f[1].size() > 128) return false;
     r.identity = f[0];
     r.name = unmunge(f[1]);
     r.auth = f[2];
     r.stamp = f[3];
     r.timed = utc(f[3], r.time);
-    if (!number(f[4], 1, 196, v)) return false;
-    r.ch = v;
-    if (!number(f[5], 2000, 6000, v)) return false;
-    r.frequency = v;
+    if (is_wifi) {
+        if (!number(f[4], 1, 196, v)) return false;
+        r.ch = v;
+        if (!number(f[5], 2000, 6000, v)) return false;
+        r.frequency = v;
+    } else {
+        if (!number(f[4], 0, 39, v)) return false;
+        r.ch = v;
+        if (!number(f[5], 0, 2500, v)) return false;
+        r.frequency = v;
+    }
     if (!number(f[6], -128, 127, v) || !real(f[7], -90, 90) || !real(f[8], -180, 180)) return false;
     r.rssi = v;
     return true;

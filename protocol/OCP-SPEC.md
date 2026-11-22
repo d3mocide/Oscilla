@@ -590,10 +590,39 @@ untouched on `code=badarg`.
 [CFG] band=24 chans=1,6,11 END
 ```
 
-The probe does not persist the band scope; it boots as `auto` and reports
-`band=` in `[HELLO]` and `[STATUS]`, so the deck can keep the setting on SD
-and resend it when the two disagree and the PHY lane is idle. Receive-only
-(§7): band and channel filters only restrict which channels are listened to.
+The probe persists region, band scope, and custom channels in NVS (`config.c`),
+falling back to `US`/`auto`/`all` when empty or corrupt, and reports `region=`
+and `band=` in `[HELLO]` and `[STATUS]` so the deck can keep SD and probe in
+sync when the PHY lane is idle. Receive-only (§7): band and channel filters
+only restrict which channels are listened to.
+
+### 10.10 `start_wardrive [ble] [wifi_dwell_ms] [ble_dwell_ms] [ttl_s]`
+
+Probe-driven passive multi-band wardrive mode. Holds the PHY lane as a single
+combined owner (`owner=wardrive`, DESIGN §6.2) and alternates sequentially
+between passive Wi-Fi channel hopping (`esp_wifi_set_promiscuous` +
+`beacon_parse`, zero probe requests) and duty-cycled passive BLE windows
+(`ble_gap_disc` with `passive=1`, zero scan requests, Wi-Fi promiscuous off):
+
+- `ble`: `0` or `1` (default `1` if `ble` cap is ready, else `0`; explicitly
+  requesting `1` without BLE returns `code=nocap`).
+- `wifi_dwell_ms`: `50..1000` ms per Wi-Fi channel (default `200`).
+- `ble_dwell_ms`: `250..5000` ms per BLE sweep window (default `1500`).
+- `ttl_s`: `5..300` s re-emission dedup TTL (default `30`). Moving drives
+  re-emit a seen BSSID/MAC after `ttl_s` or a `>= 10 dB` RSSI improvement;
+  LRU eviction prevents fixed-size tables from stalling on long drives.
+
+```
+> start_wardrive
+[CFG] mode=wardrive ble=1 dwell_ms=200 ble_ms=1500 ttl_s=30 END
+[EVT] kind=network ssid="HomeNet" bssid=aa:bb:cc:dd:ee:ff ch=6 rssi=-58 band=2.4 privacy=1 rsn=1 mfp_capable=1 mfp_required=0 interval_ms=100
+[EVT] kind=ble mac=f4:12:34:56:78:9a name="Pixel Buds" mfr=0075 tracker="" rssi=-64
+> stop phy
+[STOP] lane=phy running=1 END
+```
+
+Older probes that reply `code=unknown` to `start_wardrive` are supported by
+deck-side fallback to looping `scan_networks`.
 
 ## 11. BLE frames
 

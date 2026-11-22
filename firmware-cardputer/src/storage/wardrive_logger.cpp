@@ -286,6 +286,25 @@ void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t f
     unlock();
 }
 
+void wardriveLogBt(const model::BtDevice &dev, const model::GnssFix &fix, uint32_t fix_age_ms)
+{
+    if (!g_open) return;
+    if (!fix.valid) { g_stats.bt_no_fix++; return; }
+    (void)fix_age_ms;
+
+    if (!lock()) return;
+
+    int h = 0, m = 0, s = 0;
+    model::splitUtcTime(fix.utc, &h, &m, &s);
+    std::string csv_row = wardriveCsvBtRow(dev, fix.year, fix.month, fix.day, h, m, s,
+                                           fix.lat_deg, fix.lon_deg, fix.alt_m, 0.0f);
+    bool ok = append(g_csv, csv_row) && commit(&g_csv, nullptr);
+    if (!ok) { closeDead(); unlock(); return; }
+
+    g_stats.bt++;
+    unlock();
+}
+
 bool wardriveLogWaypoint(const model::GnssFix &fix, uint32_t *out_index)
 {
     if (!g_open || !fix.valid) return false;

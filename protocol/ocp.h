@@ -347,11 +347,18 @@ typedef enum {
 #define OCP_BAND_AUTO           "auto"
 #define OCP_CHANNELS_ALL        "all"
 
+/* Wardrive mode configuration (OCP-SPEC §10.10). */
+#define OCP_K_MODE              "mode"
+#define OCP_K_BLE               "ble"
+#define OCP_K_BLE_MS            "ble_ms"
+#define OCP_K_TTL_S             "ttl_s"
+
 /* PHY-lane owners, as reported by [STATUS] and [ERR] owner=. */
 #define OCP_OWNER_NONE          "none"
 #define OCP_OWNER_WIFI          "wifi"
 #define OCP_OWNER_BLE           "ble"
 #define OCP_OWNER_IEEE802154    "ieee802154"
+#define OCP_OWNER_WARDRIVE      "wardrive"
 
 /* `stop` scope: DESIGN §6.2's arbiter lanes, plus "all" (D-16).
  * A bare `stop` means OCP_LANE_ALL, so older decks keep working. */

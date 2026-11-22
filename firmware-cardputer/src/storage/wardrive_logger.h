@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "model/bt_model.h"
 #include "model/gnss_model.h"
 #include "model/scan_model.h"
 
@@ -26,10 +27,12 @@ namespace storage {
 
 struct WardriveLogStats {
     bool open = false;
-    uint32_t aps = 0;           /* observations written with a valid fix    */
-    uint32_t aps_no_fix = 0;    /* observations dropped for want of a fix   */
-    uint32_t track_points = 0;  /* drive-track vertices                     */
-    uint32_t waypoints = 0;     /* manual operator bookmarks                */
+    uint32_t aps = 0;           /* Wi-Fi observations written with a valid fix */
+    uint32_t aps_no_fix = 0;    /* Wi-Fi observations dropped for want of a fix */
+    uint32_t bt = 0;            /* BLE observations written with a valid fix   */
+    uint32_t bt_no_fix = 0;     /* BLE observations dropped for want of a fix  */
+    uint32_t track_points = 0;  /* drive-track vertices                        */
+    uint32_t waypoints = 0;     /* manual operator bookmarks                   */
 };
 
 /* Opens /oscilla/wardrive/drive_NNNN.{csv,kml}. Numbered, not date-named:
@@ -45,6 +48,9 @@ void wardriveLogTrackPoint(const model::GnssFix &fix);
 
 /* One AP observation. Counted but not written unless `fix.valid`. */
 void wardriveLogAp(const model::ApRow &ap, const model::GnssFix &fix, uint32_t fix_age_ms);
+
+/* One Bluetooth LE observation into the WigleWifi-1.6 CSV (`Type=BLE`). */
+void wardriveLogBt(const model::BtDevice &dev, const model::GnssFix &fix, uint32_t fix_age_ms);
 
 /* Drops a manual waypoint placemark into the active drive KML. */
 bool wardriveLogWaypoint(const model::GnssFix &fix, uint32_t *out_index = nullptr);

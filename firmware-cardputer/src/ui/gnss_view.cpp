@@ -17,10 +17,12 @@ void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &ch
     d.drawFastHLine(5,kBodyTop+17,230,kDimGreen);
     const char *labels[]={"TARGETS SAVED","FIX QUALITY","TRACK / NOFIX","SD SESSION"};
     char value[4][40];
-    snprintf(value[0],sizeof value[0],"%lu AP",(unsigned long)log.aps);
+    if (log.bt) snprintf(value[0], sizeof value[0], "%lu AP %lu BT",
+                         (unsigned long)log.aps, (unsigned long)log.bt);
+    else snprintf(value[0], sizeof value[0], "%lu AP", (unsigned long)log.aps);
     if(fresh) snprintf(value[1],sizeof value[1],"%.1f HDOP",(double)fix.hdop);
     else snprintf(value[1],sizeof value[1],"%s",state==model::GnssState::FixLost ? "FIX LOST" : state==model::GnssState::Fixed ? "AGED FIX" : gps.hasUartData(now) ? "SEARCHING" : "UART SILENT");
-    snprintf(value[2],sizeof value[2],"%lu / %lu",(unsigned long)log.track_points,(unsigned long)log.aps_no_fix);
+    snprintf(value[2],sizeof value[2],"%lu / %lu",(unsigned long)log.track_points,(unsigned long)(log.aps_no_fix + log.bt_no_fix));
     snprintf(value[3],sizeof value[3],"%s",closing?"CLOSING":log.open ? "RECORDING" : "CLOSED");
     for(int i=0;i<4;++i) {
         const int y=kBodyTop+25+i*15;const uint16_t bg=i==1 ? kSelectionGlow : kVoidInk;

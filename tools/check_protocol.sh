@@ -146,6 +146,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/wifi_network_table_test.c firmware-c5/main/wifi_network_table.c
 "$out/wifi_network_table_test" | tail -1 | sed 's/^/  /'
 
+# Wardrive TTL/LRU observation dedup cache (WP-3).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/wardrive_cache_test" \
+    firmware-c5/test/host/wardrive_cache_test.c firmware-c5/main/wardrive_cache.c
+"$out/wardrive_cache_test" | tail -1 | sed 's/^/  /'
+
 # Deauth/disassoc frame parser (deauth_detector's classification path).
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -o "$out/deauth_parse_test" firmware-c5/test/host/deauth_parse_test.c firmware-c5/main/deauth_parse.c

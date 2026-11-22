@@ -17,6 +17,8 @@ idf_component_register(
          "wifi_channel_picker.c"
          "wifi_deauth.c"
          "wifi_spectrum.c"
+         "wardrive_cache.c"
+         "wifi_wardrive.c"
          "lora_radio.c"
          "lora_hex.c"
          "lora_recon.c"

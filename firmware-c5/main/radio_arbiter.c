@@ -55,6 +55,7 @@ const char *arbiter_owner_name(phy_owner_t who)
         case PHY_OWNER_WIFI:       return OCP_OWNER_WIFI;
         case PHY_OWNER_BLE:        return OCP_OWNER_BLE;
         case PHY_OWNER_IEEE802154: return OCP_OWNER_IEEE802154;
+        case PHY_OWNER_WARDRIVE:   return OCP_OWNER_WARDRIVE;
         case PHY_OWNER_NONE:       break;
     }
     return OCP_OWNER_NONE;

@@ -20,6 +20,7 @@ typedef enum {
     PHY_OWNER_WIFI,
     PHY_OWNER_BLE,
     PHY_OWNER_IEEE802154,
+    PHY_OWNER_WARDRIVE,
 } phy_owner_t;
 
 /* Must return only once the owner has released the PHY (or given up). */

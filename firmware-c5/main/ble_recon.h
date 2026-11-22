@@ -15,7 +15,9 @@
 #define OSCILLA_BLE_RECON_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
+#include "ble_adv_parse.h"
 
 #define BLE_SCAN_DWELL_MS   6000   /* default scan_bt window */
 #define BLE_SCAN_DWELL_MAX_MS 60000 /* bounded so one session cannot monopolize PHY */
@@ -48,5 +50,13 @@ void ble_cmd_scan_airtag(void);
  * scan_airtag. The deck owns the movement correlation because GNSS is
  * deck-local and never crosses OCP. */
 void ble_cmd_start_antisurveillance(void);
+
+typedef void (*ble_wardrive_cb_t)(const uint8_t addr[6], const ble_adv_info_t *info,
+                                  int8_t rssi, void *ctx);
+
+/* Bounded duty-cycled passive BLE sweep for wifi_wardrive. Caller must own
+ * PHY_OWNER_WARDRIVE with Wi-Fi promiscuous disabled. Strictly passive. */
+esp_err_t ble_recon_wardrive_window(uint32_t dwell_ms, ble_wardrive_cb_t cb, void *ctx,
+                                    const volatile bool *stop_req);
 
 #endif /* OSCILLA_BLE_RECON_H */

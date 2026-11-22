@@ -34,6 +34,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "host/ble_gap.h"
 #include "host/ble_hs.h"
@@ -57,6 +58,7 @@ typedef enum {
     BLE_MODE_SCAN_CONTINUOUS,
     BLE_MODE_SCAN_AIRTAG,
     BLE_MODE_ANTISURVEILLANCE,
+    BLE_MODE_WARDRIVE,
 } ble_mode_t;
 
 static SemaphoreHandle_t s_lock;
@@ -68,6 +70,9 @@ static int64_t s_started_us;
 static uint32_t s_elapsed_ms;
 static uint32_t s_dwell_ms;
 static uint32_t s_airtag_n;
+static ble_wardrive_cb_t s_wd_cb;
+static void *s_wd_ctx;
+static volatile bool s_wd_done;
 
 static struct ble_gap_disc_params ble_passive_disc_params(void)
 {
@@ -116,6 +121,12 @@ static void emit_ble_frame(bool aborted)
 static void finish_scan(bool aborted)
 {
     if (s_mode == BLE_MODE_NONE) { xSemaphoreGive(s_lock); return; }
+    if (s_mode == BLE_MODE_WARDRIVE) {
+        s_mode = BLE_MODE_NONE;
+        s_wd_done = true;
+        xSemaphoreGive(s_lock);
+        return;
+    }
     bool was_bt = (s_mode == BLE_MODE_SCAN_BT);
     s_elapsed_ms = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000);
     s_mode = BLE_MODE_NONE;
@@ -132,6 +143,17 @@ static int gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_DISC: {
         xSemaphoreTake(s_lock, portMAX_DELAY);
         if (s_mode == BLE_MODE_NONE) { xSemaphoreGive(s_lock); return 0; }
+        if (s_mode == BLE_MODE_WARDRIVE) {
+            ble_wardrive_cb_t cb = s_wd_cb;
+            void *ctx = s_wd_ctx;
+            xSemaphoreGive(s_lock);
+            if (cb) {
+                ble_adv_info_t info;
+                ble_adv_parse(event->disc.data, event->disc.length_data, &info);
+                cb(event->disc.addr.val, &info, event->disc.rssi, ctx);
+            }
+            return 0;
+        }
 
         ble_adv_info_t info;
         ble_adv_parse(event->disc.data, event->disc.length_data, &info);
@@ -387,3 +409,46 @@ esp_err_t ble_recon_init(void)
 }
 
 bool ble_recon_ready(void) { return s_ready; }
+
+esp_err_t ble_recon_wardrive_window(uint32_t dwell_ms, ble_wardrive_cb_t cb, void *ctx,
+                                    const volatile bool *stop_req)
+{
+    if (!s_ready || !cb || dwell_ms == 0) return ESP_ERR_INVALID_STATE;
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_mode != BLE_MODE_NONE) {
+        xSemaphoreGive(s_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+    s_mode = BLE_MODE_WARDRIVE;
+    s_wd_cb = cb;
+    s_wd_ctx = ctx;
+    s_wd_done = false;
+    xSemaphoreGive(s_lock);
+
+    if (start_disc((int32_t)dwell_ms) != 0) {
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        s_mode = BLE_MODE_NONE;
+        s_wd_cb = NULL;
+        s_wd_ctx = NULL;
+        xSemaphoreGive(s_lock);
+        return ESP_FAIL;
+    }
+
+    int64_t start_us = esp_timer_get_time();
+    uint32_t limit_ms = dwell_ms + 250u;
+    while (!s_wd_done && (!stop_req || !*stop_req)) {
+        uint32_t elapsed = (uint32_t)((esp_timer_get_time() - start_us) / 1000);
+        if (elapsed >= limit_ms) break;
+        vTaskDelay(pdMS_TO_TICKS(25));
+    }
+
+    if (!s_wd_done) (void)ble_gap_disc_cancel();
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_mode == BLE_MODE_WARDRIVE) s_mode = BLE_MODE_NONE;
+    s_wd_cb = NULL;
+    s_wd_ctx = NULL;
+    s_wd_done = true;
+    xSemaphoreGive(s_lock);
+    return ESP_OK;
+}

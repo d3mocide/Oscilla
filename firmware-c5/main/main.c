@@ -21,6 +21,7 @@
 #include "wifi_recon.h"
 #include "wifi_sniff.h"
 #include "wifi_spectrum.h"
+#include "wifi_wardrive.h"
 #include "zig_recon.h"
 
 #include "esp_log.h"
@@ -49,6 +50,7 @@ void app_main(void)
     if (err == ESP_OK) err = wifi_sniff_init();
     if (err == ESP_OK) err = wifi_deauth_init();
     if (err == ESP_OK) err = wifi_spectrum_init();
+    if (err == ESP_OK) err = wifi_wardrive_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     if (lora_recon_init() != ESP_OK) {
