@@ -286,9 +286,10 @@ isolated third-party dependencies.
 | `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing; pure C, host-tested and live-capture-confirmed |
 | `zig_table.c` | Capped PAN/node deduplication and updates; pure C, host-tested and live-capture-confirmed |
 | `zig_recon.c` | 802.15.4 scan orchestration, arbiter/stop hooks, and `[ZIG]` OCP output; hardware-confirmed 2026-09-16 |
-| `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task |
+| `lora_radio.c` | SX1262 driver layer (RX path only): reset sequence, BUSY waits, RF_SW/DIO2 coherence for receive, TCXO, DIO1 ISR → task, plus `GetRssiInst` passive sweep |
 | `lora_hex.c` | Bounded, allocation-free LoRa payload-to-hex encoder; pure C, host-tested |
-| `lora_recon.c` | RX survey: packet capture, RSSI/SNR, framing classification. **No TX path** (§8) |
+| `lora_sweep_plan.c` | Pure-C sub-GHz sweep frequency-span validator, `GetRssiInst` dBm converter, and CSV formatter; host-tested |
+| `lora_recon.c` | RX survey + passive sub-GHz sweep: packet capture, RSSI/SNR, framing classification, `lora_sweep` stream. **No TX path** (§8) |
 | `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
 | `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |
 
@@ -414,6 +415,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/external_card_views` | view | Read-only AP Detail, Deauth Detect, Anti-Surveillance, and paired 6-row Settings inspector companion cards |
 | `src/ui/settings_state` | view model | Shared 6-row configuration snapshot (`BRIGHTNESS`, `IDLE SLEEP`, `WI-FI REGION`, `WI-FI BAND`, `LORA PROFILE`, `DEBUG SERIAL`) for paired onboard + external Settings views |
 | `src/model/lora_profile_catalog` | model | Built-in + optional SD-loaded `/oscilla/lora_profiles.csv` presets (validated against SX1262 ranges, capped to 16); host-tested |
+| `src/model/lora_sweep_model` | model | Allocation-free 64-bin sub-GHz passive RSSI spectrum, peak-hold envelope, noise-floor estimate, and 24-row waterfall history; host-tested |
 | `src/model/vendor_table` | model | Pure-C++ sorted binary OUI/BT Company-ID search, header validation, LAA detection, and 32-slot RAM LRU cache; cross-checked with `tools/build_vendor_tables.py` |
 | `src/storage/vendor_lookup` | services | Bounded `storage::lock(2)` SD lookups against `/oscilla/oui.bin` & `/oscilla/bt_mfr.bin` with absent-table memoization |
 | `src/model/baseline_watch` | model | Passive Wi-Fi + 802.15.4 baseline snapshot & delta watch (`NewAp`, `NewPan`, `EvilTwin`, `AuthDowngrade`, `MfpDropped`); capped to 256 APs / 32 PANs / 64 anomalies with high-severity eviction protection; host-tested |

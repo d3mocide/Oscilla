@@ -77,6 +77,9 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
                                                     "/sync" + std::to_string(lora_.syncWord())
                                               : std::string("none")));
     line.field("lora_active", lora_.active());
+    line.field("lora_sweep_active", lora_sweep_.active());
+    line.field("lora_sweeps", lora_sweep_.sweeps());
+    line.field("lora_sweep_peak_dbm", lora_sweep_.hasData() ? static_cast<int>(lora_sweep_.maxPeakDbm()) : 0);
     line.field("lora_profiles", lora_profiles_.size());
     line.field("lora_profile_sd", lora_profiles_.sdCount());
     line.field("lora_selected", lora_profiles_.at(lora_profile_index_).token);

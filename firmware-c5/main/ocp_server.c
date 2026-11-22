@@ -227,7 +227,7 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
         ocp_emit_compact(OCP_MARK_STATUS,
                          "%s=%s lora=%s link=%s %s=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
-                         !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : "idle",
+                         !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : lora_radio_is_sweeping() ? "sweep" : "idle",
                          ocp_transport_name(),
                          OCP_K_RESET, reset_reason_name(),
                          OCP_K_REGION, wifi_region()->code,
@@ -283,6 +283,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_LORA_STATUS:
         lora_cmd_status();
+        break;
+
+    case OCP_VID_LORA_SWEEP:
+        lora_cmd_sweep(argc, argv);
         break;
 
     case OCP_VID_SCAN_NETWORKS:

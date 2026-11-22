@@ -34,7 +34,7 @@ inline BeliefClear reconcileFromStatus(bool deck_phy_active, bool deck_lora_acti
                                        const std::string &probe_lora)
 {
     return {deck_phy_active && probe_owner == "none",
-            deck_lora_active && !probe_lora.empty() && probe_lora != "rx"};
+            deck_lora_active && !probe_lora.empty() && probe_lora != "rx" && probe_lora != "sweep"};
 }
 
 }  // namespace app

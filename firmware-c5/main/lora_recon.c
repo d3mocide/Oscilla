@@ -24,6 +24,7 @@
 
 #include "config.h"
 #include "lora_radio.h"
+#include "lora_sweep_plan.h"
 #include "ocp.h"
 #include "ocp_frame.h"
 #include "ocp_parse.h"
@@ -41,6 +42,11 @@ static bool s_ready;
 static bool s_configured;
 static lora_rx_params_t s_params;
 static volatile bool s_drain_idle = true;
+static volatile bool s_sweep_idle = true;
+static volatile bool s_sweep_stop;
+static uint32_t s_sweep_start_khz;
+static uint16_t s_sweep_step_khz;
+static uint8_t s_sweep_bins;
 static uint32_t s_ocp_lora_drop_start;
 
 esp_err_t lora_recon_init(void)
@@ -129,7 +135,7 @@ void lora_cmd_config(int argc, char **argv)
 
     /* s_params is what lora_status reports; changing it under a running
      * radio would report parameters the chip isn't using. */
-    if (lora_radio_is_running()) {
+    if (lora_radio_is_running() || lora_radio_is_sweeping()) {
         ocp_emit_error(OCP_ERR_BUSY, "stop lora before reconfiguring");
         return;
     }
@@ -217,7 +223,7 @@ void lora_cmd_listen(void)
         ocp_emit_error(OCP_ERR_BADARG, "lora_config required first");
         return;
     }
-    if (lora_radio_is_running()) {
+    if (lora_radio_is_running() || lora_radio_is_sweeping()) {
         ocp_emit_error(OCP_ERR_BUSY, "already listening");
         return;
     }
@@ -272,9 +278,115 @@ void lora_cmd_status(void)
                      OCP_K_HW_FAULT, (unsigned long)stats.hw_fault);
 }
 
+static void sweep_task(void *arg)
+{
+    (void)arg;
+    ocp_event_record_t ev;
+    while (!s_sweep_stop && lora_radio_is_sweeping()) {
+        memset(&ev, 0, sizeof ev);
+        ev.kind = OCP_EVENT_RECORD_LORA_SWEEP;
+        ev.data.lora_sweep.start_khz = s_sweep_start_khz;
+        ev.data.lora_sweep.step_khz = s_sweep_step_khz;
+        ev.data.lora_sweep.bins = s_sweep_bins;
+
+        bool ok = true;
+        for (uint8_t i = 0; i < s_sweep_bins && !s_sweep_stop; i++) {
+            uint32_t freq_hz = (s_sweep_start_khz + (uint32_t)i * (uint32_t)s_sweep_step_khz) * 1000u;
+            int8_t dbm = -127;
+            if (lora_radio_sweep_measure(freq_hz, 3, &dbm) != ESP_OK) {
+                ok = false;
+                break;
+            }
+            ev.data.lora_sweep.rssi_dbm[i] = dbm;
+            if ((i & 7u) == 7u) vTaskDelay(pdMS_TO_TICKS(1));   /* yield single core (AGENTS gotcha 6) */
+        }
+        if (s_sweep_stop) break;
+        if (ok) {
+            (void)ocp_event_submit(&ev);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
+        vTaskDelay(pdMS_TO_TICKS(25));
+    }
+    lora_radio_sweep_stop();
+    s_sweep_idle = true;
+    vTaskDelete(NULL);
+}
+
+void lora_cmd_sweep(int argc, char **argv)
+{
+    uint32_t start_khz = LORA_SWEEP_DEF_START_KHZ;
+    uint32_t step_khz = LORA_SWEEP_DEF_STEP_KHZ;
+    uint32_t bins = LORA_SWEEP_DEF_BINS;
+
+    if (argc > 1 && !ocp_parse_u32(argv[1], &start_khz)) {
+        ocp_emit_error(OCP_ERR_BADARG, "start_khz must be unsigned integer");
+        return;
+    }
+    if (argc > 2 && !ocp_parse_u32(argv[2], &step_khz)) {
+        ocp_emit_error(OCP_ERR_BADARG, "step_khz must be unsigned integer");
+        return;
+    }
+    if (argc > 3 && !ocp_parse_u32(argv[3], &bins)) {
+        ocp_emit_error(OCP_ERR_BADARG, "bins must be unsigned integer");
+        return;
+    }
+    if (!lora_sweep_plan_valid(start_khz, step_khz, bins)) {
+        ocp_emit_error(OCP_ERR_BADARG, "sweep span out of SX1262 150-960 MHz bounds");
+        return;
+    }
+    if (lora_radio_is_running() || lora_radio_is_sweeping()) {
+        ocp_emit_error(OCP_ERR_BUSY, "stop lora before starting sweep");
+        return;
+    }
+    for (uint32_t waited = 0; !s_sweep_idle && waited < DRAIN_WAIT_MS; waited += 5) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+    if (!s_sweep_idle) {
+        ocp_emit_error(OCP_ERR_BUSY, "previous sweep still stopping");
+        return;
+    }
+
+    esp_err_t err = lora_radio_sweep_start();
+    if (err != ESP_OK) {
+        ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
+        return;
+    }
+
+    s_sweep_start_khz = start_khz;
+    s_sweep_step_khz = (uint16_t)step_khz;
+    s_sweep_bins = (uint8_t)bins;
+    s_sweep_stop = false;
+    s_sweep_idle = false;
+
+    if (xTaskCreate(sweep_task, "lora_sweep", 4096, NULL, 4, NULL) != pdPASS) {
+        s_sweep_idle = true;
+        lora_radio_sweep_stop();
+        ocp_emit_error(OCP_ERR_INTERNAL, "could not start sweep task");
+        return;
+    }
+
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%lu %s=%lu %s=%lu",
+                     OCP_K_MODE, OCP_EVT_KIND_LORA_SWEEP,
+                     OCP_K_START_KHZ, (unsigned long)start_khz,
+                     OCP_K_STEP_KHZ, (unsigned long)step_khz,
+                     OCP_K_BINS, (unsigned long)bins);
+}
+
 bool lora_cmd_stop(void)
 {
-    if (!lora_radio_is_running()) return false;
-    lora_teardown();
-    return true;
+    bool was_running = false;
+    if (lora_radio_is_running()) {
+        lora_teardown();
+        was_running = true;
+    }
+    if (lora_radio_is_sweeping() || !s_sweep_idle) {
+        s_sweep_stop = true;
+        for (uint32_t waited = 0; !s_sweep_idle && waited < DRAIN_WAIT_MS; waited += 5) {
+            vTaskDelay(pdMS_TO_TICKS(5));
+        }
+        lora_radio_sweep_stop();
+        was_running = true;
+    }
+    return was_running;
 }

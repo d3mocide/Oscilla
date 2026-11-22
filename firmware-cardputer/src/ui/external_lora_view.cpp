@@ -169,4 +169,110 @@ void drawExternalLoraDetailStrip(lgfx::LGFX_Sprite &d, int top, const model::Pac
     obsBay(c, 12, 140, "PAGE", std::to_string(page) + "/" + std::to_string(pages), kPaperPhosphor);
     obsBay(c, 168, 140, "PAYLOAD", std::to_string(packet.len), kFieldGreen, "BYTES");
 }
+
+void drawExternalLoraSweepStrip(lgfx::LGFX_Sprite &d, int top,
+                                const model::LoraSweepModel &sw, uint32_t now)
+{
+    (void)now;
+    using namespace instrument;
+    using namespace observatory;
+    Canvas c(d, top);
+    const bool live = sw.active();
+    const bool has = sw.hasData();
+
+    obsFrame(c, ModeSigil::PulseBars, "SUB-GHZ SPECTRUM",
+             live ? "LIVE" : has ? "CACHED" : "IDLE",
+             live ? BadgeTone::Live : BadgeTone::Cached);
+    obsDock(c, live ? kCalibrationYellow : kMutedSlate, true);
+
+    constexpr int x0 = 38, w = 262, top_y = 34, base_y = 94, h = base_y - top_y;
+    auto dbmToY = [](int dbm) {
+        const int clamped = std::max(-120, std::min(-40, dbm));
+        const int lift = std::max(1, std::min(h - 2, (clamped + 120) * (h - 2) / 80));
+        return base_y - lift;
+    };
+    auto wfColor = [](int dbm, int floor_dbm) -> uint16_t {
+        const int above = dbm - floor_dbm;
+        if (above >= 28 || dbm >= -65) return kSignalPink;
+        if (above >= 16 || dbm >= -80) return kCalibrationYellow;
+        if (above >= 8 || dbm >= -96) return kFieldGreen;
+        if (above >= 3) return kDimGreen;
+        return kTrackDark;
+    };
+
+    obsDashedH(c, x0, x0 + w, dbmToY(-50), kTrackDark, 2, 3);
+    obsDashedH(c, x0, x0 + w, dbmToY(-85), kTrackDark, 2, 3);
+    c.line(x0, base_y, x0 + w, base_y, kDimGreen);
+    obsMicro(c, 34, dbmToY(-50) - 3, "-50", kMutedSlate, kVoidInk, Align::Right);
+    obsMicro(c, 34, dbmToY(-85) - 3, "-85", kMutedSlate, kVoidInk, Align::Right);
+    obsMicro(c, 34, base_y - 4, "-120", kMutedSlate, kVoidInk, Align::Right);
+
+    if (has && sw.bins() > 0) {
+        const size_t n = sw.bins();
+        for (size_t i = 0; i < n; ++i) {
+            const int bx0 = x0 + static_cast<int>(i * w / n);
+            const int bx1 = x0 + static_cast<int>((i + 1) * w / n);
+            const int bw = std::max(1, bx1 - bx0 - 1);
+            const int cy = dbmToY(sw.currentDbm(i));
+            const int py = dbmToY(sw.peakDbm(i));
+            c.rect(bx0, cy, bw, base_y - cy, live ? kFieldGreen : kMutedSlate);
+            c.rect(bx0, py - 1, bw, 2, i == sw.peakBin() ? kSignalPink : kCalibrationYellow);
+        }
+
+        /* Peak callout badge. */
+        const uint32_t pk_khz = sw.binFreqKhz(sw.peakBin());
+        char tag[28];
+        snprintf(tag, sizeof tag, "%lu.%02luM %ddBm",
+                 (unsigned long)(pk_khz / 1000), (unsigned long)((pk_khz % 1000) / 10),
+                 static_cast<int>(sw.maxPeakDbm()));
+        const int tw = int(std::strlen(tag)) * 6 + 10;
+        obsBadge(c, x0 + w - tw, 32, tw, 15, tag, kPanelDark, kSignalPink, kCalibrationYellow);
+
+        /* 24-row scrolling waterfall strip (y=101..149). */
+        constexpr int wy = 101;
+        c.rect(x0, wy, w, 48, kVoidInk);
+        const size_t rows = std::min<size_t>(sw.historyCount(), 24);
+        for (size_t r = 0; r < rows; ++r) {
+            const int ry = wy + static_cast<int>(r) * 2;
+            for (size_t i = 0; i < n; ++i) {
+                const int bx0 = x0 + static_cast<int>(i * w / n);
+                const int bx1 = x0 + static_cast<int>((i + 1) * w / n);
+                const uint16_t col = wfColor(sw.historyDbm(r, i), sw.floorDbm());
+                if (col != kTrackDark) c.rect(bx0, ry, std::max(1, bx1 - bx0), 2, col);
+            }
+        }
+        obsMicro(c, 34, wy + 2, "NOW", kMutedSlate, kVoidInk, Align::Right);
+        obsMicro(c, 34, wy + 40, "OLD", kMutedSlate, kVoidInk, Align::Right);
+    } else {
+        obsMicro(c, x0 + w / 2, 62, live ? "SWEEPING SX1262 GETRSSIINST..." : "SUB-GHZ SWEEP IDLE",
+                 kCalibrationYellow, kVoidInk, Align::Center);
+        obsMicro(c, x0 + w / 2, 120, "WATERFALL WAITING FOR SWEEP", kMutedSlate, kVoidInk, Align::Center);
+    }
+
+    char v[48];
+    const uint32_t s_khz = sw.startKhz();
+    const uint32_t e_khz = sw.bins() ? sw.endKhz() : (s_khz + 63u * uint32_t(sw.stepKhz()));
+    snprintf(v, sizeof v, "%lu.%lu-%lu.%lu MHz",
+             (unsigned long)(s_khz / 1000), (unsigned long)((s_khz % 1000) / 100),
+             (unsigned long)(e_khz / 1000), (unsigned long)((e_khz % 1000) / 100));
+    obsText(c, 12, 164, v, FontId::Title, kPaperPhosphor, 178);
+    snprintf(v, sizeof v, "%u BINS", static_cast<unsigned>(sw.bins() ? sw.bins() : 64));
+    obsBadge(c, 194, 164, 54, 15, v, kTrackDark, kDimGreen, kFieldGreen);
+    obsMicro(c, 308, 168, "RX ONLY", kMutedSlate, kPanelDark, Align::Right);
+    obsMicro(c, 12, 185, "SX1262 PASSIVE ENERGY // PEAK HOLD + WATERFALL", kMutedSlate, kPanelDark);
+
+    if (has) {
+        const uint32_t pk_khz = sw.binFreqKhz(sw.peakBin());
+        snprintf(v, sizeof v, "%lu.%02lu",
+                 (unsigned long)(pk_khz / 1000), (unsigned long)((pk_khz % 1000) / 10));
+        obsBay(c, 12, 94, "PEAK / MHz", v, kCalibrationYellow);
+        obsBay(c, 122, 86, "PEAK / dBm", std::to_string(sw.maxPeakDbm()), kSignalPink);
+        obsBay(c, 224, 84, "FLOOR", std::to_string(sw.floorDbm()), kFieldGreen,
+               ("S" + std::to_string(sw.sweeps())).c_str());
+    } else {
+        obsBay(c, 12, 94, "PEAK / MHz", "--", kCalibrationYellow);
+        obsBay(c, 122, 86, "PEAK / dBm", "--", kSignalPink);
+        obsBay(c, 224, 84, "FLOOR", "--", kFieldGreen);
+    }
+}
 }  // namespace ui

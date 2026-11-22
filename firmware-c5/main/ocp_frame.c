@@ -18,6 +18,7 @@
 #include "ocp_block.h"
 #include "ocp_text.h"
 #include "lora_hex.h"
+#include "lora_sweep_plan.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -161,6 +162,7 @@ static const char *event_kind_name(ocp_event_record_kind_t kind)
         case OCP_EVENT_RECORD_CHAN:    return OCP_EVT_KIND_CHAN;
         case OCP_EVENT_RECORD_ZIG:     return OCP_EVT_KIND_ZIG;
         case OCP_EVENT_RECORD_LORA:    return OCP_EVT_KIND_LORA;
+        case OCP_EVENT_RECORD_LORA_SWEEP: return OCP_EVT_KIND_LORA_SWEEP;
         case OCP_EVENT_RECORD_KIND_COUNT: break;
     }
     return "unknown";
@@ -276,6 +278,17 @@ static void emit_event_record(const ocp_event_record_t *event)
             emit_event_fields(event_kind_name(event->kind), "%s=%d %s=%.1f %s=%u %s=%s",
                               OCP_K_RSSI, r->rssi_dbm, OCP_K_SNR, (double)r->snr_db,
                               OCP_K_LEN, (unsigned)r->len, OCP_K_HEX, hex);
+            break;
+        }
+        case OCP_EVENT_RECORD_LORA_SWEEP: {
+            const ocp_event_lora_sweep_t *r = &event->data.lora_sweep;
+            char csv[64 * 5 + 4];
+            if (!lora_sweep_format_rssi(r->rssi_dbm, r->bins, csv, sizeof csv)) return;
+            emit_event_fields(event_kind_name(event->kind), "%s=%lu %s=%u %s=%u %s=%s",
+                              OCP_K_START_KHZ, (unsigned long)r->start_khz,
+                              OCP_K_STEP_KHZ, (unsigned)r->step_khz,
+                              OCP_K_BINS, (unsigned)r->bins,
+                              OCP_K_RSSI, csv);
             break;
         }
         case OCP_EVENT_RECORD_KIND_COUNT:

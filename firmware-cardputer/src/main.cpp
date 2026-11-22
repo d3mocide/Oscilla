@@ -274,6 +274,7 @@ void loop()
     external_card.system_resources=&system_resources;
     external_card.observed_contacts = &g_app.contactsModel();
     external_card.packet = g_app.showingLora() && g_app.packetInspection().active() ? &g_app.packetInspection() : nullptr;
+    external_card.lora_sweep = g_app.showingLoraSweep() ? &g_app.loraSweepModel() : nullptr;
     external_card.drive_closing=g_app.wardriveClosing();
     external_card.trace_page = g_app.showingTrace();
     external_card.trace_listening = g_app.traceListening();

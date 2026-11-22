@@ -25,6 +25,7 @@ bool lora_recon_ready(void);
 void lora_cmd_config(int argc, char **argv);
 void lora_cmd_listen(void);
 void lora_cmd_status(void);
+void lora_cmd_sweep(int argc, char **argv);
 
 /* Idempotent; safe to call whether or not RX is running. True if it was. */
 bool lora_cmd_stop(void);

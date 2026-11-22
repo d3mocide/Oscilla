@@ -10,6 +10,7 @@
 #include <cstddef>
 
 #include "model/lora_model.h"
+#include "model/lora_sweep_model.h"
 #include "ui/chrome.h"
 
 namespace ui {
@@ -18,6 +19,9 @@ namespace ui {
  * would apply next (cycled with 'x') — shown so the operator knows what
  * they're about to select before committing it. */
 void drawSubGhzView(const model::LoraModel &lora, size_t cursor, const ChromeState &chrome,
-                    const char *pending_profile_label);
+                    const char *pending_profile_label,
+                    const model::LoraSweepModel *sweep = nullptr,
+                    bool sweep_mode = false,
+                    size_t sweep_preset_idx = 0);
 
 }  // namespace ui

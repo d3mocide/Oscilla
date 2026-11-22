@@ -51,6 +51,7 @@ enum class ExternalView : uint8_t {
     Drive,
     Lora,
     LoraDetail,
+    LoraSweep,
     Spectrum,
     Trace,
     Deauth,
@@ -96,6 +97,8 @@ bool frame_scan_enabled;
 size_t frame_scan_cursor;
 bool frame_monitor, frame_lora_enabled;
 model::LoraModel frame_lora;
+model::LoraSweepModel frame_lora_sweep;
+bool frame_lora_sweep_enabled;
 model::PacketInspection frame_packet;
 model::ContactsModel frame_wifi_contacts;
 bool frame_packet_enabled;
@@ -203,6 +206,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
                               zig ? (pans ? ExternalView::ZigPans : ExternalView::ZigNodes) :
                               contacts ? (card && card->contact_detail ? ExternalView::ContactDetail : probes ? ExternalView::ContactsProbes : ExternalView::ContactsAccessPoints) :
                               bt ? (card && card->bt_detail ? ExternalView::BtDetail : ExternalView::Bluetooth) : drive ? ExternalView::Drive :
+                              card && card->lora_sweep ? ExternalView::LoraSweep :
                               card && card->packet ? ExternalView::LoraDetail : lora ? ExternalView::Lora : spectrum ? ExternalView::Spectrum :
                               card && card->trace_page ? (card->wifi_detail && card->wifi_detail->clientsPage()?ExternalView::TraceClients:ExternalView::Trace) :
                               card && card->deauth ? ExternalView::Deauth :
@@ -233,7 +237,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     }
     if (next_strip == kStrips) {
         const bool data_view = scan || spectrum || lora || drive || bt || contacts || zig ||
-                               (card && (card->trace_page || card->deauth || card->anti));
+                               (card && (card->trace_page || card->deauth || card->anti || card->lora_sweep));
         const uint32_t frame_ms = data_view ? kDataFrameMs : kStatusFrameMs;
         if (now_ms - last_frame < frame_ms) return;
         frame_started_us=micros();
@@ -247,6 +251,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         frame_monitor = spectrum != nullptr;
         frame_view = view;
         frame_lora_enabled = lora != nullptr;
+        frame_lora_sweep_enabled = card && card->lora_sweep;
+        if (frame_lora_sweep_enabled) frame_lora_sweep = *card->lora_sweep;
         frame_packet_enabled=card && card->packet;
         if(frame_packet_enabled)frame_packet=*card->packet;
         frame_startup=now_ms-started_at<2000;
@@ -341,6 +347,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         else drawExternalBtStrip(strip,next_strip*kStripHeight,frame_bt,frame_bt_cursor);
     } else if(frame_drive_enabled) {
         drawExternalDriveStrip(strip,next_strip*kStripHeight,frame_gps,frame_drive,frame_log,frame_time,frame_drive_closing);
+    } else if (frame_lora_sweep_enabled) {
+        drawExternalLoraSweepStrip(strip, next_strip * kStripHeight, frame_lora_sweep, frame_time);
     } else if (frame_lora_enabled) {
         if(frame_packet_enabled)drawExternalLoraDetailStrip(strip,next_strip*kStripHeight,frame_packet);
         else drawExternalLoraStrip(strip, next_strip * kStripHeight, frame_lora, frame_lora_cursor, frame_time);

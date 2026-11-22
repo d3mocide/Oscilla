@@ -19,6 +19,7 @@
  */
 
 #include "lora_radio.h"
+#include "lora_sweep_plan.h"
 
 #include <string.h>
 
@@ -66,6 +67,7 @@ static const char *TAG = "lora_radio";
 #define OP_SET_BUFFER_BASE_ADDR   0x8F
 #define OP_GET_RX_BUFFER_STATUS   0x13
 #define OP_GET_PACKET_STATUS      0x14
+#define OP_GET_RSSI_INST          0x15
 #define OP_READ_BUFFER            0x1E
 #define OP_GET_STATUS             0xC0
 #define OP_GET_DEVICE_ERRORS      0x17
@@ -106,6 +108,7 @@ static QueueHandle_t s_dio1_queue;   /* ISR -> radio task, holds nothing but a t
 static QueueHandle_t s_event_queue;  /* radio task -> caller (lora_recon.c) */
 static TaskHandle_t s_task;
 static volatile bool s_running;
+static volatile bool s_sweep_running;
 static volatile lora_radio_stats_t s_stats;
 
 static bool rx_write_opcode_allowed(uint8_t opcode)
@@ -138,6 +141,7 @@ static bool rx_read_opcode_allowed(uint8_t opcode)
         case OP_GET_IRQ_STATUS:
         case OP_GET_RX_BUFFER_STATUS:
         case OP_GET_PACKET_STATUS:
+        case OP_GET_RSSI_INST:
         case OP_GET_STATUS:
         case OP_GET_DEVICE_ERRORS:
             return true;
@@ -401,21 +405,10 @@ static esp_err_t lora_set_packet_params(void)
     return cmd_write(OP_SET_PACKET_PARAMS, data, sizeof data);
 }
 
-/* Full RX bring-up. Fails closed on any step: standby + RF_SW low + IRQs
- * masked, never left mid-configured. */
-esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
+/* Shared cold bring-up to STDBY_XOSC with TCXO, full calib, DC-DC, and DIO2
+ * RF switch enabled. Caller holds s_lock. */
+static esp_err_t bringup_standby_xosc_locked(void)
 {
-    if (!params) return ESP_ERR_INVALID_ARG;
-
-    xSemaphoreTake(s_lock, portMAX_DELAY);
-
-    /* A new listener owns a new evidence window. At this point the previous
-     * drain task is known idle by lora_recon.c, so no old event can leak into
-     * the reset counter window. */
-    memset((void *)&s_stats, 0, sizeof s_stats);
-    xQueueReset(s_dio1_queue);
-    xQueueReset(s_event_queue);
-
     esp_err_t err = hw_reset();
 
     uint8_t standby_rc = STDBY_RC;
@@ -444,14 +437,6 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
         err = cmd_write(OP_SET_STANDBY, &standby_xosc, 1);
     }
 
-    /* D-10: XOSC_START_ERR is *expected* here on a cold start with a TCXO
-     * (datasheet §13.3.6's own note) — the chip doesn't yet know it's
-     * TCXO-clocked until this point. This isn't a pass/fail gate, it's the
-     * positive confirmation D-10 was missing: the TCXO actually started
-     * within our chosen 10ms delay, not just inferred from nothing else
-     * faulting. Non-fatal either way — logged, then cleared per the
-     * datasheet's explicit instruction ("simply clear this flag with
-     * ClearDeviceErrors"), never blocks bring-up. */
     if (err == ESP_OK) {
         uint8_t errs_raw[2];
         if (cmd_read(OP_GET_DEVICE_ERRORS, errs_raw, sizeof errs_raw) == ESP_OK) {
@@ -472,13 +457,35 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
         err = cmd_write(OP_SET_REGULATOR_MODE, &dc_dc, 1);
     }
 
-    /* Let the chip drive its internal DIO2 automatically; the external
-     * RF_SW GPIO still needs to be driven separately (Rev D §4.4 — enabling
-     * DIO2 alone does not manage it). */
+    /* Let the chip drive its internal DIO2 automatically; external PIN_RF_SW
+     * is still driven separately (Rev D §4.4). */
     if (err == ESP_OK) {
         uint8_t enable = 0x01;
         err = cmd_write(OP_SET_DIO2_RF_SWITCH, &enable, 1);
     }
+    return err;
+}
+
+/* Full RX bring-up. Fails closed on any step: standby + RF_SW low + IRQs
+ * masked, never left mid-configured. */
+esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
+{
+    if (!params) return ESP_ERR_INVALID_ARG;
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_sweep_running) {
+        xSemaphoreGive(s_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    /* A new listener owns a new evidence window. At this point the previous
+     * drain task is known idle by lora_recon.c, so no old event can leak into
+     * the reset counter window. */
+    memset((void *)&s_stats, 0, sizeof s_stats);
+    xQueueReset(s_dio1_queue);
+    xQueueReset(s_event_queue);
+
+    esp_err_t err = bringup_standby_xosc_locked();
 
     if (err == ESP_OK) {
         uint8_t packet_type = PACKET_TYPE_LORA;
@@ -544,6 +551,101 @@ void lora_radio_rx_stop(void)
 bool lora_radio_is_running(void)
 {
     return s_running;
+}
+
+esp_err_t lora_radio_sweep_start(void)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_running || s_sweep_running) {
+        xSemaphoreGive(s_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t err = bringup_standby_xosc_locked();
+    if (err == ESP_OK) {
+        uint8_t packet_type = PACKET_TYPE_LORA;
+        err = cmd_write(OP_SET_PACKET_TYPE, &packet_type, 1);
+    }
+    if (err == ESP_OK) {
+        /* Wide 500 kHz IF bandwidth for fast energy sweep across sub-GHz bins. */
+        uint8_t mod[4] = { 7, (uint8_t)LORA_BW_500, 1, 0x00 };
+        err = cmd_write(OP_SET_MODULATION_PARAMS, mod, sizeof mod);
+    }
+    if (err == ESP_OK) {
+        uint8_t irq_none[8] = { 0 };
+        err = cmd_write(OP_SET_DIO_IRQ_PARAMS, irq_none, sizeof irq_none);
+    }
+    if (err == ESP_OK) {
+        uint8_t clear_all[2] = { 0xFF, 0xFF };
+        err = cmd_write(OP_CLEAR_IRQ_STATUS, clear_all, sizeof clear_all);
+    }
+    if (err == ESP_OK) {
+        rf_switch_set_receive(true);
+        s_sweep_running = true;
+    } else {
+        rf_switch_set_receive(false);
+        uint8_t standby_rc = STDBY_RC;
+        cmd_write(OP_SET_STANDBY, &standby_rc, 1);
+        s_sweep_running = false;
+    }
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
+esp_err_t lora_radio_sweep_measure(uint32_t freq_hz, uint8_t samples, int8_t *out_dbm)
+{
+    if (!out_dbm) return ESP_ERR_INVALID_ARG;
+    if (samples == 0) samples = 1;
+    if (samples > 8) samples = 8;
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!s_sweep_running) {
+        xSemaphoreGive(s_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    uint8_t standby_xosc = STDBY_XOSC;
+    esp_err_t err = cmd_write(OP_SET_STANDBY, &standby_xosc, 1);
+    if (err == ESP_OK) err = lora_set_rf_frequency(freq_hz);
+    if (err == ESP_OK) {
+        uint8_t rx_continuous[3] = { 0xFF, 0xFF, 0xFF };
+        err = cmd_write(OP_SET_RX, rx_continuous, sizeof rx_continuous);
+    }
+    if (err == ESP_OK) err = wait_busy_low();
+
+    int8_t peak = -127;
+    if (err == ESP_OK) {
+        esp_rom_delay_us(600);   /* PLL + LNA settle */
+        for (uint8_t i = 0; i < samples; i++) {
+            uint8_t raw = 254;
+            err = cmd_read(OP_GET_RSSI_INST, &raw, 1);
+            if (err != ESP_OK) break;
+            int8_t dbm = lora_rssi_inst_to_dbm(raw);
+            if (i == 0 || dbm > peak) peak = dbm;
+            if (i + 1 < samples) esp_rom_delay_us(250);
+        }
+    }
+    xSemaphoreGive(s_lock);
+
+    if (err == ESP_OK) *out_dbm = peak;
+    return err;
+}
+
+void lora_radio_sweep_stop(void)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_sweep_running) {
+        uint8_t standby_rc = STDBY_RC;
+        cmd_write(OP_SET_STANDBY, &standby_rc, 1);
+        rf_switch_set_receive(false);
+        s_sweep_running = false;
+    }
+    xSemaphoreGive(s_lock);
+}
+
+bool lora_radio_is_sweeping(void)
+{
+    return s_sweep_running;
 }
 
 bool lora_radio_next_event(lora_event_t *out, uint32_t timeout_ms)

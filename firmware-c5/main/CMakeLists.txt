@@ -21,6 +21,7 @@ idf_component_register(
          "wifi_wardrive.c"
          "lora_radio.c"
          "lora_hex.c"
+         "lora_sweep_plan.c"
          "lora_recon.c"
          "config_codec.c"
          "config.c"

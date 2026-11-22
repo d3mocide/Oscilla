@@ -15,7 +15,7 @@ def main():
     if not fonts.exists():
         fonts = ROOT / 'firmware-cardputer/.pio/libdeps/cardputer-adv/M5GFX@0.2.28/src'
     models = ['spectrum_model', 'scan_model', 'bt_model', 'contacts_model', 'zig_model',
-              'lora_model', 'lora_framing', 'deauth_model', 'anti_surveillance_model',
+              'lora_model', 'lora_sweep_model', 'lora_framing', 'deauth_model', 'anti_surveillance_model',
               'gnss_model', 'session_review']
     views = ['spectrum', 'wifi', 'bt', 'contacts', 'lora', 'zig', 'drive', 'system', 'gnss']
     sources = [ROOT/'firmware-cardputer/test/host/external_frame_memory_test.cpp']

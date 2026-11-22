@@ -167,6 +167,31 @@ int main(int argc,char **argv) {
             save("client-missing",[&](auto &d,int t){ui::drawExternalContactDetailStrip(d,t,missing,client_detail,now);});
         }
         save("lora",[&](auto &d,int t){ui::drawExternalLoraStrip(d,t,lora,0,now);});
+        {
+            model::LoraSweepModel sw;
+            if (!empty) {
+                sw.begin(902000, 400, 64);
+                for (int s = 0; s < 18; ++s) {
+                    std::string csv;
+                    for (int b = 0; b < 64; ++b) {
+                        int v = -114 + ((b * 7 + s * 3) % 5);
+                        if (b == 21) v = (s % 3 == 0) ? -58 : -76;
+                        if (b == 22) v = -82;
+                        if (b == 44 && s > 10) v = -68;
+                        if (b) csv += ',';
+                        csv += std::to_string(v);
+                    }
+                    ocp::Item ev;
+                    ev.kind = ocp::ItemKind::Event;
+                    ev.kv = {{OCP_K_KIND, OCP_EVT_KIND_LORA_SWEEP},
+                             {OCP_K_START_KHZ, "902000"}, {OCP_K_STEP_KHZ, "400"},
+                             {OCP_K_BINS, "64"}, {OCP_K_RSSI, csv}};
+                    sw.absorbEvent(ev, now - static_cast<uint32_t>((18 - s) * 200));
+                }
+                if (cached) sw.stop();
+            }
+            save("lora-sweep", [&](auto &d, int t) { ui::drawExternalLoraSweepStrip(d, t, sw, now); });
+        }
         save("pans",[&](auto &d,int t){ui::drawExternalZigStrip(d,t,zig,true,0);});
         save("nodes",[&](auto &d,int t){ui::drawExternalZigStrip(d,t,zig,false,0);});
         save("drive",[&](auto &d,int t){ui::drawExternalDriveStrip(d,t,gps,trail,log,now);});

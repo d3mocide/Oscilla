@@ -122,7 +122,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
              * after a reconnect. */
             pending_retry_ = nullptr;
         } else if (const char *lane = reconcileStopLane(phyToolActive(),
-                                                        lora_.active() || lora_listen_pending_)) {
+                                                        lora_.active() || lora_listen_pending_ ||
+                                                        lora_sweep_.active() || lora_sweep_pending_)) {
             /* Stop leftovers from before a deck reboot or link drop. */
             client_.stop(now_, lane);
         }
@@ -163,6 +164,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         probe_heap_total_ = 0;
         probe_uptime_ms_ = 0;
         lora_.clear();
+        lora_sweep_.clear();
+        lora_sweep_pending_ = false;
         storage::loraLogEnd();
         deauth_.clear();
         bt_.clear();
@@ -219,6 +222,7 @@ void DeckApp::onReply(const ocp::Item &it)
     if (it.kind == ocp::ItemKind::Error) {
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         lora_config_pending_ = false;   /* rejected: probe and model both keep the previous config */
+        lora_sweep_pending_ = false;
         if (wifi_continuous_pending_) {
             wifi_continuous_pending_ = false;
             scan_.stop();
@@ -300,6 +304,12 @@ void DeckApp::onReply(const ocp::Item &it)
         lora_.configured(c.freq_hz, c.sf, c.bw_khz, c.cr, c.sync_word, c.profile_token.c_str());
         notice("");
     }
+    if (it.tag == OCP_MARK_CFG && lora_sweep_pending_) {
+        lora_sweep_pending_ = false;
+        lora_sweep_.begin(lora_sweep_sent_start_, lora_sweep_sent_step_, lora_sweep_sent_bins_);
+        notice("");
+        log("lora sweep started");
+    }
     if (it.tag == OCP_MARK_BLE && bt_scan_pending_) {
         bt_scan_pending_ = false;
     }
@@ -366,7 +376,8 @@ void DeckApp::onReply(const ocp::Item &it)
                 last_status_reply_ms_ = now_;
                 if (reconcile_on_status_) {
                     reconcile_on_status_ = false;
-                    const auto clear = reconcileFromStatus(phyEngineActive(), lora_.active(),
+                    const auto clear = reconcileFromStatus(phyEngineActive(),
+                                                           lora_.active() || lora_sweep_.active(),
                                                            probe_owner_, probe_lora_);
                     if (clear.phy) clearPhyBelief();
                     if (clear.lora) clearLoraBelief();
@@ -482,6 +493,7 @@ void DeckApp::onEvent(const ocp::Item &it)
                                fresh_fix ? &gnss_.fix() : nullptr,
                                fresh_fix ? gnss_.fixAgeMs(now_) : 0);
     }
+    lora_sweep_.absorbEvent(it, now_);
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     absorbDeviceEvent(it);         /* kind=airtag is the only source of truth here too */
     enqueueWardriveEvent(it);      /* receipt-time GNSS geotag for start_wardrive */
@@ -534,6 +546,8 @@ void DeckApp::clearPhyBelief()
 void DeckApp::clearLoraBelief()
 {
     lora_.stop();
+    lora_sweep_.stop();
+    lora_sweep_pending_ = false;
     storage::loraLogHealth(lora_.health());
     storage::loraLogEnd();
 }
@@ -667,6 +681,32 @@ void DeckApp::startLoraConfig(uint32_t now_ms)
 {
     const auto &p = lora_profiles_.at(lora_profile_index_);
     sendLoraConfig(p.freq_hz, p.sf, p.bw_khz, p.cr, p.sync_word, p.token, now_ms);
+}
+
+void DeckApp::startLoraSweep(uint32_t start_khz, uint16_t step_khz, uint8_t bins, uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (lora_.active()) { notice("stop lora rx first"); return; }
+    std::string cmd = std::string(OCP_V_LORA_SWEEP) + " " + std::to_string(start_khz) + " " +
+                      std::to_string(step_khz) + " " + std::to_string(bins);
+    if (!client_.send(cmd, now_ms)) {
+        retrySoon([this, start_khz, step_khz, bins](uint32_t t) {
+            startLoraSweep(start_khz, step_khz, bins, t);
+        }, now_ms);
+        return;
+    }
+    lora_sweep_sent_start_ = start_khz;
+    lora_sweep_sent_step_ = step_khz;
+    lora_sweep_sent_bins_ = bins;
+    lora_sweep_pending_ = true;
+    lora_sweep_mode_ = true;
+    notice("starting sub-ghz sweep...");
+}
+
+void DeckApp::startLoraSweepPreset(uint32_t now_ms)
+{
+    const auto &p = model::kLoraSweepPresets[lora_sweep_preset_ % model::kLoraSweepPresetCount];
+    startLoraSweep(p.start_khz, p.step_khz, p.bins, now_ms);
 }
 
 void DeckApp::loadLoraProfiles(const std::string &csv_text, const std::string &saved_token)
@@ -1178,6 +1218,25 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 }
                 break;
             }
+            if (c == 'w') {
+                if (lora_.active() || lora_sweep_.active()) client_.stop(now_ms, OCP_LANE_LORA);
+                lora_sweep_mode_ = !lora_sweep_mode_;
+                notice(lora_sweep_mode_ ? "sub-ghz spectrum mode" : "lora packet mode");
+                break;
+            }
+            if (lora_sweep_mode_) {
+                if (c == 's') {
+                    if (lora_sweep_.active()) client_.stop(now_ms, OCP_LANE_LORA);
+                    else startLoraSweepPreset(now_ms);
+                } else if (c == 'x') {
+                    lora_sweep_preset_ = (lora_sweep_preset_ + 1) % model::kLoraSweepPresetCount;
+                    notice(model::kLoraSweepPresets[lora_sweep_preset_].label);
+                } else if (c == 'r') {
+                    lora_sweep_.clearPeak();
+                    notice("peak hold cleared");
+                }
+                break;
+            }
             if (c == ';' && lora_cursor_ > 0) lora_cursor_--;
             else if (c == '.' && lora_cursor_ + 1 < lora_.packets().size()) lora_cursor_++;
             else if (c == 'x') {
@@ -1244,8 +1303,8 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
         }
     }
     if(keys.enter && !help_visible_ && screen_==Screen::Contacts && !contact_inspection_.active())openContactInspection();
-    if (keys.enter && !help_visible_ && screen_ == Screen::SubGhz && !packet_inspection_.active() &&
-        lora_cursor_ < lora_.packets().size()) {
+    if (keys.enter && !help_visible_ && screen_ == Screen::SubGhz && !lora_sweep_mode_ &&
+        !packet_inspection_.active() && lora_cursor_ < lora_.packets().size()) {
         packet_inspection_.open(lora_.packets()[lora_cursor_]);dirty_=true;
     }
     if(keys.enter&&!help_visible_&&screen_==Screen::Sweep)openWifiDossier();
@@ -1480,7 +1539,11 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     else if (cmd == "zig") toggleZig(now_ms);
     else if (cmd == "lora") {
         if (arg == "config") startLoraConfig(now_ms);
-        else if (lora_.active()) client_.stop(now_ms, OCP_LANE_LORA);
+        else if (arg == "sweep") {
+            if (lora_sweep_.active()) client_.stop(now_ms, OCP_LANE_LORA);
+            else startLoraSweepPreset(now_ms);
+        }
+        else if (lora_.active() || lora_sweep_.active()) client_.stop(now_ms, OCP_LANE_LORA);
         else startLoraListen(now_ms);
     }
     else if (cmd == "lora_manual") {
@@ -1595,6 +1658,11 @@ void DeckApp::tick(uint32_t now_ms)
         lora_config_pending_ = false;
         notice("lora config timed out");
         log("lora config timeout");
+    }
+    if (lora_sweep_pending_ && !client_.pending()) {
+        lora_sweep_pending_ = false;
+        notice("lora sweep timed out");
+        log("lora sweep timeout");
     }
 
     if (spectrum_start_pending_ && !client_.pending() &&
@@ -1733,11 +1801,12 @@ void DeckApp::draw(uint32_t now_ms)
         }
         chrome.storage = storage::ready() ? ui::IndicatorState::Ready : ui::IndicatorState::Fault;
         const bool phy_active = phyEngineActive();
-        chrome.rf = (phy_active || lora_.active()) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
+        const bool lora_busy = lora_.active() || lora_sweep_.active();
+        chrome.rf = (phy_active || lora_busy) ? ui::IndicatorState::Active : ui::IndicatorState::Off;
         pollBatteryIfDue(now_ms);
         chrome.battery_pct = cached_battery_pct_;
         chrome.charging = cached_charging_;
-        chrome.live = phy_active || lora_.active();
+        chrome.live = phy_active || lora_busy;
         chrome.debug = debug_mode_;
         char transport[64];
         int len = std::snprintf(transport, sizeof transport, "BPK %s", ocp::linkStateName(client_.state()));
@@ -1787,8 +1856,10 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::SubGhz:
         if(packet_inspection_.active())ui::drawLoraDetailView(packet_inspection_,makeChrome("PACKET HEX"));
-        else ui::drawSubGhzView(lora_, lora_cursor_, makeChrome("LORA RX"),
-                           lora_profiles_.at(lora_profile_index_).label.c_str());
+        else ui::drawSubGhzView(lora_, lora_cursor_,
+                           makeChrome(lora_sweep_mode_ ? "SUB-GHZ SWEEP" : "LORA RX"),
+                           lora_profiles_.at(lora_profile_index_).label.c_str(),
+                           &lora_sweep_, lora_sweep_mode_, lora_sweep_preset_);
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_,

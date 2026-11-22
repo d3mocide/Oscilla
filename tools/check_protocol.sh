@@ -98,6 +98,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/lora_hex_test.c firmware-c5/main/lora_hex.c
 "$out/lora_hex_test" | tail -1 | sed 's/^/  /'
 
+# SX1262 sub-GHz RSSI sweep plan validation and GetRssiInst formatting (WP-8).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-c5/main -o "$out/lora_sweep_plan_test" \
+    firmware-c5/test/host/lora_sweep_plan_test.c firmware-c5/main/lora_sweep_plan.c
+"$out/lora_sweep_plan_test" | tail -1 | sed 's/^/  /'
+
 # Block frames are buffered and committed as one transaction; unavailable or
 # oversized output must never reach the transport partially.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
@@ -379,6 +385,12 @@ PY
     firmware-cardputer/test/host/lora_profile_catalog_test.cpp \
     firmware-cardputer/src/model/lora_profile_catalog.cpp
 "$out/lora_profile_catalog_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-cardputer/src -o "$out/lora_sweep_model_test" \
+    firmware-cardputer/test/host/lora_sweep_model_test.cpp \
+    firmware-cardputer/src/model/lora_sweep_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/lora_sweep_model_test" | tail -1 | sed 's/^/  /'
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/vendor_table_test" \
     firmware-cardputer/test/host/vendor_table_test.cpp
 "$out/vendor_table_test" | tail -1 | sed 's/^/  /'

@@ -784,3 +784,21 @@ The P7 parser intentionally labels observed MAC traffic only as `802154`:
 Zigbee and Thread cannot be safely inferred from a generic MAC header without
 the network-layer decoding this slice deliberately excludes. Unknown/invalid
 rows are dropped, never rendered as identity claims.
+
+## 13. Sub-GHz passive RSSI sweep (`lora_sweep`)
+
+`lora_sweep [start_khz] [step_khz] [bins]` uses the SX1262 in strictly
+receive-only mode (`OP_SET_RX` + `OP_GET_RSSI_INST` `0x15`, zero transmit
+opcodes) to step across `bins` (`8..64`, default `64`) channels starting at
+`start_khz` (`150000..960000`, default `902000`) spaced by `step_khz`
+(`50..2000`, default `400`), enforcing `start_khz + (bins-1)*step_khz <= 960000`.
+Mutually exclusive with `lora_listen` on the sub-GHz lane; stopped by
+`stop lora` (or bare `stop`). `[STATUS]` reports `lora=sweep` while active.
+
+```
+> lora_sweep 902000 400 64
+[CFG] mode=lora_sweep start_khz=902000 step_khz=400 bins=64 END
+[EVT] kind=lora_sweep start_khz=902000 step_khz=400 bins=64 rssi=-114,-113,...
+> stop lora
+[STOP] lane=lora running=1 END
+```

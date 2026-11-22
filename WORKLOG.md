@@ -1,3 +1,40 @@
+## 2026-11-21 — SX1262 passive sub-GHz `GetRssiInst` spectrum & waterfall sweep (WP-8)
+
+- **Protocol & Probe (`protocol/ocp.h`, `protocol/OCP-SPEC.md` §13,
+  `lora_sweep_plan.{h,c}`, `lora_radio.{h,c}`, `lora_recon.{h,c}`,
+  `ocp_frame.{h,c}`, `ocp_server.c`):**
+  - Added strictly receive-only `lora_sweep [start_khz] [step_khz] [bins]`
+    (`OCP_CC_LORA_RX`, `OP_GET_RSSI_INST = 0x15` allowlisted as read-only in
+    both `lora_radio.c` and `tools/check_rx_only.py`, keeping all forbidden TX
+    opcodes blocked).
+  - Extracted shared `bringup_standby_xosc_locked()` in `lora_radio.c`;
+    `lora_radio_sweep_start()` configures wide 500 kHz IF bandwidth with DIO1
+    IRQs masked and `RF_SW=RX`, mutually exclusive with packet RX;
+    `lora_radio_sweep_measure()` steps each frequency bin, settles 600 µs, and
+    samples `GetRssiInst` 3× taking the max dBm (`-raw/2`), yielding every 8
+    bins so the single-core C5 never starves USB/UART.
+  - Emits `[EVT] kind=lora_sweep start_khz=... step_khz=... bins=... rssi=...`
+    via non-blocking `ocp_event_submit()` (<= 382 bytes for 64 bins, well under
+    `OCP_MAX_LINE_LEN = 512`), reports `lora=sweep` in `[STATUS]`, and tears
+    down cleanly on `stop lora`.
+- **Deck (`model/lora_sweep_model.{h,cpp}`, `ui/subghz_view.{h,cpp}`,
+  `ui/external_lora_view.{h,cpp}`, `ui/external_gps_display.{h,cpp}`,
+  `app/deck_app.{h,cpp}`, `app/link_reconcile.h`):**
+  - Added allocation-free `LoraSweepModel` (64-bin current + peak-hold +
+    25th-percentile noise floor + 24-row waterfall history ring) with US
+    902–928 / EU 863–870 / ISM 433 presets.
+  - Added `w` toggle on Sub-GHz screen (`s` start/stop sweep, `x` band preset,
+    `r` clear peak hold, `lora sweep` debug command) and Observatory v2 320×240
+    **Sub-GHz Spectrum & Waterfall** companion view (`drawExternalLoraSweepStrip`).
+- **Checks:** `check_protocol.sh` (ASan/UBSan `lora_sweep_plan_test` +
+  `lora_sweep_model_test`, `check_rx_only.py` across 266 files + 6 rejected TX
+  mutations, `check_ui_palette.py`, `check_external_frame_memory.py`), two
+  mutation proofs (disabling 960 MHz upper-span check and disabling peak-hold
+  retention both caught), `render_external_views.py` (visual inspection of
+  `lora-sweep-active.png`), and `build_firmware.sh` (both boards + stack guards).
+- **Not yet verified on hardware:** live SX1262 `GetRssiInst` sweep cadence
+  and noise-floor readings on physical Wio-SX1262.
+
 ## 2026-11-21 — Probe-driven multi-band `start_wardrive` & WigleWifi-1.6 BLE CSV (WP-3)
 
 - **Probe (`firmware-c5/main/wardrive_cache.{h,c}`, `wifi_wardrive.{h,c}`,

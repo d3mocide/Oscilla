@@ -45,6 +45,7 @@
 #include "model/drive_trail.h"
 #include "model/lora_model.h"
 #include "model/lora_profile_catalog.h"
+#include "model/lora_sweep_model.h"
 #include "model/scan_model.h"
 #include "model/spectrum_model.h"
 #include "model/zig_model.h"
@@ -84,6 +85,8 @@ public:
     const model::BtInspection &btInspection()const{return bt_inspection_;}
     bool traceListening() const { return client_.pending() && client_.pendingVerb() == OCP_V_INSPECT_NETWORK; }
     const model::LoraModel &loraModel() const { return lora_; }
+    const model::LoraSweepModel &loraSweepModel() const { return lora_sweep_; }
+    bool showingLoraSweep() const { return screen_ == Screen::SubGhz && lora_sweep_mode_ && !packet_inspection_.active(); }
     const model::PacketInspection &packetInspection() const { return packet_inspection_; }
     size_t loraCursor() const { return lora_cursor_; }
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
@@ -213,6 +216,8 @@ private:
     void sendLoraConfig(uint32_t freq_hz, int sf, int bw_khz, int cr, uint8_t sync_word,
                         const std::string &profile_token, uint32_t now_ms);
     void startLoraListen(uint32_t now_ms);
+    void startLoraSweep(uint32_t start_khz, uint16_t step_khz, uint8_t bins, uint32_t now_ms);
+    void startLoraSweepPreset(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
      * one radio mode, so starting one requires the other two to be idle. */
@@ -293,6 +298,13 @@ private:
     model::ScopeInspection scope_inspection_;
     model::PacketInspection packet_inspection_;
     model::LoraModel lora_;
+    model::LoraSweepModel lora_sweep_;
+    bool lora_sweep_mode_ = false;
+    bool lora_sweep_pending_ = false;
+    size_t lora_sweep_preset_ = 0;
+    uint32_t lora_sweep_sent_start_ = 902000u;
+    uint16_t lora_sweep_sent_step_ = 400u;
+    uint8_t lora_sweep_sent_bins_ = 64u;
     model::DeauthModel deauth_;
     model::BtModel bt_;
     model::AntiSurveillanceModel anti_;

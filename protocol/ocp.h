@@ -139,6 +139,7 @@ typedef enum {
 #define OCP_V_LORA_CONFIG       "lora_config"
 #define OCP_V_LORA_LISTEN       "lora_listen"
 #define OCP_V_LORA_STATUS       "lora_status"
+#define OCP_V_LORA_SWEEP        "lora_sweep"
 
 /* Mixed */
 #define OCP_V_START_WARDRIVE    "start_wardrive"
@@ -183,6 +184,7 @@ typedef enum {
     X(LORA_CONFIG,       OCP_V_LORA_CONFIG,       OCP_CC_LORA_RX,     4,  5,  OCP_MARK_CFG)        \
     X(LORA_LISTEN,       OCP_V_LORA_LISTEN,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
+    X(LORA_SWEEP,        OCP_V_LORA_SWEEP,        OCP_CC_LORA_RX,     0,  3,  OCP_MARK_CFG)        \
     X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)
 
 /* --- Errors (OCP-SPEC §5.3) ----------------------------------------------- */
@@ -204,6 +206,7 @@ typedef enum {
 #define OCP_EVT_KIND_NETWORK   "network"   /* start_wifi_scan: a newly seen AP */
 #define OCP_EVT_KIND_CHAN       "chan"
 #define OCP_EVT_KIND_LORA       "lora"
+#define OCP_EVT_KIND_LORA_SWEEP "lora_sweep"
 #define OCP_EVT_KIND_CLIENT     "client"
 #define OCP_EVT_KIND_PROBE      "probe"
 #define OCP_EVT_KIND_DEAUTH     "deauth"
@@ -279,6 +282,10 @@ typedef enum {
 #define OCP_K_SNR               "snr"
 #define OCP_K_LEN               "len"
 #define OCP_K_HEX               "hex"
+#define OCP_K_START_KHZ         "start_khz"
+#define OCP_K_STEP_KHZ          "step_khz"
+#define OCP_K_BINS              "bins"
+#define OCP_LORA_SWEEP_MAX_BINS 64
 
 /* 802.15.4 frames (OCP-SPEC §12). */
 #define OCP_K_STATE             "state"
