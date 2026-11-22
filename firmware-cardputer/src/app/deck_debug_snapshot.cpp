@@ -115,6 +115,10 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("baseline_pans", baseline_.panCount());
     line.field("baseline_alerts", baseline_.anomalies().size());
     line.field("baseline_high", baseline_.highSeverityCount());
+    line.field("audio_enabled", audio_enabled_);
+    line.field("hunt_active", hunt_.active());
+    line.field("hunt_samples", hunt_.samples());
+    line.field("hunt_rssi", hunt_.samples() ? hunt_.currentRssi() : 0);
     return line.take();
 }
 } // namespace app

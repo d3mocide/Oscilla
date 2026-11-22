@@ -28,8 +28,10 @@
 #include "ui/external_drive_view.h"
 #include "ui/external_system_view.h"
 #include "ui/external_card_views.h"
+#include "ui/external_hunt_view.h"
 #include "ui/external_gnss_view.h"
 #include "ui/settings_view.h"
+#include "ui/signal_hunt_view.h"
 
 static ocp::Item event(std::initializer_list<ocp::KeyValue> fields) {
     ocp::Item item;item.kind=ocp::ItemKind::Event;item.kv=fields;return item;
@@ -263,9 +265,27 @@ int main(int argc,char **argv) {
             cfg.cursor = 2; save("settings-region",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
             cfg.cursor = 3; save("settings-band",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
             cfg.cursor = 4; save("settings-lora",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
-            cfg.cursor = 5; cfg.debug_enabled = true;
+            cfg.cursor = 5; cfg.audio_enabled = true;
+            save("settings-audio",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
+            cfg.cursor = 6; cfg.debug_enabled = true;
             save("settings-debug",[&](auto &d,int t){ui::drawExternalSettingsStrip(d,t,cfg);});
             deckSave("deck-settings-bottom", [&]{ ui::drawSettingsView(cfg, chrome); });
+        }
+        {
+            model::SignalHunt h;
+            h.startWifi("02:aa:bb:cc:dd:01", "Lab-Field-AP", 6, !empty);
+            if (!empty) {
+                h.setStreaming(!cached);
+                const int samples[] = {-84,-82,-79,-76,-72,-68,-65,-61,-58,-55,-52,-49,-46,-44,-47,-51,-48,-45};
+                for (size_t i = 0; i < sizeof(samples)/sizeof(samples[0]); ++i) {
+                    h.observeSample(samples[i], now - static_cast<uint32_t>((18 - i) * 150));
+                }
+            }
+            save("signal-hunt", [&](auto &d, int t) { ui::drawExternalHuntStrip(d, t, h, now); });
+            if (!empty && !cached) {
+                chrome.title = "SIGNAL HUNT";
+                deckSave("deck-signal-hunt", [&]{ ui::drawSignalHuntView(h, now, chrome); });
+            }
         }
     }
 }

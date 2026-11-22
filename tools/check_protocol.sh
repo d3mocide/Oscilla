@@ -158,6 +158,12 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/wardrive_cache_test.c firmware-c5/main/wardrive_cache.c
 "$out/wardrive_cache_test" | tail -1 | sed 's/^/  /'
 
+# Single-target Signal Hunt MAC parser, 802.11 filter and rate limiter (WP-12b).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/hunt_filter_test" \
+    firmware-c5/test/host/hunt_filter_test.c firmware-c5/main/hunt_filter.c
+"$out/hunt_filter_test" | tail -1 | sed 's/^/  /'
+
 # Deauth/disassoc frame parser (deauth_detector's classification path).
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -o "$out/deauth_parse_test" firmware-c5/test/host/deauth_parse_test.c firmware-c5/main/deauth_parse.c
@@ -391,6 +397,12 @@ PY
     firmware-cardputer/src/model/lora_sweep_model.cpp \
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/lora_sweep_model_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Iprotocol -Ifirmware-cardputer/src -o "$out/signal_hunt_test" \
+    firmware-cardputer/test/host/signal_hunt_test.cpp \
+    firmware-cardputer/src/model/signal_hunt.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/signal_hunt_test" | tail -1 | sed 's/^/  /'
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/vendor_table_test" \
     firmware-cardputer/test/host/vendor_table_test.cpp
 "$out/vendor_table_test" | tail -1 | sed 's/^/  /'

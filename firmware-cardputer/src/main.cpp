@@ -84,6 +84,7 @@ void setup()
         g_app.setWifiBand(storage::loadWifiBand());
         g_app.setIdleTimeoutS(storage::loadIdleTimeoutS(), millis());
         g_app.loadLoraProfiles(storage::loadLoraProfilesCsv(), storage::loadLoraProfile());
+        g_app.setAudioEnabled(storage::loadAudioEnabled());
         g_app.loadBaseline();
     }
 
@@ -249,6 +250,9 @@ void loop()
         g_app.onKeys(keys, now);
     }
     syncDisplaySleep(g_app.displaySleeping(), now);
+    if (const auto pulse = g_app.pollGeigerPulse(now); pulse.fire) {
+        M5Cardputer.Speaker.tone(pulse.freq_hz, pulse.duration_ms);
+    }
 
     if (g_app.dirty(now)) g_app.draw(now);
     static model::SystemStatus external_system;
@@ -275,6 +279,7 @@ void loop()
     external_card.observed_contacts = &g_app.contactsModel();
     external_card.packet = g_app.showingLora() && g_app.packetInspection().active() ? &g_app.packetInspection() : nullptr;
     external_card.lora_sweep = g_app.showingLoraSweep() ? &g_app.loraSweepModel() : nullptr;
+    external_card.signal_hunt = g_app.showingHunt() ? &g_app.signalHunt() : nullptr;
     external_card.drive_closing=g_app.wardriveClosing();
     external_card.trace_page = g_app.showingTrace();
     external_card.trace_listening = g_app.traceListening();

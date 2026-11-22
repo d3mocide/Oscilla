@@ -12,6 +12,7 @@
 #include "model/scan_model.h"
 #include "model/lora_model.h"
 #include "model/lora_sweep_model.h"
+#include "model/signal_hunt.h"
 #include "model/drive_trail.h"
 #include "model/bt_model.h"
 #include "model/contacts_model.h"
@@ -37,6 +38,7 @@ struct ExternalCardState {
     const model::ContactsModel *observed_contacts = nullptr;
     const model::PacketInspection *packet = nullptr;
     const model::LoraSweepModel *lora_sweep = nullptr;
+    const model::SignalHunt *signal_hunt = nullptr;
     bool drive_closing = false;
     bool trace_page = false;
     bool trace_listening = false;

@@ -163,6 +163,7 @@ static const char *event_kind_name(ocp_event_record_kind_t kind)
         case OCP_EVENT_RECORD_ZIG:     return OCP_EVT_KIND_ZIG;
         case OCP_EVENT_RECORD_LORA:    return OCP_EVT_KIND_LORA;
         case OCP_EVENT_RECORD_LORA_SWEEP: return OCP_EVT_KIND_LORA_SWEEP;
+        case OCP_EVENT_RECORD_HUNT:    return OCP_EVT_KIND_HUNT;
         case OCP_EVENT_RECORD_KIND_COUNT: break;
     }
     return "unknown";
@@ -289,6 +290,14 @@ static void emit_event_record(const ocp_event_record_t *event)
                               OCP_K_STEP_KHZ, (unsigned)r->step_khz,
                               OCP_K_BINS, (unsigned)r->bins,
                               OCP_K_RSSI, csv);
+            break;
+        }
+        case OCP_EVENT_RECORD_HUNT: {
+            const ocp_event_hunt_t *r = &event->data.hunt;
+            emit_event_fields(event_kind_name(event->kind),
+                              "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%u",
+                              OCP_K_MAC, r->mac[0], r->mac[1], r->mac[2], r->mac[3], r->mac[4], r->mac[5],
+                              OCP_K_RSSI, r->rssi, OCP_K_CH, (unsigned)r->channel);
             break;
         }
         case OCP_EVENT_RECORD_KIND_COUNT:

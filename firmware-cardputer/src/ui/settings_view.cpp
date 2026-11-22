@@ -47,6 +47,10 @@ void formatRowValue(const SettingsViewState &s, SettingsRow row, std::string &va
         value = printable(s.lora_label, 12);
         color = s.lora_from_sd ? kCalibrationYellow : kFieldGreen;
         return;
+    case SettingsRow::AudioCues:
+        value = s.audio_enabled ? "ON" : "MUTED";
+        color = s.audio_enabled ? kCalibrationYellow : kMutedSlate;
+        return;
     case SettingsRow::DebugSerial:
         value = s.debug_enabled ? "ON" : "OFF";
         color = s.debug_enabled ? kSignalPink : kMutedSlate;

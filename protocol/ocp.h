@@ -143,6 +143,8 @@ typedef enum {
 
 /* Mixed */
 #define OCP_V_START_WARDRIVE    "start_wardrive"
+#define OCP_V_HUNT_WIFI         "hunt_wifi"
+#define OCP_V_HUNT_BLE          "hunt_ble"
 
 /*
  * The command table. Referencing the macros above keeps each verb string
@@ -185,7 +187,9 @@ typedef enum {
     X(LORA_LISTEN,       OCP_V_LORA_LISTEN,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_SWEEP,        OCP_V_LORA_SWEEP,        OCP_CC_LORA_RX,     0,  3,  OCP_MARK_CFG)        \
-    X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)
+    X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)        \
+    X(HUNT_WIFI,         OCP_V_HUNT_WIFI,         OCP_CC_WIFI,        2,  2,  OCP_MARK_CFG)        \
+    X(HUNT_BLE,          OCP_V_HUNT_BLE,          OCP_CC_BLE,         1,  1,  OCP_MARK_CFG)
 
 /* --- Errors (OCP-SPEC §5.3) ----------------------------------------------- */
 
@@ -211,6 +215,7 @@ typedef enum {
 #define OCP_EVT_KIND_PROBE      "probe"
 #define OCP_EVT_KIND_DEAUTH     "deauth"
 #define OCP_EVT_KIND_WARDRIVE   "wardrive"
+#define OCP_EVT_KIND_HUNT       "hunt"      /* hunt_wifi / hunt_ble: pinned target RSSI */
 #define OCP_EVT_KIND_ZIG        "zig"       /* first sighting from start_zig_recon */
 
 /* --- Well-known keys and row shapes --------------------------------------- */

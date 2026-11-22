@@ -16,6 +16,7 @@
 #include "status_led.h"
 #include "wifi_channels.h"
 #include "wifi_deauth.h"
+#include "wifi_hunt.h"
 #include "wifi_inspect.h"
 #include "wifi_networks.h"
 #include "wifi_recon.h"
@@ -375,6 +376,14 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_START_WARDRIVE:
         wifi_cmd_start_wardrive(argc, argv);
+        break;
+
+    case OCP_VID_HUNT_WIFI:
+        wifi_cmd_hunt(argc, argv);
+        break;
+
+    case OCP_VID_HUNT_BLE:
+        ble_cmd_hunt(argc, argv);
         break;
 
     case OCP_VID_REBOOT:

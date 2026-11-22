@@ -274,6 +274,8 @@ isolated third-party dependencies.
 | `wifi_network_table.c` | Capped BSSID dedup/update table for continuous Wi-Fi discovery; pure C, host-tested |
 | `wardrive_cache.c` | Bounded TTL + RSSI-jump + LRU dedup cache for moving multi-band wardrives; pure C, host-tested |
 | `wifi_wardrive.c` | Probe-driven `start_wardrive` (`PHY_OWNER_WARDRIVE`): sequential passive Wi-Fi hop + duty-cycled passive BLE sweep streaming `[EVT] kind=network` and `kind=ble` |
+| `hunt_filter.c` | Pure-C MAC parser, 802.11 mgmt/data Addr2 matcher, and 100 ms wrap-safe rate limiter for Signal Hunt; host-tested under ASan/UBSan |
+| `wifi_hunt.c` | Single-channel locked passive Wi-Fi promiscuous RX (`hunt_wifi`, OCP-SPEC §14) streaming `[EVT] kind=hunt` |
 | `wifi_channel_picker.c` | D-UCB discounted bandit adaptive channel picker for sniffer/discovery/deauth (D-6); pure C, host-tested |
 | `wifi_inspect.c` | Passive beacon capture from one AP → MFP, uptime, interval |
 | `beacon_parse.c` | Bounds-checked 802.11 beacon parser; pure C, fuzzed under ASan/UBSan |
@@ -281,7 +283,7 @@ isolated third-party dependencies.
 | `wifi_recon.c` | Managed scan; promiscuous sniffer + inspect + channel views; manual hop (optionally D-UCB) |
 | `ble_adv_parse.c` | Bounds-checked BLE AD-structure parser (name, manufacturer data, Find My/AirTag classification); pure C, fuzzed under ASan/UBSan — same split as `beacon_parse.c` |
 | `ble_device_table.c` | `scan_bt`'s capped, deduplicated device table — pure C, host-tested upsert logic, same split as `sniff_track.c` |
-| `ble_recon.c` | NimBLE passive scan — a bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), continuous tracker classification (`scan_airtag`), and the passive anti-surveillance stream (`start_antisurveillance`), OCP-SPEC §11; thin glue over the two modules above, the arbiter, and OCP framing — **hardware-confirmed 2026-09-16** for the existing modes (see WORKLOG) |
+| `ble_recon.c` | NimBLE passive scan — bounded snapshot (`scan_bt`), continuous discovery (`start_ble_scan`), tracker stream (`scan_airtag`/`start_antisurveillance`), single-target `hunt_ble`, and duty-cycled wardrive window (`ble_recon_wardrive_window`), all routed through one audited `start_disc()` (`passive=1`), OCP-SPEC §11 & §14 |
 | `zig_radio.c` | Passive 802.15.4 radio lifecycle, channel dwell/hop, ISR callback handoff; hardware-confirmed 2026-09-16 |
 | `zig_frame.c` | Bounds-checked 802.15.4 MAC parsing; pure C, host-tested and live-capture-confirmed |
 | `zig_table.c` | Capped PAN/node deduplication and updates; pure C, host-tested and live-capture-confirmed |
@@ -412,8 +414,11 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/model/lora_payload_view` | model | Eight-byte raw display rows with controls/non-ASCII replaced by dots |
 | `src/ui/external_spectrum_view` | view | Rendered-guide four-tile ribbon, 30-second measured packet history and count envelope; clipped strips, no fabricated RSSI/FFT/occupancy |
 | `src/ui/external_wifi_view` | view | Passive Wi-Fi AP inventory, selected row, band/channel/RSSI, and live/cached/truncated state |
-| `src/ui/external_card_views` | view | Read-only AP Detail, Deauth Detect, Anti-Surveillance, and paired 6-row Settings inspector companion cards |
-| `src/ui/settings_state` | view model | Shared 6-row configuration snapshot (`BRIGHTNESS`, `IDLE SLEEP`, `WI-FI REGION`, `WI-FI BAND`, `LORA PROFILE`, `DEBUG SERIAL`) for paired onboard + external Settings views |
+| `src/ui/external_card_views` | view | Read-only AP Detail, Deauth Detect, Anti-Surveillance, and paired 7-row Settings inspector companion cards |
+| `src/ui/settings_state` | view model | Shared 7-row configuration snapshot (`BRIGHTNESS`, `IDLE SLEEP`, `WI-FI REGION`, `WI-FI BAND`, `LORA PROFILE`, `AUDIO CUES`, `DEBUG SERIAL`) for paired onboard + external Settings views |
+| `src/model/signal_hunt` | model | Allocation-free 64-sample single-target RSSI sparkline ring, peak/min/stale tracking, and monotonic muteable Geiger pulse scheduler; host-tested |
+| `src/ui/signal_hunt_view` | view | Onboard 240×135 Signal Hunt view: target header, live dBm, proximity bar, sparkline, peak/hits, live audio mute & peak reset controls |
+| `src/ui/external_hunt_view` | view | Observatory v2 320×240 Signal Hunt companion card: RSSI sparkline + peak dashed line, proximity badge, 24-segment meter, Geiger cadence status, and Reading Dock |
 | `src/model/lora_profile_catalog` | model | Built-in + optional SD-loaded `/oscilla/lora_profiles.csv` presets (validated against SX1262 ranges, capped to 16); host-tested |
 | `src/model/lora_sweep_model` | model | Allocation-free 64-bin sub-GHz passive RSSI spectrum, peak-hold envelope, noise-floor estimate, and 24-row waterfall history; host-tested |
 | `src/model/vendor_table` | model | Pure-C++ sorted binary OUI/BT Company-ID search, header validation, LAA detection, and 32-slot RAM LRU cache; cross-checked with `tools/build_vendor_tables.py` |
@@ -435,7 +440,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/anti_surveillance_view` | view | The Anti-Surveillance card: bounded tracker rows, GNSS-ready state, movement-leg progress, and conservative candidate state |
 | `src/debug/diagnostic_line` | services | Small-frame single-line diagnostic builder; numeric bounds and control sanitization host-tested |
 | `src/debug/line_reader` | services | Chunk-invariant line reader for the debug console (§7.6); host-tested |
-| `src/storage/settings` | services | Small flags persisted on SD as flag files (§7.6) — debug mode today, more later |
+| `src/storage/settings` | services | Small flags and config values persisted on SD (`/oscilla/debug`, brightness, idle timeout, Wi-Fi region/band, LoRa profile, `audio_enabled`) |
 | `bench/*.cpp` | bench | `grove_bridge` (USB↔Grove), `adv_check` (D-12), `tft_cs_check` (standalone ST7789 colour reference, SD removed), `sd_check` (armed SD write/read), `sd_display_check` (armed locked ST7789/SD interleaving). Old no-CS fixture sources remain historical evidence and have no selectable build profile. |
 
 ### 7.2 View set (v1)
@@ -452,6 +457,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **802.15.4** | `start_zig_recon` + `zig_*` | PAN → node inventory, protocol guess, signal quality. Receive-only. |
 | **LoRa RX** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
 | **Drive** | local GNSS + `start_wardrive` (fallback: `scan_networks`) | Fix status, running AP + BT counts, session control; rows written to deck SD as WigleWifi-1.6 CSV (`Type=WIFI` and `Type=BLE`, with `MfgrId` populated) + KML track/placemarks/waypoints. `l` opens a session and starts `start_wardrive` (streaming receipt-time geotagged Wi-Fi + duty-cycled BLE events through a bounded 1-row/loop SD queue, falling back cleanly to looping `scan_networks` on older probes). |
+| **Signal Hunt** | `hunt_wifi` / `hunt_ble` | Drill-down from Wi-Fi Scan, AP Detail, BLE Scan, BT Dossier, or Anti-Surveillance (`f` key): single-target live RSSI sparkline, 24-segment proximity meter, peak/hits, and optional off-by-default muteable Geiger speaker cadence (`a` key). |
 | **Log** | local SD browse | `o` opens saved wardrive/LoRa sessions without stopping reception; grouped inventory, observed record span/counts, six-record pages and saved raw packet hex/ASCII. `x` filters All/Drive/LoRa, `r` refreshes inventory, Enter drills down and Back steps out. |
 
 ### 7.3 Interaction & state

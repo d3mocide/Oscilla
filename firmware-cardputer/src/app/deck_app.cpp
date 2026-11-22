@@ -39,6 +39,7 @@
 #include "ui/bt_detail_view.h"
 #include "ui/session_view.h"
 #include "storage/session_reader.h"
+#include "ui/signal_hunt_view.h"
 #include "ui/sweep_view.h"
 
 namespace app {
@@ -170,6 +171,8 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         deauth_.clear();
         bt_.clear();
         anti_.clear();
+        hunt_.clear();
+        hunt_start_pending_ = false;
         zig_.clear();
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
@@ -248,10 +251,13 @@ void DeckApp::onReply(const ocp::Item &it)
         const bool bt_continuous_rejected = bt_continuous_pending_;
         const bool bt_airtag_rejected = bt_airtag_pending_;
         const bool wardrive_rejected = wardrive_stream_pending_;
+        const bool hunt_rejected = hunt_start_pending_;
         bt_scan_pending_ = false;
         bt_continuous_pending_ = false;
         bt_airtag_pending_ = false;
         wardrive_stream_pending_ = false;
+        hunt_start_pending_ = false;
+        if (hunt_rejected) hunt_.stop();
         if (bt_scan_rejected) bt_.stop();
         const auto *code = it.get(OCP_K_CODE);
         const auto *msg = it.get(OCP_K_MSG);
@@ -322,6 +328,12 @@ void DeckApp::onReply(const ocp::Item &it)
         scan_.beginContinuous();
         bt_.beginContinuous();
         log("wardrive stream active");
+    }
+    if (it.tag == OCP_MARK_CFG && hunt_start_pending_) {
+        hunt_start_pending_ = false;
+        hunt_.setStreaming(true);
+        notice("");
+        log("signal hunt active");
     }
     if (it.tag == OCP_MARK_CFG && bt_continuous_pending_) {
         bt_continuous_pending_ = false;
@@ -497,6 +509,7 @@ void DeckApp::onEvent(const ocp::Item &it)
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     absorbDeviceEvent(it);         /* kind=airtag is the only source of truth here too */
     enqueueWardriveEvent(it);      /* receipt-time GNSS geotag for start_wardrive */
+    hunt_.absorbEvent(it, now_);   /* kind=hunt pinned target RSSI stream */
     anti_.absorbEvent(it, now_); /* kind=airtag + deck-local movement correlation */
 
 }
@@ -522,7 +535,8 @@ bool DeckApp::phyEngineActive() const
 {
     return scan_.scanning() || scan_.continuousActive() || contacts_.sniffing() ||
            spectrum_.active() || deauth_.active() || bt_.scanning() || bt_.continuousActive() ||
-           bt_.airtagActive() || anti_.active() || zig_.active() || wardrive_stream_active_;
+           bt_.airtagActive() || anti_.active() || zig_.active() || wardrive_stream_active_ ||
+           hunt_.streaming();
 }
 
 void DeckApp::clearPhyBelief()
@@ -534,6 +548,8 @@ void DeckApp::clearPhyBelief()
     spectrum_start_pending_ = false;
     wardrive_stream_active_ = false;
     wardrive_stream_pending_ = false;
+    hunt_start_pending_ = false;
+    hunt_.stop();
     scan_.stop();
     contacts_.stopSniffing();
     spectrum_.stop();
@@ -557,7 +573,7 @@ bool DeckApp::phyToolActive() const
     return phyEngineActive() || scan_pending_ || wifi_continuous_pending_ ||
            spectrum_start_pending_ || bt_scan_pending_ || bt_continuous_pending_ ||
            bt_airtag_pending_ || anti_start_pending_ || zig_start_pending_ ||
-           wardrive_stream_pending_;
+           wardrive_stream_pending_ || hunt_start_pending_;
 }
 
 bool DeckApp::preparePhyStart(PhyHandoff::Start start, uint32_t now_ms)
@@ -760,6 +776,64 @@ void DeckApp::toggleBaselineWatch()
     else saveBaselineNow();
 }
 
+void DeckApp::toggleAudioEnabled()
+{
+    audio_enabled_ = !audio_enabled_;
+    hunt_.setAudioEnabled(audio_enabled_);
+    storage::saveAudioEnabled(audio_enabled_);
+    notice(audio_enabled_ ? "audio cues ON" : "audio cues MUTED");
+    log(audio_enabled_ ? "audio=on" : "audio=off");
+    dirty_ = true;
+}
+
+void DeckApp::startWifiHunt(const std::string &bssid, const std::string &ssid,
+                            uint8_t ch, uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this, bssid, ssid, ch](uint32_t t) {
+            startWifiHunt(bssid, ssid, ch, t);
+        }, now_ms)) return;
+    std::string cmd = std::string(OCP_V_HUNT_WIFI) + " " + bssid + " " + std::to_string(ch);
+    if (!client_.send(cmd, now_ms)) {
+        retrySoon([this, bssid, ssid, ch](uint32_t t) {
+            startWifiHunt(bssid, ssid, ch, t);
+        }, now_ms);
+        return;
+    }
+    hunt_.startWifi(bssid, ssid, ch, audio_enabled_);
+    hunt_start_pending_ = true;
+    notice("locking target...");
+    dirty_ = true;
+}
+
+void DeckApp::startBtHunt(const std::string &mac, const std::string &name, uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (!preparePhyStart([this, mac, name](uint32_t t) {
+            startBtHunt(mac, name, t);
+        }, now_ms)) return;
+    std::string cmd = std::string(OCP_V_HUNT_BLE) + " " + mac;
+    if (!client_.send(cmd, now_ms)) {
+        retrySoon([this, mac, name](uint32_t t) {
+            startBtHunt(mac, name, t);
+        }, now_ms);
+        return;
+    }
+    hunt_.startBt(mac, name, audio_enabled_);
+    hunt_start_pending_ = true;
+    notice("locking target...");
+    dirty_ = true;
+}
+
+void DeckApp::exitSignalHunt(uint32_t now_ms)
+{
+    if (hunt_.streaming() || hunt_start_pending_) stopPhy(now_ms);
+    hunt_start_pending_ = false;
+    hunt_.clear();
+    notice("hunt closed");
+    dirty_ = true;
+}
+
 void DeckApp::cycleLoraProfile(int direction)
 {
     const size_t n = lora_profiles_.size();
@@ -803,6 +877,7 @@ ui::SettingsViewState DeckApp::settingsViewState() const
     s.lora_from_sd = lp.from_sd;
     s.lora_index = lora_profile_index_;
     s.lora_count = lora_profiles_.size();
+    s.audio_enabled = audio_enabled_;
     s.debug_enabled = debug_mode_;
     s.sd_ready = storage::ready();
     return s;
@@ -825,6 +900,9 @@ void DeckApp::adjustSelectedSetting(int direction, uint32_t now_ms)
         break;
     case ui::SettingsRow::LoraProfile:
         cycleLoraProfile(direction);
+        break;
+    case ui::SettingsRow::AudioCues:
+        toggleAudioEnabled();
         break;
     case ui::SettingsRow::DebugSerial:
         toggleDebugMode();
@@ -999,6 +1077,7 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
 
 void DeckApp::back(uint32_t now_ms)
 {
+    if (hunt_.active()) { exitSignalHunt(now_ms); return; }
     if(isSystemScreen(screen_)&&system_from_sessions_){screen_=Screen::Logs;system_from_sessions_=false;dirty_=true;return;}
     if(screen_==Screen::Logs){
         storage::sessionCancel(session_review_);
@@ -1118,6 +1197,11 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             continue;
         }
         if (help_visible_) continue;
+        if (hunt_.active()) {
+            if (c == 'a') toggleAudioEnabled();
+            else if (c == 'r') { hunt_.resetPeak(); notice("peak reset"); dirty_ = true; }
+            continue;
+        }
         if(c=='o'){openSessions(now_ms);continue;}
         if(c=='i') {
             if(screen_==Screen::Logs)system_from_sessions_=true;
@@ -1155,6 +1239,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 'r') startScan(now_ms);
             else if (c == 's' || c == 'c') toggleWifiContinuous(now_ms);
             else if (c == 'b') toggleBaselineWatch();
+            else if (c == 'f' && cursor_ < scan_.rows().size()) {
+                const auto &ap = scan_.rows()[cursor_];
+                startWifiHunt(ap.bssid, ap.ssid, ap.ch, now_ms);
+            }
             if(cursor_<scan_.rows().size())ap_focus_bssid_=scan_.rows()[cursor_].bssid;
             break;
         case Screen::Trace:
@@ -1162,6 +1250,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if(c==';'&&wifi_inspection_.clientsPage())wifi_inspection_.movePeer(contacts_,-1);
             else if(c=='.'&&wifi_inspection_.clientsPage())wifi_inspection_.movePeer(contacts_,1);
             else if(c=='r')refreshWifiDossier(now_ms);
+            else if(c=='f'&&wifi_inspection_.active()) {
+                const auto &ap = wifi_inspection_.row();
+                startWifiHunt(ap.bssid, ap.ssid, ap.ch, now_ms);
+            }
             break;
         case Screen::Contacts: {
             if(contact_inspection_.active()){
@@ -1261,6 +1353,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == ';' && anti_cursor_ > 0) anti_cursor_--;
             else if (c == '.' && anti_cursor_ + 1 < anti_.trackers().size()) anti_cursor_++;
             else if (c == 's') toggleAntisurveillance(now_ms);
+            else if (c == 'f' && anti_cursor_ < anti_.trackers().size()) {
+                const auto &t = anti_.trackers()[anti_cursor_];
+                startBtHunt(t.mac, t.tracker_kind.empty() ? "TRACKER" : t.tracker_kind, now_ms);
+            }
             break;
         case Screen::Drive:
             if (c == 'l') toggleWardriveLog(now_ms);
@@ -1270,6 +1366,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if(bt_inspection_.active()){
                 if(c=='r')refreshBtDossier(now_ms);
                 else if(c=='s'){if(bt_.scanning()||bt_.continuousActive()||bt_.airtagActive())stopPhy(now_ms);else refreshBtDossier(now_ms);}
+                else if(c=='f'){const auto &dev=bt_inspection_.row();startBtHunt(dev.mac,dev.name,now_ms);}
                 break;
             }
             if (c == ';' && bt_cursor_ > 0) bt_cursor_--;
@@ -1277,6 +1374,10 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             else if (c == 's') startBtScan(now_ms);
             else if (c == 'c') toggleBtContinuous(now_ms);
             else if (c == 'a') toggleAirtagScan(now_ms);
+            else if (c == 'f' && bt_cursor_ < bt_.devices().size()) {
+                const auto &dev = bt_.devices()[bt_cursor_];
+                startBtHunt(dev.mac, dev.name, now_ms);
+            }
             break;
         }
         dirty_ = true;
@@ -1496,6 +1597,28 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
     if (cmd == "scan") startScan(now_ms);
     else if (cmd == "wardrive") toggleWardriveLog(now_ms);
     else if (cmd == "mark") markWaypoint(now_ms);
+    else if (cmd == "audio") {
+        if (arg == "on" || arg == "1") { if (!audio_enabled_) toggleAudioEnabled(); }
+        else if (arg == "off" || arg == "0" || arg == "mute") { if (audio_enabled_) toggleAudioEnabled(); }
+        else log("debug: audio needs on|off");
+    }
+    else if (cmd == "hunt") {
+        if (arg == "stop") { exitSignalHunt(now_ms); }
+        else if (arg.compare(0, 5, "wifi ") == 0) {
+            std::string rest = arg.substr(5);
+            size_t sp = rest.find(' ');
+            uint64_t ch = 0;
+            if (sp == std::string::npos || !model::parseUnsigned(rest.substr(sp + 1), &ch) || ch == 0 || ch > 196) {
+                log("debug: hunt wifi <mac> <ch>");
+                return;
+            }
+            startWifiHunt(rest.substr(0, sp), "", static_cast<uint8_t>(ch), now_ms);
+        } else if (arg.compare(0, 3, "bt ") == 0) {
+            startBtHunt(arg.substr(3), "", now_ms);
+        } else {
+            log("debug: hunt needs wifi <mac> <ch>|bt <mac>|stop");
+        }
+    }
     else if (cmd == "baseline") {
         if (arg == "save") saveBaselineNow();
         else if (arg == "clear") clearBaselineNow();
@@ -1664,6 +1787,12 @@ void DeckApp::tick(uint32_t now_ms)
         notice("lora sweep timed out");
         log("lora sweep timeout");
     }
+    if (hunt_start_pending_ && !client_.pending()) {
+        hunt_start_pending_ = false;
+        hunt_.stop();
+        notice("signal hunt timed out");
+        log("hunt start timeout");
+    }
 
     if (spectrum_start_pending_ && !client_.pending() &&
         now_ms - spectrum_started_ms_ >= ocp::Client::kReplyTimeoutMs) {
@@ -1777,7 +1906,7 @@ bool DeckApp::dirty(uint32_t now_ms) const
     if (idle_sleep_.sleeping()) return false;
     if (now_ms - last_draw_ms_ < kRedrawMs) return false;
     bool busy = (screen_==Screen::Logs&&session_review_.busy) || scan_.scanning() || scan_.continuousActive() || bt_.scanning() ||
-                (screen_ == Screen::Trace && client_.pending());
+                hunt_.active() || (screen_ == Screen::Trace && client_.pending());
     return dirty_ || (busy && now_ms - last_draw_ms_ >= kBusyRedrawMs);
 }
 
@@ -1823,6 +1952,8 @@ void DeckApp::draw(uint32_t now_ms)
 
     if (help_visible_) {
         ui::drawHelpView(makeChrome("HELP"));
+    } else if (hunt_.active()) {
+        ui::drawSignalHuntView(hunt_, now_ms, makeChrome("SIGNAL HUNT"));
     } else switch (screen_) {
     case Screen::Link:
         ui::drawLinkView(client_, link_cursor_, makeChrome("LINK"));

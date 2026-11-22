@@ -47,6 +47,7 @@
 #include "model/lora_profile_catalog.h"
 #include "model/lora_sweep_model.h"
 #include "model/scan_model.h"
+#include "model/signal_hunt.h"
 #include "model/spectrum_model.h"
 #include "model/zig_model.h"
 #include "ocp/ocp_client.h"
@@ -87,6 +88,11 @@ public:
     const model::LoraModel &loraModel() const { return lora_; }
     const model::LoraSweepModel &loraSweepModel() const { return lora_sweep_; }
     bool showingLoraSweep() const { return screen_ == Screen::SubGhz && lora_sweep_mode_ && !packet_inspection_.active(); }
+    const model::SignalHunt &signalHunt() const { return hunt_; }
+    bool showingHunt() const { return hunt_.active(); }
+    model::GeigerPulse pollGeigerPulse(uint32_t now_ms) { return hunt_.pollGeiger(now_ms); }
+    bool audioEnabled() const { return audio_enabled_; }
+    void setAudioEnabled(bool on) { audio_enabled_ = on; hunt_.setAudioEnabled(on); }
     const model::PacketInspection &packetInspection() const { return packet_inspection_; }
     size_t loraCursor() const { return lora_cursor_; }
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
@@ -284,6 +290,10 @@ private:
     void saveBaselineNow();
     void clearBaselineNow();
     void toggleBaselineWatch();
+    void toggleAudioEnabled();
+    void startWifiHunt(const std::string &bssid, const std::string &ssid, uint8_t ch, uint32_t now_ms);
+    void startBtHunt(const std::string &mac, const std::string &name, uint32_t now_ms);
+    void exitSignalHunt(uint32_t now_ms);
 
     /* A command couldn't even be sent yet (client_.pending() from something
      * else in flight, not a real conflict) - retry it once that clears,
@@ -309,6 +319,9 @@ private:
     model::BtModel bt_;
     model::AntiSurveillanceModel anti_;
     model::BaselineWatch baseline_;
+    model::SignalHunt hunt_;
+    bool hunt_start_pending_ = false;
+    bool audio_enabled_ = false;
     model::ZigModel zig_;
     gnss::NmeaParser gnss_parser_;
     model::GnssModel gnss_;

@@ -44,6 +44,7 @@
 
 #include "ble_adv_parse.h"
 #include "ble_device_table.h"
+#include "hunt_filter.h"
 #include "ocp.h"
 #include "ocp_frame.h"
 #include "ocp_parse.h"
@@ -59,6 +60,7 @@ typedef enum {
     BLE_MODE_SCAN_AIRTAG,
     BLE_MODE_ANTISURVEILLANCE,
     BLE_MODE_WARDRIVE,
+    BLE_MODE_HUNT,
 } ble_mode_t;
 
 static SemaphoreHandle_t s_lock;
@@ -73,6 +75,8 @@ static uint32_t s_airtag_n;
 static ble_wardrive_cb_t s_wd_cb;
 static void *s_wd_ctx;
 static volatile bool s_wd_done;
+static uint8_t s_hunt_mac[6];
+static hunt_rate_limit_t s_hunt_rl;
 
 static struct ble_gap_disc_params ble_passive_disc_params(void)
 {
@@ -151,6 +155,22 @@ static int gap_event(struct ble_gap_event *event, void *arg)
                 ble_adv_info_t info;
                 ble_adv_parse(event->disc.data, event->disc.length_data, &info);
                 cb(event->disc.addr.val, &info, event->disc.rssi, ctx);
+            }
+            return 0;
+        }
+        if (s_mode == BLE_MODE_HUNT) {
+            bool match = memcmp(event->disc.addr.val, s_hunt_mac, 6) == 0 &&
+                         hunt_rate_limit_allow(&s_hunt_rl, (uint32_t)(esp_timer_get_time() / 1000ULL));
+            uint8_t addr[6];
+            if (match) memcpy(addr, s_hunt_mac, 6);
+            int8_t rssi = event->disc.rssi;
+            xSemaphoreGive(s_lock);
+            if (match) {
+                ocp_event_record_t ev = { .kind = OCP_EVENT_RECORD_HUNT };
+                memcpy(ev.data.hunt.mac, addr, 6);
+                ev.data.hunt.rssi = rssi;
+                ev.data.hunt.channel = 0;
+                (void)ocp_event_submit(&ev);
             }
             return 0;
         }
@@ -366,6 +386,39 @@ void ble_cmd_start_antisurveillance(void)
         return;
     }
     emit_empty_cfg();
+}
+
+void ble_cmd_hunt(int argc, char **argv)
+{
+    uint8_t mac[6];
+    if (argc < 2 || !hunt_parse_mac(argv[1], mac)) {
+        ocp_emit_error(OCP_ERR_BADARG, "hunt_ble requires valid mac");
+        return;
+    }
+    if (arbiter_acquire(PHY_OWNER_BLE, ble_teardown) != ESP_OK) {
+        char msg[48];
+        snprintf(msg, sizeof msg, "radio in use by %s", arbiter_owner_name(arbiter_owner()));
+        ocp_emit_error(OCP_ERR_BUSY, msg);
+        return;
+    }
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    memcpy(s_hunt_mac, mac, 6);
+    hunt_rate_limit_reset(&s_hunt_rl, HUNT_MIN_INTERVAL_MS);
+    s_mode = BLE_MODE_HUNT;
+    xSemaphoreGive(s_lock);
+
+    if (start_disc(BLE_HS_FOREVER) != 0) {
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        s_mode = BLE_MODE_NONE;
+        xSemaphoreGive(s_lock);
+        arbiter_release(PHY_OWNER_BLE);
+        ocp_emit_error(OCP_ERR_HWFAULT, "ble_gap_disc failed");
+        return;
+    }
+    ocp_emit_compact(OCP_MARK_CFG, "%s=%s %s=%02x:%02x:%02x:%02x:%02x:%02x",
+                     OCP_K_MODE, OCP_EVT_KIND_HUNT,
+                     OCP_K_MAC, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
 static void on_reset(int reason)

@@ -24,15 +24,15 @@ def main():
         fonts = ROOT / 'firmware-cardputer/.pio/libdeps/cardputer-adv/M5GFX@0.2.28/src'
     models = ['spectrum_model','scan_model','bt_model','contacts_model','zig_model',
               'lora_model','lora_sweep_model','lora_framing','deauth_model','anti_surveillance_model','gnss_model','session_review',
-              'baseline_watch']
-    views = ['spectrum','wifi','bt','contacts','lora','zig','drive','system','gnss']
+              'baseline_watch','signal_hunt']
+    views = ['spectrum','wifi','bt','contacts','lora','zig','drive','system','gnss','hunt']
     sources = [ROOT/'tools/viewport_fixtures.cpp']
     sources += [ROOT/f'firmware-cardputer/src/model/{m}.cpp' for m in models]
     sources += [ROOT/f'firmware-cardputer/src/ui/external_{v}_view.cpp' for v in views]
     sources += [ROOT/'firmware-cardputer/src/ui/observatory_fonts.cpp',ROOT/'firmware-cardputer/src/ui/external_card_views.cpp',ROOT/'firmware-cardputer/src/ui/external_contact_detail_view.cpp']
     sources += [ROOT/f'firmware-cardputer/src/ocp/{m}.cpp' for m in ['ocp_parser','ocp_csv']]
     sources += [ROOT/'protocol/ocp_text.c',ROOT/'tools/viewport_deck.cpp']
-    sources += [ROOT/f'firmware-cardputer/src/ui/{v}.cpp' for v in ['chrome','contacts_view','contact_detail_view','wifi_detail_view','bt_detail_view','sweep_view','bt_view','deauth_view','zig_view','anti_surveillance_view','subghz_view','spectrum_view','session_view','lora_detail_view','settings_view']]
+    sources += [ROOT/f'firmware-cardputer/src/ui/{v}.cpp' for v in ['chrome','contacts_view','contact_detail_view','wifi_detail_view','bt_detail_view','sweep_view','bt_view','deauth_view','zig_view','anti_surveillance_view','subghz_view','spectrum_view','session_view','lora_detail_view','settings_view','signal_hunt_view']]
     with tempfile.TemporaryDirectory(prefix='oscilla-view-render-') as name:
         binary = Path(name)/'render'
         subprocess.run(['g++','-std=c++17','-O1','-Wall','-Wextra',

@@ -1,3 +1,54 @@
+## 2026-11-22 — Single-target Signal Hunt & muteable Geiger audio cadence (WP-12b)
+
+- **Protocol & Probe (`protocol/ocp.h`, `protocol/OCP-SPEC.md` §14,
+  `hunt_filter.{h,c}`, `wifi_hunt.{h,c}`, `ble_recon.{h,c}`, `ocp_frame.{h,c}`,
+  `ocp_server.c`):**
+  - Added strictly receive-only `hunt_wifi <mac> <ch>` (`OCP_CC_WIFI`, 2 args)
+    and `hunt_ble <mac>` (`OCP_CC_BLE`, 1 arg) plus `[EVT] kind=hunt mac=...
+    rssi=... ch=...` (`OCP_EVENT_RECORD_HUNT`).
+  - Added pure-C `hunt_filter.{h,c}` (strict `aa:bb:cc:dd:ee:ff` MAC parser,
+    802.11 management/data `Addr2` matcher rejecting control/short frames, and
+    wrap-safe 100 ms rate limiter) with ASan/UBSan host tests (`hunt_filter_test.c`).
+  - Added `wifi_hunt.{h,c}` locking `PHY_OWNER_WIFI` onto one region-validated
+    channel in passive promiscuous RX (`MGMT | DATA`, zero probe requests) and
+    extended `ble_recon.c` with `BLE_MODE_HUNT` routed through the single
+    audited `start_disc()` choke point (`params.passive = 1`, `filter_duplicates = 0`).
+- **Deck (`model/signal_hunt.{h,cpp}`, `storage/settings.{h,cpp}`,
+  `ui/signal_hunt_view.{h,cpp}`, `ui/external_hunt_view.{h,cpp}`,
+  `ui/settings_state.h`, `ui/settings_view.cpp`, `ui/external_card_views.cpp`,
+  `ui/external_gps_display.{h,cpp}`, `app/deck_app.{h,cpp}`, `main.cpp`):**
+  - Added allocation-free `model::SignalHunt` (64-sample RSSI sparkline ring,
+    peak/min/stale tracking, and monotonic Geiger pulse scheduler mapping
+    `-100..-35 dBm` to `1200..85 ms` and `520..2200 Hz`, silenced when muted
+    or stale `> 5 s`).
+  - Added persisted `/oscilla/audio_enabled` (default **muted / off**) and a
+    7th Settings row (`AUDIO CUES`) in both the onboard scrollable Settings
+    menu and the Observatory v2 external inspector.
+  - Wired `f` hotkey on Wi-Fi Scan, AP Dossier, BLE Scan, BT Dossier, and
+    Anti-Surveillance to enter Signal Hunt; `a` live mute toggle; `r` peak
+    reset; `` ` `` exits and stops the PHY lane; `hunt wifi|bt|stop` and
+    `audio on|off` debug commands; `M5Cardputer.Speaker.tone()` output in
+    `main.cpp`.
+  - Built onboard 240×135 (`signal_hunt_view.cpp`) and Observatory v2 320×240
+    (`external_hunt_view.cpp`) Signal Hunt views with sparkline, peak dashed
+    line, 24-segment proximity meter, Geiger indicator, and Reading Dock.
+- **Future roadmap notes captured (`ROADMAP.md`):** recorded post-v1 ideas for
+  expanded muteable speaker cues and D-8-respecting vendor DB / SD log sync
+  (USB-C zero-RF host tool vs. isolated Dock/Sync OTA partition).
+- **Checks:** `check_protocol.sh` (ASan/UBSan `hunt_filter_test` +
+  `signal_hunt_test`, `check_rx_only.py` across 276 files + 6 rejected TX
+  mutations, `check_external_frame_memory.py`, `ocp_repl.py --selftest` 27/27,
+  `check_ui_palette.py`), two mutation proofs (disabling 802.11 control-frame
+  rejection in `hunt_filter.c` and disabling stale mute in `signal_hunt.cpp`
+  both caught), `render_external_views.py` (171 fixtures; visually inspected
+  `signal-hunt-active.png`, `signal-hunt-empty.png`, `deck-signal-hunt-active.png`,
+  and `settings-audio-active.png`), and `build_firmware.sh` (`oscilla-c5.bin`
+  20% app partition free; `cardputer-adv` RAM 22.8% / Flash 28.8%, `loop()`
+  stack 1072/2048 B).
+- **Not yet verified on hardware:** live `hunt_wifi` / `hunt_ble` RF RSSI
+  cadence, speaker loudness/tone feel, and combined post-WP-3..12b heap check
+  on physical boards (pending next flash).
+
 ## 2026-11-21 — SX1262 passive sub-GHz `GetRssiInst` spectrum & waterfall sweep (WP-8)
 
 - **Protocol & Probe (`protocol/ocp.h`, `protocol/OCP-SPEC.md` §13,

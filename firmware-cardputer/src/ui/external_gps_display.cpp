@@ -11,6 +11,7 @@
 #include "ui/external_spectrum_view.h"
 #include "ui/external_wifi_view.h"
 #include "ui/external_card_views.h"
+#include "ui/external_hunt_view.h"
 #include "ui/external_row_cache.h"
 #include "ui/frame_snapshot.h"
 #include "ui/external_lora_view.h"
@@ -56,6 +57,7 @@ enum class ExternalView : uint8_t {
     Trace,
     Deauth,
     AntiSurveillance,
+    SignalHunt,
     Settings,
 };
 constexpr uint32_t kDataFrameMs = 50;
@@ -99,6 +101,8 @@ bool frame_monitor, frame_lora_enabled;
 model::LoraModel frame_lora;
 model::LoraSweepModel frame_lora_sweep;
 bool frame_lora_sweep_enabled;
+model::SignalHunt frame_signal_hunt;
+bool frame_signal_hunt_enabled;
 model::PacketInspection frame_packet;
 model::ContactsModel frame_wifi_contacts;
 bool frame_packet_enabled;
@@ -201,7 +205,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
 {
     (void)bytes; (void)checksum_failures;
     if (!enabled || display_sleeping) return;
-    const ExternalView view = card&&card->sessions ? (card->sessions->stage==model::ReviewStage::Catalog?ExternalView::SessionCatalog:card->sessions->stage==model::ReviewStage::Summary?ExternalView::SessionSummary:card->sessions->stage==model::ReviewStage::Records?ExternalView::SessionRecords:ExternalView::SessionHex) : system ? (system->info ? ExternalView::Info : ExternalView::Link) :
+    const ExternalView view = card && card->signal_hunt ? ExternalView::SignalHunt :
+                              card&&card->sessions ? (card->sessions->stage==model::ReviewStage::Catalog?ExternalView::SessionCatalog:card->sessions->stage==model::ReviewStage::Summary?ExternalView::SessionSummary:card->sessions->stage==model::ReviewStage::Records?ExternalView::SessionRecords:ExternalView::SessionHex) : system ? (system->info ? ExternalView::Info : ExternalView::Link) :
                               scan ? ExternalView::Wifi :
                               zig ? (pans ? ExternalView::ZigPans : ExternalView::ZigNodes) :
                               contacts ? (card && card->contact_detail ? ExternalView::ContactDetail : probes ? ExternalView::ContactsProbes : ExternalView::ContactsAccessPoints) :
@@ -229,6 +234,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         detail::discardFrameCopy(frame_contact_detail);
         detail::discardFrameCopy(frame_system);
         detail::discardFrameCopy(frame_settings_state);
+        detail::discardFrameCopy(frame_signal_hunt);
         active_view = view;
         row_cache.invalidate();
         force_full_frame = true;
@@ -237,7 +243,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     }
     if (next_strip == kStrips) {
         const bool data_view = scan || spectrum || lora || drive || bt || contacts || zig ||
-                               (card && (card->trace_page || card->deauth || card->anti || card->lora_sweep));
+                               (card && (card->trace_page || card->deauth || card->anti || card->lora_sweep || card->signal_hunt));
         const uint32_t frame_ms = data_view ? kDataFrameMs : kStatusFrameMs;
         if (now_ms - last_frame < frame_ms) return;
         frame_started_us=micros();
@@ -253,6 +259,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         frame_lora_enabled = lora != nullptr;
         frame_lora_sweep_enabled = card && card->lora_sweep;
         if (frame_lora_sweep_enabled) frame_lora_sweep = *card->lora_sweep;
+        frame_signal_hunt_enabled = card && card->signal_hunt;
+        if (frame_signal_hunt_enabled) frame_signal_hunt = *card->signal_hunt;
         frame_packet_enabled=card && card->packet;
         if(frame_packet_enabled)frame_packet=*card->packet;
         frame_startup=now_ms-started_at<2000;
@@ -323,6 +331,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     strip.fillScreen(TFT_BLACK);
     if(frame_startup && frame_view == ExternalView::Default) {
         drawExternalStartupStrip(strip,next_strip*kStripHeight);
+    } else if (frame_signal_hunt_enabled) {
+        drawExternalHuntStrip(strip, next_strip * kStripHeight, frame_signal_hunt, frame_time);
     } else if(frame_system_enabled) {
         drawExternalSystemStrip(strip,next_strip*kStripHeight,frame_system,frame_time,frame_resources_enabled?&frame_resources:nullptr);
     } else if(frame_scan_enabled) {

@@ -51,6 +51,9 @@ void ble_cmd_scan_airtag(void);
  * deck-local and never crosses OCP. */
 void ble_cmd_start_antisurveillance(void);
 
+/* hunt_ble <mac>: passive single-target RSSI stream ([EVT] kind=hunt). */
+void ble_cmd_hunt(int argc, char **argv);
+
 typedef void (*ble_wardrive_cb_t)(const uint8_t addr[6], const ble_adv_info_t *info,
                                   int8_t rssi, void *ctx);
 

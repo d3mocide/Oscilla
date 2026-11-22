@@ -19,6 +19,8 @@ idf_component_register(
          "wifi_spectrum.c"
          "wardrive_cache.c"
          "wifi_wardrive.c"
+         "hunt_filter.c"
+         "wifi_hunt.c"
          "lora_radio.c"
          "lora_hex.c"
          "lora_sweep_plan.c"

@@ -802,3 +802,26 @@ Mutually exclusive with `lora_listen` on the sub-GHz lane; stopped by
 > stop lora
 [STOP] lane=lora running=1 END
 ```
+
+## 14. Single-target Signal Hunt (`hunt_wifi` / `hunt_ble`)
+
+Strictly passive single-target RSSI tracking over the shared PHY lane, capped
+to at most 10 Hz (`100 ms` per target) so dense frames never saturate the Grove
+UART:
+
+- `hunt_wifi <mac> <ch>`: acquires `PHY_OWNER_WIFI`, validates `<mac>`
+  (`aa:bb:cc:dd:ee:ff`) and `<ch>` against the active region, locks onto `<ch>`
+  in promiscuous management + data RX mode (zero transmission), and streams
+  `[EVT] kind=hunt mac=<mac> rssi=<dbm> ch=<ch>` for frames whose transmitter
+  address (`Addr2`) matches `<mac>`.
+- `hunt_ble <mac>`: acquires `PHY_OWNER_BLE`, runs passive discovery
+  (`params.passive = 1`, `filter_duplicates = 0`), and streams
+  `[EVT] kind=hunt mac=<mac> rssi=<dbm> ch=0` for matching advertisements.
+
+```
+> hunt_wifi aa:bb:cc:dd:ee:ff 6
+[CFG] mode=hunt_wifi mac=aa:bb:cc:dd:ee:ff ch=6 END
+[EVT] kind=hunt mac=aa:bb:cc:dd:ee:ff rssi=-54 ch=6
+> stop phy
+[STOP] lane=phy running=1 END
+```

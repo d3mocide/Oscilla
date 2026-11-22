@@ -24,6 +24,7 @@ constexpr const char *kWifiBandFlag = "/oscilla/wifi_band";
 constexpr const char *kIdleTimeoutFlag = "/oscilla/idle_timeout";
 constexpr const char *kLoraProfileFlag = "/oscilla/lora_profile";
 constexpr const char *kLoraProfilesCsv = "/oscilla/lora_profiles.csv";
+constexpr const char *kAudioEnabledFlag = "/oscilla/audio_enabled";
 constexpr size_t kMaxLoraProfilesCsvBytes = 4096;
 /* Mid-scale default (M5GFX 0-255): visible in daylight and indoors alike
  * without having read a saved value yet. Never 0 — see settings.h. */
@@ -232,6 +233,32 @@ std::string loadLoraProfilesCsv()
     }
     unlock();
     return csv;
+}
+
+bool loadAudioEnabled()
+{
+    if (!ready()) return false;
+    if (!lock()) return false;
+    bool on = SD.exists(kAudioEnabledFlag);
+    unlock();
+    return on;
+}
+
+void saveAudioEnabled(bool on)
+{
+    if (!ready()) return;
+    if (!lock()) return;
+    if (on) {
+        SD.mkdir(kDir);
+        File f = SD.open(kAudioEnabledFlag, FILE_WRITE);
+        if (f) {
+            sdActivity().record(2, f.print("1\n"), millis());
+            f.close();
+        }
+    } else if (SD.exists(kAudioEnabledFlag)) {
+        SD.remove(kAudioEnabledFlag);
+    }
+    unlock();
 }
 
 }  // namespace storage

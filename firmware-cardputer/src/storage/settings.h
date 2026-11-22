@@ -49,4 +49,8 @@ std::string loadLoraProfile();
 void saveLoraProfile(const std::string &token);
 std::string loadLoraProfilesCsv();
 
+/* Optional speaker audio cues (/oscilla/audio_enabled). Off (muted) by default. */
+bool loadAudioEnabled();
+void saveAudioEnabled(bool on);
+
 }  // namespace storage

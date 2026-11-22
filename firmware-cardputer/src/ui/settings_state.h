@@ -19,8 +19,9 @@ enum class SettingsRow : uint8_t {
     WifiRegion = 2,
     WifiBand = 3,
     LoraProfile = 4,
-    DebugSerial = 5,
-    Count = 6,
+    AudioCues = 5,
+    DebugSerial = 6,
+    Count = 7,
 };
 
 constexpr size_t kSettingsRowCount = static_cast<size_t>(SettingsRow::Count);
@@ -33,6 +34,7 @@ inline const char *settingsRowName(SettingsRow row)
     case SettingsRow::WifiRegion:  return "WI-FI REGION";
     case SettingsRow::WifiBand:    return "WI-FI BAND";
     case SettingsRow::LoraProfile: return "LORA PROFILE";
+    case SettingsRow::AudioCues:   return "AUDIO CUES";
     case SettingsRow::DebugSerial: return "DEBUG SERIAL";
     case SettingsRow::Count:       break;
     }
@@ -68,6 +70,7 @@ struct SettingsViewState {
     bool lora_from_sd = false;
     size_t lora_index = 0;
     size_t lora_count = 2;
+    bool audio_enabled = false;
     bool debug_enabled = false;
     bool sd_ready = false;
 };

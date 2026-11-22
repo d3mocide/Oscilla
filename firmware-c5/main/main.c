@@ -16,6 +16,7 @@
 #include "radio_arbiter.h"
 #include "status_led.h"
 #include "wifi_deauth.h"
+#include "wifi_hunt.h"
 #include "wifi_inspect.h"
 #include "wifi_networks.h"
 #include "wifi_recon.h"
@@ -51,6 +52,7 @@ void app_main(void)
     if (err == ESP_OK) err = wifi_deauth_init();
     if (err == ESP_OK) err = wifi_spectrum_init();
     if (err == ESP_OK) err = wifi_wardrive_init();
+    if (err == ESP_OK) err = wifi_hunt_init();
     if (err != ESP_OK) ESP_LOGE(TAG, "wifi unavailable: %s", esp_err_to_name(err));
 
     if (lora_recon_init() != ESP_OK) {

@@ -31,6 +31,7 @@ typedef enum {
     OCP_EVENT_RECORD_ZIG,
     OCP_EVENT_RECORD_LORA,
     OCP_EVENT_RECORD_LORA_SWEEP,
+    OCP_EVENT_RECORD_HUNT,
     OCP_EVENT_RECORD_KIND_COUNT,
 } ocp_event_record_kind_t;
 
@@ -68,6 +69,7 @@ typedef struct {
     uint8_t  bins;
     int8_t   rssi_dbm[64];
 } ocp_event_lora_sweep_t;
+typedef struct { uint8_t mac[6]; int8_t rssi; uint8_t channel; } ocp_event_hunt_t;
 
 typedef struct {
     ocp_event_record_kind_t kind;
@@ -83,6 +85,7 @@ typedef struct {
         ocp_event_zig_t zig;
         ocp_event_lora_t lora;
         ocp_event_lora_sweep_t lora_sweep;
+        ocp_event_hunt_t hunt;
     } data;
 } ocp_event_record_t;
 
