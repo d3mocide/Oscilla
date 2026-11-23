@@ -104,6 +104,7 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("wardrive_open", storage::wardriveLogStats().open);
     line.field("wardrive_stream", wardrive_stream_active_);
     line.field("wardrive_paused", wardrivePaused());
+    line.field("wardrive_block", wardrivePaused() ? wardriveResumeBlocker() : "");
     line.field("wardrive_bt", storage::wardriveLogStats().bt);
     line.field("wardrive_bt_nofix", storage::wardriveLogStats().bt_no_fix);
     line.field("wardrive_waypoints", storage::wardriveLogStats().waypoints);
@@ -116,6 +117,9 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("baseline_pans", baseline_.panCount());
     line.field("baseline_alerts", baseline_.anomalies().size());
     line.field("baseline_high", baseline_.highSeverityCount());
+    line.field("baseline_down", baseline_.countOf(model::AnomalyKind::AuthDowngrade));
+    line.field("baseline_twin", baseline_.countOf(model::AnomalyKind::EvilTwin));
+    line.field("baseline_mfp", baseline_.countOf(model::AnomalyKind::MfpDropped));
     line.field("audio_enabled", audio_enabled_);
     line.field("hunt_active", hunt_.active());
     line.field("hunt_samples", hunt_.samples());

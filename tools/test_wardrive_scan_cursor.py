@@ -32,7 +32,7 @@ struct Scan {std::vector<int> data;void begin(){data.clear();}const std::vector<
 class DeckApp {
 public:
  Client client_;Scan scan_;uint32_t now_=0,scan_started_ms_=0,scan_wait_started_ms_=0,wardrive_page_fix_ms_=0;
- int wardrive_page_fix_=0;bool scan_pending_=false,wardrive_rescan_=false,wardrive_closing_=false;
+ int wardrive_page_fix_=0;bool scan_pending_=false,wardrive_rescan_=false,wardrive_closing_=false,wardrive_stream_supported_=false;
  size_t next_page_=0,wardrive_logged_upto_=0;
  template<class T>void retrySoon(T,uint32_t){}
  void requestScan(uint32_t);void logScanRows();bool wardriveRowsPending()const;void tickWardrive(uint32_t);
@@ -60,6 +60,10 @@ int main(){
  d.scan_.data.resize(2);d.wardrive_closing_=true;d.wardrive_rescan_=true;
  d.tickWardrive(9);assert(storage::stats.open&&storage::closed==0);
  d.tickWardrive(10);assert(!storage::stats.open&&storage::closed==1);
+ // start_wardrive owns AP rows: page logging must not re-log stream-added rows.
+ DeckApp e;storage::stats.open=true;e.wardrive_stream_supported_=true;e.scan_.data.resize(5);
+ const int saved=storage::saved;e.tickWardrive(20);e.tickWardrive(21);
+ assert(storage::saved==saved&&!e.wardriveRowsPending());
 }
 '''
 with tempfile.TemporaryDirectory() as directory:
@@ -73,4 +77,6 @@ with tempfile.TemporaryDirectory() as directory:
  assert mutant!=methods and run(mutant)!=0,'cursor regression must fail'
  mutant=methods.replace('    if(wardriveRowsPending())return;','',1)
  assert mutant!=methods and run(mutant)!=0,'premature rescan must fail'
-print('wardrive drain: one row per tick, repeated tables, paging, busy sends, deferred rescan/close; mutations rejected')
+ mutant=methods.replace('    if(wardrive_stream_supported_)wardrive_logged_upto_=scan_.rows().size();\n','',1)
+ assert mutant!=methods and run(mutant)!=0,'stream-mode double logging must fail'
+print('wardrive drain: one row per tick, repeated tables, paging, busy sends, deferred rescan/close, stream owns AP rows; mutations rejected')

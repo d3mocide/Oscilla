@@ -20,14 +20,36 @@ bool DeckApp::wardrivePaused() const
     return storage::wardriveLogStats().open && !wardrive_closing_ && wardrive_stream_supported_ &&
            !wardrive_stream_active_ && !wardrive_stream_pending_;
 }
+/* Something holds the PHY lane: restarts the settle wait. */
+const char *DeckApp::wardrivePhyBlocker() const
+{
+    if (client_.state() != ocp::LinkState::Ready) return "link";
+    if (phy_handoff_.queued()) return "handoff";
+    if (phyEngineActive()) return "engine";
+    if (phyToolActive()) return "tool_pending";
+    if (hunt_.active()) return "hunt";
+    if (!probe_owner_.empty() && probe_owner_ != OCP_OWNER_NONE) return "owner";
+    return "";
+}
+/* Momentarily busy (status poll, paging, draining): only defers the send. */
+const char *DeckApp::wardriveSendBlocker() const
+{
+    if (client_.pending()) return "client";
+    if (client_.stopPending()) return "stop";
+    if (next_page_) return "page";
+    if (pending_retry_) return "retry";
+    if (wardriveRowsPending()) return "rows";
+    return "";
+}
+const char *DeckApp::wardriveResumeBlocker() const
+{
+    const char *phy = wardrivePhyBlocker();
+    return *phy ? phy : wardriveSendBlocker();
+}
 void DeckApp::tickWardriveResume(uint32_t now_ms)
 {
-    const bool probe_idle = probe_owner_.empty() || probe_owner_ == OCP_OWNER_NONE;
-    const bool lane_clear = client_.state() == ocp::LinkState::Ready && !client_.pending() &&
-                            !client_.stopPending() && !next_page_ && !pending_retry_ &&
-                            !phy_handoff_.queued() && !phyToolActive() && !hunt_.active() &&
-                            probe_idle && !wardriveRowsPending();
-    if (!wardrive_resume_.due(wardrivePaused(), lane_clear, now_ms)) return;
+    if (!wardrive_resume_.due(wardrivePaused(), *wardrivePhyBlocker() == '\0',
+                              *wardriveSendBlocker() == '\0', now_ms)) return;
     wardrive_resume_.reset();
     log("wardrive resume");
     wardrive_auto_start_ = true;
@@ -104,6 +126,8 @@ void DeckApp::finishWardrive()
 void DeckApp::tickWardrive(uint32_t now)
 {
     if(!storage::wardriveLogStats().open){wardrive_closing_=false;wardrive_rescan_=false;return;}
+    /* start_wardrive owns AP rows (fresh fix per event); page logging is the legacy fallback only. */
+    if(wardrive_stream_supported_)wardrive_logged_upto_=scan_.rows().size();
     logScanRows();
     if(wardriveRowsPending())return;
     if(wardrive_closing_){finishWardrive();return;}

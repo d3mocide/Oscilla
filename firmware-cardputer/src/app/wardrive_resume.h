@@ -15,13 +15,14 @@ class WardriveResume {
 public:
     static constexpr uint32_t kSettleMs = 3000;
 
-    /* True once `wanted` and `lane_clear` have both held for kSettleMs;
-     * any break restarts the wait. */
-    bool due(bool wanted, bool lane_clear, uint32_t now_ms)
+    /* True once `wanted` and `phy_clear` have both held for kSettleMs and
+     * `can_send` is true. A PHY break restarts the wait; a busy client
+     * (`can_send` false, e.g. a periodic status poll) only defers it. */
+    bool due(bool wanted, bool phy_clear, bool can_send, uint32_t now_ms)
     {
-        if (!wanted || !lane_clear) { clear_ = false; return false; }
+        if (!wanted || !phy_clear) { clear_ = false; return false; }
         if (!clear_) { clear_ = true; since_ms_ = now_ms; return false; }
-        return now_ms - since_ms_ >= kSettleMs;
+        return can_send && now_ms - since_ms_ >= kSettleMs;
     }
     void reset() { clear_ = false; }
 

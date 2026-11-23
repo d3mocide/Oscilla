@@ -1,3 +1,37 @@
+## 2026-11-22 — First flash of WP-3..12b + review fixes: bench results & two hardware-found fixes
+
+- **Flashed:** probe `38:44:BE:BF:D2:94` (`build-uart` at `414e273`, 3/3 hashes) and deck
+  `50:78:7D:CE:6D:64` (`cardputer-adv`, 4/4 hashes; reflashed with the fixes below).
+  Driven over the deck debug console through one held-open USB connection.
+- **Verified on hardware:**
+  - Link ready, 0 errors/timeouts/resets across the session; probe heap steady (min 71 KB).
+  - Baseline false-downgrade fix: 130-AP scan baseline reloaded from SD after reboot,
+    event-only live rows → **0 `AuthDowngrade`**, 0 `MfpDropped`; 3–4 `EvilTwin` (known
+    mesh/dual-band behaviour, open item).
+  - Wi-Fi Signal Hunt: ~9 Hz samples (10 Hz cap), owner `wifi`. BLE hunt: ~6.5 Hz, owner `ble`.
+  - LoRa sweep at priority 2 with `CalibrateImage`: US 902–928, EU 863–870 and
+    `CELL 869-894` all ran (~260 ms per 64-bin sweep; peaks −60/−76/−72 dBm), `hw_fault=0`.
+  - Probe NVS: after `reboot`, `config: loaded region=EU band=auto custom_ch=0 lora=1` and
+    Wi-Fi came up in EU (`cc=DE`, 13 ch) before any deck push. Region restored to US.
+  - Wardrive pause/resume: hunt interrupts → `PAUSED` (blocker `engine`) → stream resumes
+    ~3 s after the hunt closes.
+- **Fixed — resume never fired (`app/wardrive_resume.h`, `app/deck_wardrive.cpp`):** the
+  deck's ~2 s status poll briefly marks the client busy, and any busy moment restarted the
+  3 s settle, so it never elapsed. PHY use (tool, hunt, owner, handoff) still restarts the
+  wait; a busy client, stop, paging, retry or row drain now only defers the send.
+  `wardrive_resume_test` covers it (old behaviour as a mutant fails). `dump` gains
+  `wardrive_block` (which condition holds resume) and `baseline_down/twin/mfp`.
+- **Fixed — legacy page logger ran alongside `start_wardrive` (WP-3):** stream-added scan
+  rows were re-logged with the last scan page's fix: counted `nofix=269` with a live GNSS
+  fix in one run, and would write stale-position duplicates once a page fix is valid.
+  With the stream supported, it owns AP rows; page logging is the fallback only. After:
+  `aps=267 nofix=0 bt=145 bt_nofix=0`. `test_wardrive_scan_cursor.py` gains a stream case
+  and mutation.
+- **Noted:** `r` (manual scan) during a drive is refused with "stop live scan first", since
+  the stream runs the Wi-Fi model in live mode.
+- **Not yet verified:** Geiger audio cues (needs an operator listening), WiGLE import of the
+  BLE rows, sweep accuracy vs. a reference, and the deferred review items.
+
 ## 2026-11-22 — Band-aware SX1262 image calibration, cell-band sweep preset & wardrive auto-resume
 
 - **SX1262 `CalibrateImage` (`lora_radio.c`, `lora_sweep_plan.{h,c}`,

@@ -99,6 +99,9 @@ public:
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
     bool wardriveClosing()const{return wardrive_closing_;}
     bool wardrivePaused() const;
+    const char *wardriveResumeBlocker() const;   /* "" when resume may send */
+    const char *wardrivePhyBlocker() const;
+    const char *wardriveSendBlocker() const;
     bool showingDrive() const { return screen_ == Screen::Drive; }
     bool showingDeauth() const { return screen_ == Screen::Deauth; }
     const model::DeauthModel &deauthModel() const { return deauth_; }
