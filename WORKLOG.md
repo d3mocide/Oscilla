@@ -1,3 +1,33 @@
+## 2026-11-23 — CC1101 bitstream over SPI (no GDO0 wire): qualified on the C5
+
+**Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will
+
+Will preferred a clean drop-in module over soldering GDO0 to a XIAO back
+pad. Seeed's schematic shows TP4–TP7 = MTDO/MTCK/MTDI/MTMS = GPIO5/4/3/2;
+GPIO4 was the candidate if a wire is ever needed. Rejected for now. The
+CC1101 now samples OOK into its 64-byte RX FIFO at 25 kbaud (normal FIFO,
+infinite length, no sync), and the C5 drains it over the shared SPI bus,
+leaving the last byte in place (SWRS061I §20).
+
+- **Flipper Princeton (te 400 µs), 5/5, with and without SX1262 load:**
+  runs of 10 and 30 bits (te and 3te) within ±1. Quiet noise gave zero
+  3te-like runs. 3,012 SX1262 sweeps, 0 errors.
+- **LaCrosse-TX141THBv2 vs `rtl_433`, 5 min:** all 6 transmissions show the
+  same pulse structure. High runs are 5–6/11–12/17–18 bits (~220/460/720 µs)
+  and low runs 7/12–13/19 bits. The short pulse matches the 232 µs measured
+  by SDR in September. Quiet time had 15 short runs out of 1,044.
+- **Sensitivity:** FIFO reads cost ≤0.2 dB against the async profile at the
+  same data rate (12.5k: −88.7/−88.5; 25k: −87.2/−87.5 dBm). Weaker SPI
+  drive and a 16 ms drain made no difference. The reported floor follows
+  the configured data rate in both modes (5k: −89.6 dBm), so an earlier
+  "3 dB SPI desense" reading was wrong. True sensitivity versus data rate
+  needs an attenuated source.
+- **Open:** about 1 RX FIFO overflow per 20 s at 25 kbaud (14 in 5 min) when
+  draining from the bench console loop. Recovery works (flush, recalibrate,
+  RX), but each overflow loses ~20 ms. The product needs a dedicated
+  higher-priority drain task on a fixed tick. A pulse decoder, OCP verbs, the
+  arbiter and a deck view are also still to do.
+
 ## 2026-11-23 — CC1101 receives on the C5 backpack; shared bus holds under load
 
 **Phase:** D-15 harness validation, branch `cc1101-idf` · **By:** Claude + Will
