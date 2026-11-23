@@ -16,6 +16,10 @@
 /* Typical RSSI_offset at 433 MHz for every listed data rate (SWRS061I Table 31). */
 #define CC1101_RSSI_OFFSET_DB 74
 
+/* Minimum spacing between RSSI reads. Back-to-back SPI raised the floor
+ * 4-6 dB and produced false GDO0 edges on the bench (WORKLOG 2026-11-23). */
+#define CC1101_RSSI_POLL_MIN_US 200u
+
 /* Bound on IDLE->RX including calibration. */
 #define CC1101_RX_START_TIMEOUT_US 5000u
 
