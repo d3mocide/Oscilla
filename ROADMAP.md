@@ -171,6 +171,7 @@ gate.
 - [x] Expanded views on the 240×320: delivered with Observatory v2.
 - [~] ~~Second-panel detection at boot~~ — dropped 2026-11-20. The panel is write-only (no MISO readback), so it cannot be detected, and it is now a standard fitment rather than optional (DESIGN §7.4).
 - [x] Touch stays disabled (Rev D baseline): the GMT028-05 has no touch controller and the deck has no touch code.
+- [ ] **External display power gate** (deferred, 2026-11-22): idle sleep leaves the GMT028-05 backlight lit and white (no backlight pin). Proposed harness: GPIO4 `DISP_EN` switching the panel VCC branch plus a 74LVC126 isolating its signal lines from the shared SD bus — [`docs/hardware/display-power-gate.md`](docs/hardware/display-power-gate.md). Measure panel current first; firmware power-off/re-init follows the harness.
 
 **Exit gate:** sustained TFT redraw concurrent with SD read/write of a disposable file, cold-boot with SD inserted, no bus corruption over a soak.
 
