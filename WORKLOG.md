@@ -1,3 +1,40 @@
+## 2026-11-23 — CC1101 driver comparison started; Koko drops off the bus again
+
+**Phase:** D-15 requalification (bench, not Oscilla) · **By:** Claude + Will
+
+Compared the archived C5 driver (`cc1101` branch) with the SmartRC
+profile that received 6/6 SDR-confirmed and 5/5 Flipper transmissions
+earlier today. Candidate C5 defects are listed below. **None of them is
+confirmed on hardware yet.**
+
+1. **No synthesizer calibration.** MCSM0 stays at POR `0x04`
+   (FS_AUTOCAL=0), and the driver never sends SCAL. The chip's POR
+   FSCAL1 reads `0x20`. SmartRC writes `MCSM0=0x18`, which calibrates
+   on every SRX. This is the top suspect for the September null result.
+2. **GDO0 left at POR `0x3F`.** That puts a CLK_XOSC/192 clock on GDO0
+   during RX. In the one brief A/B run, the C5 profile's floor read
+   −83/−84 dBm against SmartRC's −90.
+3. **Unbounded SO-low wait after SRES.** On this module, SO never fell
+   after SRES (500 ms bounded test). SmartRC's `Reset()` then spins
+   forever. The C5 `hw_reset()` would time out and fail `rx_start`.
+4. **No register read-back verification.**
+
+The A/B itself is blocked. The Koko again alternates between working,
+power-on-reset (`freq2=1e`, `iocfg0=3f`) and all-zero reads, including
+with 10 kHz bit-banged SPI. That rules out the S3 SPI peripheral. With
+no SPI load it ran ~60 s with no resets. Loading the SmartRC profile
+plus SRX made it go dead, and it stayed dead in quiet mode until a power
+cycle. This points to the Koko supply (regulator/dropout, or 5 V
+expected) or to I/O phantom powering/latch-up. The wiring was checked.
+**Next:** measure Koko VCC at the module in working and dead states,
+and check whether it expects 5 V.
+
+Bench sketch additions: `c5`/`c5cal` profiles, `por` (stored POR
+capture), verified `writeAll`, SmartRC register table (no runtime
+`Init()`), `pins` line-level probe, `bb` software-SPI read, and
+`quiet`/`loud`/`mark`/`peek`/`srx`/`sidle` for brown-out isolation.
+Fixed a FIFO-drain buffer overrun that a garbled RXBYTES had triggered.
+
 ## 2026-11-23 — D-15 requalification: Koko CC1101 receives on the XIAO S3 reference bench
 
 **Phase:** D-15 requalification (bench, not Oscilla) · **By:** Claude + Will
