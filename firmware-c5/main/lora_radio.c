@@ -55,6 +55,7 @@ static const char *TAG = "lora_radio";
 #define OP_SET_RX                 0x82
 #define OP_SET_REGULATOR_MODE     0x96
 #define OP_CALIBRATE              0x89
+#define OP_CALIBRATE_IMAGE        0x98
 #define OP_SET_DIO3_TCXO_CTRL     0x97
 #define OP_SET_DIO2_RF_SWITCH     0x9D
 #define OP_SET_DIO_IRQ_PARAMS     0x08
@@ -119,6 +120,7 @@ static bool rx_write_opcode_allowed(uint8_t opcode)
         case OP_SET_RX:
         case OP_SET_REGULATOR_MODE:
         case OP_CALIBRATE:
+        case OP_CALIBRATE_IMAGE:
         case OP_SET_DIO3_TCXO_CTRL:
         case OP_SET_DIO2_RF_SWITCH:
         case OP_SET_DIO_IRQ_PARAMS:
@@ -405,9 +407,9 @@ static esp_err_t lora_set_packet_params(void)
     return cmd_write(OP_SET_PACKET_PARAMS, data, sizeof data);
 }
 
-/* Shared cold bring-up to STDBY_XOSC with TCXO, full calib, DC-DC, and DIO2
- * RF switch enabled. Caller holds s_lock. */
-static esp_err_t bringup_standby_xosc_locked(void)
+/* Shared cold bring-up to STDBY_XOSC with TCXO, full calib, image calib for
+ * [lo_hz, hi_hz], DC-DC, and DIO2 RF switch enabled. Caller holds s_lock. */
+static esp_err_t bringup_standby_xosc_locked(uint32_t lo_hz, uint32_t hi_hz)
 {
     esp_err_t err = hw_reset();
 
@@ -429,6 +431,14 @@ static esp_err_t bringup_standby_xosc_locked(void)
         err = cmd_write(OP_CALIBRATE, &calib_all, 1);
     }
     if (err == ESP_OK) err = wait_busy_low();   /* calibration itself, ~3.5ms typ */
+
+    /* Power-on image calibration covers 902-928 MHz only (datasheet §9.2.1). */
+    if (err == ESP_OK) {
+        uint8_t img[2];
+        lora_image_cal_bytes(lo_hz / 1000u, hi_hz / 1000u, img);
+        err = cmd_write(OP_CALIBRATE_IMAGE, img, sizeof img);
+    }
+    if (err == ESP_OK) err = wait_busy_low();
 
     /* Enter STDBY_XOSC now so the 10ms TCXO delay is paid once here, not on
      * every RX entry (datasheet §13.3.6's own recommended technique). */
@@ -485,7 +495,7 @@ esp_err_t lora_radio_rx_start(const lora_rx_params_t *params)
     xQueueReset(s_dio1_queue);
     xQueueReset(s_event_queue);
 
-    esp_err_t err = bringup_standby_xosc_locked();
+    esp_err_t err = bringup_standby_xosc_locked(params->freq_hz, params->freq_hz);
 
     if (err == ESP_OK) {
         uint8_t packet_type = PACKET_TYPE_LORA;
@@ -553,7 +563,7 @@ bool lora_radio_is_running(void)
     return s_running;
 }
 
-esp_err_t lora_radio_sweep_start(void)
+esp_err_t lora_radio_sweep_start(uint32_t lo_hz, uint32_t hi_hz)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     if (s_running || s_sweep_running) {
@@ -561,7 +571,7 @@ esp_err_t lora_radio_sweep_start(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t err = bringup_standby_xosc_locked();
+    esp_err_t err = bringup_standby_xosc_locked(lo_hz, hi_hz);
     if (err == ESP_OK) {
         uint8_t packet_type = PACKET_TYPE_LORA;
         err = cmd_write(OP_SET_PACKET_TYPE, &packet_type, 1);

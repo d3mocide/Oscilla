@@ -32,6 +32,7 @@
 #include "app/link_reconcile.h"
 #include "app/wifi_region_sync.h"
 #include "app/wifi_band_sync.h"
+#include "app/wardrive_resume.h"
 #include "app/idle_sleep.h"
 #include "app/phy_handoff.h"
 #include "model/system_resources.h"
@@ -97,6 +98,7 @@ public:
     size_t loraCursor() const { return lora_cursor_; }
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
     bool wardriveClosing()const{return wardrive_closing_;}
+    bool wardrivePaused() const;
     bool showingDrive() const { return screen_ == Screen::Drive; }
     bool showingDeauth() const { return screen_ == Screen::Deauth; }
     const model::DeauthModel &deauthModel() const { return deauth_; }
@@ -240,6 +242,7 @@ private:
     bool drainWardriveStream();
     void logScanRows();
     bool wardriveRowsPending() const;
+    void tickWardriveResume(uint32_t now_ms);
     void tickWardrive(uint32_t now);
     void finishWardrive();
     void gnssDiagnostic(const std::string &arg,uint32_t now);
@@ -259,6 +262,9 @@ private:
     std::deque<QueuedWardriveBt> wardrive_bt_queue_;
     bool wardrive_stream_active_ = false;
     bool wardrive_stream_pending_ = false;
+    bool wardrive_stream_supported_ = true;   /* false once a probe answers `unknown` */
+    bool wardrive_auto_start_ = false;        /* current start came from resume, not a key */
+    app::WardriveResume wardrive_resume_;
     bool wardrive_rescan_=false,wardrive_closing_=false;
     model::GnssFix wardrive_page_fix_;
     uint32_t wardrive_page_fix_ms_=0,scan_wait_started_ms_=0;

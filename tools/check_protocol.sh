@@ -403,6 +403,10 @@ PY
     firmware-cardputer/src/model/signal_hunt.cpp \
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/signal_hunt_test" | tail -1 | sed 's/^/  /'
+"${CXX:-g++}" -std=c++17 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-cardputer/src -o "$out/wardrive_resume_test" \
+    firmware-cardputer/test/host/wardrive_resume_test.cpp
+"$out/wardrive_resume_test" | tail -1 | sed 's/^/  /'
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/vendor_table_test" \
     firmware-cardputer/test/host/vendor_table_test.cpp
 "$out/vendor_table_test" | tail -1 | sed 's/^/  /'

@@ -28,6 +28,15 @@ int8_t lora_rssi_inst_to_dbm(uint8_t raw)
     return (int8_t)dbm;
 }
 
+void lora_image_cal_bytes(uint32_t lo_khz, uint32_t hi_khz, uint8_t out[2])
+{
+    if (lo_khz > hi_khz) { uint32_t t = lo_khz; lo_khz = hi_khz; hi_khz = t; }
+    uint32_t f1 = lo_khz > 4000u ? (lo_khz - 4000u) / 4000u : 0u;
+    uint32_t f2 = (hi_khz + 4000u + 3999u) / 4000u;
+    out[0] = (uint8_t)(f1 > 255u ? 255u : f1);
+    out[1] = (uint8_t)(f2 > 255u ? 255u : f2);
+}
+
 bool lora_sweep_format_rssi(const int8_t *rssi, size_t n, char *out, size_t out_size)
 {
     if (!rssi || !out || out_size == 0 || n == 0 || n > OCP_LORA_SWEEP_MAX_BINS) return false;

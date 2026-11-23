@@ -263,8 +263,13 @@ void DeckApp::onReply(const ocp::Item &it)
         const auto *msg = it.get(OCP_K_MSG);
         if (wardrive_rejected && code && *code == OCP_ERR_UNKNOWN &&
             storage::wardriveLogStats().open && !wardrive_closing_) {
+            wardrive_stream_supported_ = false;
             log("wardrive fallback: scan_networks");
             requestScan(now_);
+            return;
+        }
+        if (wardrive_rejected && wardrive_auto_start_) {
+            log(std::string("wardrive resume refused: ") + (code ? *code : "?"));
             return;
         }
         if (code && *code == OCP_ERR_BUSY &&
@@ -325,6 +330,7 @@ void DeckApp::onReply(const ocp::Item &it)
     if (it.tag == OCP_MARK_CFG && wardrive_stream_pending_) {
         wardrive_stream_pending_ = false;
         wardrive_stream_active_ = true;
+        wardrive_auto_start_ = false;
         scan_.beginContinuous();
         bt_.beginContinuous();
         log("wardrive stream active");
@@ -465,7 +471,7 @@ void DeckApp::onReply(const ocp::Item &it)
             log("scan done aps=" + std::to_string(scan_.rows().size()) + " total=" + std::to_string(scan_.total()) +
                 " malformed=" + std::to_string(scan_.malformedRows()) + " elapsed_ms=" + std::to_string(scan_.elapsedMs()));
             /* Drain this page before the next survey (DESIGN §9.2). */
-            if (storage::wardriveLogStats().open && !wardrive_closing_) {
+            if (storage::wardriveLogStats().open && !wardrive_closing_ && !wardrive_stream_supported_) {
                 notice("");
                 wardrive_rescan_=true;
             } else {
@@ -1053,6 +1059,7 @@ void DeckApp::toggleWardriveLog(uint32_t now_ms)
     wardrive_closing_=false;wardrive_rescan_=false;
     wardrive_ap_queue_.clear();wardrive_bt_queue_.clear();
     wardrive_stream_active_=false;wardrive_stream_pending_=false;
+    wardrive_stream_supported_=true;wardrive_auto_start_=false;wardrive_resume_.reset();
 
     if (!storage::wardriveLogBegin(gnss_.fix())) {
         notice("no SD: logging unavailable");
@@ -1757,11 +1764,9 @@ void DeckApp::tick(uint32_t now_ms)
 
     if (wardrive_stream_pending_ && !client_.pending()) {
         wardrive_stream_pending_ = false;
-        if (storage::wardriveLogStats().open && !wardrive_closing_) {
-            log("wardrive start timeout; fallback scan_networks");
-            requestScan(now_ms);
-        }
+        log("wardrive start timeout; resume will retry");
     }
+    tickWardriveResume(now_ms);
 
     /* Client timeouts intentionally have no callback. Clean up the optimistic
      * UI state here so a lost/invalid CFG cannot leave anti-surveillance
@@ -2002,7 +2007,7 @@ void DeckApp::draw(uint32_t now_ms)
         break;
     case Screen::Drive:
         ui::drawGnssView(gnss_, now_ms,
-                         makeChrome("DRIVE / GNSS"),wardrive_closing_);
+                         makeChrome("DRIVE / GNSS"),wardrive_closing_,wardrivePaused());
         break;
     case Screen::Logs:
         ui::drawSessionView(session_review_,makeChrome("SESSIONS"));break;

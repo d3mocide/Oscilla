@@ -105,7 +105,7 @@ bool lora_radio_is_running(void);
 
 /* Passive GetRssiInst sub-GHz energy sweep (WP-8, strictly RX-only).
  * Mutually exclusive with packet RX (`lora_radio_rx_start`). */
-esp_err_t lora_radio_sweep_start(void);
+esp_err_t lora_radio_sweep_start(uint32_t lo_hz, uint32_t hi_hz);
 esp_err_t lora_radio_sweep_measure(uint32_t freq_hz, uint8_t samples, int8_t *out_dbm);
 void lora_radio_sweep_stop(void);
 bool lora_radio_is_sweeping(void);

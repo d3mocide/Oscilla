@@ -6,7 +6,7 @@
 #include "ui/canvas.h"
 #include "ui/theme.h"
 namespace ui {
-void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &chrome,bool closing)
+void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &chrome,bool closing,bool paused)
 {
     auto &d=canvas();beginChrome(chrome);d.setTextSize(1);
     const auto state=gps.state(now);const auto &fix=gps.fix();const auto &log=storage::wardriveLogStats();
@@ -23,7 +23,7 @@ void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &ch
     if(fresh) snprintf(value[1],sizeof value[1],"%.1f HDOP",(double)fix.hdop);
     else snprintf(value[1],sizeof value[1],"%s",state==model::GnssState::FixLost ? "FIX LOST" : state==model::GnssState::Fixed ? "AGED FIX" : gps.hasUartData(now) ? "SEARCHING" : "UART SILENT");
     snprintf(value[2],sizeof value[2],"%lu / %lu",(unsigned long)log.track_points,(unsigned long)(log.aps_no_fix + log.bt_no_fix));
-    snprintf(value[3],sizeof value[3],"%s",closing?"CLOSING":log.open ? "RECORDING" : "CLOSED");
+    snprintf(value[3],sizeof value[3],"%s",closing?"CLOSING":paused?"PAUSED":log.open ? "RECORDING" : "CLOSED");
     for(int i=0;i<4;++i) {
         const int y=kBodyTop+25+i*15;const uint16_t bg=i==1 ? kSelectionGlow : kVoidInk;
         if(i==1) {d.fillRect(4,y-2,232,14,bg);d.drawRect(4,y-2,232,14,kCalibrationYellow);}
@@ -32,7 +32,7 @@ void drawGnssView(const model::GnssModel &gps,uint32_t now,const ChromeState &ch
     }
     d.drawFastHLine(5,kBodyTop+84,230,kDimGreen);
     d.setCursor(5,kBodyTop+88);d.setTextColor(log.open ? kFieldGreen : kMutedSlate,kVoidInk);
-    d.print(closing?"FINISHING QUEUED OBSERVATIONS":log.open ? "l CLOSE / m MARK / FRESH FIX REQ" : "l START LOG / EXTERNAL TRACK");
+    d.print(closing?"FINISHING QUEUED OBSERVATIONS":paused?"RADIO BUSY - RESUMES WHEN IDLE":log.open ? "l CLOSE / m MARK / FRESH FIX REQ" : "l START LOG / EXTERNAL TRACK");
     endChrome(chrome);
 }
 }

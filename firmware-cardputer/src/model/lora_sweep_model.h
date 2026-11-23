@@ -27,7 +27,7 @@ struct LoraSweepPreset {
 static constexpr LoraSweepPreset kLoraSweepPresets[] = {
     { "US 902-928", 902000u, 400u, 64u },
     { "EU 863-870", 863000u, 100u, 64u },
-    { "ISM 433",    433050u,  50u, 36u },
+    { "CELL 869-894", 869000u, 400u, 64u },   /* US 850 cellular downlink, energy only */
 };
 static constexpr size_t kLoraSweepPresetCount = sizeof(kLoraSweepPresets) / sizeof(kLoraSweepPresets[0]);
 

@@ -103,6 +103,7 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("wardrive_closing", wardrive_closing_);
     line.field("wardrive_open", storage::wardriveLogStats().open);
     line.field("wardrive_stream", wardrive_stream_active_);
+    line.field("wardrive_paused", wardrivePaused());
     line.field("wardrive_bt", storage::wardriveLogStats().bt);
     line.field("wardrive_bt_nofix", storage::wardriveLogStats().bt_no_fix);
     line.field("wardrive_waypoints", storage::wardriveLogStats().waypoints);

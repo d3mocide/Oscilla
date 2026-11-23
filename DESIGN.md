@@ -364,6 +364,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/app/deck_navigation` | app | Grouped SYSTEM / OBSERVE / ANALYZE / DRIVE route order and view labels; AP Detail and raw packet inspection are drill-downs |
 | `src/app/phy_handoff` | app | Acknowledgement-gated `stop phy` handoff before a successor claims the shared PHY lane |
 | `src/app/wifi_region_sync` · `src/app/wifi_band_sync` | app | Deck-owned Wi-Fi region and band-scope sync policy (`set_region`, `set_band`) |
+| `src/app/wardrive_resume` | app | When an open Drive log restarts the probe's `start_wardrive` stream after another PHY tool interrupted it |
 | `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap in small allocation blocks, inspect result |
 | `src/model/snapshot_rows` | model | Contact/advertiser snapshot replacement with reused storage and no overlapping table allocations |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
@@ -456,7 +457,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | **BLE Scan** | `scan_bt` / `start_ble_scan` / `scan_airtag` | BLE device list — a bounded scan (`s`), continuous live discovery (`c`), or tracker-only stream (`a`); all share the passive BLE PHY owner. |
 | **802.15.4** | `start_zig_recon` + `zig_*` | PAN → node inventory, protocol guess, signal quality. Receive-only. |
 | **LoRa RX** | `lora_listen` / `lora_status` | Live packet log, RSSI/SNR, framing guess. Receive-only. |
-| **Drive** | local GNSS + `start_wardrive` (fallback: `scan_networks`) | Fix status, running AP + BT counts, session control; rows written to deck SD as WigleWifi-1.6 CSV (`Type=WIFI` and `Type=BLE`, with `MfgrId` populated) + KML track/placemarks/waypoints. `l` opens a session and starts `start_wardrive` (streaming receipt-time geotagged Wi-Fi + duty-cycled BLE events through a bounded 1-row/loop SD queue, falling back cleanly to looping `scan_networks` on older probes). |
+| **Drive** | local GNSS + `start_wardrive` (fallback: `scan_networks`) | Fix status, running AP + BT counts, session control; rows written to deck SD as WigleWifi-1.6 CSV (`Type=WIFI` and `Type=BLE`, with `MfgrId` populated) + KML track/placemarks/waypoints. `l` opens a session and starts `start_wardrive` (streaming receipt-time geotagged Wi-Fi + duty-cycled BLE events through a bounded 1-row/loop SD queue, falling back cleanly to looping `scan_networks` on older probes). If another PHY tool interrupts the stream, the log shows `PAUSED` and the stream restarts once the radio has been idle for 3 s. |
 | **Signal Hunt** | `hunt_wifi` / `hunt_ble` | Drill-down from Wi-Fi Scan, AP Detail, BLE Scan, BT Dossier, or Anti-Surveillance (`f` key): single-target live RSSI sparkline, 24-segment proximity meter, peak/hits, and optional off-by-default muteable Geiger speaker cadence (`a` key). |
 | **Log** | local SD browse | `o` opens saved wardrive/LoRa sessions without stopping reception; grouped inventory, observed record span/counts, six-record pages and saved raw packet hex/ASCII. `x` filters All/Drive/LoRa, `r` refreshes inventory, Enter drills down and Back steps out. |
 

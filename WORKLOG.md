@@ -1,3 +1,30 @@
+## 2026-11-22 — Band-aware SX1262 image calibration, cell-band sweep preset & wardrive auto-resume
+
+- **SX1262 `CalibrateImage` (`lora_radio.c`, `lora_sweep_plan.{h,c}`,
+  `lora_recon.c`, `tools/check_rx_only.py`):** power-on calibration only covers
+  902–928 MHz, so EU (863–870) RX and sweeps ran uncalibrated. Bring-up now
+  issues `CalibrateImage` (`0x98`, added to both RX-only allowlists with operator
+  approval; a calibration command, not transmit-capable) from STDBY_RC for the
+  sweep span or the RX frequency, 4 MHz units with a 4 MHz guard each side
+  (`lora_image_cal_bytes()`, host-tested; dropping the low guard fails
+  `lora_sweep_plan_test`). OCP-SPEC §13 notes it.
+- **Sweep presets (`model/lora_sweep_model.h`):** replaced `ISM 433` (outside the
+  Wio's 862–930 MHz spec, Rev D §4) with `CELL 869-894`, the US 850 cellular
+  downlink (energy only, no demodulation). Sweep bounds stay at the chip's 150–960.
+- **Wardrive auto-resume (`app/wardrive_resume.h`, `app/deck_wardrive.cpp`,
+  `app/deck_app.{h,cpp}`, `ui/gnss_view.{h,cpp}`):** an open Drive log whose
+  `start_wardrive` stream was interrupted by another PHY tool now shows `PAUSED`
+  and restarts the stream once the link, client and PHY lane (and probe owner)
+  have been idle for 3 s. Manual `scan_networks` no longer flips the log onto the
+  legacy Wi-Fi-only loop; that loop runs only after a probe answers `unknown`.
+  Auto-start refusals log instead of raising a notice; a start timeout is retried
+  by the resume timer instead of falling back. `wardrive_paused` added to `dump`.
+  New `wardrive_resume_test` (removing the busy-restart fails it).
+- **Checks:** `check_protocol.sh` green; `build_firmware.sh` both boards. The two
+  warnings in this build are in M5GFX/M5Unified, which recompiled in full this time.
+- **Not yet verified on hardware:** image-cal effect on EU/cell-band noise floor,
+  and the pause/resume handoff with Signal Hunt and Wi-Fi Scan.
+
 ## 2026-11-22 — Pre-flash review of WP-3..12b: baseline downgrade fix & sweep priority
 
 - **Review scope:** the seven unflashed commits `0bf4345..7beff73` (WP-9a, 12a,

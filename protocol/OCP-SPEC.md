@@ -792,6 +792,9 @@ receive-only mode (`OP_SET_RX` + `OP_GET_RSSI_INST` `0x15`, zero transmit
 opcodes) to step across `bins` (`8..64`, default `64`) channels starting at
 `start_khz` (`150000..960000`, default `902000`) spaced by `step_khz`
 (`50..2000`, default `400`), enforcing `start_khz + (bins-1)*step_khz <= 960000`.
+Bring-up image-calibrates the span (`CalibrateImage` `0x98`, 4 MHz guard each
+side); `lora_listen` does the same for its configured frequency. Readings
+outside the Wio-SX1262's 862–930 MHz specification (Rev D §4) are relative only.
 Mutually exclusive with `lora_listen` on the sub-GHz lane; stopped by
 `stop lora` (or bare `stop`). `[STATUS]` reports `lora=sweep` while active.
 

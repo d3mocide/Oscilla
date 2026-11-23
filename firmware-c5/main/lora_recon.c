@@ -351,7 +351,8 @@ void lora_cmd_sweep(int argc, char **argv)
         return;
     }
 
-    esp_err_t err = lora_radio_sweep_start();
+    const uint32_t end_khz = start_khz + (bins - 1u) * step_khz;
+    esp_err_t err = lora_radio_sweep_start(start_khz * 1000u, end_khz * 1000u);
     if (err != ESP_OK) {
         ocp_emit_error(OCP_ERR_HWFAULT, esp_err_to_name(err));
         return;

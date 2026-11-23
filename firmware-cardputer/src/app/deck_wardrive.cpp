@@ -15,6 +15,24 @@ void DeckApp::logScanRows()
     storage::wardriveLogAp(rows[wardrive_logged_upto_],wardrive_page_fix_,now_-wardrive_page_fix_ms_);
     ++wardrive_logged_upto_;
 }
+bool DeckApp::wardrivePaused() const
+{
+    return storage::wardriveLogStats().open && !wardrive_closing_ && wardrive_stream_supported_ &&
+           !wardrive_stream_active_ && !wardrive_stream_pending_;
+}
+void DeckApp::tickWardriveResume(uint32_t now_ms)
+{
+    const bool probe_idle = probe_owner_.empty() || probe_owner_ == OCP_OWNER_NONE;
+    const bool lane_clear = client_.state() == ocp::LinkState::Ready && !client_.pending() &&
+                            !client_.stopPending() && !next_page_ && !pending_retry_ &&
+                            !phy_handoff_.queued() && !phyToolActive() && !hunt_.active() &&
+                            probe_idle && !wardriveRowsPending();
+    if (!wardrive_resume_.due(wardrivePaused(), lane_clear, now_ms)) return;
+    wardrive_resume_.reset();
+    log("wardrive resume");
+    wardrive_auto_start_ = true;
+    startWardriveStream(now_ms);
+}
 void DeckApp::startWardriveStream(uint32_t now_ms)
 {
     if (!storage::wardriveLogStats().open || wardrive_closing_) return;

@@ -32,6 +32,10 @@ bool lora_sweep_plan_valid(uint32_t start_khz, uint32_t step_khz, uint32_t bins)
 /* SX1262 datasheet §13.5.3: GetRssiInst raw byte -> signed dBm (-raw/2). */
 int8_t lora_rssi_inst_to_dbm(uint8_t raw);
 
+/* SX1262 CalibrateImage bytes (datasheet §9.2.1, 4 MHz units) covering
+ * [lo_khz, hi_khz] with a 4 MHz guard each side; order-insensitive. */
+void lora_image_cal_bytes(uint32_t lo_khz, uint32_t hi_khz, uint8_t out[2]);
+
 /* Format `n` signed dBm values as comma-separated ASCII into `out`. */
 bool lora_sweep_format_rssi(const int8_t *rssi, size_t n, char *out, size_t out_size);
 

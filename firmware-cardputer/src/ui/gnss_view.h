@@ -18,6 +18,7 @@
 
 namespace ui {
 
-void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const ChromeState &chrome,bool closing=false);
+void drawGnssView(const model::GnssModel &gnss, uint32_t now_ms, const ChromeState &chrome,bool closing=false,
+                  bool paused=false);
 
 }  // namespace ui
