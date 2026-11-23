@@ -29,11 +29,15 @@ for arg in "$@"; do
         --bench)
             VARIANT="bench"; DEFAULTS="sdkconfig.defaults;sdkconfig.bench"
             ;;
+        --cc1101-bench)
+            # Grove OCP plus the CC1101 bench console on USB (D-15).
+            VARIANT="cc1101"; DEFAULTS="sdkconfig.defaults;sdkconfig.cc1101-bench"
+            ;;
         --probe-only)
             PROBE_ONLY=1
             ;;
         *)
-            echo "usage: $0 [--bench] [--probe-only]" >&2
+            echo "usage: $0 [--bench|--cc1101-bench] [--probe-only]" >&2
             exit 2
             ;;
     esac
@@ -47,6 +51,12 @@ echo "=== probe: firmware-c5 (esp32c5, $VARIANT) ==="
         -DSDKCONFIG_DEFAULTS="$DEFAULTS" -DIDF_TARGET=esp32c5 build
     grep -q "^CONFIG_OSCILLA_OCP_TRANSPORT_$([ "$VARIANT" = bench ] && echo USB || echo UART)=y" \
         "$BUILD_DIR/sdkconfig" || { echo "transport mismatch in $BUILD_DIR" >&2; exit 1; }
+    if [ "$VARIANT" = cc1101 ]; then
+        grep -q "^CONFIG_OSCILLA_CC1101_BENCH=y" "$BUILD_DIR/sdkconfig" \
+            || { echo "CC1101 bench console missing in $BUILD_DIR" >&2; exit 1; }
+    elif grep -q "^CONFIG_OSCILLA_CC1101_BENCH=y" "$BUILD_DIR/sdkconfig"; then
+        echo "CC1101 bench console leaked into $BUILD_DIR" >&2; exit 1
+    fi
     echo "  transport verified: $VARIANT -> firmware-c5/$BUILD_DIR"
 )
 if [ "$PROBE_ONLY" -eq 0 ]; then

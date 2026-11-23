@@ -8,6 +8,7 @@
  */
 
 #include "ble_recon.h"
+#include "cc1101_bench.h"
 #include "config.h"
 #include "lora_recon.h"
 #include "ocp_frame.h"
@@ -27,6 +28,7 @@
 
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "oscilla";
 
@@ -65,6 +67,10 @@ void app_main(void)
                                          pcfg->lora_sync_word);
         }
     }
+
+#if CONFIG_OSCILLA_CC1101_BENCH
+    if (cc1101_bench_start() != ESP_OK) ESP_LOGE(TAG, "cc1101 bench unavailable");
+#endif
 
     /* BLE is async (ble_recon_ready() flips true once the NimBLE host
      * actually syncs, not merely when this call returns) — cap_available()

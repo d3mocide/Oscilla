@@ -292,10 +292,13 @@ isolated third-party dependencies.
 | `lora_hex.c` | Bounded, allocation-free LoRa payload-to-hex encoder; pure C, host-tested |
 | `lora_sweep_plan.c` | Pure-C sub-GHz sweep frequency-span validator, `GetRssiInst` dBm converter, and CSV formatter; host-tested |
 | `lora_recon.c` | RX survey + passive sub-GHz sweep: packet capture, RSSI/SNR, framing classification, `lora_sweep` stream. **No TX path** (§8) |
-| `cc1101_bus.c` | CC1101 SPI access, receive-only: injected transport, allowlisted strobes, bounded waits, reset verified by POR state, dead-bus detection; pure C, host-tested against `cc1101_sim`. Branch `cc1101-idf`, not linked into the probe build ([D-15](docs/DECISIONS.md)) |
+| `subghz_spi.c` | Shared sub-GHz SPI bus (Rev D §4.1/§4.4): pins, idempotent bus init, and the one lock that `lora_radio.c` and `cc1101_port.c` hold for every chip-select-low span |
+| `cc1101_bus.c` | CC1101 SPI access, receive-only: injected transport, allowlisted strobes, bounded waits, reset verified by POR state, dead-bus detection; pure C, host-tested against `cc1101_sim` ([D-15](docs/DECISIONS.md), branch `cc1101-idf`) |
 | `cc1101_profile.c` | CC1101 register profiles as data (433.92 MHz OOK async, read back from a receiving chip), frequency word helpers; pure C, host-tested. Same status as `cc1101_bus.c` |
 | `cc1101_config.c` | Applies a profile in IDLE with per-register read-back and bounded retries, GDO pins first; drift/silent-reset verify with FSCAL result masks; pure C, host-tested. Same status as `cc1101_bus.c` |
 | `cc1101_rx.c` | CC1101 receive start/stop: flush, guaranteed synthesizer calibration (explicit SCAL when autocal does not cover IDLE→RX), confirmed MARCSTATE=RX; RSSI to dBm; pure C, host-tested. Same status as `cc1101_bus.c` |
+| `cc1101_port.c` | ESP-IDF transport for `cc1101_bus` on the shared bus: CSn GPIO7 (Rev D §4.4), takes the `subghz_spi` lock for each CS-low span and refuses to clock without it |
+| `cc1101_bench.c` | Bench-only USB console (`CONFIG_OSCILLA_CC1101_BENCH`, `build_firmware.sh --cc1101-bench`): same lines as `bench-cc1101-driver`, plus `lload` SX1262 sweep load for coexistence. Not an OCP surface |
 | `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
 | `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |
 

@@ -1,3 +1,35 @@
+## 2026-11-23 — D-15 reopened: CC1101 on the C5 shared bus, bench console
+
+**Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will
+
+Will reopened D-15 and approved CC1101 CSn on C5 GPIO7/D3. Rev D §4.4 now
+holds the pins and parts. `docs/hardware/c5-dual-radio-wiring.md` is
+restored as the rationale. GDO0/GDO2 have no pin, so the receiver is
+RSSI-only.
+
+- `subghz_spi.c` now owns the SX1262/CC1101 bus pins, the idempotent bus
+  init, and one mutex. Each driver holds that mutex for its whole
+  chip-select-low span. Before this, `lora_radio.c` drove NSS around
+  `spi_device_transmit` with no lock. A second device's CS-low window could
+  then have clocked commands into the wrong chip. `lora_radio.c` now takes
+  the lock in `cs_select()` and fails with `ESP_ERR_TIMEOUT` after
+  `SUBGHZ_SPI_LOCK_TIMEOUT_MS` instead of colliding.
+- `cc1101_port.c` is the ESP-IDF transport for `cc1101_bus`. It refuses to
+  clock unless it holds the lock, and reads SO as a GPIO for CHIP_RDYn.
+- `cc1101_bench.c` is behind `CONFIG_OSCILLA_CC1101_BENCH`, built with
+  `build_firmware.sh --cc1101-bench`. It serves the `bench-cc1101-driver`
+  line console on USB while OCP stays on Grove, so the S3 scripts run
+  unchanged against the C5. `lload on|off` runs a continuous SX1262
+  receive-only RSSI sweep (902–928 MHz) as the coexistence load. It adds no
+  OCP verb.
+
+**Verified (host and build only):** both firmwares build. The normal probe
+build is checked to exclude the bench console, and the `--cc1101-bench`
+build has it with UART transport. `check_protocol.sh` passes, including
+`cc1101_test` 348/348. `check_rx_only.py` and `ocp_repl.py --selftest`
+(27/27) pass. **Not yet on hardware:** C5 bring-up, the Wio regression
+under the new lock, and coexistence.
+
 ## 2026-11-23 — CC1101 driver stress, soak and power-cycle qualification (blue module)
 
 **Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will

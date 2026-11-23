@@ -33,6 +33,16 @@ config OSCILLA_STATUS_LED_PERIOD_MS
     range 500 10000
     default 2000
 
+config OSCILLA_CC1101_BENCH
+    bool "CC1101 bench console on USB (D-15 requalification)"
+    depends on OSCILLA_OCP_TRANSPORT_UART
+    default n
+    help
+        Bench-only: run the CC1101 bring-up at boot and serve the
+        bench-cc1101-driver line console (i, d, up, reset, cycle N, rxcyc N,
+        gap N, quiet, loud, lload on|off) on USB Serial/JTAG. OCP stays on
+        the Grove UART. Receive-only; adds no OCP verb.
+
 config OSCILLA_ZIG_ACK_TEST_IDENTITY
     bool "Fixed 802.15.4 identity for ACK bench test"
     default n

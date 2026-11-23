@@ -16,12 +16,14 @@ loader_mode=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
     --bench) variant="bench"; shift ;;
+    --cc1101-bench) variant="cc1101"; shift ;;
     --uart)  variant="uart"; shift ;;
     --loader) loader_mode=1; shift ;;
     --help|-h)
         printf 'usage: %s [--bench|--uart] [--loader] [PORT]\n' "$0"
         printf '  --bench  flash firmware-c5/build-bench (USB OCP)\n'
         printf '  --uart   flash firmware-c5/build-uart (Grove OCP, default)\n'
+        printf '  --cc1101-bench flash firmware-c5/build-cc1101 (Grove OCP + CC1101 USB console)\n'
         printf '  --loader use when the C5 is already in ROM loader mode\n'
         exit 0
         ;;
@@ -30,7 +32,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$#" -gt 1 ]; then
-    echo "usage: $0 [--bench|--uart] [--loader] [PORT]" >&2
+    echo "usage: $0 [--bench|--uart|--cc1101-bench] [--loader] [PORT]" >&2
     exit 2
 fi
 

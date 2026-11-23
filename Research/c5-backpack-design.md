@@ -77,7 +77,7 @@ Optional prototype series resistors: **470 Ω in each TX line**, near its transm
 | LORA_BUSY | D5 | 24 | BUSY | Input, high means busy |
 | LORA_RF_SW | D2 | 25 | RF_SW | Output |
 
-Leave **Wio VIN, D0, D6, and D7 unconnected**. Leave **XIAO D3 / GPIO7 unconnected**. XIAO D6/D7 are occupied by the host UART. XIAO D4/D5 are occupied by LoRa and are not spare I2C pins.
+Leave **Wio VIN, D0, D6, and D7 unconnected**. **XIAO D3 / GPIO7 is the CC1101 CSn** (§4.4, D-15 reopened 2026-11-23). XIAO D6/D7 are occupied by the host UART. XIAO D4/D5 are occupied by LoRa and are not spare I2C pins.
 
 This differs from direct stacking. Do not combine this harness with electrical connections through stacked headers.
 
@@ -114,6 +114,39 @@ The Wio module uses internal **DIO3 to power its TCXO**. No additional DIO3 host
 The Wio module is specified for **862–930 MHz**. It is not the 433 MHz version suggested as a generic option in the original draft. Select operating frequency and TX settings deliberately for the antenna and application; do not start transmitting automatically on boot.
 
 Start SPI near **1 MHz** with leads under approximately 10 cm and adjacent ground returns. Increase speed after checking reliable transactions.
+
+### 4.4 XIAO ↔ CC1101 (D-15, 433 MHz receive-only)
+
+Added 2026-11-23 when D-15 reopened. The detailed wiring rationale lives in
+[`docs/hardware/c5-dual-radio-wiring.md`](../docs/hardware/c5-dual-radio-wiring.md);
+this table is the pin authority.
+
+| Net | XIAO label | C5 GPIO | CC1101 pin | Notes |
+|---|---|---:|---|---|
+| Radio supply | 3V3 output | — | VCC | 3.3 V only |
+| Ground | GND | — | GND | Run alongside the SPI wires |
+| SCK | D8 | 8 | SCK | Shared with the Wio |
+| MISO | D9 | 9 | SO / GDO1 | Shared; every profile keeps `IOCFG1=0x2E` so SO is three-stated while deselected |
+| MOSI | D10 | 10 | SI | Shared with the Wio |
+| CC1101_CSN | D3 | 7 | CSn | Active low; dedicated |
+| — | — | — | GDO0, GDO2 | **No connection.** No main-header GPIO is left; RSSI-only until a pin plan adds one |
+
+| Part | Connection | Purpose |
+|---|---|---|
+| 10 kΩ pull-up | CC1101 CSn → 3V3 | Deselected while the C5 resets; GPIO7 is the JTAG-source strap and has no internal pull |
+| 100 nF ceramic | CC1101 VCC → GND, at the module | High-frequency bypass |
+| 10 µF | CC1101 VCC → GND, near the module | Transient support |
+| 433 MHz antenna | CC1101 antenna port | Separate from the Wio antenna; never shared or split |
+
+- Both drivers hold one bus lock for the whole chip-select-low span
+  (`subghz_spi.c`). No SPI work happens in an ISR.
+- No series resistors in the first build. Keep the SPI leads under about
+  10 cm with a ground return. Start at 1 MHz.
+- Bench (2026-11-23, XIAO S3): back-to-back CC1101 SPI polling raised its
+  floor by 4–6 dB. Measure the CC1101 floor with the SX1262 idle and busy on
+  this shared bus before field use.
+- With the pull-up fitted, retest cold boots, native-USB recovery, and
+  JTAG.
 
 ## 5. Cardputer ↔ Cap TFT V2 display (8-pin SPI, onboard step-down)
 
@@ -377,13 +410,26 @@ xiao_esp32_c5:
     external_rf_switch_tx_level: 0
     transmit_on_boot: false
     operating_frequency_hz: null # Explicit application/antenna setting required.
+  cc1101:
+    board: cc1101_breakout_433mhz
+    connection: shared_spi_with_lora
+    sck_gpio: 8
+    miso_gpio: 9
+    mosi_gpio: 10
+    csn_gpio: 7               # D3; 10 kΩ pull-up; JTAG-source strap
+    gdo0_gpio: null           # no free main-header GPIO
+    gdo2_gpio: null
+    gdo1_cfg: 0x2E            # three-state SO while deselected (shared MISO)
+    crystal_hz: 26000000
+    initial_spi_hz: 1000000
+    transmit: false
   status_led:
     gpio: 27
     active_level: 0          # active-low; bench-confirmed 2026-09-12
     color: yellow
     strapping_pin: true      # sampled at reset only; board circuit sets the level
     source: seeed_xiao_esp32c5_wiki_pin_map_user_led
-  unused_main_header_gpio: 7
+  unused_main_header_gpio: null   # GPIO7 is CC1101 CSn since 2026-11-23 (D-15)
 ```
 
 ### 8.1 Status LED (added 2026-09-12)
@@ -474,3 +520,4 @@ The pin plan combines manufacturer references with the user's exact connector im
 - Disabled touch/PPS/backlight PWM unless a later pin-plan revision explicitly adds them.
 - Removed the nonmatching 14-pin TFT power and jumper example.
 - Preserved supply verification as a physical assembly task without leaving the coding agent's signal assignments ambiguous.
+- 2026-11-23: D-15 reopened. C5 GPIO7 / D3 became the CC1101 CSn on the shared sub-GHz SPI bus (§4.4). GDO0/GDO2 have no pin.

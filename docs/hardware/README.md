@@ -18,6 +18,7 @@ For an operator-led routing session, see the
 |---|---|---|
 | `link-bringup.md` | P1 | Grove UART bring-up: boot-noise capture, resync behaviour, reset recovery |
 | `lora-harness.md` | P3 | Wio-SX1262 harness continuity check, BUSY/TCXO observations, the D-10 resolution and its source |
+| `c5-dual-radio-wiring.md` | P7 (D-15) | CC1101 addendum rationale: shared-SPI integration, boot state, arbitration and validation gates. Pins live in Rev D §4.4 |
 | `lora-session-soak.md` | P3 follow-up (LSI-5) | Known-source / source-absent soak procedure for the session-integrity counters, and dated run results |
 | `gnss.md` | P4 | ATGM336H baud, NMEA sentences seen, cold/warm fix times |
 | `ieee802154-validation.md` | P7 | Controlled passive MAC capture and no-auto-ACK positive-control evidence |

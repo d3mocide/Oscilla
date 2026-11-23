@@ -6,6 +6,21 @@ respective bench records under this directory; this log records design changes
 and their validation status. See [Rev D](../../Research/c5-backpack-design.md)
 for electrical authority.
 
+## 2026-11-23 — CC1101 added to Rev D (§4.4); D-15 reopened
+
+- **Change:** C5 GPIO7 / D3 becomes the CC1101 CSn on the shared sub-GHz SPI
+  bus (D8/D9/D10), with a 10 kΩ CSn pull-up and 100 nF + 10 µF at the module.
+  The CC1101 gets its own 433 MHz antenna. GDO0/GDO2 have no connection
+  because no main-header GPIO is left. Rev D §4.1, §4.4 and §8 are updated,
+  and `docs/hardware/c5-dual-radio-wiring.md` is restored as the rationale.
+- **Basis:** the clean-room driver was qualified on an XIAO S3 bench with the
+  September module (root `WORKLOG.md`, 2026-11-23).
+- **Status:** untested on the C5 harness. Required before calling it done:
+  continuity; boot, native-USB and JTAG recovery with the GPIO7 pull-up;
+  SX1262 and CC1101 SPI each correct while the other is deselected; CC1101
+  floor and false events with the SX1262 idle versus sweeping; rail voltage
+  under combined load.
+
 ## 2026-11-22 — External display stays lit in idle sleep; power-gate harness proposed
 
 - **Observation (operator, first flash of WP-3..12b):** idle sleep works, but the

@@ -20,6 +20,7 @@
 
 #include "lora_radio.h"
 #include "lora_sweep_plan.h"
+#include "subghz_spi.h"
 
 #include <string.h>
 
@@ -34,17 +35,14 @@
 
 static const char *TAG = "lora_radio";
 
-/* Rev D pin map, custom harness (AGENTS.md gotcha 16). */
-#define PIN_SCK    8
-#define PIN_MISO   9
-#define PIN_MOSI   10
+/* Rev D pin map, custom harness (AGENTS.md gotcha 16). SCK/MISO/MOSI are
+ * shared with the CC1101 and owned by subghz_spi.h. */
 #define PIN_NSS    23
 #define PIN_RST    1
 #define PIN_DIO1   0
 #define PIN_BUSY   24
 #define PIN_RF_SW  25
 
-#define SPI_HOST_ID       SPI2_HOST
 #define SPI_INITIAL_HZ    1000000     /* Rev D §4: start ~1 MHz */
 #define BUSY_TIMEOUT_MS   1000        /* covers the 3.5 ms full calibration with generous margin */
 #define DIO1_RETRY_MS     10          /* re-service delay while DIO1 stays high */
@@ -154,8 +152,19 @@ static bool rx_read_opcode_allowed(uint8_t opcode)
 
 /* ---- low-level bus helpers --------------------------------------------- */
 
-static void cs_select(void)   { gpio_set_level(PIN_NSS, 0); }
-static void cs_deselect(void) { gpio_set_level(PIN_NSS, 1); }
+/* The shared-bus lock spans the whole NSS-low window (subghz_spi.h). */
+static esp_err_t cs_select(void)
+{
+    if (!subghz_spi_lock(SUBGHZ_SPI_LOCK_TIMEOUT_MS)) return ESP_ERR_TIMEOUT;
+    gpio_set_level(PIN_NSS, 0);
+    return ESP_OK;
+}
+
+static void cs_deselect(void)
+{
+    gpio_set_level(PIN_NSS, 1);
+    subghz_spi_unlock();
+}
 
 /* Bounded: BUSY must fall before any new command, or fault rather than hang.
  * See Rev D §4.3. */
@@ -185,7 +194,8 @@ static esp_err_t cmd_write(uint8_t opcode, const uint8_t *data, size_t len)
     if (len) memcpy(&tx[1], data, len);
 
     spi_transaction_t t = { .length = (len + 1) * 8, .tx_buffer = tx };
-    cs_select();
+    err = cs_select();
+    if (err != ESP_OK) return err;
     err = spi_device_transmit(s_spi, &t);
     cs_deselect();
     return err;
@@ -209,7 +219,8 @@ static esp_err_t cmd_read(uint8_t opcode, uint8_t *out, size_t len)
         .tx_buffer = tx,
         .rx_buffer = rx,
     };
-    cs_select();
+    err = cs_select();
+    if (err != ESP_OK) return err;
     err = spi_device_transmit(s_spi, &t);
     cs_deselect();
     if (err == ESP_OK && out) memcpy(out, &rx[2], len);
@@ -227,7 +238,8 @@ static esp_err_t read_buffer(uint8_t offset, uint8_t *out, size_t len)
     if (len > LORA_MAX_PAYLOAD) return ESP_ERR_INVALID_SIZE;
 
     spi_transaction_t t = { .length = (3 + len) * 8, .tx_buffer = tx, .rx_buffer = rx };
-    cs_select();
+    err = cs_select();
+    if (err != ESP_OK) return err;
     err = spi_device_transmit(s_spi, &t);
     cs_deselect();
     if (err == ESP_OK) memcpy(out, &rx[3], len);
@@ -256,7 +268,8 @@ static esp_err_t write_register(uint16_t addr, const uint8_t *data, size_t len)
     memcpy(&tx[3], data, len);
 
     spi_transaction_t t = { .length = (3 + len) * 8, .tx_buffer = tx };
-    cs_select();
+    err = cs_select();
+    if (err != ESP_OK) return err;
     err = spi_device_transmit(s_spi, &t);
     cs_deselect();
     return err;
@@ -311,7 +324,7 @@ esp_err_t lora_radio_init(void)
     };
     esp_err_t err = gpio_config(&out_cfg);
     if (err != ESP_OK) return err;
-    cs_deselect();
+    gpio_set_level(PIN_NSS, 1);
     gpio_set_level(PIN_RST, 1);      /* released; active low */
     rf_switch_set_receive(false);
 
@@ -327,15 +340,7 @@ esp_err_t lora_radio_init(void)
     err = gpio_config(&dio1_cfg);
     if (err != ESP_OK) return err;
 
-    const spi_bus_config_t bus_cfg = {
-        .sclk_io_num = PIN_SCK,
-        .mosi_io_num = PIN_MOSI,
-        .miso_io_num = PIN_MISO,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = LORA_MAX_PAYLOAD + 8,
-    };
-    err = spi_bus_initialize(SPI_HOST_ID, &bus_cfg, SPI_DMA_CH_AUTO);
+    err = subghz_spi_bus_init(LORA_MAX_PAYLOAD + 8);
     if (err != ESP_OK) return err;
 
     const spi_device_interface_config_t dev_cfg = {
@@ -344,7 +349,7 @@ esp_err_t lora_radio_init(void)
         .spics_io_num = -1,   /* NSS driven manually: BUSY must be checked before each select */
         .queue_size = 1,
     };
-    err = spi_bus_add_device(SPI_HOST_ID, &dev_cfg, &s_spi);
+    err = spi_bus_add_device(SUBGHZ_SPI_HOST, &dev_cfg, &s_spi);
     if (err != ESP_OK) return err;
 
     /* ISR only posts to s_dio1_queue (AGENTS.md gotcha 8's rule) — all SPI
