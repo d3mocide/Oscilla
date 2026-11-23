@@ -62,6 +62,21 @@ void handleCommand()
         buf[n] = '\0';
         if (n == 1 && buf[0] == 'd') dumpRegisters();
         else if (n == 1 && buf[0] == 'i') printConfig();
+        else if (n == 1 && buf[0] == 'v') {
+            // SPI integrity: stable ID reads, and CHANNR (0x0A, harmless) write/readback.
+            Serial.print("V,id");
+            for (int k = 0; k < 10; ++k)
+                Serial.printf(",%02x/%02x", ELECHOUSE_cc1101.SpiReadStatus(0x30),
+                              ELECHOUSE_cc1101.SpiReadStatus(0x31));
+            Serial.print(",chanr");
+            const byte saved = ELECHOUSE_cc1101.SpiReadReg(0x0A);
+            for (byte v : {byte(0x00), byte(0x55), byte(0xAA)}) {
+                ELECHOUSE_cc1101.SpiWriteReg(0x0A, v);
+                Serial.printf(",%02x->%02x", v, ELECHOUSE_cc1101.SpiReadReg(0x0A));
+            }
+            ELECHOUSE_cc1101.SpiWriteReg(0x0A, saved);
+            Serial.println();
+        }
         else if (n > 1 && buf[0] == 'm') {
             const float mhz = atof(buf + 1);
             if (mhz >= 300.0f && mhz <= 928.0f) tune(mhz);
@@ -76,6 +91,24 @@ void setup()
     Serial.begin(115200);
     const uint32_t t0 = millis();
     while (!Serial && millis() - t0 < 3000) delay(10);
+
+    Serial.println("I,boot");
+    // SmartRC spins forever on MISO high; check chip-ready (SO low after CSn low) with a bound first.
+    pinMode(kCsn, OUTPUT);
+    pinMode(kMiso, INPUT_PULLUP);
+    for (;;) {
+        digitalWrite(kCsn, LOW);
+        const uint32_t t = micros();
+        bool ready = false;
+        while (micros() - t < 50000) {
+            if (digitalRead(kMiso) == LOW) { ready = true; break; }
+        }
+        digitalWrite(kCsn, HIGH);
+        if (ready) break;
+        Serial.println("E,miso_stuck_high: CC1101 not answering (check 3V3, GND, CSn->D3, SO->D9)");
+        delay(1000);
+    }
+    Serial.println("I,chip_ready");
 
     ELECHOUSE_cc1101.setSpiPin(kSck, kMiso, kMosi, kCsn);
     ELECHOUSE_cc1101.setGDO0(kGdo0);
