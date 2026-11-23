@@ -29,7 +29,17 @@ driver cannot issue a transmit strobe or write PATABLE.
 
 Commands: `i`, `d` (register dump), `up` (re-apply), `reset` (SRES and
 re-apply), `gap N` (µs between RSSI reads), `quiet`/`loud` (stop or resume
-all SPI).
+all SPI), `cycle N` (N full reset/apply/rx_start bring-ups), `rxcyc N` (N rx
+stop/start pairs).
+
+**Automated power cycling.** Wire the CC1101 VCC to **D4 (GPIO5)** instead of
+3V3 and send `vccgpio`. `pc N OFF_MS` then runs N cold starts with power-on
+reset only, and `pcr N OFF_MS` adds SRES. While off, every CC1101 line is an
+input with pull-down, so nothing back-powers the chip. The `P,` line reports
+how many starts read the POR FREQ2 (`por=`) and how many kept their
+configuration through the gap (`retained=`). D4 is not driven until
+`vccgpio`, so after an S3 reset the module stays unpowered until that
+command is sent.
 
 `bench-cc1101-s3/bench_run.py` (Flipper bursts) and an `rtl_433`
 cross-reference both work against this output unchanged.

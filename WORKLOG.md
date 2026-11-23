@@ -1,3 +1,41 @@
+## 2026-11-23 — CC1101 driver stress, soak and power-cycle qualification (blue module)
+
+**Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will
+
+Will asked for this before any dual-module harness work, since the Koko
+had looked healthy before it failed. Hardware is the blue breakout
+direct-wired to the XIAO S3, running `bench-cc1101-driver`. All results
+below come from the probe's unchanged `cc1101_*.c` layers.
+
+- **Bring-up cycling:** 200 + 5,000 full reset→apply→rx_start rounds, and
+  500 + 20,000 rx stop/start pairs. 0 failures, the post-SRES SO edge was
+  seen every time, 0 register retries, and the profile verified with
+  MARCSTATE=RX at the end.
+- **30-minute soak** with `rtl_433`, a Flipper burst every 30 s, and 1,000
+  bring-ups at minutes 10 and 20. Flipper 60/60. LaCrosse 32/32 while
+  receiving: the 33rd decode fell inside the deliberate 5.5 s cycling
+  blackout. 0 drift events. Floor steady at −86 dBm. The two "stray"
+  windows were the first windows after each cycling burst: GDO0 counts
+  piled up from the POR clock briefly restored by each SRES.
+- **Manual USB power cycles:** 2 of 2 passed, with 2.9 s and 2.1 s off. A
+  clean cold-boot bring-up, a Flipper burst received within about 3 s of
+  boot, and no drift.
+- **Automated power cycling:** the CC1101 VCC was moved to S3 D4/GPIO5, with
+  every CC1101 line pulled down while off. 1,052 cold starts across 10 ms to
+  5 s off-times, both POR-only and with SRES: 0 bring-up failures, Flipper
+  54/54 after cold starts, 0 drift. A second pass read FREQ2 before any
+  write and confirmed a genuine power-on reset on 1,240/1,240 starts, down
+  to 1 ms off.
+- Before the supply was switched on at D4, the live drift watchdog reported
+  `probe=no_chip` / `marc=00`. That confirmed the dead-bus detection on
+  real hardware, and it recovered by itself once powered.
+
+**Limit:** the GPIO pulls the rail down actively. A slow, partial
+brown-out (a sagging rail that never reaches 0 V) is covered only by the
+two manual unplugs, not by the automated run. **Reading:** the blue module
+and the Oscilla driver are qualified on this bench for bring-up, sustained
+reception and cold starts. The SX1262 shared-bus harness is next.
+
 ## 2026-11-23 — Oscilla CC1101 driver receives on hardware; A/B matches SmartRC
 
 **Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will
