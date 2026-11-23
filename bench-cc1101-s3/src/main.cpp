@@ -35,6 +35,16 @@ void printConfig()
                   freq * 27.0 / 65536.0, g_mhz, ELECHOUSE_cc1101.getMode());
 }
 
+void configureRadio()
+{
+    ELECHOUSE_cc1101.Init();
+    ELECHOUSE_cc1101.setCCMode(0);        // async serial: demodulated OOK on GDO0
+    ELECHOUSE_cc1101.setModulation(2);    // ASK/OOK
+    ELECHOUSE_cc1101.setRxBW(kDefaultRxBwKhz);
+    ELECHOUSE_cc1101.setMHZ(g_mhz);
+    ELECHOUSE_cc1101.SetRx();
+}
+
 void dumpRegisters()
 {
     Serial.print("D");
@@ -140,12 +150,7 @@ void setup()
     if (!ELECHOUSE_cc1101.getCC1101()) {
         Serial.println("E,no_cc1101 (VERSION read 0): check wiring/CSn/3V3");
     }
-    ELECHOUSE_cc1101.Init();
-    ELECHOUSE_cc1101.setCCMode(0);        // async serial: demodulated OOK on GDO0
-    ELECHOUSE_cc1101.setModulation(2);    // ASK/OOK
-    ELECHOUSE_cc1101.setRxBW(kDefaultRxBwKhz);
-    ELECHOUSE_cc1101.setMHZ(kDefaultMhz);
-    ELECHOUSE_cc1101.SetRx();
+    configureRadio();
 
     pinMode(kGdo0, INPUT_PULLDOWN);   // unconnected GDO0 reads 0 edges, not noise
     attachInterrupt(digitalPinToInterrupt(kGdo0), onGdo0, CHANGE);
@@ -154,9 +159,26 @@ void setup()
     Serial.println("H,t_ms,rssi_max,rssi_mean,gdo0_edges");
 }
 
+// A power-on reset restores FREQ to 0x1EC4EC (800 MHz) and drops to IDLE.
+void checkForChipReset()
+{
+    static uint32_t last_ms = 0, resets = 0;
+    if (millis() - last_ms < 1000) return;
+    last_ms = millis();
+    const byte f2 = ELECHOUSE_cc1101.SpiReadReg(0x0D);
+    const byte marc = ELECHOUSE_cc1101.SpiReadStatus(0x35) & 0x1F;
+    if (f2 == 0x1E || marc != 0x0D) {
+        ++resets;
+        Serial.printf("E,chip_reset_or_not_rx,count=%lu,freq2=%02x,marcstate=%02x\n",
+                      (unsigned long)resets, f2, marc);
+        configureRadio();   // full reapply so each brown-out is counted separately
+    }
+}
+
 void loop()
 {
     handleCommand();
+    checkForChipReset();
     const uint32_t start = millis();
     int peak = -200;
     long sum = 0;
