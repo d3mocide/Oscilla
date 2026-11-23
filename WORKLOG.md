@@ -1,3 +1,45 @@
+## 2026-11-23 — Clean-room CC1101 receive layers (bus, profile, verified config)
+
+**Phase:** D-15 requalification, branch `cc1101-idf` (not linked into the
+probe build) · **By:** Claude + Will
+
+Will chose a clean-room ESP-IDF CC1101 driver that matches the behaviour of
+SmartRC-CC1101-Driver-Lib over a downstream fork. SmartRC has no standard
+licence, and it re-initialises SPI on every access and waits without
+bounds. On 2026-11-23 a module under SmartRC received 6 of 6 SDR-confirmed
+and 5 of 5 Flipper transmissions (see the `cc1101-bench` WORKLOG). This
+commit lands parts 1–3. Register facts come from TI SWRS061I, extracted
+from the PDF, not from memory. No SmartRC code is used.
+
+- `cc1101_profile.c`: the 47-register image read back from that receiving
+  chip (433.92 MHz OOK async, 650 kHz, `MCSM0=0x18`), plus band-checked
+  frequency helpers. FSTEST, PTEST and AGCTEST are never written.
+- `cc1101_bus.c`: an injected transport, so the layer owns no pins (Rev D
+  has no CC1101 since D-15 was archived). Every wait is bounded. Seven
+  receive-side strobes are allowlisted; STX, SFSTXON, SFTX, PATABLE and the
+  TX FIFO are unreachable. Reset accepts a missing post-SRES SO edge and is
+  judged by POR FREQ2 plus IDLE. A probe rejects the all-zero dead bus that
+  a passing CHIP_RDYn check hides. Status reads repeat until two agree
+  (SWRS061I §10.3).
+- `cc1101_config.c`: applies the profile in IDLE, GDO0/GDO2 first, with
+  per-register read-back and bounded retries. Failures are named. A
+  not-ready chip aborts immediately. A drift verify masks the FSCAL result
+  fields, so a silent brown-out reset is detectable after autocal.
+- `cc1101_sim.c` (host test only): a byte-level chip simulator with the
+  bench faults: dead bus, SO stuck high, no SO edge after SRES, writes
+  wedged after SRES, ignored SRES, dropped writes, MARCSTATE read flicker,
+  and a mid-apply loss of the chip.
+
+**Verified:** `cc1101_test` 325/325 under ASan/UBSan. Each of 13 bugs was
+reintroduced on a copy and caught; the first sweep missed the mid-apply
+abort, and a test was added for it. Full `check_protocol.sh` passes.
+`check_rx_only.py` passes and now reserves the CC1101 transmit names. All
+three files compile for the C5 with `riscv32-esp-elf-gcc` 14.2.0 `-Wall
+-Wextra -Werror -Wshadow -Wconversion` (~2.2 KB text). **Not done:**
+RX start with confirmed calibration and MARCSTATE=RX, the ESP-IDF
+`spi_master` transport on the shared bus, Rev D pin allocation, and
+any hardware run. D-15 stays Archived.
+
 ## 2026-11-22 — First flash of WP-3..12b + review fixes: bench results & two hardware-found fixes
 
 - **Flashed:** probe `38:44:BE:BF:D2:94` (`build-uart` at `414e273`, 3/3 hashes) and deck

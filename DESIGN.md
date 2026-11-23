@@ -292,6 +292,9 @@ isolated third-party dependencies.
 | `lora_hex.c` | Bounded, allocation-free LoRa payload-to-hex encoder; pure C, host-tested |
 | `lora_sweep_plan.c` | Pure-C sub-GHz sweep frequency-span validator, `GetRssiInst` dBm converter, and CSV formatter; host-tested |
 | `lora_recon.c` | RX survey + passive sub-GHz sweep: packet capture, RSSI/SNR, framing classification, `lora_sweep` stream. **No TX path** (§8) |
+| `cc1101_bus.c` | CC1101 SPI access, receive-only: injected transport, allowlisted strobes, bounded waits, reset verified by POR state, dead-bus detection; pure C, host-tested against `cc1101_sim`. Branch `cc1101-idf`, not linked into the probe build ([D-15](docs/DECISIONS.md)) |
+| `cc1101_profile.c` | CC1101 register profiles as data (433.92 MHz OOK async, read back from a receiving chip), frequency word helpers; pure C, host-tested. Same status as `cc1101_bus.c` |
+| `cc1101_config.c` | Applies a profile in IDLE with per-register read-back and bounded retries, GDO pins first; drift/silent-reset verify with FSCAL result masks; pure C, host-tested. Same status as `cc1101_bus.c` |
 | `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
 | `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |
 

@@ -104,6 +104,14 @@ python3 tools/check_deck_parser.py --count 150
     firmware-c5/test/host/lora_sweep_plan_test.c firmware-c5/main/lora_sweep_plan.c
 "$out/lora_sweep_plan_test" | tail -1 | sed 's/^/  /'
 
+# CC1101 receive-only bus, profile and verified-config layers against a
+# byte-level simulator carrying the bench fault modes (D-15 requalification).
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -Ifirmware-c5/test/host -o "$out/cc1101_test" \
+    firmware-c5/test/host/cc1101_test.c firmware-c5/test/host/cc1101_sim.c \
+    firmware-c5/main/cc1101_bus.c firmware-c5/main/cc1101_profile.c firmware-c5/main/cc1101_config.c
+"$out/cc1101_test" | tail -1 | sed 's/^/  /'
+
 # Block frames are buffered and committed as one transaction; unavailable or
 # oversized output must never reach the transport partially.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
