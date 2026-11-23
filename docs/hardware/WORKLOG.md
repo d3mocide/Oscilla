@@ -15,7 +15,14 @@ for electrical authority.
   and `docs/hardware/c5-dual-radio-wiring.md` is restored as the rationale.
 - **Basis:** the clean-room driver was qualified on an XIAO S3 bench with the
   September module (root `WORKLOG.md`, 2026-11-23).
-- **Status:** untested on the C5 harness. Required before calling it done:
+- **Measured 2026-11-23 (root WORKLOG):** bring-up clean. The Wio passed
+  30k sweeps with 0 errors under the shared lock. The CC1101 floor stayed
+  at −89 dBm with the SX1262 idle and sweeping. Flipper 15/15 and LaCrosse
+  6/6 (SDR-confirmed) were received while the SX1262 swept. Normal boot and
+  USB flash from the app worked 2/2 with the pull-up. A first miswire had
+  the 10 kΩ in series rather than to 3V3; flashing from the app failed four
+  times until it was fixed.
+- **Status:** C5 harness validated except the items below. Originally required:
   continuity; boot, native-USB and JTAG recovery with the GPIO7 pull-up;
   SX1262 and CC1101 SPI each correct while the other is deselected; CC1101
   floor and false events with the SX1262 idle versus sweeping; rail voltage

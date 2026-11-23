@@ -1,3 +1,37 @@
+## 2026-11-23 — CC1101 receives on the C5 backpack; shared bus holds under load
+
+**Phase:** D-15 harness validation, branch `cc1101-idf` · **By:** Claude + Will
+
+Hardware: the blue CC1101 wired to the probe per Rev D §4.4 (CSn D3/GPIO7
+with a 10 kΩ pull-up to 3V3, 100 nF + 10 µF, its own 433 MHz antenna,
+GDO0/GDO2 open), sharing D8/D9/D10 with the Wio. Firmware: `--cc1101-bench`
+build. A clean bring-up was confirmed after every flash.
+
+| Check | Result |
+|---|---|
+| Bring-up | probe/reset ok, SO edge seen, 44/44 registers verified, 0 retries, RX confirmed, calibrated. Floor −89 dBm (S3 bench: −86) |
+| Wio under the new bus lock | 1,170 → 30,285 SX1262 receive-only sweeps, 0 errors; XOSC_START_ERR cleared at cold start as usual |
+| Coexistence (`coexist.py --stress`) | CC1101 floor −89 dBm with the SX1262 idle, sweeping and idle again; Flipper 5/5 in each phase; 500 bring-ups and 2,000 RX cycles under load with 0 failures; 0 drift |
+| LaCrosse-TX141THBv2 vs `rtl_433`, 5 min, SX1262 sweeping throughout | 6/6, +22..+30 dB, 104/104 raised windows within ±2 s of a decode, 0 strays |
+| Boot / USB recovery with the pull-up | normal boot; USB flash from the running app 2/2 |
+
+**Wiring lesson:** the first pass put the 10 kΩ in series between D3 and
+CSn, so there was no pull-up. During that time, flashing from the running
+app failed four times. Two attempts were with the deck unplugged, so the deck
+was not the cause. The errors were "TX path down" and "serial data stream
+stopped". One flash succeeded from a manual BOOT+RESET loader. After the
+pull-up was rewired, flashing from the running app went 2/2. The floating
+GPIO7 (JTAG-source strap) correlates with the failures, but the mechanism
+is not proven.
+
+The ~1% of `coexist.py` windows that rose with no Flipper source were the
+LaCrosse. The SDR run accounted for every raised window, and the rate did
+not rise with SX1262 load.
+
+**Still open:** deck reconnected — OCP over Grove and a LoRa receive session
+on the new firmware, plus a USB flash with the deck attached; JTAG attach
+with the pull-up; a GDO0 pin decision; the OCP verbs, arbiter and deck view.
+
 ## 2026-11-23 — D-15 reopened: CC1101 on the C5 shared bus, bench console
 
 **Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will
