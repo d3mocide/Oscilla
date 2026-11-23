@@ -284,6 +284,11 @@ static void rx_paths(void)
     sim.rssi_raw = 0xC0;
     int16_t dbm = 0;
     CHECK(cc1101_rx_rssi(&bus, &dbm) == CC1101_OK && dbm == -106, "rssi read through the bus");
+    sim.rssi_moving = true;
+    int ok = 1;
+    for (int i = 0; i < 20; i++) ok &= cc1101_rx_rssi(&bus, &dbm) == CC1101_OK;
+    CHECK(ok, "RSSI reads succeed while the value changes on every read");
+    CHECK(cc1101_read_status_raw(&bus, 0x2E, NULL) == CC1101_ERR_ARG, "raw status read checks its arguments");
 }
 
 int main(void)

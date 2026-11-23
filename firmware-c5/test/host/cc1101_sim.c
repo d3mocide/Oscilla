@@ -35,7 +35,7 @@ static uint8_t read_status_reg(cc1101_sim_t *sim, uint8_t addr)
     switch (addr) {
     case CC1101_PARTNUM: return 0x00;
     case CC1101_VERSION: return 0x14;
-    case CC1101_RSSI: return sim->rssi_raw;
+    case CC1101_RSSI: return sim->rssi_moving ? sim->rssi_raw++ : sim->rssi_raw;
     case CC1101_MARCSTATE:
         if (sim->marc_flicker) return (uint8_t)(0x02 + sim->marc_flicker--);
         return sim->marc;

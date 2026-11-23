@@ -90,6 +90,10 @@ cc1101_err_t cc1101_write_reg(const cc1101_bus_t *bus, uint8_t addr, uint8_t val
  * (SWRS061I §10.3 read-corruption note). */
 cc1101_err_t cc1101_read_status(const cc1101_bus_t *bus, uint8_t addr, uint8_t *out);
 
+/* One status read, no agreement check: for continuously changing values
+ * such as RSSI, where two equal reads cannot be expected. */
+cc1101_err_t cc1101_read_status_raw(const cc1101_bus_t *bus, uint8_t addr, uint8_t *out);
+
 /* Allowlisted strobe; *status (may be NULL) gets the chip status byte. */
 cc1101_err_t cc1101_strobe(const cc1101_bus_t *bus, uint8_t strobe, uint8_t *status);
 

@@ -106,6 +106,12 @@ cc1101_err_t cc1101_read_status(const cc1101_bus_t *bus, uint8_t addr, uint8_t *
     return err == CC1101_OK ? CC1101_ERR_UNSTABLE : err;
 }
 
+cc1101_err_t cc1101_read_status_raw(const cc1101_bus_t *bus, uint8_t addr, uint8_t *out)
+{
+    if (!bus || !out || addr < CC1101_PARTNUM || addr > 0x3D) return CC1101_ERR_ARG;
+    return read_status_once(bus, addr, out);
+}
+
 static bool strobe_allowed(uint8_t s)
 {
     switch (s) {

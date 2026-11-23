@@ -34,6 +34,7 @@ typedef struct {
     bool xfer_fails;
     bool srx_ignored;           /* SRX does not leave IDLE */
     uint8_t rssi_raw;           /* RSSI status register value */
+    bool rssi_moving;           /* RSSI changes on every read, as during a burst */
 
     /* Observations. */
     uint8_t write_addr[SIM_LOG];

@@ -53,7 +53,7 @@ cc1101_err_t cc1101_rx_rssi(const cc1101_bus_t *bus, int16_t *dbm)
 {
     if (!bus || !dbm) return CC1101_ERR_ARG;
     uint8_t raw = 0;
-    const cc1101_err_t err = cc1101_read_status(bus, CC1101_RSSI, &raw);
+    const cc1101_err_t err = cc1101_read_status_raw(bus, CC1101_RSSI, &raw);
     if (err == CC1101_OK) *dbm = cc1101_rssi_dbm(raw, CC1101_RSSI_OFFSET_DB);
     return err;
 }
