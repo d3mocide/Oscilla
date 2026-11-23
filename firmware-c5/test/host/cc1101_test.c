@@ -8,6 +8,7 @@
 #include "cc1101_bus.h"
 #include "cc1101_config.h"
 #include "cc1101_profile.h"
+#include "cc1101_rx.h"
 #include "cc1101_sim.h"
 
 #include <stdio.h>
@@ -224,6 +225,67 @@ static void verify_paths(void)
           "verify masks cover exactly the FSCAL result fields");
 }
 
+static int strobe_index(const cc1101_sim_t *sim, uint8_t s, int from)
+{
+    for (int i = from; i < sim->strobes && i < SIM_LOG; i++)
+        if (sim->strobe[i] == s) return i;
+    return -1;
+}
+
+static void rx_paths(void)
+{
+    const cc1101_profile_t *p = &cc1101_profile_ook_433_async;
+    cc1101_sim_t sim;
+    cc1101_bus_t bus;
+    bool cal = false;
+
+    fresh(&sim, &bus);
+    CHECK(cc1101_apply_profile(&bus, p, NULL) == CC1101_OK, "apply before rx");
+    int mark = sim.strobes;
+    CHECK(cc1101_rx_start(&bus, &cal) == CC1101_OK, "rx starts");
+    CHECK(cal && sim.calibrated && sim.marc == CC1101_MARC_RX, "autocal profile reaches calibrated RX");
+    CHECK(strobe_index(&sim, CC1101_SCAL, mark) < 0, "no redundant SCAL when autocal covers IDLE->RX");
+    CHECK(strobe_index(&sim, CC1101_SFRX, mark) >= 0 &&
+          strobe_index(&sim, CC1101_SFRX, mark) < strobe_index(&sim, CC1101_SRX, mark),
+          "RX FIFO flushed before SRX");
+
+    /* September's driver: MCSM0 left at POR (FS_AUTOCAL=0), no SCAL -> deaf. */
+    fresh(&sim, &bus);
+    cc1101_profile_t q = *p;
+    q.reg[CC1101_MCSM0] = 0x04;
+    CHECK(cc1101_apply_profile(&bus, &q, NULL) == CC1101_OK, "apply autocal-off profile");
+    mark = sim.strobes;
+    CHECK(cc1101_rx_start(&bus, &cal) == CC1101_OK && cal, "rx starts with autocal off");
+    CHECK(sim.calibrated, "synthesizer calibrated even with autocal off");
+    const int scal = strobe_index(&sim, CC1101_SCAL, mark);
+    CHECK(scal >= 0 && scal < strobe_index(&sim, CC1101_SRX, mark), "SCAL issued before SRX");
+
+    fresh(&sim, &bus);
+    sim.srx_ignored = true;
+    CHECK(cc1101_rx_start(&bus, &cal) == CC1101_ERR_STATE && !cal, "RX never reached is an error");
+    CHECK(sim.now_us < 4u * CC1101_RX_START_TIMEOUT_US, "RX wait is bounded");
+
+    fresh(&sim, &bus);
+    CHECK(cc1101_rx_start(&bus, NULL) == CC1101_OK, "rx start");
+    CHECK(cc1101_rx_stop(&bus) == CC1101_OK && sim.marc == CC1101_MARC_IDLE, "rx stop returns to IDLE");
+
+    fresh(&sim, &bus);
+    sim.dead_bus = true;
+    CHECK(cc1101_rx_start(&bus, &cal) != CC1101_OK && !cal, "dead bus never reports RX");
+
+    /* SWRS061I §17.3 with RSSI_offset 74. */
+    CHECK(cc1101_rssi_dbm(0x00, 74) == -74, "rssi 0x00");
+    CHECK(cc1101_rssi_dbm(0x2A, 74) == -53, "rssi 0x2A");
+    CHECK(cc1101_rssi_dbm(0x7F, 74) == -11, "rssi 0x7F rounds toward -inf");
+    CHECK(cc1101_rssi_dbm(0x80, 74) == -138, "rssi 0x80 is the most negative");
+    CHECK(cc1101_rssi_dbm(0xC0, 74) == -106, "rssi 0xC0");
+    CHECK(cc1101_rssi_dbm(0xFF, 74) == -75, "rssi 0xFF (-0.5 dB) rounds toward -inf");
+    fresh(&sim, &bus);
+    sim.rssi_raw = 0xC0;
+    int16_t dbm = 0;
+    CHECK(cc1101_rx_rssi(&bus, &dbm) == CC1101_OK && dbm == -106, "rssi read through the bus");
+}
+
 int main(void)
 {
     profile_data();
@@ -232,6 +294,7 @@ int main(void)
     reset_paths();
     apply_paths();
     verify_paths();
+    rx_paths();
     printf("cc1101_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
 }

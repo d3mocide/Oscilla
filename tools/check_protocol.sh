@@ -109,7 +109,8 @@ python3 tools/check_deck_parser.py --count 150
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -Ifirmware-c5/test/host -o "$out/cc1101_test" \
     firmware-c5/test/host/cc1101_test.c firmware-c5/test/host/cc1101_sim.c \
-    firmware-c5/main/cc1101_bus.c firmware-c5/main/cc1101_profile.c firmware-c5/main/cc1101_config.c
+    firmware-c5/main/cc1101_bus.c firmware-c5/main/cc1101_profile.c firmware-c5/main/cc1101_config.c \
+    firmware-c5/main/cc1101_rx.c
 "$out/cc1101_test" | tail -1 | sed 's/^/  /'
 
 # Block frames are buffered and committed as one transaction; unavailable or

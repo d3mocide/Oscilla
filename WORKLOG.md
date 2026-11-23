@@ -1,3 +1,18 @@
+## 2026-11-23 — CC1101 receive start with guaranteed calibration
+
+**Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will
+
+Added `cc1101_rx.c`. It flushes the RX FIFO, then calibrates the
+synthesizer, then sends SRX and confirms MARCSTATE=RX. When
+MCSM0.FS_AUTOCAL does not cover IDLE->RX, it sends an explicit SCAL first.
+That is the September failure: that driver left FS_AUTOCAL=0 and never
+calibrated. It also converts RSSI to dBm per SWRS061I §17.3, rounding
+toward −inf. **Verified:** `cc1101_test` 346/346 under ASan/UBSan. All 6
+reintroduced bugs were caught, including dropping the SCAL, skipping the
+RX confirmation, and signed or rounding RSSI errors. `check_protocol.sh`
+and `check_rx_only.py` pass, and the file compiles for the C5. Not on
+hardware yet.
+
 ## 2026-11-23 — Clean-room CC1101 receive layers (bus, profile, verified config)
 
 **Phase:** D-15 requalification, branch `cc1101-idf` (not linked into the

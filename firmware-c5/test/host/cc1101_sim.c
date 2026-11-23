@@ -35,6 +35,7 @@ static uint8_t read_status_reg(cc1101_sim_t *sim, uint8_t addr)
     switch (addr) {
     case CC1101_PARTNUM: return 0x00;
     case CC1101_VERSION: return 0x14;
+    case CC1101_RSSI: return sim->rssi_raw;
     case CC1101_MARCSTATE:
         if (sim->marc_flicker) return (uint8_t)(0x02 + sim->marc_flicker--);
         return sim->marc;
@@ -77,6 +78,7 @@ static void do_strobe(cc1101_sim_t *sim, uint8_t s)
     case CC1101_SIDLE: sim->marc = CC1101_MARC_IDLE; break;
     case CC1101_SCAL: calibrate(sim); sim->marc = CC1101_MARC_IDLE; break;
     case CC1101_SRX:
+        if (sim->srx_ignored) break;
         if (sim->marc == CC1101_MARC_IDLE && ((sim->reg[CC1101_MCSM0] >> 4) & 0x3) == 1)
             calibrate(sim);
         sim->marc = CC1101_MARC_RX;

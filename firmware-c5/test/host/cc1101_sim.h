@@ -32,6 +32,8 @@ typedef struct {
     unsigned drop_write_every;  /* drop every Nth register write (0 = never) */
     unsigned marc_flicker;      /* next N MARCSTATE reads return changing junk */
     bool xfer_fails;
+    bool srx_ignored;           /* SRX does not leave IDLE */
+    uint8_t rssi_raw;           /* RSSI status register value */
 
     /* Observations. */
     uint8_t write_addr[SIM_LOG];
