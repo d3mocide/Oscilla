@@ -6,6 +6,17 @@ respective bench records under this directory; this log records design changes
 and their validation status. See [Rev D](../../Research/c5-backpack-design.md)
 for electrical authority.
 
+## 2026-11-22 — External display stays lit in idle sleep; power-gate harness proposed
+
+- **Observation (operator, first flash of WP-3..12b):** idle sleep works, but the
+  GMT028-05 external panel turns white instead of dark. Cause: Rev D §5.4 panel
+  has no backlight pin, so `DISPOFF`/`SLPIN` stops pixel drive while the
+  backlight stays powered. Battery cost not yet measured.
+- **Proposed:** [`display-power-gate.md`](display-power-gate.md) — S3 GPIO4
+  (EXT3) `DISP_EN` driving a high-side switch on the panel VCC branch plus a
+  74LVC126 that tri-states SCK/MOSI/DC/CS/RST, so the unpowered panel cannot load
+  the shared SD lines. Status: proposed, not built; Rev D unchanged.
+
 ## 2026-11-16 — GMT028-05 V1.1 replacement display selected
 
 - User photos establish the seven-pin header: GND, VCC, SCK, SDA, RST,
