@@ -1,3 +1,43 @@
+## 2026-11-23 — Oscilla CC1101 driver receives on hardware; A/B matches SmartRC
+
+**Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will
+
+Hardware: the blue CC1101 breakout from September's failed C5 runs, now
+direct-wired to the spare XIAO S3 (no breadboard, no CSn pull-up), with
+GDO0 on D1. Will retired the Koko after it failed from a clean power-on
+under the known-good sketch (see `cc1101-bench` WORKLOG).
+
+| Same module, same bench | SmartRC reference | Oscilla driver (`bench-cc1101-driver`) |
+|---|---|---|
+| Bring-up | ok | probe ok, reset ok (SO edge seen), 44/44 registers verified, 0 retries, RX confirmed, calibrated |
+| Write sweeps | 42 × 256, 0 errors | apply read-back 44/44; drift verify clean throughout |
+| Idle floor / GDO0 edges | −85 dBm / 0 | −86 dBm / 0 (with 200 µs RSSI spacing) |
+| Flipper bursts (made-up Princeton key) | 5/5, +35..+37 dB, 26–27 edges | 5/5, +56..+58 dB, 26–27 edges |
+| LaCrosse-TX141THBv2 vs `rtl_433` (5 min) | 6/6, +12..+17 dB, 55–56 edges, 0 strays | 6/6, +20..+25 dB, 55–56 edges, 0 strays |
+
+The larger margins in the Oscilla column should not be read as a driver
+gain. The SDR's own reading of the same sensor rose about 4 dB between
+runs, and the Flipper peaks jumped about 20 dB with the code unchanged,
+so the bench geometry most likely moved. Both drivers detect every
+transmission, with the same GDO0 bitstream rates.
+
+**Found on hardware:** back-to-back RSSI polling coupled into the receiver.
+With SPI idle there were 0 false GDO0 edges. Continuous polling gave 2–8
+edges per 20 ms window and raised the floor 4–6 dB. A 200 µs gap removed
+both. This is now `CC1101_RSSI_POLL_MIN_US`. On the C5 the SX1262 shares
+this bus, so the shared-bus duty cycle needs the same scrutiny. The live
+registers under our driver matched SmartRC's except the FSCAL calibration
+results.
+
+**Reading:** the module and the 433 MHz chain work, and Oscilla's own
+clean-room layers receive as well as the reference. Combined with
+September's register record, the September null result points at the
+archived C5 driver: no calibration, GDO0 clock left on, and no write
+verification. A same-module C5 rerun of the old driver would confirm
+it, but this was not run. **Still open:** an ESP-IDF `spi_master`
+transport on the C5's shared bus with the SX1262, Rev D CC1101 pins (CSn
+and GDO0), and reopening D-15, which is Will's call.
+
 ## 2026-11-23 — CC1101 receive start with guaranteed calibration
 
 **Phase:** D-15 requalification, branch `cc1101-idf` · **By:** Claude + Will
