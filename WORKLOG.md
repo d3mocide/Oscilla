@@ -1,3 +1,39 @@
+## 2026-11-23 — D-15 requalification: Koko CC1101 receives on the XIAO S3 reference bench
+
+**Phase:** D-15 requalification (bench, not Oscilla) · **By:** Claude + Will
+
+Bench: Koko CC1101 module on a spare XIAO S3 running `bench-cc1101-s3`
+(SmartRC v2.5.7, async OOK on GDO0, 433.92 MHz, 650 kHz RX BW). It is
+receive-only and does not call TX. Will reworked the harness power after
+the 2026-11-22 brown-outs.
+
+- **Power and SPI:** no CC1101 resets in about 10 minutes of logging.
+  The new `xr`/`xi` classifier wrote CHANNR 0–255, read it back twice, and
+  compared every config register for collateral changes. 180 sweeps
+  (about 46k transfers) produced no dropped or misdirected writes. Two
+  defects remain. A few writes failed only before the reflash. About 1 in
+  90 full register snapshots read back garbage, and roughly one RSSI
+  sample per run reads −12 dBm with a window mean near −70. The garbage
+  bytes are bit-rotations of each other, which points to occasional
+  SPI clock slip on reads.
+- **SDR cross-reference** (NESDR SMArt v5 + `rtl_433`, 5 min, no
+  transmitting): all 6 LaCrosse-TX141THBv2 (id 192) transmissions showed
+  on the CC1101. RSSI was 27 dB or more over a −90 dBm floor, with about
+  55 GDO0 edges each. 108 of 109 windows that rose at least 8 dB over the
+  floor fell within ±2 s of an SDR decode. This is the same device and
+  method as the 2026-09-22 C5 runs, which saw 0 of 11.
+- **Flipper bursts** (Momentum `mntm-012`, internal CC1101, made-up
+  Princeton key `A5C3E1`, te 400 µs, 10 repeats, Will signed off):
+  5 of 5 detected at −35 dBm (+55 dB), 26 edges per 20 ms window. That
+  rate matches a Princeton frame at this te.
+
+**Reading:** the module, antenna, and 433 MHz receive chain work. The
+September null result therefore traces to the archived C5 driver or its
+capture architecture, not the hardware. **Still open:** port the lesson
+to the C5 driver (diff its register set against SmartRC's working async
+profile), filter single-sample RSSI outliers, chase the read glitch, and
+write a fresh D-15 reopening plan. D-15 stays Archived until then.
+
 ## 2026-09-22 — CC1101 hardware triangulation: breadboard, module, and C5 all ruled out
 
 **Phase:** P3/P7 CC1101 bring-up · **By:** Claude + Will
