@@ -15,10 +15,11 @@ The sketch never calls `SetTx`, `SendData` or `setPA`.
 | MISO / SO | D9 | 8 |
 | MOSI / SI | D10 | 9 |
 | CSn | D3 | 4 (10 kΩ pull-up to 3V3) |
-| GDO0 | D1 | 2 |
+| GDO0 (optional) | D1 | 2 |
 | VCC / GND | 3V3 / GND | — |
 
-Match by the module's signal names, not header position.
+Match by the module's signal names, not header position. GDO0 is optional
+(the archived harness left it open); unwired, the edge column reads 0.
 
 ## Output (115200 baud)
 

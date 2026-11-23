@@ -89,7 +89,7 @@ void setup()
     ELECHOUSE_cc1101.setMHZ(kDefaultMhz);
     ELECHOUSE_cc1101.SetRx();
 
-    pinMode(kGdo0, INPUT);
+    pinMode(kGdo0, INPUT_PULLDOWN);   // unconnected GDO0 reads 0 edges, not noise
     attachInterrupt(digitalPinToInterrupt(kGdo0), onGdo0, CHANGE);
     printConfig();
     dumpRegisters();
