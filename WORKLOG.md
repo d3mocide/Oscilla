@@ -1,3 +1,20 @@
+## 2026-11-23 — Koko fails from clean power-on with this morning's known-good sketch
+
+**Phase:** D-15 requalification (bench, not Oscilla) · **By:** Claude + Will
+
+Reflashed the exact `092a12a` sketch that gave SDR 6/6 and Flipper 5/5
+this morning (SmartRC `Init()` once at boot, no runtime resets), and
+power-cycled so it ran first from power-on. It hung in SmartRC `Init()`:
+the bounded chip-ready check passed, then the unbounded post-SRES SO-low
+wait never returned. Before the clean power-on, the same sketch read all
+zeros. Identical code that worked this morning now fails, so the Koko,
+not the driver, changed during the day. The cause (module, supply or a
+marginal contact) is unknown. This morning's receive results stand. The
+Koko is retired as the reference module until its supply is measured.
+Will chose a clean-room ESP-IDF driver that matches SmartRC's register
+behaviour (no SmartRC code; its licence is not a standard grant) over a
+downstream fork.
+
 ## 2026-11-23 — CC1101 driver comparison started; Koko drops off the bus again
 
 **Phase:** D-15 requalification (bench, not Oscilla) · **By:** Claude + Will
