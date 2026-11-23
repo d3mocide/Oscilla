@@ -1,3 +1,31 @@
+## 2026-11-22 — Pre-flash review of WP-3..12b: baseline downgrade fix & sweep priority
+
+- **Review scope:** the seven unflashed commits `0bf4345..7beff73` (WP-9a, 12a,
+  11, 5-probe, 3, 8, 12b). Receive-only posture re-confirmed: the only new SX1262
+  opcode is read-only `GetRssiInst`; BLE hunt/wardrive go through the passive
+  `start_disc()` choke point; Wi-Fi hunt/wardrive are promiscuous RX only.
+- **Fixed — false `AuthDowngrade` (`model/baseline_watch.{h,cpp}`,
+  `model/scan_model.{h,cpp}`):** beacon events overwrite a row's auth with the
+  coarse `OPEN`/`WEP`/`RSN` label, which ranked below a scan baseline's `WPA3`,
+  `WPA2/WPA3` and `*-EAP`, so every such AP flagged as downgraded once continuous
+  scan or the wardrive stream ran (WPA1 APs fell to `WEP` likewise). Rows now carry
+  `auth_coarse`; the check compares the baseline against the highest rank the coarse
+  label could hide (`OPEN`=0, `WEP`=2, `RSN`=4). The existing test missed it because
+  its baseline was itself captured from events; new case uses a precise scan
+  baseline vs event rows. Mutation proof: restoring `authRank(r.auth)` fails
+  `baseline_watch_test`.
+- **Fixed — LoRa sweep outranked the event sender (`lora_recon.c`,
+  `ocp_frame.{h,c}`):** `lora_sweep` ran at priority 4 with ~1.1 ms busy-wait per
+  bin, above `ocp_evt` (3), so other lanes' events could drop while sweeping. Sweep
+  now runs at `LORA_SWEEP_TASK_PRIO` 2, enforced by a `_Static_assert` against the
+  new `OCP_EVENT_TASK_PRIO`. Mutation proof: priority 4 fails the probe build on
+  that assert.
+- **Checks:** `check_protocol.sh` green, `build_firmware.sh` both boards, 0 warnings.
+- **Open, not yet changed:** no `CalibrateImage` for 863–870 MHz (power-on calibration
+  is 902–928 only) and the `ISM 433` sweep preset is outside the Wio's 862–930 MHz
+  spec (Rev D §4); the `start_wardrive` stream is not resumed after another PHY tool
+  interrupts it while the log stays open.
+
 ## 2026-11-22 — Single-target Signal Hunt & muteable Geiger audio cadence (WP-12b)
 
 - **Protocol & Probe (`protocol/ocp.h`, `protocol/OCP-SPEC.md` §14,

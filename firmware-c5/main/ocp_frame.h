@@ -89,6 +89,9 @@ typedef struct {
     } data;
 } ocp_event_record_t;
 
+/* Event sender priority; best-effort engines that spin must sit below it. */
+#define OCP_EVENT_TASK_PRIO 3
+
 esp_err_t ocp_frame_init(void);
 
 /* [TAG] k=v ... END on one line. */

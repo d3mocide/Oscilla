@@ -55,6 +55,7 @@ bool parseRow(const std::string &raw, uint16_t expect_idx, ApRow &row)
     row.bssid = f[2];
     row.ch = static_cast<uint8_t>(ch);
     row.auth = f[4];
+    row.auth_coarse = false;
     row.rssi = static_cast<int>(rssi);
     row.band5 = f[6] == OCP_BAND_LABEL_5;
     return true;
@@ -179,6 +180,7 @@ void ScanModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
         row.ch = static_cast<uint8_t>(ch);
         row.band5 = *band == OCP_BAND_LABEL_5;
         row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
+        row.auth_coarse = true;
         row.rssi = static_cast<int>(rssi);
         row.observed_ms=now_ms;row.observation_id=++observation_id_;
         row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;
@@ -193,6 +195,7 @@ void ScanModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
     row.ch = static_cast<uint8_t>(ch);
     row.band5 = *band == OCP_BAND_LABEL_5;
     row.auth = privacy ? (rsn ? "RSN" : "WEP") : "OPEN";
+    row.auth_coarse = true;
     row.rssi = static_cast<int>(rssi);
     row.observed_ms=now_ms;row.observation_id=++observation_id_;
     row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;

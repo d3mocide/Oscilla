@@ -278,6 +278,10 @@ void lora_cmd_status(void)
                      OCP_K_HW_FAULT, (unsigned long)stats.hw_fault);
 }
 
+/* The sweep busy-waits per bin; it must never outrank the event sender. */
+#define LORA_SWEEP_TASK_PRIO 2
+_Static_assert(LORA_SWEEP_TASK_PRIO < OCP_EVENT_TASK_PRIO, "lora sweep would starve ocp_evt");
+
 static void sweep_task(void *arg)
 {
     (void)arg;
@@ -359,7 +363,7 @@ void lora_cmd_sweep(int argc, char **argv)
     s_sweep_stop = false;
     s_sweep_idle = false;
 
-    if (xTaskCreate(sweep_task, "lora_sweep", 4096, NULL, 4, NULL) != pdPASS) {
+    if (xTaskCreate(sweep_task, "lora_sweep", 4096, NULL, LORA_SWEEP_TASK_PRIO, NULL) != pdPASS) {
         s_sweep_idle = true;
         lora_radio_sweep_stop();
         ocp_emit_error(OCP_ERR_INTERNAL, "could not start sweep task");

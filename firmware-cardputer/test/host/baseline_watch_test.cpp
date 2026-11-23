@@ -144,6 +144,36 @@ int main()
     const auto *kept = capped.anomalyForBssid("02:00:00:00:02:ff");
     assert(kept && kept->kind == model::AnomalyKind::EvilTwin);
 
-    std::cout << "baseline watch: capture, CSV round-trip, evil-twin, auth-downgrade, MFP-drop, hidden-AP safety and eviction passed\n";
+    // Precise scan baseline vs coarse beacon-event live rows: no false downgrades.
+    model::ScanModel precise;
+    precise.begin();
+    precise.absorbPage(scanFrame({
+        "\"1\",\"Wpa3Net\",\"02:00:00:00:03:01\",\"6\",\"WPA2/WPA3\",\"-50\",\"" OCP_BAND_LABEL_24 "\"",
+        "\"2\",\"EapNet\",\"02:00:00:00:03:02\",\"6\",\"WPA2-EAP\",\"-50\",\"" OCP_BAND_LABEL_24 "\"",
+        "\"3\",\"Wpa1Net\",\"02:00:00:00:03:03\",\"6\",\"WPA\",\"-50\",\"" OCP_BAND_LABEL_24 "\"",
+        "\"4\",\"Wpa2Net\",\"02:00:00:00:03:04\",\"6\",\"WPA2\",\"-50\",\"" OCP_BAND_LABEL_24 "\"",
+        "\"5\",\"OpenedNet\",\"02:00:00:00:03:05\",\"6\",\"WPA3\",\"-50\",\"" OCP_BAND_LABEL_24 "\"",
+    }), 6000);
+    model::ZigModel no_zig;
+    model::BaselineWatch coarse_watch;
+    coarse_watch.captureFrom(precise, no_zig);
+    model::ScanModel events;
+    events.beginContinuous();
+    events.absorbEvent(netEvent("Wpa3Net", "02:00:00:00:03:01", 6, true, true, true, true), 6100);
+    events.absorbEvent(netEvent("EapNet", "02:00:00:00:03:02", 6, true, true, false, false), 6100);
+    events.absorbEvent(netEvent("Wpa1Net", "02:00:00:00:03:03", 6, true, false, false, false), 6100);
+    events.absorbEvent(netEvent("Wpa2Net", "02:00:00:00:03:04", 6, true, false, false, false), 6100);
+    events.absorbEvent(netEvent("OpenedNet", "02:00:00:00:03:05", 6, false, false, false, false), 6100);
+    coarse_watch.evaluate(events, no_zig, 6100);
+    assert(!coarse_watch.anomalyForBssid("02:00:00:00:03:01"));   // RSN can still be WPA3
+    assert(!coarse_watch.anomalyForBssid("02:00:00:00:03:02"));   // RSN can still be EAP
+    assert(!coarse_watch.anomalyForBssid("02:00:00:00:03:03"));   // no-RSN privacy can still be WPA1
+    const auto *lost_rsn = coarse_watch.anomalyForBssid("02:00:00:00:03:04");
+    assert(lost_rsn && lost_rsn->kind == model::AnomalyKind::AuthDowngrade);   // WPA2 lost its RSN IE
+    const auto *opened = coarse_watch.anomalyForBssid("02:00:00:00:03:05");
+    assert(opened && opened->kind == model::AnomalyKind::AuthDowngrade);       // WPA3 now open
+    assert(coarse_watch.countOf(model::AnomalyKind::AuthDowngrade) == 2);
+
+    std::cout << "baseline watch: capture, CSV round-trip, evil-twin, auth-downgrade (precise + coarse), MFP-drop, hidden-AP safety and eviction passed\n";
     return 0;
 }

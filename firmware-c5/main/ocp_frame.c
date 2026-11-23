@@ -41,7 +41,7 @@ esp_err_t ocp_frame_init(void)
     s_frame_lock = xSemaphoreCreateRecursiveMutex();
     s_event_queue = xQueueCreate(OCP_EVENT_QUEUE_DEPTH, sizeof(ocp_event_record_t));
     if (!s_lock || !s_frame_lock || !s_event_queue) return ESP_ERR_NO_MEM;
-    return xTaskCreate(event_task, "ocp_evt", 4096, NULL, 3, NULL) == pdPASS
+    return xTaskCreate(event_task, "ocp_evt", 4096, NULL, OCP_EVENT_TASK_PRIO, NULL) == pdPASS
                ? ESP_OK : ESP_ERR_NO_MEM;
 }
 

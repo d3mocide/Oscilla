@@ -21,6 +21,7 @@ struct ApRow {
     std::string bssid;
     uint8_t ch = 0;
     std::string auth;
+    bool auth_coarse = false;  /* beacon-event label (OPEN/WEP/RSN), not the scan's precise mode */
     int rssi = 0;
     bool band5 = false;
     uint32_t observed_ms=0,observation_id=0;

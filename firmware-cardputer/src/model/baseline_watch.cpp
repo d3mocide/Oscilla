@@ -104,6 +104,15 @@ int BaselineWatch::authRank(const std::string &auth)
     return -1;
 }
 
+int BaselineWatch::liveAuthCeiling(const ApRow &row)
+{
+    if (!row.auth_coarse) return authRank(row.auth);
+    if (row.auth == "OPEN") return 0;
+    if (row.auth == "WEP") return 2;   /* privacy, no RSN IE: WEP or WPA1 */
+    if (row.auth == "RSN") return 4;   /* any RSN mode, up to WPA3/EAP */
+    return -1;
+}
+
 const char *BaselineWatch::kindShort(AnomalyKind kind)
 {
     switch (kind) {
@@ -260,7 +269,7 @@ void BaselineWatch::evaluate(const ScanModel &scan, const ZigModel &zig, uint32_
     for (const auto &r : scan.rows()) {
         if (const auto *base = findAp(r.bssid)) {
             const int base_rank = authRank(base->auth);
-            const int live_rank = authRank(r.auth);
+            const int live_rank = liveAuthCeiling(r);
             if (base_rank >= 0 && live_rank >= 0 && live_rank < base_rank) {
                 upsertAnomaly(AnomalyKind::AuthDowngrade, r.bssid, base->auth + "->" + r.auth, now_ms);
             }
