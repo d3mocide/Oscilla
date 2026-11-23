@@ -2,6 +2,7 @@
 // NOT Oscilla. Never calls SetTx/SendData/setPA. Output protocol: README.md.
 #include <Arduino.h>
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
+#include <SPI.h>
 
 // XIAO ESP32-S3; same XIAO labels as the archived C5 harness (D8/D9/D10, D3 CSn).
 constexpr byte kSck = 7;    // D8
@@ -11,6 +12,7 @@ constexpr byte kCsn = 4;    // D3
 constexpr byte kGdo0 = 2;   // D1
 
 constexpr uint32_t kWindowMs = 20;
+constexpr uint32_t kSpiHz = 1000000;   // SmartRC default; lower to test signal integrity
 constexpr float kDefaultMhz = 433.92f;
 constexpr float kDefaultRxBwKhz = 650.0f;
 
@@ -62,6 +64,24 @@ void handleCommand()
         buf[n] = '\0';
         if (n == 1 && buf[0] == 'd') dumpRegisters();
         else if (n == 1 && buf[0] == 'i') printConfig();
+        else if (n == 1 && buf[0] == 'w') {
+            // All 256 CHANNR (0x0A) write/readback values; MARCSTATE 0x0D = RX.
+            const byte saved = ELECHOUSE_cc1101.SpiReadReg(0x0A);
+            int bad = 0, shown = 0;
+            byte or_diff = 0;
+            Serial.printf("W,marcstate=%02x", ELECHOUSE_cc1101.SpiReadStatus(0x35) & 0x1F);
+            for (int v = 0; v < 256; ++v) {
+                ELECHOUSE_cc1101.SpiWriteReg(0x0A, byte(v));
+                const byte r = ELECHOUSE_cc1101.SpiReadReg(0x0A);
+                if (r != v) {
+                    ++bad;
+                    or_diff |= byte(r ^ v);
+                    if (shown++ < 12) Serial.printf(",%02x->%02x", v, r);
+                }
+            }
+            ELECHOUSE_cc1101.SpiWriteReg(0x0A, saved);
+            Serial.printf(",bad=%d,diff_bits=%02x\n", bad, or_diff);
+        }
         else if (n == 1 && buf[0] == 'v') {
             // SPI integrity: stable ID reads, and CHANNR (0x0A, harmless) write/readback.
             Serial.print("V,id");
@@ -93,6 +113,11 @@ void setup()
     while (!Serial && millis() - t0 < 3000) delay(10);
 
     Serial.println("I,boot");
+    // Diagnostic: slow SPI to separate wiring signal integrity from driver behaviour.
+    SPI.begin(kSck, kMiso, kMosi, kCsn);
+    SPI.setFrequency(kSpiHz);
+    SPI.end();   // SmartRC re-begins per access; the divider survives end()
+    Serial.printf("I,spi_hz=%lu\n", (unsigned long)kSpiHz);
     // SmartRC spins forever on MISO high; check chip-ready (SO low after CSn low) with a bound first.
     pinMode(kCsn, OUTPUT);
     pinMode(kMiso, INPUT_PULLUP);
