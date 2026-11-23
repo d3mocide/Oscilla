@@ -43,3 +43,13 @@ command is sent.
 
 `bench-cc1101-s3/bench_run.py` (Flipper bursts) and an `rtl_433`
 cross-reference both work against this output unchanged.
+
+## On the C5 (shared bus with the SX1262)
+
+Build and flash `./tools/build_firmware.sh --cc1101-bench --probe-only` and
+`./tools/flash_c5.sh --cc1101-bench`. The probe then serves this same console
+on its USB port, with OCP still on Grove. It adds `lload on|off`, which runs
+SX1262 receive-only RSSI sweeps as bus load. `coexist.py` compares the
+CC1101 floor, unexplained raised windows and Flipper detection with that
+load off and on (`--stress` adds bring-up/RX cycling under load). The C5 has
+no GDO0 pin, so the edge column is always 0.
