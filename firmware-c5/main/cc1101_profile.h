@@ -32,4 +32,15 @@ uint32_t cc1101_profile_freq_hz(const cc1101_profile_t *p);
 /* Rewrite FREQ2..FREQ0 for hz; false (unchanged) outside the CC1101 bands. */
 bool cc1101_profile_set_freq(cc1101_profile_t *p, uint32_t hz);
 
+/* Set MDMCFG4[3:0]/MDMCFG3 to the closest data rate to baud (SWRS061I
+ * §29.1 MDMCFG3). Returns the achieved rate in baud, or 0 (unchanged) if
+ * baud is outside what the registers can express. */
+uint32_t cc1101_profile_set_drate(cc1101_profile_t *p, uint32_t baud);
+
+/* Turn an OOK profile into FIFO sampling: normal FIFO mode, infinite length,
+ * no sync word, CRC and whitening off, GDO0/GDO2 three-stated, sampled at
+ * baud. Pins stay as they are on the C5 (no GDO wire needed). Returns the
+ * achieved rate, or 0 (unchanged) on a bad rate. */
+uint32_t cc1101_profile_make_fifo(cc1101_profile_t *p, uint32_t baud);
+
 #endif /* OSCILLA_CC1101_PROFILE_H */

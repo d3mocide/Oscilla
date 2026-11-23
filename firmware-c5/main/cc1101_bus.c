@@ -6,6 +6,8 @@
 
 #include "cc1101_bus.h"
 
+#include <string.h>
+
 #define HDR_READ  0x80
 #define HDR_BURST 0x40
 #define STATUS_CHIP_RDYN 0x80
@@ -110,6 +112,16 @@ cc1101_err_t cc1101_read_status_raw(const cc1101_bus_t *bus, uint8_t addr, uint8
 {
     if (!bus || !out || addr < CC1101_PARTNUM || addr > 0x3D) return CC1101_ERR_ARG;
     return read_status_once(bus, addr, out);
+}
+
+cc1101_err_t cc1101_read_rxfifo(const cc1101_bus_t *bus, uint8_t *out, size_t n)
+{
+    if (!bus || !out || n == 0 || n > CC1101_FIFO_SIZE) return CC1101_ERR_ARG;
+    uint8_t tx[1 + CC1101_FIFO_SIZE] = { HDR_READ | HDR_BURST | 0x3F };
+    uint8_t rx[1 + CC1101_FIFO_SIZE] = { 0 };
+    const cc1101_err_t err = transaction(bus, tx, rx, 1 + n);
+    if (err == CC1101_OK) memcpy(out, rx + 1, n);
+    return err;
 }
 
 static bool strobe_allowed(uint8_t s)

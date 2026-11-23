@@ -34,6 +34,13 @@ cc1101_err_t cc1101_rx_stop(const cc1101_bus_t *bus);
 /* Current RSSI in dBm (SWRS061I §17.3); valid only in RX. */
 cc1101_err_t cc1101_rx_rssi(const cc1101_bus_t *bus, int16_t *dbm);
 
+/* FIFO sampling (cc1101_profile_make_fifo): read all but the last RX FIFO
+ * byte, which must stay until the next byte lands (SWRS061I §20). On RX
+ * FIFO overflow, restart RX (recalibrating), set *overflowed and return no
+ * bytes. cap must be at least 1. */
+cc1101_err_t cc1101_rx_drain(const cc1101_bus_t *bus, uint8_t *out, size_t cap, size_t *n,
+                             bool *overflowed);
+
 /* Raw RSSI register to dBm in whole dB, rounded toward -inf (SWRS061I §17.3). */
 int16_t cc1101_rssi_dbm(uint8_t raw, int offset_db);
 

@@ -36,6 +36,13 @@ typedef struct {
     uint8_t rssi_raw;           /* RSSI status register value */
     bool rssi_moving;           /* RSSI changes on every read, as during a burst */
 
+    /* RX FIFO model (SWRS061I §20). */
+    uint8_t fifo[128];
+    int fifo_n;
+    bool fifo_overflow;
+    int fifo_burst_reads;
+    int fifo_emptied;           /* reads that left the FIFO empty: the §20 hazard */
+
     /* Observations. */
     uint8_t write_addr[SIM_LOG];
     int writes;                 /* register writes that landed */
@@ -54,6 +61,9 @@ typedef struct {
 
 /* Power-on state: SWRS061I reset values for the registers the tests use. */
 void cc1101_sim_init(cc1101_sim_t *sim);
+
+/* Demodulated bytes arriving; past 64 the FIFO overflows (MARCSTATE 0x11). */
+void cc1101_sim_fifo_push(cc1101_sim_t *sim, const uint8_t *bytes, int n);
 
 /* A bus whose callbacks drive sim. */
 cc1101_bus_t cc1101_sim_bus(cc1101_sim_t *sim);

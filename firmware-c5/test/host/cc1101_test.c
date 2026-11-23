@@ -291,6 +291,74 @@ static void rx_paths(void)
     CHECK(cc1101_read_status_raw(&bus, 0x2E, NULL) == CC1101_ERR_ARG, "raw status read checks its arguments");
 }
 
+static void fifo_paths(void)
+{
+    cc1101_sim_t sim;
+    cc1101_bus_t bus;
+    cc1101_profile_t p = cc1101_profile_ook_433_async;
+
+    const uint8_t chanbw = (uint8_t)(p.reg[0x10] & 0xF0);
+    const uint32_t got = cc1101_profile_make_fifo(&p, 25000);
+    CHECK(got > 24750 && got < 25250, "FIFO profile samples at ~25 kbaud");
+    CHECK(p.reg[0x08] == 0x02, "normal FIFO, infinite length, CRC and whitening off");
+    CHECK((p.reg[0x12] & 0x7F) == 0x30, "OOK, no Manchester, no sync word");
+    CHECK(p.reg[CC1101_IOCFG0] == 0x2E && p.reg[CC1101_IOCFG2] == 0x2E, "GDO0/GDO2 three-stated");
+    CHECK(p.reg[CC1101_IOCFG1] == 0x2E, "SO still three-stated for the shared bus");
+    CHECK((p.reg[0x10] & 0xF0) == chanbw, "channel bandwidth untouched");
+    CHECK(p.reg[CC1101_MCSM0] == cc1101_profile_ook_433_async.reg[CC1101_MCSM0], "autocal kept");
+    CHECK(cc1101_profile_freq_hz(&p) == cc1101_profile_freq_hz(&cc1101_profile_ook_433_async),
+          "frequency kept");
+
+    cc1101_profile_t d = cc1101_profile_ook_433_async;
+    CHECK(cc1101_profile_set_drate(&d, 115051) > 115000 && (d.reg[0x10] & 0x0F) == 12 && d.reg[0x11] == 34,
+          "115.051 kBaud gives the datasheet reset E=12, M=34");
+    const cc1101_profile_t before = d;
+    CHECK(cc1101_profile_set_drate(&d, 0) == 0, "0 baud refused");
+    CHECK(cc1101_profile_set_drate(&d, 50000000u) == 0, "unreachable rate refused");
+    CHECK(cc1101_profile_make_fifo(&d, 0) == 0, "FIFO profile refuses a bad rate");
+    CHECK(memcmp(&d, &before, sizeof d) == 0, "refusals leave the profile unchanged");
+
+    fresh(&sim, &bus);
+    CHECK(cc1101_apply_profile(&bus, &p, NULL) == CC1101_OK && cc1101_rx_start(&bus, NULL) == CC1101_OK,
+          "FIFO profile applies and receives");
+    uint8_t in[40], out[CC1101_FIFO_SIZE];
+    for (int i = 0; i < 40; i++) in[i] = (uint8_t)(i * 7 + 1);
+    size_t n = 99;
+    bool ovf = true;
+    const int reads0 = sim.fifo_burst_reads;
+    CHECK(cc1101_rx_drain(&bus, out, sizeof out, &n, &ovf) == CC1101_OK && n == 0 && !ovf,
+          "empty FIFO drains nothing");
+    CHECK(sim.fifo_burst_reads == reads0, "and issues no FIFO read");
+    cc1101_sim_fifo_push(&sim, in, 1);
+    CHECK(cc1101_rx_drain(&bus, out, sizeof out, &n, &ovf) == CC1101_OK && n == 0,
+          "a single byte is left in place");
+    cc1101_sim_fifo_push(&sim, in + 1, 39);
+    CHECK(cc1101_rx_drain(&bus, out, sizeof out, &n, &ovf) == CC1101_OK && n == 39 && !ovf,
+          "drain takes all but the last byte");
+    CHECK(memcmp(out, in, 39) == 0, "bytes arrive in order");
+    CHECK(sim.fifo_n == 1 && sim.fifo_emptied == 0, "FIFO never emptied while receiving");
+    cc1101_sim_fifo_push(&sim, in, 20);
+    CHECK(cc1101_rx_drain(&bus, out, 8, &n, &ovf) == CC1101_OK && n == 8 && out[0] == in[39],
+          "cap limits the read and order continues");
+
+    fresh(&sim, &bus);
+    CHECK(cc1101_apply_profile(&bus, &p, NULL) == CC1101_OK && cc1101_rx_start(&bus, NULL) == CC1101_OK,
+          "rx before overflow");
+    uint8_t flood[70];
+    memset(flood, 0xA5, sizeof flood);
+    cc1101_sim_fifo_push(&sim, flood, 70);
+    CHECK(sim.fifo_overflow, "sim overflowed");
+    CHECK(cc1101_rx_drain(&bus, out, sizeof out, &n, &ovf) == CC1101_OK && ovf && n == 0,
+          "overflow reported, no stale bytes returned");
+    CHECK(!sim.fifo_overflow && sim.fifo_n == 0 && sim.marc == CC1101_MARC_RX && sim.calibrated,
+          "overflow recovered: flushed, recalibrated, back in RX");
+
+    CHECK(cc1101_read_rxfifo(&bus, out, 0) == CC1101_ERR_ARG, "zero-length FIFO read refused");
+    CHECK(cc1101_read_rxfifo(&bus, out, CC1101_FIFO_SIZE + 1) == CC1101_ERR_ARG, "oversize FIFO read refused");
+    CHECK(cc1101_rx_drain(&bus, out, 0, &n, &ovf) == CC1101_ERR_ARG, "zero-cap drain refused");
+    CHECK(sim.forbidden == 0, "no TX FIFO or PATABLE access");
+}
+
 int main(void)
 {
     profile_data();
@@ -300,6 +368,7 @@ int main(void)
     apply_paths();
     verify_paths();
     rx_paths();
+    fifo_paths();
     printf("cc1101_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
 }

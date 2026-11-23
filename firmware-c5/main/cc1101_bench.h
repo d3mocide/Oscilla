@@ -1,8 +1,9 @@
 /*
  * cc1101_bench.h — bench-only CC1101 console on USB Serial/JTAG
  * (CONFIG_OSCILLA_CC1101_BENCH, D-15 requalification). Same line format and
- * commands as bench-cc1101-driver, plus `lload on|off` to load the shared
- * bus with SX1262 receive-only RSSI sweeps. Not an OCP surface.
+ * commands as bench-cc1101-driver, plus `lload on|off` (SX1262 receive-only
+ * RSSI sweeps as shared-bus load) and `mode fifo <baud>` / `mode async`
+ * (demodulated OOK samples over SPI as `B,t_ms,n,hex` lines). Not OCP.
  *
  * SPDX-License-Identifier: MIT
  */

@@ -49,6 +49,31 @@ cc1101_err_t cc1101_rx_stop(const cc1101_bus_t *bus)
     return err;
 }
 
+cc1101_err_t cc1101_rx_drain(const cc1101_bus_t *bus, uint8_t *out, size_t cap, size_t *n,
+                             bool *overflowed)
+{
+    if (n) *n = 0;
+    if (overflowed) *overflowed = false;
+    if (!bus || !out || !n || cap == 0) return CC1101_ERR_ARG;
+
+    uint8_t rxbytes = 0;
+    cc1101_err_t err = cc1101_read_status(bus, CC1101_RXBYTES, &rxbytes);
+    if (err == CC1101_ERR_UNSTABLE) return CC1101_OK;   /* still filling; next poll */
+    if (err != CC1101_OK) return err;
+    if (rxbytes & 0x80) {
+        if (overflowed) *overflowed = true;
+        return cc1101_rx_start(bus, NULL);
+    }
+    size_t take = rxbytes & 0x7F;
+    if (take <= 1) return CC1101_OK;
+    take -= 1;
+    if (take > cap) take = cap;
+    if (take > CC1101_FIFO_SIZE) take = CC1101_FIFO_SIZE;
+    err = cc1101_read_rxfifo(bus, out, take);
+    if (err == CC1101_OK) *n = take;
+    return err;
+}
+
 cc1101_err_t cc1101_rx_rssi(const cc1101_bus_t *bus, int16_t *dbm)
 {
     if (!bus || !dbm) return CC1101_ERR_ARG;

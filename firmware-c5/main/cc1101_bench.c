@@ -20,6 +20,7 @@
 #include "cc1101_port.h"
 #include "cc1101_profile.h"
 #include "cc1101_rx.h"
+#include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
 #include "esp_rom_sys.h"
@@ -28,8 +29,10 @@
 #include "freertos/task.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
+#include "subghz_spi.h"
 
 #define WINDOW_MS 20
+#define DRAIN_MS_DEFAULT 8   /* 64-byte FIFO lasts ~20 ms at 25 kbaud */
 #define VERIFY_MS 1000
 #define LLOAD_LO_HZ 902000000UL
 #define LLOAD_HI_HZ 928000000UL
@@ -40,6 +43,9 @@ static uint32_t s_gap_us = CC1101_RSSI_POLL_MIN_US;
 static bool s_quiet;
 static uint32_t s_drifts;
 static char s_bringup[200];
+static uint32_t s_fifo_baud;          /* 0 = async profile (RSSI only) */
+static uint32_t s_fifo_bytes, s_fifo_overflows, s_fifo_errors;
+static uint32_t s_drain_ms = DRAIN_MS_DEFAULT;
 
 static volatile bool s_lload;
 static volatile uint32_t s_lload_sweeps, s_lload_errors;
@@ -83,10 +89,12 @@ static void print_info(void)
     cc1101_read_reg(&s_bus, CC1101_FREQ0, &f0);
     const uint32_t freq = ((uint32_t)f2 << 16) | ((uint32_t)f1 << 8) | f0;
     out("I,partnum=0x%02x,version=0x%02x,freq_reg=0x%06lx,mhz_at_26=%.4f,probe=%s,drifts=%lu,"
-        "lload=%d,lload_sweeps=%lu,lload_errors=%lu,driver=oscilla-c5,%s\n",
+        "lload=%d,lload_sweeps=%lu,lload_errors=%lu,fifo_baud=%lu,fifo_bytes=%lu,fifo_overflows=%lu,"
+        "fifo_errors=%lu,driver=oscilla-c5,%s\n",
         part, ver, (unsigned long)freq, freq * 26.0 / 65536.0, cc1101_err_name(perr),
         (unsigned long)s_drifts, s_lload, (unsigned long)s_lload_sweeps,
-        (unsigned long)s_lload_errors, s_bringup);
+        (unsigned long)s_lload_errors, (unsigned long)s_fifo_baud, (unsigned long)s_fifo_bytes,
+        (unsigned long)s_fifo_overflows, (unsigned long)s_fifo_errors, s_bringup);
 }
 
 static void dump_regs(void)
@@ -181,6 +189,42 @@ static void lload(bool on)
     out("I,lload=%d\n", on);
 }
 
+/* Switch between the async profile (RSSI only on the C5) and FIFO sampling. */
+static void set_mode(uint32_t fifo_baud)
+{
+    cc1101_profile_t p = cc1101_profile_ook_433_async;
+    if (fifo_baud) {
+        const uint32_t got = cc1101_profile_make_fifo(&p, fifo_baud);
+        if (!got) { out("E,mode,bad_baud=%lu\n", (unsigned long)fifo_baud); return; }
+        fifo_baud = got;
+    }
+    s_profile = p;
+    s_fifo_baud = fifo_baud;
+    s_fifo_bytes = s_fifo_overflows = s_fifo_errors = 0;
+    bring_up(false);
+    print_info();
+}
+
+static void drain_fifo(void)
+{
+    uint8_t buf[CC1101_FIFO_SIZE];
+    size_t n = 0;
+    bool ovf = false;
+    const cc1101_err_t err = cc1101_rx_drain(&s_bus, buf, sizeof buf, &n, &ovf);
+    if (err != CC1101_OK) { s_fifo_errors++; return; }
+    if (ovf) { s_fifo_overflows++; out("E,fifo_overflow,count=%lu\n", (unsigned long)s_fifo_overflows); }
+    if (!n) return;
+    s_fifo_bytes += n;
+    char hex[2 * CC1101_FIFO_SIZE + 1];
+    for (size_t i = 0; i < n; i++) {
+        static const char digits[] = "0123456789abcdef";
+        hex[2 * i] = digits[buf[i] >> 4];
+        hex[2 * i + 1] = digits[buf[i] & 0x0F];
+    }
+    hex[2 * n] = '\0';
+    out("B,%lu,%u,%s\n", (unsigned long)now_ms(), (unsigned)n, hex);
+}
+
 static void handle_line(char *buf)
 {
     if (!strcmp(buf, "i")) print_info();
@@ -194,6 +238,35 @@ static void handle_line(char *buf)
     else if (!strcmp(buf, "loud")) s_quiet = false;
     else if (!strcmp(buf, "lload on")) lload(true);
     else if (!strcmp(buf, "lload off")) lload(false);
+    else if (!strcmp(buf, "mode async")) set_mode(0);
+    else if (!strncmp(buf, "mode asyncrate ", 15)) {
+        /* Bench isolation: async profile (no FIFO reads) at another data rate. */
+        cc1101_profile_t p = cc1101_profile_ook_433_async;
+        const uint32_t got = cc1101_profile_set_drate(&p, (uint32_t)atol(buf + 15));
+        if (!got) { out("E,mode,bad_baud\n"); return; }
+        s_profile = p;
+        s_fifo_baud = 0;
+        bring_up(false);
+        out("I,asyncrate=%lu\n", (unsigned long)got);
+    }
+    else if (!strncmp(buf, "drain ", 6)) {
+        const long ms = atol(buf + 6);
+        if (ms >= 1 && ms <= 18) s_drain_ms = (uint32_t)ms;
+        out("I,drain_ms=%lu\n", (unsigned long)s_drain_ms);
+    }
+    else if (!strncmp(buf, "drive ", 6)) {
+        /* Bench: SPI edge strength on the shared bus (SCK, MOSI, CC1101 CSn). */
+        const long cap = atol(buf + 6);
+        if (cap >= 0 && cap <= 3) {
+            gpio_set_drive_capability(SUBGHZ_PIN_SCK, (gpio_drive_cap_t)cap);
+            gpio_set_drive_capability(SUBGHZ_PIN_MOSI, (gpio_drive_cap_t)cap);
+            gpio_set_drive_capability(GPIO_NUM_7, (gpio_drive_cap_t)cap);
+        }
+        gpio_drive_cap_t now = GPIO_DRIVE_CAP_DEFAULT;
+        gpio_get_drive_capability(SUBGHZ_PIN_SCK, &now);
+        out("I,drive=%d\n", (int)now);
+    }
+    else if (!strncmp(buf, "mode fifo ", 10)) set_mode((uint32_t)atol(buf + 10));
 }
 
 static void poll_commands(void)
@@ -244,8 +317,13 @@ static void bench_task(void *arg)
         int peak = -200;
         long sum = 0;
         uint32_t count = 0;
+        static uint32_t last_drain;
         while (now_ms() - start < WINDOW_MS) {
             if (s_quiet) { vTaskDelay(1); continue; }
+            if (s_fifo_baud && now_ms() - last_drain >= s_drain_ms) {
+                last_drain = now_ms();
+                drain_fifo();
+            }
             if (s_gap_us) esp_rom_delay_us(s_gap_us);
             int16_t dbm = 0;
             if (cc1101_rx_rssi(&s_bus, &dbm) != CC1101_OK) continue;

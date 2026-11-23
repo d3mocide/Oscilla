@@ -41,7 +41,7 @@ static void port_cs(void *ctx, bool asserted)
 static bool port_xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len)
 {
     port_t *p = ctx;
-    if (!p->locked || len == 0 || len > 4) return false;
+    if (!p->locked || len == 0 || len > 1 + CC1101_FIFO_SIZE) return false;
     spi_transaction_t t = { .length = len * 8, .tx_buffer = tx, .rx_buffer = rx };
     return spi_device_polling_transmit(p->dev, &t) == ESP_OK;
 }
@@ -74,7 +74,7 @@ esp_err_t cc1101_port_init(cc1101_bus_t *bus)
     if (err != ESP_OK) return err;
     gpio_set_level(PIN_CC1101_CSN, 1);
 
-    err = subghz_spi_bus_init(16);
+    err = subghz_spi_bus_init(1 + CC1101_FIFO_SIZE + 8);
     if (err != ESP_OK) return err;
     const spi_device_interface_config_t dev_cfg = {
         .mode = 0,                 /* CPOL=0, CPHA=0 (SWRS061I §10) */

@@ -94,6 +94,11 @@ cc1101_err_t cc1101_read_status(const cc1101_bus_t *bus, uint8_t addr, uint8_t *
  * such as RSSI, where two equal reads cannot be expected. */
 cc1101_err_t cc1101_read_status_raw(const cc1101_bus_t *bus, uint8_t addr, uint8_t *out);
 
+/* Burst read of n (1..CC1101_FIFO_SIZE) bytes from the RX FIFO (0xFF header,
+ * SWRS061I §10.5). The TX FIFO is never addressed. */
+#define CC1101_FIFO_SIZE 64
+cc1101_err_t cc1101_read_rxfifo(const cc1101_bus_t *bus, uint8_t *out, size_t n);
+
 /* Allowlisted strobe; *status (may be NULL) gets the chip status byte. */
 cc1101_err_t cc1101_strobe(const cc1101_bus_t *bus, uint8_t strobe, uint8_t *status);
 

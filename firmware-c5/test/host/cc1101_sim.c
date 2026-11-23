@@ -36,6 +36,8 @@ static uint8_t read_status_reg(cc1101_sim_t *sim, uint8_t addr)
     case CC1101_PARTNUM: return 0x00;
     case CC1101_VERSION: return 0x14;
     case CC1101_RSSI: return sim->rssi_moving ? sim->rssi_raw++ : sim->rssi_raw;
+    case CC1101_RXBYTES:
+        return (uint8_t)((sim->fifo_overflow ? 0x80 : 0x00) | (sim->fifo_n > 127 ? 127 : sim->fifo_n));
     case CC1101_MARCSTATE:
         if (sim->marc_flicker) return (uint8_t)(0x02 + sim->marc_flicker--);
         return sim->marc;
@@ -76,6 +78,13 @@ static void do_strobe(cc1101_sim_t *sim, uint8_t s)
         }
         break;
     case CC1101_SIDLE: sim->marc = CC1101_MARC_IDLE; break;
+    case CC1101_SFRX:
+        if (sim->marc == CC1101_MARC_IDLE || sim->marc == 0x11) {
+            sim->fifo_n = 0;
+            sim->fifo_overflow = false;
+            sim->marc = CC1101_MARC_IDLE;
+        }
+        break;
     case CC1101_SCAL: calibrate(sim); sim->marc = CC1101_MARC_IDLE; break;
     case CC1101_SRX:
         if (sim->srx_ignored) break;
@@ -118,11 +127,33 @@ static uint8_t clock_byte(cc1101_sim_t *sim, uint8_t in)
     const bool burst = sim->hdr & 0x40;
     if (read) {
         if (addr < CC1101_CFG_COUNT) return sim->reg[addr];
+        if (addr == FIFO) {
+            /* Single access (0xBF) returns one byte; the next byte is a new header. */
+            if (!burst && pos > 1) return status_byte(sim);
+            if (pos == 1 && burst) sim->fifo_burst_reads++;
+            if (sim->fifo_n == 0) return 0x00;
+            const uint8_t b = sim->fifo[0];
+            memmove(sim->fifo, sim->fifo + 1, (size_t)--sim->fifo_n);
+            if (sim->fifo_n == 0 && sim->marc == CC1101_MARC_RX) sim->fifo_emptied++;
+            return b;
+        }
         if (addr >= 0x30 && addr <= 0x3D && burst) return read_status_reg(sim, addr);
         return 0x00;
     }
     if (pos == 1 && (addr < 0x30 || addr >= FSTX_PATABLE)) do_write(sim, addr, in);
     return status_byte(sim);
+}
+
+void cc1101_sim_fifo_push(cc1101_sim_t *sim, const uint8_t *bytes, int n)
+{
+    for (int i = 0; i < n; i++) {
+        if (sim->fifo_n >= 64) {
+            sim->fifo_overflow = true;
+            sim->marc = 0x11;
+            return;
+        }
+        sim->fifo[sim->fifo_n++] = bytes[i];
+    }
 }
 
 static bool sim_xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len)
