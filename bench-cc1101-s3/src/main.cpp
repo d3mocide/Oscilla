@@ -107,6 +107,36 @@ void handleCommand()
             ELECHOUSE_cc1101.SpiWriteReg(0x0A, saved);
             Serial.println();
         }
+        else if (n == 2 && buf[0] == 'x' && (buf[1] == 'r' || buf[1] == 'i')) {
+            // Classify CHANNR write faults: 'xr' in RX, 'xi' in IDLE.
+            // stale1 = 1st read wrong, 2nd right (read timing); dropped = both reads
+            // wrong; other = any other mismatch. Collateral = other registers that
+            // changed across the sweep (a misdirected write lands there).
+            byte before[0x2F], after[0x2F];
+            if (buf[1] == 'i') ELECHOUSE_cc1101.setSidle();
+            for (byte a = 0; a < 0x2F; ++a) before[a] = ELECHOUSE_cc1101.SpiReadReg(a);
+            const byte saved = before[0x0A];
+            int stale1 = 0, dropped = 0, other = 0, shown = 0;
+            Serial.printf("X,state=%c,marcstate=%02x", buf[1],
+                          ELECHOUSE_cc1101.SpiReadStatus(0x35) & 0x1F);
+            for (int v = 0; v < 256; ++v) {
+                ELECHOUSE_cc1101.SpiWriteReg(0x0A, byte(v));
+                const byte r1 = ELECHOUSE_cc1101.SpiReadReg(0x0A);
+                const byte r2 = ELECHOUSE_cc1101.SpiReadReg(0x0A);
+                if (r1 == v && r2 == v) continue;
+                if (r1 != v && r2 == v) ++stale1;
+                else if (r1 == r2) ++dropped;
+                else ++other;
+                if (shown++ < 8) Serial.printf(",%02x:%02x/%02x", v, r1, r2);
+            }
+            ELECHOUSE_cc1101.SpiWriteReg(0x0A, saved);
+            for (byte a = 0; a < 0x2F; ++a) after[a] = ELECHOUSE_cc1101.SpiReadReg(a);
+            Serial.printf(",stale1=%d,dropped=%d,other=%d,collateral", stale1, dropped, other);
+            for (byte a = 0; a < 0x2F; ++a)
+                if (a != 0x0A && before[a] != after[a]) Serial.printf(",%02x:%02x->%02x", a, before[a], after[a]);
+            Serial.println();
+            if (buf[1] == 'i') ELECHOUSE_cc1101.SetRx();
+        }
         else if (n > 1 && buf[0] == 'm') {
             const float mhz = atof(buf + 1);
             if (mhz >= 300.0f && mhz <= 928.0f) tune(mhz);
