@@ -54,6 +54,7 @@ std::string capabilitySummary(const std::string &caps)
     if (caps.find("ble") != std::string::npos) add("BLE");
     if (caps.find("ieee802154") != std::string::npos) add("154");
     if (caps.find("lora_rx") != std::string::npos) add("LORA");
+    if (caps.find("ook_rx") != std::string::npos) add("OOK");
     return out.empty() ? "--" : out;
 }
 

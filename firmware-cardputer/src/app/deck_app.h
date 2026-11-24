@@ -45,6 +45,7 @@
 #include "model/gnss_model.h"
 #include "model/drive_trail.h"
 #include "model/lora_model.h"
+#include "model/ook_model.h"
 #include "model/lora_profile_catalog.h"
 #include "model/lora_sweep_model.h"
 #include "model/scan_model.h"
@@ -96,6 +97,8 @@ public:
     void setAudioEnabled(bool on) { audio_enabled_ = on; hunt_.setAudioEnabled(on); }
     const model::PacketInspection &packetInspection() const { return packet_inspection_; }
     size_t loraCursor() const { return lora_cursor_; }
+    const model::OokModel &ookModel() const { return ook_; }
+    size_t ookCursor() const { return ook_cursor_; }
     const model::DriveTrail &driveTrail() const { return drive_trail_; }
     bool wardriveClosing()const{return wardrive_closing_;}
     bool wardrivePaused() const;
@@ -127,6 +130,7 @@ public:
     size_t btCursor() const { return bt_cursor_; }
     bool showingBt() const { return screen_ == Screen::Beacons; }
     bool showingLora() const { return screen_ == Screen::SubGhz; }
+    bool showingOok() const { return screen_ == Screen::Ook; }
     uint32_t gnssChecksumFailures() const { return gnss_parser_.checksumFailures(); }
     void tick(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
@@ -208,6 +212,7 @@ private:
     bool preparePhyStart(PhyHandoff::Start start, uint32_t now_ms);
     void clearPhyBelief();
     void clearLoraBelief();
+    void clearOokBelief();
     void stopPhy(uint32_t now_ms);
     void stopPhyForNavigation(uint32_t now_ms);
     void toggleWifiContinuous(uint32_t now_ms);
@@ -229,6 +234,7 @@ private:
     void startLoraListen(uint32_t now_ms);
     void startLoraSweep(uint32_t start_khz, uint16_t step_khz, uint8_t bins, uint32_t now_ms);
     void startLoraSweepPreset(uint32_t now_ms);
+    void startOokListen(uint32_t now_ms);
     void startDeauthDetector(uint32_t now_ms);
     /* The three BLE engines (scan_bt / start_ble_scan / scan_airtag) share
      * one radio mode, so starting one requires the other two to be idle. */
@@ -403,7 +409,13 @@ private:
     std::function<void(uint32_t)> pending_retry_;
     uint32_t pending_retry_started_ms_ = 0;
 
-    std::string probe_owner_, probe_lora_;
+    std::string probe_owner_, probe_lora_, probe_ook_;
+    /* OOK lane (D-20). Like lora_listen_pending_: the [OOK]/error reply, not
+     * the optimistic send, decides whether a session started. */
+    model::OokModel ook_;
+    size_t ook_cursor_ = 0;
+    bool ook_listen_pending_ = false;
+    uint32_t last_ook_health_poll_ms_ = 0;
     std::string wifi_region_ = OCP_WIFI_REGION_DEFAULT;   /* the deck's setting */
     std::string probe_region_;     /* what the probe last reported; empty: unknown/unsupported */
     bool region_push_pending_ = false;

@@ -33,6 +33,7 @@
 #include "ui/settings_view.h"
 #include "ui/spectrum_view.h"
 #include "ui/subghz_view.h"
+#include "ui/ook_view.h"
 #include "ui/lora_detail_view.h"
 #include "ui/contact_detail_view.h"
 #include "ui/wifi_detail_view.h"
@@ -75,6 +76,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "spectrum" || name == "packet_monitor" || name == "monitor") *out = Screen::Spectrum;
     else if (name == "zig" || name == "802154" || name == "zigbee") *out = Screen::Zig;
     else if (name == "subghz" || name == "lora" || name == "lora_rx") *out = Screen::SubGhz;
+    else if (name == "ook" || name == "ook_rx" || name == "433") *out = Screen::Ook;
     else if (name == "deauth" || name == "deauth_detect") *out = Screen::Deauth;
     else if (name == "anti" || name == "antisurv" || name == "anti_surveillance") *out = Screen::AntiSurveillance;
     else if (name == "logs" || name == "sessions") *out=Screen::Logs;
@@ -99,6 +101,7 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
             phy_handoff_.clear();
             lora_listen_pending_ = false;
             lora_config_pending_ = false;
+            ook_listen_pending_ = false;
             scan_pending_ = false;
             wifi_continuous_pending_ = false;
             zig_start_pending_ = false;
@@ -226,6 +229,7 @@ void DeckApp::onReply(const ocp::Item &it)
         lora_listen_pending_ = false;   /* rejected: no session, no file (see deck_app.h) */
         lora_config_pending_ = false;   /* rejected: probe and model both keep the previous config */
         lora_sweep_pending_ = false;
+        ook_listen_pending_ = false;   /* rejected (busy/badarg/nocap): no session */
         if (wifi_continuous_pending_) {
             wifi_continuous_pending_ = false;
             scan_.stop();
@@ -385,6 +389,13 @@ void DeckApp::onReply(const ocp::Item &it)
                 const auto *owner=it.get(OCP_K_OWNER), *lora=it.get(OCP_LANE_LORA);
                 probe_owner_=owner?*owner:std::string{};
                 probe_lora_=lora?*lora:std::string{};
+                const auto *ook=it.get(OCP_LANE_OOK);
+                probe_ook_=ook?*ook:std::string{};
+                switch (reconcileOok(ook_.active(), ook_listen_pending_, probe_ook_)) {
+                case OokReconcile::Clear: clearOokBelief(); notice("ook lane stopped on probe"); break;
+                case OokReconcile::Adopt: ook_.begin(); ook_cursor_ = 0; log("ook lane adopted from probe"); break;
+                case OokReconcile::Keep: break;
+                }
                 const auto *region=it.get(OCP_K_REGION);
                 probe_region_=region?*region:std::string{};
                 const auto *band=it.get(OCP_K_BAND);
@@ -410,6 +421,7 @@ void DeckApp::onReply(const ocp::Item &it)
         bool all = !lane || *lane == OCP_LANE_ALL;
         if (all || *lane == OCP_LANE_PHY) clearPhyBelief();
         if (all || *lane == OCP_LANE_LORA) clearLoraBelief();
+        if (all || *lane == OCP_LANE_OOK) clearOokBelief();
         if (all || *lane == OCP_LANE_PHY) {
             PhyHandoff::Start start;
             if (phy_handoff_.takeAfterStop(&start)) start(now_);
@@ -444,6 +456,17 @@ void DeckApp::onReply(const ocp::Item &it)
         } else if (!health_updated) {
             log("lora reply");   /* routine 10s health polls stay quiet */
         }
+    } else if (it.tag == OCP_MARK_OOK) {
+        /* Shared by ook_listen and ook_status; ook_listen_pending_ tells them
+         * apart (same reasoning as OCP_MARK_LORA above). begin() first so the
+         * listen reply's frequency lands in the fresh session. */
+        if (ook_listen_pending_) {
+            ook_listen_pending_ = false;
+            ook_.begin();
+            ook_cursor_ = 0;
+            log("ook listening");
+        }
+        (void)ook_.absorbReply(it);
     } else if (it.tag == OCP_MARK_CFG) {
         /* Shared reply marker (packet_monitor and deauth_detector both use
          * it): which verb it's for is whatever we just sent, not decodable
@@ -512,6 +535,7 @@ void DeckApp::onEvent(const ocp::Item &it)
                                fresh_fix ? gnss_.fixAgeMs(now_) : 0);
     }
     lora_sweep_.absorbEvent(it, now_);
+    (void)ook_.absorbEvent(it, now_);   /* kind=ook / ook_unknown: the stream is the record */
     deauth_.absorbEvent(it);     /* kind=deauth is the only source of truth here too */
     absorbDeviceEvent(it);         /* kind=airtag is the only source of truth here too */
     enqueueWardriveEvent(it);      /* receipt-time GNSS geotag for start_wardrive */
@@ -572,6 +596,12 @@ void DeckApp::clearLoraBelief()
     lora_sweep_pending_ = false;
     storage::loraLogHealth(lora_.health());
     storage::loraLogEnd();
+}
+
+void DeckApp::clearOokBelief()
+{
+    ook_.stop();
+    ook_listen_pending_ = false;
 }
 
 bool DeckApp::phyToolActive() const
@@ -927,6 +957,18 @@ void DeckApp::startLoraListen(uint32_t now_ms)
         return;
     }
     lora_listen_pending_ = true;   /* [LORA]/error reply decides whether to actually start (below) */
+    notice("");
+}
+
+void DeckApp::startOokListen(uint32_t now_ms)
+{
+    if (client_.state() != ocp::LinkState::Ready) { notice("no probe"); return; }
+    if (probe_ook_ == "absent") { notice("no cc1101 on probe"); return; }
+    if (!client_.send(OCP_V_OOK_LISTEN, now_ms)) {
+        retrySoon([this](uint32_t t) { startOokListen(t); }, now_ms);
+        return;
+    }
+    ook_listen_pending_ = true;   /* [OOK]/error reply decides (see OCP_MARK_OOK) */
     notice("");
 }
 
@@ -1348,6 +1390,14 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
                 else startLoraListen(now_ms);
             }
             break;
+        case Screen::Ook:
+            if (c == ';' && ook_cursor_ > 0) ook_cursor_--;
+            else if (c == '.' && ook_cursor_ + 1 < ook_.devices().size()) ook_cursor_++;
+            else if (c == 's') {
+                if (ook_.active()) client_.stop(now_ms, OCP_LANE_OOK);
+                else startOokListen(now_ms);
+            }
+            break;
         case Screen::Deauth:
             if (c == ';' && deauth_cursor_ > 0) deauth_cursor_--;
             else if (c == '.' && deauth_cursor_ + 1 < deauth_.events().size()) deauth_cursor_++;
@@ -1676,6 +1726,10 @@ void DeckApp::runDebugCommand(const std::string &line, uint32_t now_ms)
         else if (lora_.active() || lora_sweep_.active()) client_.stop(now_ms, OCP_LANE_LORA);
         else startLoraListen(now_ms);
     }
+    else if (cmd == "ook") {
+        if (ook_.active()) client_.stop(now_ms, OCP_LANE_OOK);
+        else startOokListen(now_ms);
+    }
     else if (cmd == "lora_manual") {
         /* lora_manual <freq_hz> <sf> <bw_khz> <cr> [sync_word] — the only
          * arbitrary-parameter path until this keyboard has real numeric
@@ -1870,6 +1924,11 @@ void DeckApp::tick(uint32_t now_ms)
         last_lora_health_poll_ms_ = now_ms;
         client_.send(OCP_V_LORA_STATUS, now_ms);
     }
+    if (ook_.active() && screen_ == Screen::Ook && st == ocp::LinkState::Ready && !client_.pending() &&
+        now_ms - last_ook_health_poll_ms_ >= kLoraHealthPollMs) {
+        last_ook_health_poll_ms_ = now_ms;
+        client_.send(OCP_V_OOK_STATUS, now_ms);
+    }
     pushWifiRegionIfDue(now_ms);
     pushWifiBandIfDue(now_ms);
     if (st == ocp::LinkState::Ready && !client_.pending() && !next_page_ &&
@@ -1996,6 +2055,9 @@ void DeckApp::draw(uint32_t now_ms)
                            makeChrome(lora_sweep_mode_ ? "SUB-GHZ SWEEP" : "LORA RX"),
                            lora_profiles_.at(lora_profile_index_).label.c_str(),
                            &lora_sweep_, lora_sweep_mode_, lora_sweep_preset_);
+        break;
+    case Screen::Ook:
+        ui::drawOokView(ook_, ook_cursor_, now_, makeChrome("OOK RX"));
         break;
     case Screen::Deauth:
         ui::drawDeauthView(deauth_, deauth_cursor_,

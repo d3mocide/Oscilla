@@ -40,6 +40,7 @@ int main()
           std::string(app::navItem(Screen::Beacons).title) == "BLE SCAN" &&
           std::string(app::navItem(Screen::Zig).title) == "802.15.4" &&
           std::string(app::navItem(Screen::SubGhz).title) == "LORA RX" &&
+          std::string(app::navItem(Screen::Ook).title) == "OOK RX" &&
           std::string(app::navItem(Screen::Spectrum).title) == "PACKET MONITOR" &&
           std::string(app::navItem(Screen::Contacts).title) == "SNIFFER" &&
           std::string(app::navItem(Screen::Deauth).title) == "DEAUTH DETECT" &&
@@ -48,6 +49,10 @@ int main()
     check(app::cycleScreen(Screen::Link, -1) == Screen::Logs &&
           app::cycleScreen(Screen::Logs, 1) == Screen::Link,
           "archive home route wraps in both directions");
+    check(app::isHomeCard(Screen::Ook) && app::navItem(Screen::Ook).section == app::Section::Observe &&
+          app::cycleScreen(Screen::SubGhz, 1) == Screen::Ook && app::cycleScreen(Screen::Ook, 1) == Screen::Spectrum &&
+          app::cycleScreen(Screen::Spectrum, -1) == Screen::Ook,
+          "OOK RX sits in Observe right after LORA RX");
     check(app::cycleScreen(Screen::Sweep, 1) == Screen::Beacons &&
           app::cycleScreen(Screen::Spectrum, 1) == Screen::Contacts &&
           app::cycleScreen(Screen::Contacts, 1) == Screen::Deauth &&

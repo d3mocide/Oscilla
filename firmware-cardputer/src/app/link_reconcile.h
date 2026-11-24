@@ -13,6 +13,7 @@
 
 #include "ocp.h"
 
+#include <cstdint>
 #include <string>
 
 namespace app {
@@ -35,6 +36,21 @@ inline BeliefClear reconcileFromStatus(bool deck_phy_active, bool deck_lora_acti
 {
     return {deck_phy_active && probe_owner == "none",
             deck_lora_active && !probe_lora.empty() && probe_lora != "rx" && probe_lora != "sweep"};
+}
+
+/* The OOK lane (D-20) after a probe status: "clear" when the deck believes in
+ * a session the probe no longer reports (it rebooted); "adopt" when the probe
+ * runs one the deck didn't start (a deck-side link drop). Adopting a passive
+ * receive lane costs nothing, so it is cheaper than queueing a second stop
+ * behind reconcileStopLane()'s. A missing key decides nothing. */
+enum class OokReconcile : uint8_t { Keep, Clear, Adopt };
+
+inline OokReconcile reconcileOok(bool deck_ook_active, bool deck_ook_pending, const std::string &probe_ook)
+{
+    if (probe_ook.empty() || deck_ook_pending) return OokReconcile::Keep;
+    if (deck_ook_active && probe_ook != "rx") return OokReconcile::Clear;
+    if (!deck_ook_active && probe_ook == "rx") return OokReconcile::Adopt;
+    return OokReconcile::Keep;
 }
 
 }  // namespace app

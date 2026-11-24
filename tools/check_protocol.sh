@@ -367,6 +367,13 @@ python3 tools/test_probe_restart.py | tail -1 | sed 's/^/  /'
     firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
 "$out/lora_model_test" | tail -1 | sed 's/^/  /'
 
+# The deck's OOK model: kind=ook device table and log, ook_unknown summaries,
+# [OOK] health, all validated whole (OCP-SPEC §15).
+"${CXX:-g++}" -std=c++17 "${warn[@]}" -Iprotocol -Ifirmware-cardputer/src -o "$out/ook_model_test" \
+    firmware-cardputer/test/host/ook_model_test.cpp firmware-cardputer/src/model/ook_model.cpp \
+    firmware-cardputer/src/ocp/ocp_parser.cpp "$out/ocp_text.o"
+"$out/ook_model_test" | tail -1 | sed 's/^/  /'
+
 # The deck's LoRa framing classifier: Meshtastic/LoRaWAN structural guesses.
 "${CXX:-g++}" -std=c++17 "${warn[@]}" -Ifirmware-cardputer/src -o "$out/lora_framing_test" \
     firmware-cardputer/test/host/lora_framing_test.cpp firmware-cardputer/src/model/lora_framing.cpp

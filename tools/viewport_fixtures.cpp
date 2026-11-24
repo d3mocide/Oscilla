@@ -21,6 +21,7 @@
 #include "ui/zig_view.h"
 #include "ui/anti_surveillance_view.h"
 #include "ui/subghz_view.h"
+#include "ui/ook_view.h"
 #include "ui/spectrum_view.h"
 #include "ui/session_view.h"
 #include "ui/external_lora_view.h"
@@ -139,6 +140,29 @@ int main(int argc,char **argv) {
         deckSave("deck-anti",[&]{ui::drawAntiSurveillanceView(anti,0,false,chrome);});
         chrome.title="LORA RX";
         deckSave("deck-lora",[&]{ui::drawSubGhzView(lora,1,chrome,"MESHTASTIC US");});
+        chrome.title="OOK RX";
+        {
+            const uint32_t t=now+4000000u;   /* own clock base: hour-old rows must not wrap */
+            model::OokModel ook;ook.begin();
+            {ocp::Item r;r.kind=ocp::ItemKind::Frame;r.tag="[OOK]";
+             r.kv={{"running","1"},{"freq_khz","433920"},{"baud","24993"},{"trains","52"},{"packets","10"},{"unknown","7"},
+                   {"overflows","0"},{"dropped","0"},{"errors","0"},{"reinit","0"},{"hw_fault","0"},{"ocp_drop","0"}};
+             ook.absorbReply(r);}
+            auto prn=[&](const char *hex,const char *rssi,uint32_t at){ook.absorbEvent(event({{"kind","ook"},{"decoder","princeton"},{"nbits","24"},{"hex",hex},{"frames","1"},{"te_us","400"},{"rssi",rssi}}),at);};
+            auto lax=[&](const char *id,const char *ch,const char *t,const char *hum,const char *bl,const char *rssi,uint32_t at){
+                ook.absorbEvent(event({{"kind","ook"},{"decoder","lacrosse_tx141thbv2"},{"nbits","40"},{"hex","c0824f3d35"},{"frames","1"},{"te_us","240"},{"rssi",rssi},
+                                       {"id",id},{"ch",ch},{"batt_low",bl},{"test","0"},{"temp_c10",t},{"hum",hum}}),at);};
+            prn("5f0a21","-78",t-3600000);
+            lax("71","2","-35","88","0","-83",t-400000);
+            prn("a5c3e1","-41",t-300000);prn("a5c3e1","-43",t-200000);
+            lax("192","0","91","61","1","-77",t-52000);
+            prn("a5c3e1","-40",t-8000);
+            ook.absorbEvent(event({{"kind","ook_unknown"},{"n","7"},{"pulses","66"},{"min_us","160"},{"max_us","1240"},{"dur_ms","47"}}),t-2000);
+            deckSave("deck-ook",[&]{ui::drawOokView(ook,0,t,chrome);});
+            deckSave("deck-ook-sensor",[&]{ui::drawOokView(ook,1,t,chrome);});
+            model::OokModel idle;
+            deckSave("deck-ook-idle",[&]{ui::drawOokView(idle,0,t,chrome);});
+        }
         chrome.title="PKT MON";
         deckSave("deck-spectrum",[&]{ui::drawSpectrumView(broad,1,chrome);});
         chrome.title="CLIENT DETAIL";

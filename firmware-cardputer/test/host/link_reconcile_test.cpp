@@ -27,5 +27,14 @@ int main(){
     /* Old probe without the keys: never guess. */
     c = app::reconcileFromStatus(true, true, "", "");
     assert(!c.phy && !c.lora);
+    using app::OokReconcile;
+    assert(app::reconcileOok(true, false, "idle") == OokReconcile::Clear);
+    assert(app::reconcileOok(true, false, "absent") == OokReconcile::Clear);
+    assert(app::reconcileOok(true, false, "rx") == OokReconcile::Keep);
+    assert(app::reconcileOok(false, false, "rx") == OokReconcile::Adopt);
+    assert(app::reconcileOok(false, false, "idle") == OokReconcile::Keep);
+    assert(app::reconcileOok(true, false, "") == OokReconcile::Keep);    /* pre-D-20 probe: no ook= key */
+    assert(app::reconcileOok(false, true, "rx") == OokReconcile::Keep);  /* our own listen is in flight */
+    assert(app::reconcileOok(true, true, "idle") == OokReconcile::Keep);
     std::cout<<"link reconcile: stale probe lanes stopped, stale deck beliefs cleared, owned lanes kept passed\n";
 }

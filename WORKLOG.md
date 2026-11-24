@@ -1,3 +1,63 @@
+## 2026-11-24 — Deck OOK RX screen; overnight all-lanes soak started
+
+**Phase:** D-20 deck surface, branch `cc1101-idf` · **By:** Claude + Will
+
+- **Soak:** started at 12:52 for 10 h on the bench probe (USB bench build
+  at `a829110`), output in `output/soak/20261124-125229/` (git-ignored).
+  - All three lanes run throughout: Wi-Fi sniffer, LoRa RX and OOK.
+  - Every 15 min the PHY lane rotates through a full scan and a 60 s BLE
+    scan.
+  - The Flipper sends `A5C3E1` every 30 min, and rtl_433 runs alongside.
+  - A 5-minute dry run was clean: scans of 100–114 networks, BLE 84–89
+    events per minute, the Flipper burst decoded in 0.30 s, LaCrosse 6/6
+    against rtl_433, 0 anomalies.
+  - The deck can't reach the probe until the soak ends, because the bench
+    build speaks OCP over USB.
+- **Deck model `model/ook_model`:**
+  - It folds `kind=ook` into a device table: one row per Princeton code,
+    or per LaCrosse id + channel. Newest activity first, with the latest
+    reading, a count and the first-heard time. A 16-row cap evicts the
+    least recently heard.
+  - It also keeps a 32-entry packet log, `ook_unknown` covered counts with
+    the latest summary shape, and `[OOK]` reply handling: frequency and
+    baud from every reply, health only from a complete counter set.
+  - Every field is validated before anything is stored; unknown decoders
+    are skipped.
+- **`ui/ook_view` (home card OOK RX, Observe, after LORA RX):**
+  - Rows show `PRN <CODE> xN` or `LAX id/ch temp hum [LOW]`, coloured
+    RSSI and age, with a detail line for the selected device.
+  - The hint row shows RADIO FAULT on `hw_fault`, or a LOSS line on
+    overflow, drop, error or `ocp_drop`.
+  - Keys: `s` start/stop, `; .` select.
+- **`deck_app` wiring:**
+  - `ook_listen_pending_` follows the same rule as LoRa: the `[OOK]` or
+    error reply decides whether a session started.
+  - `stop ook` and `stop all` clear the session; any error clears a
+    pending listen.
+  - Health is polled every 10 s while the screen is shown.
+  - `reconcileOok()` reads `ook=` from status. It clears a session the
+    probe lost; it adopts one the probe runs but the deck didn't start
+    (cheaper than a second queued stop). Our own pending listen is never
+    overridden.
+  - LINK shows the `OOK` cap. The debug snapshot gained `probe_ook`, and
+    there is a debug console `ook` command.
+- **Tests:** `ook_model_test` 22/22, `link_reconcile` +8 asserts,
+  `navigation_test` 7/7.
+- **Mutation proofs, 7/7 caught:** LaCrosse identity ignoring the channel;
+  a partial health set accepted; no move-to-front; uppercase hex accepted;
+  `n=0` unknown accepted; a bad RSSI defaulting to zero; reconcile ignoring
+  a pending listen.
+- **Rendered on the host** (`tools/render_external_views.py`, fixtures
+  `deck-ook`, `deck-ook-sensor`, `deck-ook-idle`). The first render showed
+  wrong ages: the fixture clock was 30 s, so hour-old timestamps wrapped.
+  The fix was a fixture-only clock base; the view itself was right.
+- **Builds:** both firmwares, deck RAM 22.9%, flash 29.1%. Host suite
+  green.
+- **Not yet:** a deck-on-hardware session (after the soak), SD logging of
+  OOK sensors, and an external-TFT OOK view.
+
+---
+
 ## 2026-11-24 — Heap pass 2: queues and NimBLE to PSRAM, stacks sized from measurements
 
 **Phase:** D-20 hardening, branch `cc1101-idf` · **By:** Claude + Will
