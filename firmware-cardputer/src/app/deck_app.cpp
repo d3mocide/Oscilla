@@ -27,6 +27,7 @@
 #include "model/lora_profiles.h"
 #include "model/number_parse.h"
 #include "ui/gnss_view.h"
+#include "ui/gnss_fix_view.h"
 #include "ui/info_view.h"
 #include "ui/link_view.h"
 #include "ui/zig_view.h"
@@ -81,6 +82,7 @@ bool screenFromName(const std::string &name, Screen *out)
     else if (name == "anti" || name == "antisurv" || name == "anti_surveillance") *out = Screen::AntiSurveillance;
     else if (name == "logs" || name == "sessions") *out=Screen::Logs;
     else if (name == "drive" || name == "wardrive") *out = Screen::Drive;
+    else if (name == "gnss" || name == "gps") *out = Screen::Gnss;
     else if (name == "beacons" || name == "ble" || name == "ble_scan") *out = Screen::Beacons;
     else return false;
     return true;
@@ -1419,6 +1421,8 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
             if (c == 'l') toggleWardriveLog(now_ms);
             else if (c == 'm') markWaypoint(now_ms);
             break;
+        case Screen::Gnss:   /* read-only; Enter (below) continues to Wardrive */
+            break;
         case Screen::Beacons:
             if(bt_inspection_.active()){
                 if(c=='r')refreshBtDossier(now_ms);
@@ -1441,14 +1445,15 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     }
     if(keys.enter&&!help_visible_&&screen_==Screen::Logs)sessionEnter();
     if (keys.enter && !help_visible_ && screen_ == Screen::Settings) adjustSelectedSetting(1, now_ms);
+    if (keys.enter && !help_visible_ && screen_ == Screen::Gnss) { screen_ = Screen::Drive; dirty_ = true; }
     if (keys.enter && !help_visible_ && screen_ == Screen::Link) {
         switch (link_cursor_) {
         case 0: /* Probe Link: reconnect when needed, otherwise verify the link. */
             if (client_.state() == ocp::LinkState::Disconnected) client_.connect(now_ms);
             else client_.send(OCP_V_PING, now_ms);
             break;
-        case 1: /* GNSS: the Drive card owns the position/session workflow. */
-            screen_ = Screen::Drive;
+        case 1: /* GNSS: the fix card; Enter there continues to Wardrive. */
+            screen_ = Screen::Gnss;
             dirty_ = true;
             break;
         case 2: /* SD Card: system health currently owns storage readiness. */
@@ -2066,6 +2071,9 @@ void DeckApp::draw(uint32_t now_ms)
     case Screen::AntiSurveillance:
         ui::drawAntiSurveillanceView(anti_, anti_cursor_, anti_start_pending_,
                                      makeChrome("ANTI-SURV"));
+        break;
+    case Screen::Gnss:
+        ui::drawGnssFixView(gnss_, now_ms, makeChrome("GNSS"));
         break;
     case Screen::Drive:
         ui::drawGnssView(gnss_, now_ms,

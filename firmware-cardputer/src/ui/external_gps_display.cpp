@@ -23,6 +23,7 @@
 #include "ui/external_contacts_view.h"
 #include "ui/external_contact_detail_view.h"
 #include "ui/external_zig_view.h"
+#include "ui/external_ook_view.h"
 #include "ui/theme.h"
 #include "ui/external_tft.h"
 #include "ui/external_gnss_view.h"
@@ -59,6 +60,7 @@ enum class ExternalView : uint8_t {
     AntiSurveillance,
     SignalHunt,
     Settings,
+    Ook,
 };
 constexpr uint32_t kDataFrameMs = 50;
 constexpr uint32_t kStatusFrameMs = 250;
@@ -118,6 +120,9 @@ model::BtModel frame_bt;
 bool frame_bt_enabled;
 size_t frame_bt_cursor;
 model::GnssModel frame_gps;
+model::OokModel frame_ook;
+bool frame_ook_enabled;
+size_t frame_ook_cursor;
 storage::WardriveLogStats frame_log;
 uint32_t frame_time;
 
@@ -216,7 +221,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
                               card && card->trace_page ? (card->wifi_detail && card->wifi_detail->clientsPage()?ExternalView::TraceClients:ExternalView::Trace) :
                               card && card->deauth ? ExternalView::Deauth :
                               card && card->anti ? ExternalView::AntiSurveillance :
-                              card && card->settings ? ExternalView::Settings : ExternalView::Default;
+                              card && card->settings ? ExternalView::Settings :
+                              card && card->ook ? ExternalView::Ook : ExternalView::Default;
     if (view != active_view) {
         detail::discardFrameCopy(frame_scan);
         detail::discardFrameCopy(frame_wifi_contacts);
@@ -235,6 +241,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         detail::discardFrameCopy(frame_system);
         detail::discardFrameCopy(frame_settings_state);
         detail::discardFrameCopy(frame_signal_hunt);
+        detail::discardFrameCopy(frame_ook);
         active_view = view;
         row_cache.invalidate();
         force_full_frame = true;
@@ -243,7 +250,7 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     }
     if (next_strip == kStrips) {
         const bool data_view = scan || spectrum || lora || drive || bt || contacts || zig ||
-                               (card && (card->trace_page || card->deauth || card->anti || card->lora_sweep || card->signal_hunt));
+                               (card && (card->trace_page || card->deauth || card->anti || card->lora_sweep || card->signal_hunt || card->ook));
         const uint32_t frame_ms = data_view ? kDataFrameMs : kStatusFrameMs;
         if (now_ms - last_frame < frame_ms) return;
         frame_started_us=micros();
@@ -298,6 +305,9 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         if(frame_anti_enabled) frame_anti=*card->anti;
         frame_anti_cursor=card ? card->anti_cursor : 0;
         frame_anti_starting=card && card->anti_starting;
+        frame_ook_enabled=card && card->ook;
+        if(frame_ook_enabled&&resample) frame_ook=*card->ook;
+        frame_ook_cursor=card ? card->ook_cursor : 0;
         frame_settings=card && card->settings;
         if(frame_settings) frame_settings_state=*card->settings;
         frame_zig_enabled=zig!=nullptr;
@@ -345,6 +355,8 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         drawExternalDeauthStrip(strip,next_strip*kStripHeight,frame_deauth,frame_deauth_cursor,frame_deauth_new,frame_time);
     } else if(frame_anti_enabled) {
         drawExternalAntiStrip(strip,next_strip*kStripHeight,frame_anti,frame_anti_cursor,frame_anti_starting,frame_time);
+    } else if(frame_ook_enabled) {
+        drawExternalOokStrip(strip,next_strip*kStripHeight,frame_ook,frame_ook_cursor,frame_time);
     } else if(frame_settings) {
         drawExternalSettingsStrip(strip,next_strip*kStripHeight,frame_settings_state);
     } else if(frame_zig_enabled) {

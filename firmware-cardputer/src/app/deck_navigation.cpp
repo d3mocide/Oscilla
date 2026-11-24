@@ -22,6 +22,7 @@ constexpr NavItem kCards[] = {
     {Screen::Contacts, Section::Analyze, "SNIFFER"},
     {Screen::Deauth,   Section::Analyze, "DEAUTH DETECT"},
     {Screen::AntiSurveillance, Section::Analyze, "ANTI-SURV"},
+    {Screen::Gnss,     Section::Drive,   "GNSS"},
     {Screen::Drive,    Section::Drive,   "WARDRIVE"},
     {Screen::Logs,     Section::Logs,    "SESSIONS"},
 };

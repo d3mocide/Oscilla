@@ -288,6 +288,8 @@ void loop()
     external_card.anti = g_app.showingAntiSurveillance() ? &g_app.antiModel() : nullptr;
     external_card.anti_cursor = g_app.antiCursor();
     external_card.anti_starting = g_app.antiStarting();
+    external_card.ook = g_app.showingOok() ? &g_app.ookModel() : nullptr;
+    external_card.ook_cursor = g_app.ookCursor();
     static ui::SettingsViewState external_settings;
     if (g_app.showingSettings()) external_settings = g_app.settingsViewState();
     external_card.settings = g_app.showingSettings() ? &external_settings : nullptr;

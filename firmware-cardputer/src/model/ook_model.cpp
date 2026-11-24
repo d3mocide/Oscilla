@@ -36,16 +36,16 @@ bool isLowerHex(const std::string &s)
     return true;
 }
 
-bool sameDevice(const OokPacket &a, const OokPacket &b)
+constexpr long kU32Max = 2147483647L;   /* counters beyond this are not plausible */
+
+}  // namespace
+
+bool ookSameTransmitter(const OokPacket &a, const OokPacket &b)
 {
     if (a.decoder != b.decoder) return false;
     if (a.decoder == OokDecoder::LaCrosse) return a.id == b.id && a.ch == b.ch;
     return a.nbits == b.nbits && a.hex == b.hex;   /* a remote is its code */
 }
-
-constexpr long kU32Max = 2147483647L;   /* counters beyond this are not plausible */
-
-}  // namespace
 
 const char *ookDecoderShort(OokDecoder d)
 {
@@ -182,7 +182,7 @@ const OokPacket *OokModel::absorbEvent(const ocp::Item &evt, uint32_t now_ms)
 void OokModel::upsertDevice(const OokPacket &p)
 {
     for (size_t i = 0; i < devices_.size(); ++i) {
-        if (!sameDevice(devices_[i].last, p)) continue;
+        if (!ookSameTransmitter(devices_[i].last, p)) continue;
         OokDevice d = devices_[i];
         d.last = p;
         d.count++;

@@ -57,7 +57,10 @@ int main()
           app::cycleScreen(Screen::Spectrum, 1) == Screen::Contacts &&
           app::cycleScreen(Screen::Contacts, 1) == Screen::Deauth &&
           app::cycleScreen(Screen::Deauth, 1) == Screen::AntiSurveillance &&
-          app::cycleScreen(Screen::AntiSurveillance, 1) == Screen::Drive &&
+          app::cycleScreen(Screen::AntiSurveillance, 1) == Screen::Gnss &&
+          app::cycleScreen(Screen::Gnss, 1) == Screen::Drive && app::cycleScreen(Screen::Drive, -1) == Screen::Gnss &&
+          app::isHomeCard(Screen::Gnss) && app::navItem(Screen::Gnss).section == app::Section::Drive &&
+          std::string(app::navItem(Screen::Gnss).title) == "GNSS" &&
           app::cycleScreen(Screen::Drive,1)==Screen::Logs && app::navItem(Screen::Logs).section==app::Section::Logs,
           "sibling views remain grouped by section");
 

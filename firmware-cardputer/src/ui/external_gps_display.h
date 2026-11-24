@@ -11,6 +11,7 @@
 #include "model/spectrum_model.h"
 #include "model/scan_model.h"
 #include "model/lora_model.h"
+#include "model/ook_model.h"
 #include "model/lora_sweep_model.h"
 #include "model/signal_hunt.h"
 #include "model/drive_trail.h"
@@ -48,6 +49,8 @@ struct ExternalCardState {
     size_t anti_cursor = 0;
     bool anti_starting = false;
     const SettingsViewState *settings = nullptr;
+    const model::OokModel *ook = nullptr;
+    size_t ook_cursor = 0;
     WifiBaselineBanner wifi_baseline;
 };
 /* Hold the panel in reset while SD and settings initialize at boot. */

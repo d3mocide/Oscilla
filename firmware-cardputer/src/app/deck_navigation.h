@@ -26,6 +26,7 @@ enum class Screen : uint8_t {
     Deauth,
     AntiSurveillance,
     Drive,
+    Gnss,
     Beacons,
     Settings,
     Logs,

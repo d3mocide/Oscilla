@@ -1,3 +1,24 @@
+## 2026-11-24 — GNSS card in the rotation; external OOK view
+
+**Phase:** deck screens · **By:** Claude + Will
+
+- **GNSS card** (Drive section, before WARDRIVE): the fix on its own — state, UTC,
+  lat/lon, altitude, HDOP tier, fix age — with the external panel showing the fix
+  reticle. Will found that reticle by accident: it is the external panel's fallback,
+  and OOK RX was the last card without its own external view. Enter continues to
+  Wardrive; the Link screen's GNSS row now opens this card instead of Wardrive.
+- **External OOK view** ("433 MHZ // OOK FIELD"): one lane per transmitter with a
+  ten-minute heard-when timeline drawn only from packets the deck still holds, RSSI per
+  lane, and the selected transmitter in the dock (LaCrosse: temperature, humidity, last
+  heard; remotes: count, RSSI, last heard). Badge goes FAULT/LOSS from `ook_status`.
+- `model::ookSameTransmitter` is now public so the view and the device table share one
+  identity rule.
+- **Hardware:** deck `50:78:7D:CE:6D:64` flashed; `card gnss` and `card ook` both drive
+  the panel (OOK at the 50 ms data cadence, cycle 46 ms); live LaCrosse 192/0 on screen.
+- `sd-display-check` already failed to link before this (wifi/bt/contact detail,
+  hunt, session strips missing from its source list); the OOK sources were added to it
+  but the env still needs those others.
+
 ## 2026-11-24 — CC1101 work merged into main; probe and deck flashed
 
 **Phase:** D-20 integration · **By:** Claude + Will

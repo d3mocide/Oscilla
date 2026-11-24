@@ -31,6 +31,8 @@
 #include "ui/external_card_views.h"
 #include "ui/external_hunt_view.h"
 #include "ui/external_gnss_view.h"
+#include "ui/external_ook_view.h"
+#include "ui/gnss_fix_view.h"
 #include "ui/settings_view.h"
 #include "ui/signal_hunt_view.h"
 
@@ -162,7 +164,14 @@ int main(int argc,char **argv) {
             deckSave("deck-ook-sensor",[&]{ui::drawOokView(ook,1,t,chrome);});
             model::OokModel idle;
             deckSave("deck-ook-idle",[&]{ui::drawOokView(idle,0,t,chrome);});
+            save("ook",[&](auto &d,int top){ui::drawExternalOokStrip(d,top,ook,0,t);});
+            save("ook-sensor",[&](auto &d,int top){ui::drawExternalOokStrip(d,top,ook,1,t);});
+            save("ook-idle",[&](auto &d,int top){ui::drawExternalOokStrip(d,top,idle,0,t);});
+            auto stopped=ook;stopped.stop();
+            save("ook-cached",[&](auto &d,int top){ui::drawExternalOokStrip(d,top,stopped,2,t);});
         }
+        chrome.title="GNSS";
+        deckSave("deck-gnss",[&]{ui::drawGnssFixView(gps,now,chrome);});
         chrome.title="PKT MON";
         deckSave("deck-spectrum",[&]{ui::drawSpectrumView(broad,1,chrome);});
         chrome.title="CLIENT DETAIL";

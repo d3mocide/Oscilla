@@ -77,6 +77,9 @@ struct OokHealth {
     uint32_t ocp_drop = 0;
 };
 
+/* Transmitter identity: a LaCrosse id + channel, or a Princeton code. */
+bool ookSameTransmitter(const OokPacket &a, const OokPacket &b);
+
 /* Short label for lists: "PRN" or "LAX". */
 const char *ookDecoderShort(OokDecoder d);
 
