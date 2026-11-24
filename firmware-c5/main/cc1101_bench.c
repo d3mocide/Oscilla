@@ -30,10 +30,14 @@
 #include "freertos/task.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
+#include "ook_decode.h"
+#include "ook_pulse.h"
 #include "subghz_spi.h"
 
 #define WINDOW_MS 20
 #define VERIFY_MS 1000
+#define OOK_GAP_US 6000u      /* ends a train; Princeton sync (31 te) splits frames above te 194 us */
+#define OOK_GLITCH_US 100u    /* runs under ~2.5 samples at 25 kbaud are noise */
 #define LLOAD_LO_HZ 902000000UL
 #define LLOAD_HI_HZ 928000000UL
 
@@ -45,6 +49,10 @@ static uint32_t s_drifts;
 static char s_bringup[200];
 static uint32_t s_fifo_baud;          /* 0 = async profile (RSSI only) */
 static uint32_t s_drain_ms = CC1101_CAPTURE_PERIOD_MS_DEFAULT;
+static ook_pulse_t s_ook;
+static bool s_ook_ok;
+static bool s_raw = true;            /* B lines; `raw off` leaves only decoded P lines */
+static uint32_t s_trains, s_packets;
 
 static volatile bool s_lload;
 static volatile uint32_t s_lload_sweeps, s_lload_errors;
@@ -93,12 +101,14 @@ static void print_info(void)
     cc1101_capture_get_stats(&cs);
     out("I,partnum=0x%02x,version=0x%02x,freq_reg=0x%06lx,mhz_at_26=%.4f,probe=%s,drifts=%lu,"
         "lload=%d,lload_sweeps=%lu,lload_errors=%lu,fifo_baud=%lu,fifo_bytes=%lu,fifo_overflows=%lu,"
-        "fifo_errors=%lu,fifo_dropped=%lu,fifo_late=%lu,drain_ms=%lu,driver=oscilla-c5,%s\n",
+        "fifo_errors=%lu,fifo_dropped=%lu,fifo_late=%lu,drain_ms=%lu,ook_trains=%lu,ook_packets=%lu,"
+        "driver=oscilla-c5,%s\n",
         part, ver, (unsigned long)freq, freq * 26.0 / 65536.0, cc1101_err_name(perr),
         (unsigned long)s_drifts, s_lload, (unsigned long)s_lload_sweeps,
         (unsigned long)s_lload_errors, (unsigned long)s_fifo_baud, (unsigned long)cs.bytes,
         (unsigned long)cs.overflows, (unsigned long)cs.errors, (unsigned long)cs.dropped,
-        (unsigned long)cs.late, (unsigned long)s_drain_ms, s_bringup);
+        (unsigned long)cs.late, (unsigned long)s_drain_ms, (unsigned long)s_trains,
+        (unsigned long)s_packets, s_bringup);
 }
 
 static void dump_regs(void)
@@ -209,13 +219,41 @@ static void set_mode(uint32_t fifo_baud)
     s_fifo_baud = fifo_baud;
     bring_up(false);
     if (fifo_baud) {
+        s_ook_ok = ook_pulse_init(&s_ook, fifo_baud, OOK_GAP_US, OOK_GLITCH_US);
+        s_trains = s_packets = 0;
         const esp_err_t err = cc1101_capture_start(s_drain_ms);
         if (err != ESP_OK) out("E,capture,start=%s\n", esp_err_to_name(err));
     }
     print_info();
 }
 
-/* Forward chunks from the capture task as B lines; report new overflows. */
+/* One O line per decoded OOK packet. Fields are numbers; nothing radio-supplied is printed raw. */
+static void on_train(const ook_train_t *t, void *ctx)
+{
+    (void)ctx;
+    s_trains++;
+    ook_packet_t pk[4];
+    const size_t n = ook_decode(t, pk, 4);
+    for (size_t i = 0; i < n; i++) {
+        const ook_packet_t *p = &pk[i];
+        char hex[2 * sizeof p->data + 1];
+        const size_t nb = (p->nbits + 7u) / 8u;
+        for (size_t j = 0; j < nb; j++) snprintf(hex + 2 * j, 3, "%02x", p->data[j]);
+        s_packets++;
+        if (p->proto == OOK_PROTO_LACROSSE_TX141THBV2)
+            out("O,%lu,%s,%u,%s,frames=%u,te=%u,id=%u,ch=%u,batt_low=%d,test=%d,temp_c10=%d,hum=%u\n",
+                (unsigned long)t->end_ms, ook_proto_name(p->proto), p->nbits, hex, p->frames, p->te_us,
+                p->u.lacrosse.id, p->u.lacrosse.channel, p->u.lacrosse.battery_low, p->u.lacrosse.test,
+                p->u.lacrosse.temp_c10, p->u.lacrosse.humidity);
+        else
+            out("O,%lu,%s,%u,%s,frames=%u,te=%u,code=0x%06lx\n", (unsigned long)t->end_ms,
+                ook_proto_name(p->proto), p->nbits, hex, p->frames, p->te_us,
+                (unsigned long)p->u.princeton.code);
+    }
+}
+
+/* Forward chunks from the capture task as B lines and decode them; report
+ * new overflows (and drop the partial train they cut). */
 static void emit_chunks(void)
 {
     static uint32_t seen_overflows;
@@ -224,10 +262,13 @@ static void emit_chunks(void)
     if (cs.overflows < seen_overflows) seen_overflows = 0;   /* restarted */
     if (cs.overflows != seen_overflows) {
         seen_overflows = cs.overflows;
+        ook_pulse_reset(&s_ook);
         out("E,fifo_overflow,count=%lu\n", (unsigned long)cs.overflows);
     }
     cc1101_chunk_t c;
     for (int k = 0; k < 8 && cc1101_capture_read(&c, 0); k++) {
+        if (s_ook_ok) ook_pulse_feed(&s_ook, c.data, c.n, c.t_ms, on_train, NULL);
+        if (!s_raw) continue;
         static const char digits[] = "0123456789abcdef";
         char hex[2 * CC1101_FIFO_SIZE + 1];
         for (size_t i = 0; i < c.n; i++) {
@@ -284,6 +325,8 @@ static void handle_line(char *buf)
         gpio_get_drive_capability(SUBGHZ_PIN_SCK, &now);
         out("I,drive=%d\n", (int)now);
     }
+    else if (!strcmp(buf, "raw on")) s_raw = true;
+    else if (!strcmp(buf, "raw off")) s_raw = false;
     else if (!strncmp(buf, "mode fifo ", 10)) set_mode((uint32_t)atol(buf + 10));
 }
 

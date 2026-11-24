@@ -1,3 +1,49 @@
+## 2026-11-23 — CC1101 OOK decoder: Princeton and LaCrosse TX141THBv2, live on the C5
+
+**Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will
+
+Two pure-C modules sit on top of `cc1101_capture`. `ook_pulse.c` turns
+the 25 kbaud sample stream into pulse trains: chunk-boundary independent,
+one-sample glitches absorbed, a train closed as soon as silence reaches
+6 ms, and a cut at 512 entries flagged. `ook_decode.c` decodes those trains:
+
+- **Princeton/EV1527:** 24 bits, 1:3 PWM, te 80–700 µs. Each frame is
+  closed by a 1te sync pulse and a ≥8te low.
+- **LaCrosse TX141THBv2:** ≥3 sync pairs, then 40 PWM bits. The fields are
+  ID, battery-low, test, channel, temperature (raw − 500, in 0.1 °C) and
+  humidity. An 8-bit reflected LFSR digest (generator 0x31, key 0xF4) is
+  checked against byte 5. Bench frame `C0 82 51 38 → 11` matched rtl_433's
+  192 / 9.3 °C / 56 %.
+
+Identical frames in one train merge, so `frames` counts repeats. The bench
+console prints an `O,` line for each decoded packet. It is not `P,`, which
+the S3 harness already uses for power-cycle reports. `raw off` hides the
+`B,` lines.
+
+- **Frame layout came from the bench capture,** not from another decoder.
+  4×(4 sync pairs + 40 bits + a trailing pulse), and the sensor sends two
+  such bursts per reading.
+- **Replay of a 5.5-minute capture through the C code:** LaCrosse 14/14
+  against rtl_433, with every field equal, including the 9.3 → 9.2 °C
+  change. Flipper `A5C3E1` gave 40/40 frames at te 398–399 µs. All 54
+  trains were real signals; there were no noise trains.
+- **Live on the C5, SX1262 sweeping, 5.5 min:** LaCrosse 14/14 against
+  rtl_433 and Flipper 40/40. There were 0 unexpected packets, 0 overflows,
+  0 dropped chunks, and 0 errors in 30,526 sweeps. A 110-second rerun after
+  the `O,` rename gave 4/4 and 40/40.
+- **The host test (`ook_test`, 45 checks, ASan/UBSan) found a real bug.**
+  With a 2.0 long/short floor, Princeton decoded LaCrosse bits (~1:2 PWM) as
+  bogus codes. The floor is now 2.4; Princeton is nominally 1:3 and the
+  Flipper measured 3.0.
+  - The other cases are random chunking, CC1101-like skew, glitches, all 40
+    single-bit LaCrosse corruptions, clipped or cut frames, 200 s of random
+    sample noise (0 packets), 2,000 hostile trains, and capacity limits.
+- **Mutation proofs:** all 10 caught. The first pass let three through: the
+  LaCrosse end-of-train bound, the Princeton sync check, and a spike out of
+  silence. Each exposed a weak test, and the tests were strengthened until
+  all three fail (ASan overflow, a 5te sync, a post-gap spike).
+- **Still open:** OCP verbs, the sub-GHz arbiter, and the deck view.
+
 ## 2026-11-23 — CC1101 capture task: lossless 25 kbaud bitstream on the C5
 
 **Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will

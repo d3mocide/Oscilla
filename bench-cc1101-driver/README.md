@@ -53,3 +53,18 @@ SX1262 receive-only RSSI sweeps as bus load. `coexist.py` compares the
 CC1101 floor, unexplained raised windows and Flipper detection with that
 load off and on (`--stress` adds bring-up/RX cycling under load). The C5 has
 no GDO0 pin, so the edge column is always 0.
+
+### Bitstream capture and decoding (C5)
+
+`mode fifo 25000` samples OOK into the CC1101 RX FIFO, and `cc1101_capture`
+drains it every 8 ms (`drain N` sets 1–40 ms). Raw samples print as
+`B,t_ms,n,hex`, which `raw off` hides. Decoded packets print as `O,` lines:
+
+    O,t_ms,princeton,24,a5c3e1,frames=1,te=399,code=0xa5c3e1
+    O,t_ms,lacrosse_tx141thbv2,40,c082513811,frames=4,te=240,id=192,ch=0,batt_low=1,test=0,temp_c10=93,hum=56
+
+The `I` line adds `fifo_overflows` (the chip's FIFO overflowed),
+`fifo_dropped` (the console fell behind), `fifo_late`, `ook_trains` and
+`ook_packets`. `fifo_runs.py` checks Princeton run lengths in the raw
+samples. `decode_xref.py` checks decoded packets against `rtl_433` and a
+Flipper (`--transmit`).
