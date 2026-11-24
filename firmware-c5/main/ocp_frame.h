@@ -16,6 +16,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "ook_decode.h"
 
 /* Fixed-size records cross the receive callback -> emitter-task boundary.
  * Producers never format text or touch the transport (OCP-SPEC §5.1). */
@@ -32,6 +33,8 @@ typedef enum {
     OCP_EVENT_RECORD_LORA,
     OCP_EVENT_RECORD_LORA_SWEEP,
     OCP_EVENT_RECORD_HUNT,
+    OCP_EVENT_RECORD_OOK,
+    OCP_EVENT_RECORD_OOK_UNKNOWN,
     OCP_EVENT_RECORD_KIND_COUNT,
 } ocp_event_record_kind_t;
 
@@ -70,6 +73,14 @@ typedef struct {
     int8_t   rssi_dbm[64];
 } ocp_event_lora_sweep_t;
 typedef struct { uint8_t mac[6]; int8_t rssi; uint8_t channel; } ocp_event_hunt_t;
+/* OOK: rssi_dbm INT16_MIN means unknown and is left off the line. */
+typedef struct { ook_packet_t pk; int16_t rssi_dbm; } ocp_event_ook_t;
+typedef struct {
+    uint32_t count;              /* undecoded trains this summary covers */
+    uint16_t pulses, min_us, max_us;
+    uint32_t dur_ms;
+    int16_t rssi_dbm;
+} ocp_event_ook_unknown_t;
 
 typedef struct {
     ocp_event_record_kind_t kind;
@@ -86,6 +97,8 @@ typedef struct {
         ocp_event_lora_t lora;
         ocp_event_lora_sweep_t lora_sweep;
         ocp_event_hunt_t hunt;
+        ocp_event_ook_t ook;
+        ocp_event_ook_unknown_t ook_unknown;
     } data;
 } ocp_event_record_t;
 

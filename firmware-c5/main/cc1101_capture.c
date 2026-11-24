@@ -43,6 +43,7 @@ static void drain_once(void)
     if (!n) return;
     c.t_ms = now_ms();
     c.n = (uint8_t)n;
+    if (cc1101_rx_rssi(s_bus, &c.rssi_dbm) != CC1101_OK) c.rssi_dbm = INT16_MIN;
     if (xMessageBufferSend(s_chunks, &c, CHUNK_HEADER + n, 0) == 0) s_stats.dropped++;
     else s_stats.bytes += n;
 }

@@ -195,19 +195,20 @@ Replies are expected within a bounded window; on expiry the deck reports the tim
 [STOP] lane=all running=0 END
 ```
 
-`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, uptime, the last reset reason (`rst`, as in `[HELLO]`), the Wi-Fi region (`region`, §10.8), the Wi-Fi band scope (`band`, §10.9), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
+`running=1` means a mode or command was cancelled, `running=0` means there was nothing to cancel. Either way the addressed lanes are idle when the ack is sent, so the deck can wait for a known state. `status` reports the PHY-lane owner, the LoRa lane state, the OOK lane state (`ook=absent|idle|rx`, §15), uptime, the last reset reason (`rst`, as in `[HELLO]`), the Wi-Fi region (`region`, §10.8), the Wi-Fi band scope (`band`, §10.9), and bounded memory telemetry: `heap_total` and `heap` (total and current free default heap), `heap_min` (minimum free default heap since boot), `heap_largest` (largest current free block), and `psram_total`, `psram_free`, `psram_largest` (zero when the board has no PSRAM).
 
-**The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's two arbiter lanes:
+**The optional `lane` argument scopes the cancel** to one of DESIGN §6.2's three arbiter lanes:
 
 | `lane` | Stops | Leaves alone |
 |---|---|---|
-| `all` (default) | PHY lane *and* LoRa lane | — |
-| `phy` | whichever of Wi-Fi / BLE / 802.15.4 holds the PHY | a running LoRa RX session |
-| `lora` | the SX1262 RX session | the PHY-lane owner |
+| `all` (default) | PHY lane, LoRa lane *and* OOK lane | — |
+| `phy` | whichever of Wi-Fi / BLE / 802.15.4 holds the PHY | LoRa and OOK sessions |
+| `lora` | the SX1262 RX session | the PHY-lane owner and the OOK session |
+| `ook` | the CC1101 OOK session (§15) | the PHY-lane owner and the LoRa session |
 
 A bare `stop` means `all`, so a deck written against an older probe behaves exactly as before. Any other lane value is `[ERR] code=badarg`. The probe echoes what it acted on as `lane=` in the ack; a deck that sees no `lane=` key is talking to a pre-D-16 probe and should assume `all`.
 
-Scoping matters because the two lanes are independent hardware and **may run concurrently** (DESIGN §6.2): an unscoped `stop` sent only to free the PHY for a different Wi-Fi-family engine would otherwise kill an unrelated LoRa session as a side effect ([D-16](../docs/DECISIONS.md)).
+Scoping matters because the lanes are independent hardware and **may run concurrently** (DESIGN §6.2): an unscoped `stop` sent only to free the PHY for a different Wi-Fi-family engine would otherwise kill an unrelated LoRa or OOK session as a side effect ([D-16](../docs/DECISIONS.md), [D-20](../docs/DECISIONS.md)).
 
 ---
 
@@ -828,3 +829,62 @@ UART:
 > stop phy
 [STOP] lane=phy running=1 END
 ```
+
+## 15. 433 MHz OOK receive (`ook_listen` / `ook_status`)
+
+The CC1101 on the backpack (Rev D §4.4, D-15) is its own arbiter lane
+([D-20](../docs/DECISIONS.md)): it runs concurrently with the PHY lane and the
+LoRa lane, and only `stop ook` or a bare `stop` ends it. The lane is
+receive-only: the driver has no transmit strobe, FIFO write or PA-table write,
+and `tools/check_rx_only.py` audits that. The cap is `ook_rx`, advertised
+only when the CC1101 answered its probe at boot; without it `status` reports
+`ook=absent` and both verbs return `[ERR] code=nocap`.
+
+`ook_listen [freq_khz]` samples the band at 25 kbaud (actual 24993) in FIFO
+mode and decodes on the probe. `freq_khz` must be in one of the CC1101 bands
+(`300000-348000`, `387000-464000`, `779000-928000`). It defaults to `433920` at
+boot and otherwise reuses the last frequency. The backpack antenna is tuned for
+433 MHz, so other bands are relative only. A second `ook_listen` while running
+is `[ERR] code=busy`; `stop ook` first. Between sessions the chip sleeps.
+
+```
+> ook_listen 433920
+[OOK] running=1 freq_khz=433920 baud=24993
+[EVT] kind=ook decoder=princeton nbits=24 hex=a5c3e1 frames=1 te_us=400 rssi=-41
+[EVT] kind=ook decoder=lacrosse_tx141thbv2 nbits=40 hex=c0824f3d35 frames=1 te_us=240 rssi=-77 id=192 ch=0 batt_low=1 test=0 temp_c10=91 hum=61
+[EVT] kind=ook_unknown n=3 pulses=66 min_us=160 max_us=1240 dur_ms=47 rssi=-63
+> stop ook
+[STOP] lane=ook running=1 END
+```
+
+**Decoded events (`kind=ook`).** `decoder` names the protocol: `princeton`
+(PT2262 / EV1527, 24 bits) or `lacrosse_tx141thbv2` (40 bits, digest checked).
+`hex` is the frame, most significant bit first; `frames` counts copies of the frame
+inside the pulse train that produced the event; `te_us` is the measured base
+pulse width; `rssi` is the peak in dBm read while that train was sampled,
+absent when it could not be read. LaCrosse
+events add `id`, `ch`, `batt_low`, `test`, `temp_c10` (tenths of a degree C,
+signed) and `hum` (percent). **Repeats are merged**: a packet identical to one
+seen less than 1.5 s earlier is not reported again, and every repeat extends
+that window, so one button press or one sensor reading is one event.
+
+**Unknown signals (`kind=ook_unknown`).** Pulse trains that no decoder accepts
+are summarised at most once per second. `n` is how many trains the summary
+covers; `pulses`, `min_us`, `max_us` and `dur_ms` describe the train that
+triggered it. No raw pulse timings are sent.
+
+`ook_status` takes no arguments and reports the session:
+
+```
+> ook_status
+[OOK] running=1 freq_khz=433920 baud=24993 trains=52 packets=10 unknown=0 overflows=0 dropped=0 errors=0 reinit=0 hw_fault=0 ocp_drop=0
+```
+
+`trains` counts closed pulse trains, `packets` the reported (merged) events,
+`unknown` the unrecognised trains. `overflows` counts chip FIFO overflows
+(samples lost inside the CC1101) and `dropped` counts chunks the decoder was
+too slow for; both should stay 0. `errors` counts SPI drain errors, `reinit`
+counts the once-per-second watchdog re-applying the profile after register
+drift or a stuck radio state, `hw_fault` counts failed re-inits, and
+`ocp_drop` counts events lost to a full event queue. The counters reset at
+each `ook_listen`.

@@ -51,6 +51,7 @@
 /* MARCSTATE values (SWRS061I §29.3). SLEEP (0x00) can never be read back. */
 #define CC1101_MARC_IDLE 0x01
 #define CC1101_MARC_RX   0x0D
+#define CC1101_MARC_RXFIFO_OVERFLOW 0x11
 
 #define CC1101_POR_FREQ2 0x1E   /* FREQ2 reset value (SWRS061I §29.1) */
 

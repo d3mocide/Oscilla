@@ -117,7 +117,8 @@ python3 tools/check_deck_parser.py --count 150
 # decoders, against sample-level synthesis, random chunking and noise.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
     -Ifirmware-c5/main -o "$out/ook_test" \
-    firmware-c5/test/host/ook_test.c firmware-c5/main/ook_pulse.c firmware-c5/main/ook_decode.c
+    firmware-c5/test/host/ook_test.c firmware-c5/main/ook_pulse.c firmware-c5/main/ook_decode.c \
+    firmware-c5/main/ook_events.c
 "$out/ook_test" | tail -1 | sed 's/^/  /'
 
 # Block frames are buffered and committed as one transaction; unavailable or

@@ -68,3 +68,8 @@ The `I` line adds `fifo_overflows` (the chip's FIFO overflowed),
 `ook_packets`. `fifo_runs.py` checks Princeton run lengths in the raw
 samples. `decode_xref.py` checks decoded packets against `rtl_433` and a
 Flipper (`--transmit`).
+
+`ocp_xref.py` runs the same comparison through the production path instead:
+a normal `--bench` probe build, the OOK lane over OCP (`ook_listen`, merged
+`kind=ook` events, OCP-SPEC §15), optionally with the Wi-Fi sniffer and
+LoRa RX running too (`--concurrent`). It also needs `--transmit`.

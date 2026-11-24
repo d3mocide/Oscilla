@@ -94,6 +94,7 @@ int main(void)
     assert(OCP_MAX_LINE_LEN >= 256);
     assert(strcmp(ocp_cap_class_name(OCP_CC_NONE), "") == 0);
     assert(strcmp(ocp_cap_class_name(OCP_CC_LORA_RX), OCP_CAP_LORA_RX) == 0);
+    assert(strcmp(ocp_cap_class_name(OCP_CC_OOK_RX), OCP_CAP_OOK_RX) == 0);
 
     printf("ocp.h OK — %zu verbs, proto=%d, no transmit verb\n", n, OCP_PROTO_VERSION);
     return 0;

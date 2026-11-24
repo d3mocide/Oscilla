@@ -164,6 +164,8 @@ static const char *event_kind_name(ocp_event_record_kind_t kind)
         case OCP_EVENT_RECORD_LORA:    return OCP_EVT_KIND_LORA;
         case OCP_EVENT_RECORD_LORA_SWEEP: return OCP_EVT_KIND_LORA_SWEEP;
         case OCP_EVENT_RECORD_HUNT:    return OCP_EVT_KIND_HUNT;
+        case OCP_EVENT_RECORD_OOK:     return OCP_EVT_KIND_OOK;
+        case OCP_EVENT_RECORD_OOK_UNKNOWN: return OCP_EVT_KIND_OOK_UNKNOWN;
         case OCP_EVENT_RECORD_KIND_COUNT: break;
     }
     return "unknown";
@@ -298,6 +300,44 @@ static void emit_event_record(const ocp_event_record_t *event)
                               "%s=%02x:%02x:%02x:%02x:%02x:%02x %s=%d %s=%u",
                               OCP_K_MAC, r->mac[0], r->mac[1], r->mac[2], r->mac[3], r->mac[4], r->mac[5],
                               OCP_K_RSSI, r->rssi, OCP_K_CH, (unsigned)r->channel);
+            break;
+        }
+        case OCP_EVENT_RECORD_OOK: {
+            /* Every field is a number or a fixed name: nothing radio-supplied is text. */
+            const ocp_event_ook_t *r = &event->data.ook;
+            const ook_packet_t *p = &r->pk;
+            char hex[2 * sizeof p->data + 1];
+            const unsigned nb = (p->nbits + 7u) / 8u;
+            if (nb > sizeof p->data) return;
+            for (unsigned i = 0; i < nb; i++) snprintf(hex + 2 * i, 3, "%02x", p->data[i]);
+            hex[2 * nb] = '\0';
+            char rssi[16] = "";
+            if (r->rssi_dbm != INT16_MIN) snprintf(rssi, sizeof rssi, " %s=%d", OCP_K_RSSI, r->rssi_dbm);
+            if (p->proto == OOK_PROTO_LACROSSE_TX141THBV2) {
+                emit_event_fields(event_kind_name(event->kind),
+                                  "%s=%s %s=%u %s=%s %s=%u %s=%u%s %s=%u %s=%u %s=%d %s=%d %s=%d %s=%u",
+                                  OCP_K_DECODER, OCP_OOK_DECODER_LACROSSE, OCP_K_NBITS, (unsigned)p->nbits,
+                                  OCP_K_HEX, hex, OCP_K_FRAMES, (unsigned)p->frames, OCP_K_TE_US,
+                                  (unsigned)p->te_us, rssi, OCP_K_ID, (unsigned)p->u.lacrosse.id, OCP_K_CH,
+                                  (unsigned)p->u.lacrosse.channel, OCP_K_BATT_LOW, p->u.lacrosse.battery_low ? 1 : 0,
+                                  OCP_K_TEST, p->u.lacrosse.test ? 1 : 0, OCP_K_TEMP_C10, p->u.lacrosse.temp_c10,
+                                  OCP_K_HUM, (unsigned)p->u.lacrosse.humidity);
+            } else if (p->proto == OOK_PROTO_PRINCETON) {
+                emit_event_fields(event_kind_name(event->kind), "%s=%s %s=%u %s=%s %s=%u %s=%u%s",
+                                  OCP_K_DECODER, OCP_OOK_DECODER_PRINCETON, OCP_K_NBITS, (unsigned)p->nbits,
+                                  OCP_K_HEX, hex, OCP_K_FRAMES, (unsigned)p->frames, OCP_K_TE_US,
+                                  (unsigned)p->te_us, rssi);
+            }
+            break;
+        }
+        case OCP_EVENT_RECORD_OOK_UNKNOWN: {
+            const ocp_event_ook_unknown_t *r = &event->data.ook_unknown;
+            char rssi[16] = "";
+            if (r->rssi_dbm != INT16_MIN) snprintf(rssi, sizeof rssi, " %s=%d", OCP_K_RSSI, r->rssi_dbm);
+            emit_event_fields(event_kind_name(event->kind), "%s=%lu %s=%u %s=%u %s=%u %s=%lu%s",
+                              OCP_K_COUNT, (unsigned long)r->count, OCP_K_PULSES, (unsigned)r->pulses,
+                              OCP_K_MIN_US, (unsigned)r->min_us, OCP_K_MAX_US, (unsigned)r->max_us,
+                              OCP_K_DUR_MS, (unsigned long)r->dur_ms, rssi);
             break;
         }
         case OCP_EVENT_RECORD_KIND_COUNT:

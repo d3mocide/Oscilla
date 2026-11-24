@@ -9,6 +9,7 @@
  */
 
 #include "ook_decode.h"
+#include "ook_events.h"
 #include "ook_pulse.h"
 
 #include <stdio.h>
@@ -448,6 +449,104 @@ static void capacity(void)
           !strcmp(ook_proto_name((ook_proto_t)99), "none"), "protocol names");
 }
 
+static ook_packet_t mk_princeton(uint32_t code)
+{
+    ook_packet_t p;
+    memset(&p, 0, sizeof p);
+    p.proto = OOK_PROTO_PRINCETON;
+    p.nbits = 24;
+    p.data[0] = (uint8_t)(code >> 16);
+    p.data[1] = (uint8_t)(code >> 8);
+    p.data[2] = (uint8_t)code;
+    p.u.princeton.code = code;
+    return p;
+}
+
+static void events(void)
+{
+    ook_events_t ev;
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    const ook_packet_t a = mk_princeton(0xA5C3E1), b = mk_princeton(0x111111);
+
+    /* Flipper: 10 frames ~50 ms apart are one event. */
+    int sent = 0;
+    for (uint32_t i = 0; i < 10; i++) sent += ook_events_packet(&ev, &a, 1000 + 50 * i);
+    CHECK(sent == 1, "ten repeats 50 ms apart report once");
+
+    /* A held button: repeats every 1 s for 10 s keep extending the window. */
+    sent = 0;
+    for (uint32_t i = 0; i < 10; i++) sent += ook_events_packet(&ev, &a, 2000 + 1000 * i);
+    CHECK(sent == 0, "a held button stays one event while repeats keep coming");
+    CHECK(ook_events_packet(&ev, &a, 2000 + 9000 + OOK_EVENTS_WINDOW_MS), "after the window lapses it reports again");
+
+    /* LaCrosse: two bursts 300 ms apart, readings 50 s apart. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    sent = 0;
+    for (uint32_t r = 0; r < 5; r++) {
+        sent += ook_events_packet(&ev, &b, 50000 * r);
+        sent += ook_events_packet(&ev, &b, 50000 * r + 300);
+    }
+    CHECK(sent == 5, "two bursts per reading, five readings: five events");
+
+    /* Distinct packets interleaved are each reported. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    CHECK(ook_events_packet(&ev, &a, 10) && ook_events_packet(&ev, &b, 20) && !ook_events_packet(&ev, &a, 30) &&
+          !ook_events_packet(&ev, &b, 40), "two remotes interleaved: each once");
+
+    /* More distinct packets than slots: the oldest is evicted, nothing is lost. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    sent = 0;
+    for (uint32_t i = 0; i < 3 * OOK_EVENTS_RECENT; i++) {
+        const ook_packet_t p = mk_princeton(i);
+        sent += ook_events_packet(&ev, &p, i);
+    }
+    CHECK(sent == 3 * OOK_EVENTS_RECENT, "every distinct packet reports even past the table size");
+
+    /* A full table evicts the least recently seen packet, so the newest
+     * remotes keep their dedup state. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    for (uint32_t i = 0; i < OOK_EVENTS_RECENT; i++) {
+        const ook_packet_t p = mk_princeton(0x100 + i);
+        (void)ook_events_packet(&ev, &p, 10 * i);
+    }
+    const ook_packet_t newest = mk_princeton(0x100 + OOK_EVENTS_RECENT - 1), extra = mk_princeton(0xABC);
+    const ook_packet_t first = mk_princeton(0x100);
+    CHECK(ook_events_packet(&ev, &extra, 10 * OOK_EVENTS_RECENT), "a ninth remote reports");
+    CHECK(!ook_events_packet(&ev, &newest, 10 * OOK_EVENTS_RECENT + 10), "the newest remote was not evicted");
+    CHECK(ook_events_packet(&ev, &first, 10 * OOK_EVENTS_RECENT + 20), "the oldest remote was evicted");
+
+    /* Clock wrap. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    CHECK(ook_events_packet(&ev, &a, UINT32_MAX - 100) && !ook_events_packet(&ev, &a, 200),
+          "a repeat across the ms clock wrap is still a repeat");
+
+    /* Unknowns: at most one summary per second, counting what it covers. */
+    ook_events_init(&ev, OOK_EVENTS_WINDOW_MS, OOK_EVENTS_UNKNOWN_MS);
+    uint32_t count = 0, covered = 0;
+    int summaries = 0;
+    for (uint32_t t = 0; t < 10000; t += 100) {
+        if (ook_events_unknown(&ev, t, &count)) { summaries++; covered += count; }
+    }
+    CHECK(summaries == 10, "100 unknown trains over 10 s: 10 summaries");
+    CHECK(covered + ev.unknown_pending == 100, "summaries plus pending account for every unknown train");
+    CHECK(ook_events_unknown(&ev, 20000, &count) && count == ev.unknown_pending + 10,
+          "a later summary carries the trains held back");
+
+    /* Summary of a train. */
+    static ook_train_t t;
+    memset(&t, 0, sizeof t);
+    const uint16_t us[] = { 400, 1200, 1200, 400, 400, GAP_US };
+    t.n = 6;
+    memcpy(t.us, us, sizeof us);
+    ook_train_summary_t sm;
+    ook_train_summarise(&t, &sm);
+    CHECK(sm.pulses == 5 && sm.min_us == 400 && sm.max_us == 1200 && sm.dur_ms == 4,
+          "summary excludes the closing gap");
+    t.n = OOK_TRAIN_MAX + 1;
+    ook_train_summarise(&t, &sm);
+    CHECK(sm.pulses == 0, "a corrupt train summarises to nothing");
+}
+
 int main(void)
 {
     pulse_config();
@@ -456,6 +555,7 @@ int main(void)
     lacrosse();
     noise();
     capacity();
+    events();
     printf("ook_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
 }

@@ -11,6 +11,7 @@
 #include "config.h"
 #include "lora_radio.h"
 #include "lora_recon.h"
+#include "ook_recon.h"
 #include "probe_restart.h"
 #include "radio_arbiter.h"
 #include "status_led.h"
@@ -74,6 +75,9 @@ const char *ocp_server_caps(void)
     }
     if (zig_recon_ready()) {
         n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_IEEE802154);
+    }
+    if (ook_recon_ready()) {
+        n += snprintf(caps + n, sizeof caps - n, "%s%s", n ? OCP_CAP_SEP : "", OCP_CAP_OOK_RX);
     }
     return caps;
 }
@@ -201,6 +205,7 @@ static int cap_available(ocp_cap_class_t cc)
         case OCP_CC_BLE:        return strstr(caps, OCP_CAP_BLE) != NULL;
         case OCP_CC_IEEE802154: return strstr(caps, OCP_CAP_IEEE802154) != NULL;
         case OCP_CC_LORA_RX:    return strstr(caps, OCP_CAP_LORA_RX) != NULL;
+        case OCP_CC_OOK_RX:     return strstr(caps, OCP_CAP_OOK_RX) != NULL;
     }
     return 0;
 }
@@ -226,9 +231,10 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_STATUS:
         ocp_emit_compact(OCP_MARK_STATUS,
-                         "%s=%s lora=%s link=%s %s=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
+                         "%s=%s lora=%s ook=%s link=%s %s=%s %s=%s %s=%s %s=%llu %s=%u %s=%u %s=%u %s=%u %s=%u %s=%u",
                          OCP_K_OWNER, arbiter_owner_name(arbiter_owner()),
                          !lora_recon_ready() ? "absent" : lora_radio_is_running() ? "rx" : lora_radio_is_sweeping() ? "sweep" : "idle",
+                         !ook_recon_ready() ? "absent" : ook_recon_is_running() ? "rx" : "idle",
                          ocp_transport_name(),
                          OCP_K_RESET, reset_reason_name(),
                          OCP_K_REGION, wifi_region()->code,
@@ -253,16 +259,18 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
         bool all    = !strcmp(lane, OCP_LANE_ALL);
         bool phy    = all || !strcmp(lane, OCP_LANE_PHY);
         bool lora   = all || !strcmp(lane, OCP_LANE_LORA);
+        bool ook    = all || !strcmp(lane, OCP_LANE_OOK);
 
-        if (!phy && !lora) {
+        if (!phy && !lora && !ook) {
             ocp_emit_error(OCP_ERR_BADARG, "lane must be " OCP_LANE_ALL ", "
-                                           OCP_LANE_PHY " or " OCP_LANE_LORA);
+                                           OCP_LANE_PHY ", " OCP_LANE_LORA " or " OCP_LANE_OOK);
             break;
         }
 
         bool running = false;
         if (phy)    running |= arbiter_stop_all();
         if (lora)   running |= lora_cmd_stop();
+        if (ook)    running |= ook_cmd_stop();
 
         ocp_emit_compact(OCP_MARK_STOP, "%s=%s %s=%d",
                          OCP_K_LANE, lane, OCP_K_RUNNING, running ? 1 : 0);
@@ -270,7 +278,7 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
          * pending probe_restart_request() (zig_recon.c) was waiting on, and
          * a fired restart never returns — the [STOP] reply must already be
          * on the wire first. */
-        if (lora) probe_restart_if_safe();
+        if (lora || ook) probe_restart_if_safe();
         break;
     }
 
@@ -288,6 +296,14 @@ static void handle(ocp_verb_id_t id, int argc, char **argv)
 
     case OCP_VID_LORA_SWEEP:
         lora_cmd_sweep(argc, argv);
+        break;
+
+    case OCP_VID_OOK_LISTEN:
+        ook_cmd_listen(argc, argv);
+        break;
+
+    case OCP_VID_OOK_STATUS:
+        ook_cmd_status();
         break;
 
     case OCP_VID_SCAN_NETWORKS:

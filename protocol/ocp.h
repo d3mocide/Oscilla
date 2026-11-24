@@ -69,6 +69,7 @@ extern "C" {
 #define OCP_MARK_BLE            "[BLE]"
 #define OCP_MARK_ZIG            "[ZIG]"
 #define OCP_MARK_LORA           "[LORA]"
+#define OCP_MARK_OOK            "[OOK]"
 #define OCP_MARK_EVT            "[EVT]"
 #define OCP_MARK_ERR            "[ERR]"
 #define OCP_MARK_FT             "[FT]"   /* reserved, unimplemented (D-2) */
@@ -84,6 +85,7 @@ extern "C" {
 #define OCP_CAP_BLE             "ble"
 #define OCP_CAP_IEEE802154      "ieee802154"
 #define OCP_CAP_LORA_RX         "lora_rx"
+#define OCP_CAP_OOK_RX          "ook_rx"    /* CC1101 OOK receiver (D-20) */
 
 #define OCP_CAP_SEP             ","
 
@@ -94,7 +96,8 @@ typedef enum {
     OCP_CC_WIFI,
     OCP_CC_BLE,
     OCP_CC_IEEE802154,
-    OCP_CC_LORA_RX
+    OCP_CC_LORA_RX,
+    OCP_CC_OOK_RX
 } ocp_cap_class_t;
 
 /* --- Verbs (DESIGN Appendix A) -------------------------------------------- */
@@ -140,6 +143,10 @@ typedef enum {
 #define OCP_V_LORA_LISTEN       "lora_listen"
 #define OCP_V_LORA_STATUS       "lora_status"
 #define OCP_V_LORA_SWEEP        "lora_sweep"
+
+/* OOK (CC1101) — receive only (D-20) */
+#define OCP_V_OOK_LISTEN        "ook_listen"    /* [freq_khz], default 433920 */
+#define OCP_V_OOK_STATUS        "ook_status"
 
 /* Mixed */
 #define OCP_V_START_WARDRIVE    "start_wardrive"
@@ -187,6 +194,8 @@ typedef enum {
     X(LORA_LISTEN,       OCP_V_LORA_LISTEN,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_STATUS,       OCP_V_LORA_STATUS,       OCP_CC_LORA_RX,     0,  0,  OCP_MARK_LORA)       \
     X(LORA_SWEEP,        OCP_V_LORA_SWEEP,        OCP_CC_LORA_RX,     0,  3,  OCP_MARK_CFG)        \
+    X(OOK_LISTEN,        OCP_V_OOK_LISTEN,        OCP_CC_OOK_RX,      0,  1,  OCP_MARK_OOK)        \
+    X(OOK_STATUS,        OCP_V_OOK_STATUS,        OCP_CC_OOK_RX,      0,  0,  OCP_MARK_OOK)        \
     X(START_WARDRIVE,    OCP_V_START_WARDRIVE,    OCP_CC_WIFI,        0,  4,  OCP_MARK_CFG)        \
     X(HUNT_WIFI,         OCP_V_HUNT_WIFI,         OCP_CC_WIFI,        2,  2,  OCP_MARK_CFG)        \
     X(HUNT_BLE,          OCP_V_HUNT_BLE,          OCP_CC_BLE,         1,  1,  OCP_MARK_CFG)
@@ -211,6 +220,8 @@ typedef enum {
 #define OCP_EVT_KIND_CHAN       "chan"
 #define OCP_EVT_KIND_LORA       "lora"
 #define OCP_EVT_KIND_LORA_SWEEP "lora_sweep"
+#define OCP_EVT_KIND_OOK        "ook"         /* ook_listen: a decoded packet (first sighting) */
+#define OCP_EVT_KIND_OOK_UNKNOWN "ook_unknown" /* ook_listen: undecoded transmissions, <= 1/s */
 #define OCP_EVT_KIND_CLIENT     "client"
 #define OCP_EVT_KIND_PROBE      "probe"
 #define OCP_EVT_KIND_DEAUTH     "deauth"
@@ -292,6 +303,31 @@ typedef enum {
 #define OCP_K_BINS              "bins"
 #define OCP_LORA_SWEEP_MAX_BINS 64
 
+/* OOK frames (OCP-SPEC §15). */
+#define OCP_K_FREQ_KHZ          "freq_khz"
+#define OCP_K_BAUD              "baud"
+#define OCP_K_DECODER           "decoder"   /* OCP_OOK_DECODER_* */
+#define OCP_K_NBITS             "nbits"
+#define OCP_K_FRAMES            "frames"    /* identical frames in the first train */
+#define OCP_K_TE_US             "te_us"
+#define OCP_K_ID                "id"
+#define OCP_K_BATT_LOW          "batt_low"
+#define OCP_K_TEST              "test"
+#define OCP_K_TEMP_C10          "temp_c10"  /* tenths of a degree C */
+#define OCP_K_HUM               "hum"
+#define OCP_K_PULSES            "pulses"
+#define OCP_K_MIN_US            "min_us"
+#define OCP_K_MAX_US            "max_us"
+#define OCP_K_DUR_MS            "dur_ms"
+#define OCP_K_TRAINS            "trains"
+#define OCP_K_PACKETS           "packets"
+#define OCP_K_UNKNOWN           "unknown"
+#define OCP_K_OVERFLOWS         "overflows"
+#define OCP_K_ERRORS            "errors"
+#define OCP_K_REINIT            "reinit"
+#define OCP_OOK_DECODER_PRINCETON "princeton"
+#define OCP_OOK_DECODER_LACROSSE  "lacrosse_tx141thbv2"
+
 /* 802.15.4 frames (OCP-SPEC §12). */
 #define OCP_K_STATE             "state"
 #define OCP_K_DROPPED           "dropped"
@@ -372,11 +408,12 @@ typedef enum {
 #define OCP_OWNER_IEEE802154    "ieee802154"
 #define OCP_OWNER_WARDRIVE      "wardrive"
 
-/* `stop` scope: DESIGN §6.2's arbiter lanes, plus "all" (D-16).
+/* `stop` scope: DESIGN §6.2's arbiter lanes, plus "all" (D-16, D-20).
  * A bare `stop` means OCP_LANE_ALL, so older decks keep working. */
 #define OCP_LANE_ALL            "all"
 #define OCP_LANE_PHY            "phy"
 #define OCP_LANE_LORA           "lora"
+#define OCP_LANE_OOK            "ook"
 
 /* --- Helpers -------------------------------------------------------------- */
 
@@ -387,6 +424,7 @@ static inline const char *ocp_cap_class_name(ocp_cap_class_t cc)
         case OCP_CC_BLE:         return OCP_CAP_BLE;
         case OCP_CC_IEEE802154:  return OCP_CAP_IEEE802154;
         case OCP_CC_LORA_RX:     return OCP_CAP_LORA_RX;
+        case OCP_CC_OOK_RX:      return OCP_CAP_OOK_RX;
         case OCP_CC_NONE:        break;
     }
     return "";

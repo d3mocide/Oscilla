@@ -301,6 +301,8 @@ isolated third-party dependencies.
 | `cc1101_capture.c` | CC1101 FIFO-sampling drain task: fixed 8 ms tick at priority 6 (below OCP dispatch), timestamped chunks to a message buffer, chip-overflow vs slow-consumer counters, pause/resume for other chip sequences; lossless at 25 kbaud under SX1262 load (WORKLOG 2026-11-23) |
 | `ook_pulse.c` | OOK sample stream to pulse trains: chunk-independent, glitch-absorbing, gap-terminated, bounded at 512 entries; pure C, host-tested (`ook_test`) |
 | `ook_decode.c` | OOK train decoders, receive-only: Princeton/EV1527 24-bit and LaCrosse TX141THBv2 (fields + LFSR digest); identical repeats merged; pure C, host-tested against synthesis, noise and hostile trains |
+| `ook_events.c` | What an OOK session reports: repeat-merging over a 1.5 s sliding window (8 recent packets, least-recent evicted), unknown-train summaries rate-limited to 1/s with a covered count, train summaries without the closing gap; pure C, host-tested (`ook_test`) |
+| `ook_recon.c` | The OOK lane (OCP-SPEC §15, [D-20](docs/DECISIONS.md)): CC1101 probe and sleep at boot, `ook_listen`/`ook_status`/`stop ook`, an engine task (priority 4) feeding capture chunks through pulse → decode → events into the OCP event queue, and a 1 s drift watchdog that re-applies the profile. Receive-only |
 | `cc1101_bench.c` | Bench-only USB console (`CONFIG_OSCILLA_CC1101_BENCH`, `build_firmware.sh --cc1101-bench`): same lines as `bench-cc1101-driver`, plus `lload` SX1262 sweep load for coexistence. Not an OCP surface |
 | `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
 | `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |
@@ -309,16 +311,17 @@ Gone from v0.1: `gps.c` and the SD half of `store.c` — both now deck-side. `ca
 
 ### 6.2 Radio arbitration (the invariant)
 
-The C5's Wi-Fi, BLE and 802.15.4 share **one internal PHY** and are mutually exclusive owners. The SX1262 is a **separate chip on a separate SPI bus** and does not contend with them electrically. So the arbiter runs two lanes:
+The C5's Wi-Fi, BLE and 802.15.4 share **one internal PHY** and are mutually exclusive owners. The SX1262 is a **separate chip on a separate SPI bus** and does not contend with them electrically, and neither does the CC1101 (a third chip, sharing the SX1262's SPI bus under one lock). So the arbiter runs three lanes:
 
 | Lane | Members | Rule |
 |---|---|---|
 | **PHY lane** | Wi-Fi 2.4/5, BLE, 802.15.4 | Exactly one owner. `acquire()` before touching the PHY, `release()` on stop; `stop` forces the current owner down via its teardown hook. Coexistence (Wi-Fi + duty-cycled BLE) is modelled as a **single combined owner**, never two. |
 | **Sub-GHz lane** | SX1262 (Wio) | Independent of the PHY lane — may run concurrently with a PHY owner. |
+| **OOK lane** | CC1101 (433 MHz) | Independent of both — may run concurrently with a PHY owner and a LoRa session ([D-20](docs/DECISIONS.md)). Only `stop ook` or a bare `stop` ends it. |
 
 Because the lanes are independent, **`stop` is scoped per lane** — `stop phy`,
-`stop lora`, or a bare `stop` for all of them ([D-16](docs/DECISIONS.md),
-OCP-SPEC §5.4).
+`stop lora`, `stop ook`, or a bare `stop` for all of them ([D-16](docs/DECISIONS.md),
+[D-20](docs/DECISIONS.md), OCP-SPEC §5.4).
 
 Concurrency between lanes is **budgeted, not free.** Both lanes register a power class with an interlock; running LoRa RX alongside a 5 GHz promiscuous sweep is throttled (or refused with `[ERR] code=budget`) until the measured headroom from P6 says otherwise. Until that measurement exists, the interlock is deliberately conservative. (Receive-only keeps peak draw well below the TX case, but simultaneous RX across both lanes still stacks — hence the interlock.)
 
@@ -329,6 +332,7 @@ Promiscuous engines hop channels themselves. v1 ships a simple tiered round-robi
 - One console/dispatch task (OCP server).
 - One engine task per active mode (created on start, joined on stop).
 - One LoRa radio task; DIO1 ISR only posts to its queue.
+- While the OOK lane runs: the CC1101 capture task (priority 6, fixed 8 ms tick) drains the FIFO into a message buffer, and the OOK engine task (priority 4) decodes from it. Both sit below OCP dispatch (10).
 - ISR-fed work (802.15.4 RX, promiscuous callback) hands off to tasks via FreeRTOS queues; big tables live in PSRAM, ISR queues stay in internal RAM.
 - The C5 is **single-core** — a busy engine must not starve the console. Dispatch task priority sits above engine tasks so `stop` always lands.
 

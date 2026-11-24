@@ -34,6 +34,8 @@ idf_component_register(
          "cc1101_capture.c"
          "ook_pulse.c"
          "ook_decode.c"
+         "ook_events.c"
+         "ook_recon.c"
          "cc1101_bench.c"
          "config_codec.c"
          "config.c"

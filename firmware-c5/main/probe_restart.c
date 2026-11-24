@@ -13,6 +13,7 @@
 #include "freertos/task.h"
 
 #include "lora_radio.h"
+#include "ook_recon.h"
 
 static volatile bool s_pending;
 
@@ -24,7 +25,7 @@ void probe_restart_request(void)
 
 void probe_restart_if_safe(void)
 {
-    if (!s_pending || lora_radio_is_running()) return;
+    if (!s_pending || lora_radio_is_running() || ook_recon_is_running()) return;
     s_pending = false;
     vTaskDelay(pdMS_TO_TICKS(50));   /* let the ack drain (matches OCP_VID_REBOOT) */
     esp_restart();

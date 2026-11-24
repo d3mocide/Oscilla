@@ -33,6 +33,7 @@
 
 typedef struct {
     uint32_t t_ms;                       /* esp_timer ms when the chunk was read */
+    int16_t rssi_dbm;                    /* RSSI read right after the drain */
     uint8_t n;                           /* 1..CC1101_FIFO_SIZE */
     uint8_t data[CC1101_FIFO_SIZE];
 } cc1101_chunk_t;

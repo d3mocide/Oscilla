@@ -1,3 +1,57 @@
+## 2026-11-24 — OOK lane over OCP: CC1101 is the third concurrent radio (D-20)
+
+**Phase:** D-15 → D-20, branch `cc1101-idf` · **By:** Claude + Will
+
+The CC1101 is now an OCP lane alongside the PHY lane (Wi-Fi/BLE/802.15.4)
+and the LoRa lane. Will chose the design: a concurrent lane of its own, named
+`ook`, with rate-limited summaries for undecoded signals. That gives cap
+`ook_rx`, `ook_listen [freq_khz]`, `ook_status`, `stop ook`,
+`[STATUS] ook=absent|idle|rx`, and `kind=ook` / `kind=ook_unknown` events
+(OCP-SPEC §15, §5.4).
+
+- **`ook_recon.c`:** probes the chip at boot and parks it in SLEEP. A
+  missing chip leaves no cap and reports `ook=absent`. Each listen
+  re-applies the profile, because SLEEP loses 0x29–0x2E (SWRS061I §29.2).
+  An engine task at priority 4 feeds capture chunks through pulse →
+  decode → events. A 1 s watchdog verifies the profile and MARCSTATE and
+  re-inits on drift. `probe_restart` won't restart while OOK runs.
+- **`ook_events.c`:** identical packets within 1.5 s merge, and each repeat
+  extends the window. Eight recent packets are held and the least recent
+  is evicted. Unknown trains produce at most one summary per second,
+  carrying the count of trains it covers.
+- **Capture chunks carry RSSI** (`rssi=` on events, the peak while the
+  train was sampled).
+- **Host:** `ook_test` 60/60, up from 45. Mutation proofs on `ook_events`:
+  10/10 caught. The first pass let "evict the newest" survive, so an
+  eviction-order test was added. Conformance 27/27; receive-only audit
+  clean.
+- **Hardware (C5, USB-OCP bench build):**
+  - `ocp_repl.py --gate-ook` (new, passive): 22/22. The sniffer, LoRa RX
+    and OOK ran at once, and each scoped stop spared the other two lanes.
+  - A mutant firmware where `stop phy` also stopped OOK, built from a
+    scratch copy: 3 checks failed.
+  - `bench-cc1101-driver/ocp_xref.py` (new; needs `--transmit` for the
+    Flipper), 330 s with all three lanes live:
+    - LaCrosse readings identical to rtl_433: 6 events. rtl_433 reported
+      12 because each reading is 2 trains, which the lane merges.
+    - Flipper: 4 bursts gave 4 events, latency 0.17–0.19 s.
+    - 0 false or unknown packets, and 0 overflows, drops, errors or
+      re-inits.
+  - `--gate` 17/17 (+1 skip, 3 runs) and `--gate-stop` 15/15.
+- **The earlier `--gate` reboot failure did not reproduce.** `main`'s
+  firmware (572a512) passed, and so did this branch, 3 times. Rebooting
+  with OOK active came back on the same port, idle. A different failure
+  shows up if a lane is left running before the gate starts: "stop is
+  acked when idle" sees `running=1`. That is the gate's idle assumption,
+  and a live LoRa session trips it the same way.
+- **Flashing:** twice today `flash_c5.sh`'s `usb_reset` handshake left the
+  C5 parked in ROM (PC 0x4003B10E, gotcha 10), with "Write timeout" on both
+  attempts. Pressing RESET/BOOT and flashing with `--loader` recovered it.
+- **Still open:** the deck view and the deck's OCP client (`ook=`,
+  `kind=ook`); JTAG attach.
+
+---
+
 ## 2026-11-23 — CC1101 OOK decoder: Princeton and LaCrosse TX141THBv2, live on the C5
 
 **Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will

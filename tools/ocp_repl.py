@@ -984,6 +984,115 @@ def mode_selftest(color: bool = True) -> int:
 # --- Entry point ------------------------------------------------------------
 
 
+def mode_gate_ook(port: str, baud: int, color: bool = True, wait_s: float = 75.0) -> int:
+    """OOK lane (D-20, OCP-SPEC §15) against a live probe with a CC1101.
+
+    Receive-only and passive: decoding is confirmed with whatever is already
+    transmitting nearby (a LaCrosse sensor reports every ~50 s), never by
+    making anything transmit. The decode check SKIPs if nothing is heard in
+    wait_s. Prints decoder names and counts, not field values."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name, ok, detail=""):
+        checks.append((name, None if ok is None else bool(ok), detail))
+
+    def frames(items, tag):
+        return [i for i in items if isinstance(i, Frame) and i.tag == tag]
+
+    def errors(items):
+        return [i for i in items if isinstance(i, Error)]
+
+    def lanes(items):
+        st = frames(items, "[STATUS]")
+        return (st[0].get("owner"), st[0].get("lora"), st[0].get("ook")) if st else (None, None, None)
+
+    p = Probe(port, baud)
+    try:
+        p.collect(0.5)
+        p.command("stop", 1.0)
+        hello = frames(p.command("hello"), "[HELLO]")
+        caps = (hello[0].get("caps") or "").split(",") if hello else []
+        check("[HELLO] advertises ook_rx", "ook_rx" in caps, ",".join(caps))
+        if "ook_rx" not in caps:
+            return report(checks, "D-20 OOK lane (no CC1101 answered at boot)", color)
+
+        _, _, ook = lanes(p.command("status", 0.6))
+        check("[STATUS] ook=idle before listening", ook == "idle", f"ook={ook}")
+        st = frames(p.command("ook_status"), "[OOK]")
+        check("ook_status running=0 when idle", st and st[0].get("running") == "0", "")
+        st = frames(p.command("stop ook"), "[STOP]")
+        check("stop ook when idle: acked, running=0",
+              st and st[0].get("lane") == "ook" and st[0].get("running") == "0", "")
+
+        for bad in ("ook_listen 360000", "ook_listen 950000", "ook_listen 0", "ook_listen 4339x0",
+                    "ook_listen 433920 1"):
+            errs = errors(p.command(bad))
+            check(f"`{bad}` is badarg", errs and errs[0].code == "badarg",
+                  errs[0].code if errs else "no [ERR]")
+
+        st = frames(p.command("ook_listen", 1.0), "[OOK]")
+        check("ook_listen defaults to 433920 kHz",
+              st and st[0].get("running") == "1" and st[0].get("freq_khz") == "433920",
+              f"freq_khz={st[0].get('freq_khz')} baud={st[0].get('baud')}" if st else "no [OOK]")
+        errs = errors(p.command("ook_listen"))
+        check("a second ook_listen is busy", errs and errs[0].code == "busy",
+              errs[0].code if errs else "no [ERR]")
+        _, _, ook = lanes(p.command("status", 0.6))
+        check("[STATUS] ook=rx while listening", ook == "rx", f"ook={ook}")
+
+        # All three lanes at once: the configuration D-20 allows.
+        lora_up = False
+        if not errors(p.command("lora_config 915000000 7 125 1")):
+            lora_up = bool(frames(p.command("lora_listen", 1.0), "[LORA]"))
+        frames(p.command("start_sniffer", 1.5), "[SNIFF]")
+        owner, lora, ook = lanes(p.command("status", 0.6))
+        check("three lanes run concurrently (owner=wifi, lora=rx, ook=rx)",
+              owner == "wifi" and lora == "rx" and ook == "rx" if lora_up else None,
+              f"owner={owner} lora={lora} ook={ook}")
+
+        got = wait_for(p, lambda items: any(isinstance(i, Event) and i.kind == "ook" for i in items), wait_s)
+        evs = [i for i in got if isinstance(i, Event) and i.kind == "ook"]
+        decoders = sorted({(e.kv.get("decoder") or b"").decode(errors="replace") for e in evs})
+        check("a nearby transmission decodes to [EVT] kind=ook while all lanes run",
+              True if evs else None, f"{len(evs)} event(s): {','.join(decoders)}" if evs
+              else f"nothing decodable heard in {wait_s:.0f} s")
+
+        st = frames(p.command("stop phy"), "[STOP]")
+        owner, lora, ook = lanes(p.command("status", 0.6))
+        check("stop phy spares OOK (and LoRa)", owner == "none" and ook == "rx" and
+              (lora == "rx" or not lora_up), f"owner={owner} lora={lora} ook={ook}")
+        if lora_up:
+            p.command("stop lora")
+            owner, lora, ook = lanes(p.command("status", 0.6))
+            check("stop lora spares OOK", lora == "idle" and ook == "rx", f"lora={lora} ook={ook}")
+            frames(p.command("lora_listen", 1.0), "[LORA]")
+
+        st = frames(p.command("ook_status"), "[OOK]")
+        ok = bool(st) and all(st[0].get(k) == "0" for k in ("overflows", "dropped", "errors", "hw_fault", "ocp_drop"))
+        check("session clean: 0 overflows/dropped/errors/hw_fault/ocp_drop", ok,
+              " ".join(f"{k}={st[0].get(k)}" for k in ("trains", "packets", "unknown", "overflows", "dropped",
+                                                        "errors", "reinit", "hw_fault", "ocp_drop")) if st else "")
+
+        st = frames(p.command("stop ook"), "[STOP]")
+        check("stop ook: acked, running=1", st and st[0].get("running") == "1", "")
+        owner, lora, ook = lanes(p.command("status", 0.6))
+        check("stop ook spares LoRa", ook == "idle" and (lora == "rx" or not lora_up),
+              f"lora={lora} ook={ook}")
+
+        st = frames(p.command("ook_listen 433920", 1.0), "[OOK]")
+        check("ook_listen restarts after stop", st and st[0].get("running") == "1", "")
+        p.command("stop", 1.0)
+        owner, lora, ook = lanes(p.command("status", 0.6))
+        check("a bare stop clears every lane", owner == "none" and ook == "idle" and lora in ("idle", "absent"),
+              f"owner={owner} lora={lora} ook={ook}")
+        check("probe still answers after all that",
+              any(isinstance(i, Pong) for i in p.command("ping")))
+    finally:
+        p.close()
+
+    return report(checks, "D-20 OOK lane", color)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Host-side OCP client and parser test harness.",
@@ -1007,6 +1116,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gate-stop", action="store_true",
                     help="scoped-`stop` lane isolation against a live probe (D-16); "
                          "the cross-lane checks SKIP without an SX1262 attached")
+    ap.add_argument("--gate-ook", action="store_true",
+                    help="OOK lane checks against a live probe with a CC1101 (D-20); passive: the "
+                         "decode check waits for nearby traffic and SKIPs if none")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
     color = not args.no_color and sys.stdout.isatty()
@@ -1019,6 +1131,8 @@ def main(argv: list[str] | None = None) -> int:
         return mode_gate_wifi(args.port, args.baud, color)
     if args.port and args.gate_sniffer:
         return mode_gate_sniffer(args.port, args.baud, color)
+    if args.port and args.gate_ook:
+        return mode_gate_ook(args.port, args.baud, color)
     if args.port and args.gate_stop:
         return mode_gate_stop(args.port, args.baud, color)
     if args.port and args.gate:
