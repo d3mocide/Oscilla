@@ -10,8 +10,10 @@
 #include <string.h>
 
 #include "cc1101_rx.h"
+#include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/message_buffer.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -81,7 +83,10 @@ esp_err_t cc1101_capture_init(const cc1101_bus_t *bus)
     if (s_task) return ESP_OK;
     s_bus = bus;
     s_chip = xSemaphoreCreateMutex();
-    s_chunks = xMessageBufferCreate(CC1101_CAPTURE_BUFFER_BYTES);
+    /* 25 kbaud is ~3 KB/s, so PSRAM is plenty fast and keeps 4 KB of
+     * internal RAM for the radio stacks. Only tasks touch it, never an ISR. */
+    s_chunks = xMessageBufferCreateWithCaps(CC1101_CAPTURE_BUFFER_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_chunks) s_chunks = xMessageBufferCreate(CC1101_CAPTURE_BUFFER_BYTES);
     if (!s_chip || !s_chunks) return ESP_ERR_NO_MEM;
     if (xTaskCreate(capture_task, "cc1101_cap", 3072, NULL, CC1101_CAPTURE_TASK_PRIO, &s_task) !=
         pdPASS) {

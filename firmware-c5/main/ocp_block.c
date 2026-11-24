@@ -9,6 +9,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef ESP_PLATFORM
+#include "esp_heap_caps.h"
+
+/* A full 256-row frame needs up to ~66 KB. Internal RAM belongs to the radio
+ * stacks, and its largest free block can be under 32 KB with every lane
+ * live, so build frames in PSRAM; internal RAM is only the fallback. */
+static void *block_realloc(void *ptr, size_t size)
+{
+    void *p = heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return p ? p : heap_caps_realloc(ptr, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+#else
+#define block_realloc realloc
+#endif
+
 void ocp_block_begin(ocp_block_t *block)
 {
     block->len = 0;
@@ -29,7 +44,7 @@ bool ocp_block_append(ocp_block_t *block, const char *bytes, size_t len, size_t 
             if (capacity > max_bytes / 2u) { capacity = max_bytes; break; }
             capacity *= 2u;
         }
-        char *next = realloc(block->bytes, capacity);
+        char *next = block_realloc(block->bytes, capacity);
         if (!next) {
             block->failed = true;
             return false;

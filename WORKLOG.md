@@ -1,3 +1,45 @@
+## 2026-11-24 — Heap pass 1: reply frames and the CC1101 buffer move to PSRAM
+
+**Phase:** D-20 hardening, branch `cc1101-idf` · **By:** Claude + Will
+
+Measured on the bench probe, both builds on v5.5.6. Against `main`, the
+OOK lane cost 13.9 KB of free internal heap at idle:
+- 5.8 KB static: FreeRTOS stream-buffer code in IRAM (+2.8 KB), other
+  IRAM (+1.4 KB), and `.bss` (+1.6 KB).
+- ~8 KB allocated at boot: the capture task's 3 KB stack and its 4 KB
+  message buffer.
+- Running OOK adds a 4 KB engine stack.
+
+After a Wi-Fi scan, the largest free internal block was 32,768 bytes,
+against ~45 KB on `main`. Block frames are built by doubling a buffer up
+to 256 rows (~66 KB). A full page would then need 32 KB of contiguous
+internal RAM and could be dropped silently.
+
+- **`ocp_block.c`:** on the probe, frames are built in PSRAM, with
+  internal RAM as the fallback. The host build keeps `realloc`.
+  - Proved with a throwaway build that logged `esp_ptr_external_ram()`:
+    every allocation from 1 KB to 16 KB landed in PSRAM, and a
+    130-network scan arrived whole.
+  - The first throwaway build used `printf`, which overflowed the system
+    event task's 2,304-byte stack (`rst=panic`). An instrumentation
+    artifact, but it shows how tight that stack is; see pass 2.
+- **`cc1101_capture.c`:** the 4 KB message buffer moved to PSRAM
+  (`xMessageBufferCreateWithCaps`), with internal RAM as the fallback.
+  Only tasks touch it.
+- **Result (free internal heap, bytes):**
+
+  | State | Before | After |
+  |---|---|---|
+  | Idle | 63,180 | 67,068 |
+  | All three lanes live, 30 s | 54,056 | 57,944 |
+  | Low-water mark after a scan | 49,532 | 51,396 |
+
+  `main` idles at 77,116.
+- **Gates:** `--gate-wifi` 41 passed (+1 skip), `--gate-ook` 22/22,
+  `--gate-stop` 15/15. Host suite green.
+
+---
+
 ## 2026-11-24 — ESP-IDF v5.5.6; USB replies over 1 KB were dropped (fixed)
 
 **Phase:** tooling, branch `cc1101-idf` · **By:** Claude + Will
