@@ -1,3 +1,23 @@
+## 2026-11-24 — CC1101 work merged into main; probe and deck flashed
+
+**Phase:** D-20 integration · **By:** Claude + Will
+
+- `main` fast-forwarded to `cc1101-idf` (`0225962`); main had no commits of its own since
+  the branch point. Will's uncommitted deck work (audio cues, key guide, idle sleep) was
+  stashed, main moved, and the work reapplied; only the two worklogs and the renderer's
+  source list overlapped, and each kept both sides.
+- Old `firmware-c5/build*` folders were configured for ESP-IDF v5.5.1 and refused to
+  reconfigure under v5.5.6; deleted, rebuilt clean. `check_protocol.sh` and
+  `build_firmware.sh` pass on the combined tree.
+- **Flashed:** probe `38:44:BE:BF:D2:94` (`build-uart`), deck `50:78:7D:CE:6D:64`.
+  Deck debug console: OOK RX card, `ook` → probe `ook=rx`; after ~2 min the deck held
+  1 device (LaCrosse 192/0), 3 packets, 0 link errors/timeouts.
+- Deck `dump` now reports `ook_active`, `ook_devices`, `ook_packets`, `ook_unknown`.
+- **Soak cut short:** the all-lanes soak (`output/soak/20261124-125229/`) stopped
+  logging at 13:37 after 0.74 h; the script's process was gone, not the probe (no reboot,
+  0 anomalies). Clean while it ran: heap 76,032 → 76,036 B (+7 B/h), OOK 56 packets,
+  0 overflows/drops/errors, Flipper 2/2. Not a long-duration result; rerun it overnight.
+
 ## 2026-11-24 — Deck OOK RX screen; overnight all-lanes soak started
 
 **Phase:** D-20 deck surface, branch `cc1101-idf` · **By:** Claude + Will

@@ -16,6 +16,10 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("probe_owner",probe_owner_);
     line.field("probe_lora",probe_lora_);
     line.field("probe_ook",probe_ook_);
+    line.field("ook_active",ook_.active()?1u:0u);
+    line.field("ook_devices",static_cast<uint32_t>(ook_.devices().size()));
+    line.field("ook_packets",ook_.totalPackets());
+    line.field("ook_unknown",ook_.unknownTrains());
     line.field("probe_uptime_ms",probe_uptime_ms_);
     line.field("probe_rst",client_.probe().rst);
     line.field("wifi_region",wifi_region_);
