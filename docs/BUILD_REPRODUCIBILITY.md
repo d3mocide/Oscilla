@@ -10,7 +10,14 @@ own hardware behavior:
   `firmware-cardputer/platformio.ini`.
 
 `tools/build_firmware.sh` asserts the first two versions before either board
-build starts. The platform and library versions are declared in
+build starts. It also refuses a v5.5.1 tree without Espressif's IDFGH-17050
+fix (commit `ffc08c2`, released in v5.5.5): on a C5 rev v1.0 with the USB
+Serial/JTAG console, the stock v5.5.1 gates UART0's clock at power-on and the
+ROM then loops when esptool resets the chip, so automatic flashing fails. The
+upstream backport is vendored unchanged as
+`tools/idf-patches/v5.5.1-esp32c5-usb-reset-IDFGH-17050.patch`; apply it with
+`git -C "$IDF_PATH" apply <patch>`, and CI does the same after cloning. Drop
+the patch when the pin moves to v5.5.5 or later. The platform and library versions are declared in
 `platformio.ini`; generated `.pio` package state remains a build artifact and
 is not treated as reviewable source. CI installs PlatformIO into a dedicated
 Python virtualenv so the pinned `pio` executable is on PATH independently of

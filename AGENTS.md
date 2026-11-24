@@ -120,7 +120,13 @@ result; this repo's culture is that a claim without evidence is a defect.
 10. **A JTAG `reset` leaves the C5 parked in ROM.** OpenOCD's `reset run`
     is a CPU reset; the chip loops at `0x4003B10E` and never boots the app.
     Use the RESET button or `esptool --after watchdog_reset`. Halt/resume
-    without reset is safe. Installed ROM symbols are rev0 and this chip is
+    without reset is safe. **The same park hit esptool's USB reset**
+    ("Write timeout", BOOT held at power-on to recover) until 2026-11-24.
+    Root cause: ESP-IDF bug IDFGH-17050 / esp-idf#18089. On C5 rev v1.0
+    with the USB Serial/JTAG console, v5.5.1 gates UART0's clock after a
+    power-on reset and the ROM loops on the next reset. Fixed upstream in
+    v5.5.5; until the pin moves, `build_firmware.sh` requires the vendored
+    patch in `tools/idf-patches/`. Installed ROM symbols are rev0 and this chip is
     `eco2`, so don't trust addr2line on ROM addresses.
 11. **OpenOCD needs a udev rule, and Espressif's assumes `plugdev`.** Arch
     has no such group, so udev drops every line naming it. Install

@@ -30,6 +30,8 @@ jobs:
           mkdir -p "$HOME/esp"
           git clone --depth 1 --branch v5.5.1 --recurse-submodules \
             https://github.com/espressif/esp-idf.git "$HOME/esp/esp-idf"
+          git -C "$HOME/esp/esp-idf" apply \
+            "$GITHUB_WORKSPACE/tools/idf-patches/v5.5.1-esp32c5-usb-reset-IDFGH-17050.patch"
           "$HOME/esp/esp-idf/install.sh" esp32c5
       - name: Add pinned PlatformIO to PATH
         run: |

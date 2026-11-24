@@ -1,3 +1,42 @@
+## 2026-11-24 — C5 flashing fixed: ESP-IDF IDFGH-17050, not our firmware
+
+**Phase:** tooling, branch `cc1101-idf` · **By:** Claude + Will
+
+`flash_c5.sh` kept failing with "Write timeout", leaving the C5 parked in
+ROM at `0x4003B10E`. Will had to hold BOOT at power-on to recover, and has
+hit the same thing on other C5 projects. The cause is ESP-IDF bug
+IDFGH-17050 (esp-idf#18089). The conditions are a C5 rev v1.0 (this one),
+the USB Serial/JTAG console (both our builds), and a power-on-type reset
+(power cycle or RTS hard reset). Under them, v5.5.1's `esp_perip_clk_init`
+gates UART0's clock, and the ROM then loops when esptool resets the chip.
+After a watchdog or software reset the gating is skipped. That is why
+flashing only failed sometimes.
+
+- **Fix:** Espressif's v5.5 backport `ffc08c2`, vendored unchanged as
+  `tools/idf-patches/v5.5.1-esp32c5-usb-reset-IDFGH-17050.patch` and
+  applied to the local ESP-IDF. Upstream it is in v5.5.5, v5.5.6, v6.0.3
+  and v6.1+.
+- **Build check:** `build_firmware.sh` now requires the patched `clk.c`,
+  matched by git blob hash, and nothing else changed in the ESP-IDF tree.
+  It then accepts `v5.5.1-dirty`.
+  - Proof in a scratch repo: the unpatched file and the patch plus a
+    stray edit are both refused; only the exact patched file is accepted.
+  - The first version, `apply --reverse --check`, let the stray edit
+    through.
+- **CI:** applies the patch after cloning.
+- **Hardware:** before the patch, 4 of 5 flashes failed: every one tried
+  while this branch's firmware was running, which had last come up from an
+  RTS or power-on reset. The one success was from a watchdog-reset boot.
+  After the patch, 5 back-to-back `flash_c5.sh` runs succeeded, each
+  following the previous run's RTS hard reset. A power-cycle followed by a
+  flash, the strongest trigger, is not yet re-tested.
+- **Earlier wrong guess:** before finding the bug report, I suspected the
+  CC1101 boot code. That was wrong; `main`'s firmware has the same console
+  configuration.
+- **Next:** ROADMAP item to move to v5.5.6 and drop the patch.
+
+---
+
 ## 2026-11-24 — OOK lane over OCP: CC1101 is the third concurrent radio (D-20)
 
 **Phase:** D-15 → D-20, branch `cc1101-idf` · **By:** Claude + Will
