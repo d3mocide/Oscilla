@@ -1,3 +1,44 @@
+## 2026-11-24 — ESP-IDF v5.5.6; `scan_networks` reply lost (pre-existing)
+
+**Phase:** tooling, branch `cc1101-idf` · **By:** Claude + Will
+
+- **Toolchain:** the shared `~/esp/esp-idf` moved v5.5.1 → v5.5.6 in
+  place.
+  - The patch was reverse-applied first, so the tree was clean.
+  - The spiffs submodule needed a second `submodule update`.
+  - `install.sh esp32c5,esp32s3`: the first run failed upgrading pip; the
+    second succeeded.
+  - It left a half-removed esptool. pip listed 4.14.0, but 4.12.0 code
+    loaded. Force-reinstalled under ESP-IDF's constraint file.
+  - Now: GCC esp-14.2.0_20260121, esptool 4.14.0.
+- **Repo:** pin 5.5.6 in `build_firmware.sh` and CI. Removed the vendored
+  patch, the hash check and the `-dirty` allowance. Updated
+  BUILD_REPRODUCIBILITY, AGENTS (install line, gotcha 10), README.
+  Historical 5.5.1 mentions (CHANGELOG, audits, fuzz sample) left as they
+  were.
+- **Verified on v5.5.6:**
+  - Clean UART and bench builds, 0 warnings; the image reports `v5.5.6`.
+  - `check_protocol.sh` green.
+  - `--gate` 17/17 (+1 skip), `--gate-stop` 15/15, `--gate-ook` 22/22.
+  - Flashing over USB with no BOOT button, from v5.5.6 firmware.
+- **`--gate-wifi` fails, and it is not the toolchain.** The failing check
+  is "scan_networks replies with [SCAN]"; the other 8 pass.
+  - Both controls fail the same way: `main` 572a512 built on v5.5.6, and
+    the 21 Nov v5.5.1 bench image from the main worktree.
+  - Status polling shows `owner=wifi` until ~11 s, then `owner=none`. The
+    scan completes, but no `[SCAN]` block ever arrives, even after 150 s.
+    `stop` mid-scan still gets its aborted frame.
+  - Lead, unproven: the result block is assembled in a buffer that
+    doubles (`ocp_block.c`, capped at 256 rows). With `heap_largest`
+    ~27–30 KB, growing to 32 KB fails once a reply passes 16 KB. Then
+    `on_scan_done` drops the frame silently.
+  - The 3-channel scan that would test this didn't run: the old image has
+    no `set_channels`.
+- **Flashing:** reflashing from the v5.5.1 control image parked the C5 in
+  ROM again, as expected, since that image still has the bug.
+
+---
+
 ## 2026-11-24 — C5 flashing fixed: ESP-IDF IDFGH-17050, not our firmware
 
 **Phase:** tooling, branch `cc1101-idf` · **By:** Claude + Will

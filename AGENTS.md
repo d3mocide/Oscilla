@@ -69,7 +69,7 @@ python3 tools/render_external_views.py  # host 320x240 PNG renders of all extern
 ./tools/build_firmware.sh      # real board builds: esp32c5 + esp32s3
 ```
 
-Installed here: **ESP-IDF v5.5.1** (`~/esp/esp-idf`), **PlatformIO Core 6.2.0**
+Installed here: **ESP-IDF v5.5.6** (`~/esp/esp-idf`), **PlatformIO Core 6.2.0**
 (`~/.platformio/penv`). Nothing needs installing.
 
 Run the checks before claiming something works. "It should compile" is not a
@@ -123,10 +123,10 @@ result; this repo's culture is that a claim without evidence is a defect.
     without reset is safe. **The same park hit esptool's USB reset**
     ("Write timeout", BOOT held at power-on to recover) until 2026-11-24.
     Root cause: ESP-IDF bug IDFGH-17050 / esp-idf#18089. On C5 rev v1.0
-    with the USB Serial/JTAG console, v5.5.1 gates UART0's clock after a
+    with the USB Serial/JTAG console, v5.5.1–v5.5.4 gate UART0's clock after a
     power-on reset and the ROM loops on the next reset. Fixed upstream in
-    v5.5.5; until the pin moves, `build_firmware.sh` requires the vendored
-    patch in `tools/idf-patches/`. Installed ROM symbols are rev0 and this chip is
+    v5.5.5; the pin is v5.5.6, so a gotcha-10 park now means an older
+    ESP-IDF or a JTAG reset. Installed ROM symbols are rev0 and this chip is
     `eco2`, so don't trust addr2line on ROM addresses.
 11. **OpenOCD needs a udev rule, and Espressif's assumes `plugdev`.** Arch
     has no such group, so udev drops every line naming it. Install

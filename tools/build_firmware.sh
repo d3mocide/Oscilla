@@ -6,22 +6,12 @@ cd "$(dirname "$0")/.."
 # shellcheck disable=SC1091
 source tools/env.sh
 
-EXPECTED_IDF_VERSION="5.5.1"
+EXPECTED_IDF_VERSION="5.5.6"
 EXPECTED_PIO_VERSION="6.2.0"
-IDF_PATCH="$PWD/tools/idf-patches/v5.5.1-esp32c5-usb-reset-IDFGH-17050.patch"
-# v5.5.1 needs Espressif's IDFGH-17050 fix (in v5.5.5+): without it a C5 rev
-# v1.0 with the USB Serial/JTAG console parks in ROM when esptool resets it,
-# so every flash needs BOOT held at power-on. AGENTS.md gotcha 10. The patch
-# makes the tree report "-dirty", which is accepted only when that patch is
-# the tree's sole change: clk.c must hash to the patched file exactly.
-IDF_PATCHED_CLK_SHA="44cf9386683cb9301a675bcb9a6b077c3cf2cee2"
-if [ "$(git -C "$IDF_PATH" hash-object components/esp_system/port/soc/esp32c5/clk.c)" != "$IDF_PATCHED_CLK_SHA" ]; then
-    echo "ESP-IDF lacks the IDFGH-17050 fix; run: git -C \"\$IDF_PATH\" apply $IDF_PATCH" >&2
-    exit 1
-fi
-if [ "$(git -C "$IDF_PATH" status --porcelain --untracked-files=no)" != " M components/esp_system/port/soc/esp32c5/clk.c" ] \
-        || [ "$(idf.py --version)" != "ESP-IDF v$EXPECTED_IDF_VERSION-dirty" ]; then
-    echo "wrong ESP-IDF: expected v$EXPECTED_IDF_VERSION plus only the IDFGH-17050 patch" >&2
+# v5.5.6 includes Espressif's IDFGH-17050 fix (in v5.5.5+); older v5.5 park
+# a C5 rev v1.0 in ROM when esptool resets it over USB (AGENTS.md gotcha 10).
+if [ "$(idf.py --version)" != "ESP-IDF v$EXPECTED_IDF_VERSION" ]; then
+    echo "wrong ESP-IDF: expected v$EXPECTED_IDF_VERSION" >&2
     exit 1
 fi
 if [ "$(pio --version)" != "PlatformIO Core, version $EXPECTED_PIO_VERSION" ]; then

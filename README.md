@@ -124,7 +124,7 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 | [`docs/DECISIONS.md`](docs/DECISIONS.md)                                         | **Decision Register**: D-numbered records of resolved/deferred questions.           | Resolve a `⛔` decision by guessing.            |
 | [`AGENTS.md`](AGENTS.md)                                                         | **Operating Manual**: Invariants, authority hierarchy, and bench gotchas.           | Break receive-only or run `.sh` on Windows.     |
 | [`SECURITY.md`](SECURITY.md)                                                     | **Threat Model**: Data handling, wardrive hygiene, disclosure policy.               | Commit field CSVs or sensitive captures.        |
-| [`firmware-c5/`](firmware-c5/)                                                   | **The Probe**: ESP-IDF v5.5.1 firmware for XIAO ESP32-C5.                           | Spin in tasks without explicit `vTaskDelay`.    |
+| [`firmware-c5/`](firmware-c5/)                                                   | **The Probe**: ESP-IDF v5.5.6 firmware for XIAO ESP32-C5.                           | Spin in tasks without explicit `vTaskDelay`.    |
 | [`firmware-cardputer/`](firmware-cardputer/)                                     | **The Deck**: PlatformIO / Arduino C++ firmware for Cardputer ADV.                  | Bypass the shared SD/TFT SPI bus lock.          |
 | [`tools/`](tools/)                                                               | **Host Client & Verification**: CLI parser, REPL, and compliance test suites.       | Require hardware for protocol verification.     |
 | [`docs/brand/README.md`](docs/brand/README.md)                                   | **Visual Authority (Markdown)**: Observatory v2 contract, palette, and font handoff for coding agents. | Deviate from brand color and font tokens.       |
@@ -166,7 +166,7 @@ python3 tools/ocp_repl.py /dev/serial/by-id/usb-Espressif_...
 
 Both toolchains are installed on the bench machine:
 
-- **ESP-IDF v5.5.1** (`~/esp/esp-idf`) for the ESP32-C5 probe.
+- **ESP-IDF v5.5.6** (`~/esp/esp-idf`) for the ESP32-C5 probe.
 - **PlatformIO Core 6.2.0** (`~/.platformio/penv`) for the Cardputer ADV deck.
 
 ```sh
