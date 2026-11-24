@@ -1,4 +1,4 @@
-## 2026-11-24 — ESP-IDF v5.5.6; `scan_networks` reply lost (pre-existing)
+## 2026-11-24 — ESP-IDF v5.5.6; USB replies over 1 KB were dropped (fixed)
 
 **Phase:** tooling, branch `cc1101-idf` · **By:** Claude + Will
 
@@ -28,12 +28,25 @@
   - Status polling shows `owner=wifi` until ~11 s, then `owner=none`. The
     scan completes, but no `[SCAN]` block ever arrives, even after 150 s.
     `stop` mid-scan still gets its aborted frame.
-  - Lead, unproven: the result block is assembled in a buffer that
-    doubles (`ocp_block.c`, capped at 256 rows). With `heap_largest`
-    ~27–30 KB, growing to 32 KB fails once a reply passes 16 KB. Then
-    `on_scan_done` drops the frame silently.
-  - The 3-channel scan that would test this didn't run: the old image has
-    no `set_channels`.
+  - **Cause, found and fixed the same day:** the USB transport handed a
+    whole block frame to `usb_serial_jtag_write_bytes`. That driver queues
+    each write as one byte-ring-buffer item, and the ring buffer refuses
+    outright any item larger than its 1024-byte size, with no partial
+    write. So every reply over 1 KB was dropped silently on USB.
+    - It began on 2026-09-17 (06e2427), when replies became
+      transactional blocks; `--gate-wifi` last passed on 2026-09-15.
+    - Grove UART is unaffected: `uart_write_bytes` feeds its buffer
+      incrementally.
+    - Evidence: a 1-channel scan (8 networks, 758 bytes) arrived; a
+      3-channel scan arrived as fragments only.
+  - **Fix:** `ocp_transport_write` (USB) now sends 512-byte chunks, each
+    with the same 100 ms bound, failing on the first short chunk.
+    - `--gate-wifi` 41 passed, 1 skipped (a full scan of 128 networks),
+      matching the September result.
+    - The unfixed build failed that check every run, which is the
+      proof that the gate catches it.
+    - `--gate` 17/17, `--gate-stop` 15/15 and `--gate-ook` 22/22 on
+      the fixed build.
 - **Flashing:** reflashing from the v5.5.1 control image parked the C5 in
   ROM again, as expected, since that image still has the bug.
 

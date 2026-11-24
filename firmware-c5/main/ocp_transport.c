@@ -82,10 +82,23 @@ int ocp_transport_read(uint8_t *buf, size_t len, uint32_t timeout_ms)
     return n < 0 ? 0 : n;
 }
 
+/* The driver queues each write as one ring-buffer item, and a byte ring
+ * buffer refuses any item larger than itself outright, without a partial
+ * write. A block frame can be many KB (ocp_frame.c), so it goes out in
+ * chunks that always fit. */
+#define OCP_TX_CHUNK_BYTES (OCP_TX_BUF_BYTES / 2u)
+
 bool ocp_transport_write(const char *data, size_t len)
 {
-    /* Bounded wait: a host that stops reading must not wedge the probe. */
-    return usb_serial_jtag_write_bytes(data, len, pdMS_TO_TICKS(100)) == (int)len;
+    while (len) {
+        const size_t n = len < OCP_TX_CHUNK_BYTES ? len : OCP_TX_CHUNK_BYTES;
+        /* Bounded wait per chunk: a host that stops reading must not wedge
+         * the probe. */
+        if (usb_serial_jtag_write_bytes(data, n, pdMS_TO_TICKS(100)) != (int)n) return false;
+        data += n;
+        len -= n;
+    }
+    return true;
 }
 
 const char *ocp_transport_name(void) { return "usb"; }
