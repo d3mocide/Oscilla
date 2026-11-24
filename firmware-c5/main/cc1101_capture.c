@@ -88,7 +88,7 @@ esp_err_t cc1101_capture_init(const cc1101_bus_t *bus)
     s_chunks = xMessageBufferCreateWithCaps(CC1101_CAPTURE_BUFFER_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!s_chunks) s_chunks = xMessageBufferCreate(CC1101_CAPTURE_BUFFER_BYTES);
     if (!s_chip || !s_chunks) return ESP_ERR_NO_MEM;
-    if (xTaskCreate(capture_task, "cc1101_cap", 3072, NULL, CC1101_CAPTURE_TASK_PRIO, &s_task) !=
+    if (xTaskCreate(capture_task, "cc1101_cap", 2048, NULL, CC1101_CAPTURE_TASK_PRIO, &s_task) !=
         pdPASS) {
         s_task = NULL;
         return ESP_ERR_NO_MEM;

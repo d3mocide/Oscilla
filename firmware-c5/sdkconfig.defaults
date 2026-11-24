@@ -44,3 +44,11 @@ CONFIG_IEEE802154_ENABLED=y
 # trimming anything (1500 KB, Espressif's own "large" single-app table —
 # same fix the bleprph_wifi_coex example ships with, not a guess).
 CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Memory placement (WORKLOG 2026-11-24, heap pass 2).
+# The system event task runs our Wi-Fi scan-done handler; 2304 bytes left
+# 224 bytes of headroom on hardware. 3584 gives ~1.5 KB.
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=3584
+# NimBLE host pools (msys/mbufs) in PSRAM: +4.9 KB internal, BLE scans
+# unchanged on the bench (75 devices / 86 events vs 89).
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y

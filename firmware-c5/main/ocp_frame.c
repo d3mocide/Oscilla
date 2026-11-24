@@ -9,7 +9,9 @@
 #include "ble_adv_parse.h"
 #include "ocp_transport.h"
 
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -39,7 +41,13 @@ esp_err_t ocp_frame_init(void)
 {
     s_lock = xSemaphoreCreateMutex();
     s_frame_lock = xSemaphoreCreateRecursiveMutex();
-    s_event_queue = xQueueCreate(OCP_EVENT_QUEUE_DEPTH, sizeof(ocp_event_record_t));
+    /* 32 x 268 B: the largest single internal-RAM user outside the radio
+     * stacks. Producers are all tasks (Wi-Fi task, NimBLE host, engines),
+     * never ISRs, so PSRAM is safe; the link, not the copy, is the
+     * bottleneck. Internal RAM is only the fallback. */
+    s_event_queue = xQueueCreateWithCaps(OCP_EVENT_QUEUE_DEPTH, sizeof(ocp_event_record_t),
+                                         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_event_queue) s_event_queue = xQueueCreate(OCP_EVENT_QUEUE_DEPTH, sizeof(ocp_event_record_t));
     if (!s_lock || !s_frame_lock || !s_event_queue) return ESP_ERR_NO_MEM;
     return xTaskCreate(event_task, "ocp_evt", 4096, NULL, OCP_EVENT_TASK_PRIO, NULL) == pdPASS
                ? ESP_OK : ESP_ERR_NO_MEM;

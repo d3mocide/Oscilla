@@ -74,7 +74,7 @@ esp_err_t status_led_start(void)
     led(false);
 
     atomic_store(&s_last_kick_us, esp_timer_get_time());
-    return xTaskCreate(led_task, "led", 2048, NULL, TASK_PRIO, NULL) == pdPASS
+    return xTaskCreate(led_task, "led", 1280, NULL, TASK_PRIO, NULL) == pdPASS
                ? ESP_OK : ESP_ERR_NO_MEM;
 }
 

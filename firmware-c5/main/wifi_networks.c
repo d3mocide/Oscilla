@@ -14,6 +14,7 @@
 
 #include "esp_log.h"
 #include "esp_heap_caps.h"
+#include "freertos/idf_additions.h"
 #include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -141,13 +142,16 @@ esp_err_t wifi_networks_init(void)
                                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     }
     s_lock = xSemaphoreCreateMutex();
-    s_event_queue = xQueueCreate(64, sizeof(network_event_t));
+    /* Fed from the Wi-Fi task's promiscuous callback (task context, not an
+     * ISR), so the 3.5 KB queue can live in PSRAM. */
+    s_event_queue = xQueueCreateWithCaps(64, sizeof(network_event_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_event_queue) s_event_queue = xQueueCreate(64, sizeof(network_event_t));
     if (!s_table || !s_lock || !s_event_queue) return ESP_ERR_NO_MEM;
     ESP_LOGI(TAG, "network table in %s RAM", esp_ptr_external_ram(s_table) ? "PSRAM" : "internal");
     const esp_timer_create_args_t args = { .callback = on_hop, .name = "network_hop" };
     esp_err_t err = esp_timer_create(&args, &s_hop_timer);
     if (err != ESP_OK) return err;
-    return xTaskCreate(network_event_task, "wifi_net_evt", 3072, NULL, 4, NULL) == pdPASS
+    return xTaskCreate(network_event_task, "wifi_net_evt", 2048, NULL, 4, NULL) == pdPASS
                ? ESP_OK : ESP_ERR_NO_MEM;
 }
 

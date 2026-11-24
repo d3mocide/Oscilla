@@ -364,7 +364,7 @@ void lora_cmd_sweep(int argc, char **argv)
     s_sweep_stop = false;
     s_sweep_idle = false;
 
-    if (xTaskCreate(sweep_task, "lora_sweep", 4096, NULL, LORA_SWEEP_TASK_PRIO, NULL) != pdPASS) {
+    if (xTaskCreate(sweep_task, "lora_sweep", 2560, NULL, LORA_SWEEP_TASK_PRIO, NULL) != pdPASS) {
         s_sweep_idle = true;
         lora_radio_sweep_stop();
         ocp_emit_error(OCP_ERR_INTERNAL, "could not start sweep task");

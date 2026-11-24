@@ -1,3 +1,106 @@
+## 2026-11-24 — Heap pass 2: queues and NimBLE to PSRAM, stacks sized from measurements
+
+**Phase:** D-20 hardening, branch `cc1101-idf` · **By:** Claude + Will
+
+**Method.** Scratch builds only, never committed. A monitor task logged
+every task's minimum stack headroom
+(`uxTaskGetSystemState`, trace facility on), plus free internal heap
+after each boot init step. One boot covered:
+- `--gate-wifi`, `--gate-sniffer`, `--gate-ook` and `--gate-stop`;
+- every engine: `scan_bt`, BLE scan, airtag, antisurveillance,
+  `hunt_ble`, `hunt_wifi`, `inspect_network`, `start_wifi_scan`, the
+  sniffer and its tables, deauth, `channel_view`, `packet_monitor`,
+  `lora_sweep`, wardrive with BLE concurrent with LoRa RX and OOK, the
+  `set_*` NVS writes, and `zig_recon` with its tables, run last because
+  stopping it restarts the probe by design.
+
+**Boot cost of internal RAM, before this pass:**
+
+| Init step | Cost |
+|---|---|
+| Wi-Fi | 53.9 KB |
+| NimBLE + controller | 31.6 KB |
+| OCP (transport, frame, server) | 20.5 KB |
+| LoRa + OOK | 12.1 KB |
+| 802.15.4 | 6.3 KB |
+| NVS + LED + arbiter | 4.9 KB |
+
+**Findings:**
+- **`sys_evt` stack:** 2,304 bytes with only **224 bytes free**. That task
+  runs our Wi-Fi scan-done handler.
+- **Oversized stacks:**
+
+  | Task | Stack | Peak use |
+  |---|---|---|
+  | `led` | 2048 | 268 |
+  | `wifi_net_evt` | 3072 | 640 |
+  | `cc1101_cap` | 3072 | 892 |
+  | `zig` | 4096 | 748 |
+  | `lora_sweep` | 4096 | 832 |
+  | `ook` | 4096 | 1136 |
+  | `lora_radio` | 4096 | 304 |
+  | `lora_drain` | 4096 | 588 |
+
+  The two LoRa receive stacks are unchanged: `rx=0` during the run, so
+  their receive path was never exercised.
+- **Tight but left alone:** `ocp` 796 free, `ocp_evt` 876, `nimble_host`
+  772.
+- **NimBLE** compiles in central, peripheral, broadcaster, GATT
+  client/server, SMP, privacy and 12 demo GATT services. The probe calls
+  only `ble_gap_disc*`.
+
+**Changes:**
+- **OCP event queue** (32 × 268 B = 8.6 KB) and **Wi-Fi discovery queue**
+  (3.6 KB) now in PSRAM (`xQueueCreateWithCaps`), with internal RAM as
+  the fallback. Every producer is a task, never an ISR: the Wi-Fi task's
+  promiscuous callback, the NimBLE host, and the engines.
+- **NimBLE host pools in PSRAM**
+  (`CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL`): BLE's boot cost drops from
+  31.6 KB to 26.9 KB. Scans were unchanged: `scan_bt` 75–77 devices,
+  continuous scan 86 events in 20 s, against 89 before.
+- **Stacks:** `sys_evt` 2304 → 3584. `led` 1280, `wifi_net_evt` 2048,
+  `cc1101_cap` 2048, `zig` 2560, `lora_sweep` 2560, `ook` 2560.
+  Re-measured headroom: sys_evt 1504, led 1012, wifi_net_evt 1392,
+  cc1101_cap 1192, zig 1808, lora_sweep 1740, ook 1428.
+
+**Results, real bench build (free internal heap, bytes):**
+
+| State | `main` | Before pass 1 | After pass 1 | Now |
+|---|---|---|---|---|
+| Idle | 77,116 | 63,180 | 67,068 | **83,748** |
+| Lora + OOK | – | 54,300 | 58,188 | **76,404** |
+| Sniffer + LoRa (+ OOK), 30 s | 72,432 | 54,056 | 57,944 | **76,164** |
+
+- Largest free block at idle: 61,440 bytes, up from 40,960.
+- The worst low-water mark in the full exercise is now 40,716. It is set
+  by the Wi-Fi driver's own allocations during `scan_networks`,
+  `hunt_wifi` and `inspect_network`, which this pass leaves alone.
+- One-off: on the first Wi-Fi start after a flash, the low-water mark
+  dipped to 43,240. After normal reboots it stays at 71,592–72,620.
+  Probably the radio's full first-time calibration (not proven); start
+  soak measurements after a reboot.
+
+**Performance:** OOK over OCP with all three lanes live: LaCrosse equal to
+rtl_433; Flipper 4/4 at 0.17–0.18 s latency (0.17–0.19 s before); 0 false
+or unknown packets; 0 overflows, drops or errors. BLE scan counts
+unchanged. The event queue copy from PSRAM is ~268 B per event, against a
+115200-baud link.
+
+**Verified:** host suite and receive-only audit green.
+- Real build: `--gate` 17/17 (+1 skip), `--gate-stop` 15/15.
+- Instrumented build: `--gate-wifi` 41 (+1 skip), `--gate-sniffer` 23,
+  `--gate-ook` 22. No errors and no unplanned reboots in the exercise.
+
+**Open:**
+- **Observer-only NimBLE.** It frees +3.9 KB internal and 112 KB of flash,
+  and would make receive-only structural. But on v5.5.6 discovery starts
+  and then delivers no reports and no completion. The host and controller
+  config diff is host-only; not yet root-caused.
+- **LoRa receive-path stacks:** need a LoRa source (the LoRaTrace
+  Heltec transmitter bench) before they are resized.
+
+---
+
 ## 2026-11-24 — Heap pass 1: reply frames and the CC1101 buffer move to PSRAM
 
 **Phase:** D-20 hardening, branch `cc1101-idf` · **By:** Claude + Will

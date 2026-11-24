@@ -139,7 +139,7 @@ esp_err_t zig_recon_init(void)
     if (!s_table) return ESP_ERR_NO_MEM;
     ESP_LOGI("zig", "802.15.4 table in %s RAM", esp_ptr_external_ram(s_table) ? "PSRAM" : "internal");
     zig_table_clear(s_table); esp_err_t err = zig_radio_init();
-    if (err == ESP_OK && xTaskCreate(zig_task, "zig", 4096, NULL, 5, NULL) != pdPASS) err = ESP_ERR_NO_MEM;
+    if (err == ESP_OK && xTaskCreate(zig_task, "zig", 2560, NULL, 5, NULL) != pdPASS) err = ESP_ERR_NO_MEM;
     if (err == ESP_OK) s_ready = true;
     return err;
 }

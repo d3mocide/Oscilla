@@ -37,7 +37,7 @@
 #define OOK_GLITCH_US 100u
 #define OOK_DEFAULT_KHZ 433920u
 #define OOK_TASK_PRIO 4               /* below capture (6) and OCP dispatch (10) */
-#define OOK_TASK_STACK 4096
+#define OOK_TASK_STACK 2560
 #define DRIFT_CHECK_MS 1000u
 #define STOP_WAIT_MS 500u
 
