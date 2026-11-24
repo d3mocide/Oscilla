@@ -1,3 +1,48 @@
+## 2026-11-23 — CC1101 capture task: lossless 25 kbaud bitstream on the C5
+
+**Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will
+
+This closes the overflow item from the entry below. `cc1101_capture.c` drains
+the RX FIFO from its own task, at priority 6 (below OCP dispatch, above the
+engines). It runs on an 8 ms `xTaskDelayUntil` tick and sends timestamped
+chunks to a 4 KB message buffer. A slow consumer loses chunks there, counted
+as `dropped`; the chip never overflows because of it. Other sequences on the
+chip, such as apply, reset, stress and the drift check, run inside
+`cc1101_capture_pause()`/`resume()`.
+
+- **Bug found and fixed in `cc1101_port.c`:** the "lock held" state was one
+  flag shared by every task. When the bench task held the bus, the capture
+  task saw `locked`, skipped the lock, and started a concurrent polling
+  transaction. It then released the bench task's mutex. The result was an
+  IDF `spi_device_polling_start ... previous polling transaction is not
+  terminated`, then `assert failed: xTaskPriorityDisinherit`, then a reboot,
+  reproduced on the first FIFO start. The holder is now tracked per task, and
+  CSn, clocking and the lock are only touched by the holder. The bug was
+  there from the start; it was hidden because only one task had ever used
+  the CC1101.
+- **Second fix:** `cc1101_capture_start` restarts RX with an empty FIFO.
+  Before this, a FIFO left overflowed by a stopped capture was counted as the
+  new capture's first overflow (1 seen after a 25 → 8 ms switch; 0 after the
+  fix).
+- **LaCrosse vs `rtl_433`, 5 min, SX1262 sweeping:** 6/6 transmissions with
+  the same run structure as before. 943,526 FIFO bytes (the full 3,125 B/s),
+  **0 overflows** (14 before), 0 dropped, 0 late ticks. 36,147 sweeps,
+  0 errors.
+- **Flipper Princeton (`fifo_runs.py`):** 5/5 with and without load, runs at
+  10 and 30 bits, 0 overflows, 0 dropped, 0 SX1262 errors.
+- **The check goes red:** with the SX1262 sweeping, a 25 ms drain tick (longer
+  than the ~20 ms the FIFO lasts) overflowed on almost every tick (~40/s),
+  with 8 bytes captured. 18 ms gave 0 overflows in 20 s, and 8 ms gave 0 in
+  60 s after deliberate starvation. The 8 ms default has about 2.5× margin.
+  The bench drift watchdog flagged the starved chip as `marc=11`
+  (RXFIFO_OVERFLOW), as intended; it saw no drift at 8 ms.
+- Bench: `drain N` now accepts 1–40 ms and restarts the capture. `I` lines
+  add `fifo_dropped`, `fifo_late` and `drain_ms`, and the console line buffer
+  grew to 480 bytes (the longer `I` line had been truncated). `fifo_runs.py`
+  waits for the C5 to boot, because opening the USB console sometimes resets
+  it.
+- **Still open:** pulse decoder, OCP verbs, sub-GHz arbiter, deck view.
+
 ## 2026-11-23 — CC1101 bitstream over SPI (no GDO0 wire): qualified on the C5
 
 **Phase:** D-15, branch `cc1101-idf` · **By:** Claude + Will

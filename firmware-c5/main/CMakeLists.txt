@@ -31,6 +31,7 @@ idf_component_register(
          "cc1101_config.c"
          "cc1101_rx.c"
          "cc1101_port.c"
+         "cc1101_capture.c"
          "cc1101_bench.c"
          "config_codec.c"
          "config.c"

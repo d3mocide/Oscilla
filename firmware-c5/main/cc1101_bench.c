@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "cc1101_bus.h"
+#include "cc1101_capture.h"
 #include "cc1101_config.h"
 #include "cc1101_port.h"
 #include "cc1101_profile.h"
@@ -32,7 +33,6 @@
 #include "subghz_spi.h"
 
 #define WINDOW_MS 20
-#define DRAIN_MS_DEFAULT 8   /* 64-byte FIFO lasts ~20 ms at 25 kbaud */
 #define VERIFY_MS 1000
 #define LLOAD_LO_HZ 902000000UL
 #define LLOAD_HI_HZ 928000000UL
@@ -44,8 +44,7 @@ static bool s_quiet;
 static uint32_t s_drifts;
 static char s_bringup[200];
 static uint32_t s_fifo_baud;          /* 0 = async profile (RSSI only) */
-static uint32_t s_fifo_bytes, s_fifo_overflows, s_fifo_errors;
-static uint32_t s_drain_ms = DRAIN_MS_DEFAULT;
+static uint32_t s_drain_ms = CC1101_CAPTURE_PERIOD_MS_DEFAULT;
 
 static volatile bool s_lload;
 static volatile uint32_t s_lload_sweeps, s_lload_errors;
@@ -55,7 +54,7 @@ static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 static void out(const char *fmt, ...)
 {
-    char line[320];
+    char line[480];
     va_list ap;
     va_start(ap, fmt);
     const int n = vsnprintf(line, sizeof line, fmt, ap);
@@ -66,12 +65,14 @@ static void out(const char *fmt, ...)
 
 static void bring_up(bool do_reset)
 {
+    cc1101_capture_pause();   /* the drain task must not touch the chip mid-sequence */
     bool edge = false, cal = false;
     cc1101_apply_report_t r = { 0, 0, 0, -1 };
     const cc1101_err_t pr = cc1101_probe(&s_bus, NULL, NULL);
     const cc1101_err_t rs = do_reset ? cc1101_reset(&s_bus, &edge) : CC1101_OK;
     const cc1101_err_t ap = cc1101_apply_profile(&s_bus, &s_profile, &r);
     const cc1101_err_t rx = ap == CC1101_OK ? cc1101_rx_start(&s_bus, &cal) : ap;
+    cc1101_capture_resume();
     snprintf(s_bringup, sizeof s_bringup,
              "probe=%s,reset=%s,so_edge=%d,apply=%s,written=%u,retried=%u,failed=%u,first_failed=%d,"
              "rx=%s,calibrated=%d",
@@ -88,13 +89,16 @@ static void print_info(void)
     cc1101_read_reg(&s_bus, CC1101_FREQ1, &f1);
     cc1101_read_reg(&s_bus, CC1101_FREQ0, &f0);
     const uint32_t freq = ((uint32_t)f2 << 16) | ((uint32_t)f1 << 8) | f0;
+    cc1101_capture_stats_t cs;
+    cc1101_capture_get_stats(&cs);
     out("I,partnum=0x%02x,version=0x%02x,freq_reg=0x%06lx,mhz_at_26=%.4f,probe=%s,drifts=%lu,"
         "lload=%d,lload_sweeps=%lu,lload_errors=%lu,fifo_baud=%lu,fifo_bytes=%lu,fifo_overflows=%lu,"
-        "fifo_errors=%lu,driver=oscilla-c5,%s\n",
+        "fifo_errors=%lu,fifo_dropped=%lu,fifo_late=%lu,drain_ms=%lu,driver=oscilla-c5,%s\n",
         part, ver, (unsigned long)freq, freq * 26.0 / 65536.0, cc1101_err_name(perr),
         (unsigned long)s_drifts, s_lload, (unsigned long)s_lload_sweeps,
-        (unsigned long)s_lload_errors, (unsigned long)s_fifo_baud, (unsigned long)s_fifo_bytes,
-        (unsigned long)s_fifo_overflows, (unsigned long)s_fifo_errors, s_bringup);
+        (unsigned long)s_lload_errors, (unsigned long)s_fifo_baud, (unsigned long)cs.bytes,
+        (unsigned long)cs.overflows, (unsigned long)cs.errors, (unsigned long)cs.dropped,
+        (unsigned long)cs.late, (unsigned long)s_drain_ms, s_bringup);
 }
 
 static void dump_regs(void)
@@ -114,6 +118,7 @@ static void stress(bool full, long n)
     long fail = 0, no_edge = 0, retried = 0;
     char first[96] = "";
     const uint32_t t0 = now_ms();
+    cc1101_capture_pause();
     for (long i = 0; i < n; i++) {
         cc1101_err_t err;
         bool cal = false;
@@ -142,6 +147,7 @@ static void stress(bool full, long n)
     uint8_t marc = 0;
     const cc1101_err_t v = cc1101_verify_profile(&s_bus, &s_profile, &at);
     cc1101_read_status(&s_bus, CC1101_MARCSTATE, &marc);
+    cc1101_capture_resume();
     out("S,%s,n=%ld,fail=%ld,no_so_edge=%ld,reg_retries=%ld,ms=%lu,verify=%s,marc=%02x,first_fail=%s\n",
         full ? "bringup" : "rxcycle", n, fail, no_edge, retried, (unsigned long)(now_ms() - t0),
         cc1101_err_name(v), marc, first[0] ? first : "none");
@@ -198,31 +204,39 @@ static void set_mode(uint32_t fifo_baud)
         if (!got) { out("E,mode,bad_baud=%lu\n", (unsigned long)fifo_baud); return; }
         fifo_baud = got;
     }
+    cc1101_capture_stop();
     s_profile = p;
     s_fifo_baud = fifo_baud;
-    s_fifo_bytes = s_fifo_overflows = s_fifo_errors = 0;
     bring_up(false);
+    if (fifo_baud) {
+        const esp_err_t err = cc1101_capture_start(s_drain_ms);
+        if (err != ESP_OK) out("E,capture,start=%s\n", esp_err_to_name(err));
+    }
     print_info();
 }
 
-static void drain_fifo(void)
+/* Forward chunks from the capture task as B lines; report new overflows. */
+static void emit_chunks(void)
 {
-    uint8_t buf[CC1101_FIFO_SIZE];
-    size_t n = 0;
-    bool ovf = false;
-    const cc1101_err_t err = cc1101_rx_drain(&s_bus, buf, sizeof buf, &n, &ovf);
-    if (err != CC1101_OK) { s_fifo_errors++; return; }
-    if (ovf) { s_fifo_overflows++; out("E,fifo_overflow,count=%lu\n", (unsigned long)s_fifo_overflows); }
-    if (!n) return;
-    s_fifo_bytes += n;
-    char hex[2 * CC1101_FIFO_SIZE + 1];
-    for (size_t i = 0; i < n; i++) {
-        static const char digits[] = "0123456789abcdef";
-        hex[2 * i] = digits[buf[i] >> 4];
-        hex[2 * i + 1] = digits[buf[i] & 0x0F];
+    static uint32_t seen_overflows;
+    cc1101_capture_stats_t cs;
+    cc1101_capture_get_stats(&cs);
+    if (cs.overflows < seen_overflows) seen_overflows = 0;   /* restarted */
+    if (cs.overflows != seen_overflows) {
+        seen_overflows = cs.overflows;
+        out("E,fifo_overflow,count=%lu\n", (unsigned long)cs.overflows);
     }
-    hex[2 * n] = '\0';
-    out("B,%lu,%u,%s\n", (unsigned long)now_ms(), (unsigned)n, hex);
+    cc1101_chunk_t c;
+    for (int k = 0; k < 8 && cc1101_capture_read(&c, 0); k++) {
+        static const char digits[] = "0123456789abcdef";
+        char hex[2 * CC1101_FIFO_SIZE + 1];
+        for (size_t i = 0; i < c.n; i++) {
+            hex[2 * i] = digits[c.data[i] >> 4];
+            hex[2 * i + 1] = digits[c.data[i] & 0x0F];
+        }
+        hex[2 * c.n] = '\0';
+        out("B,%lu,%u,%s\n", (unsigned long)c.t_ms, (unsigned)c.n, hex);
+    }
 }
 
 static void handle_line(char *buf)
@@ -244,6 +258,7 @@ static void handle_line(char *buf)
         cc1101_profile_t p = cc1101_profile_ook_433_async;
         const uint32_t got = cc1101_profile_set_drate(&p, (uint32_t)atol(buf + 15));
         if (!got) { out("E,mode,bad_baud\n"); return; }
+        cc1101_capture_stop();
         s_profile = p;
         s_fifo_baud = 0;
         bring_up(false);
@@ -251,7 +266,10 @@ static void handle_line(char *buf)
     }
     else if (!strncmp(buf, "drain ", 6)) {
         const long ms = atol(buf + 6);
-        if (ms >= 1 && ms <= 18) s_drain_ms = (uint32_t)ms;
+        if (ms >= 1 && ms <= (long)CC1101_CAPTURE_PERIOD_MS_MAX) {
+            s_drain_ms = (uint32_t)ms;
+            if (cc1101_capture_running()) cc1101_capture_start(s_drain_ms);   /* resets stats */
+        }
         out("I,drain_ms=%lu\n", (unsigned long)s_drain_ms);
     }
     else if (!strncmp(buf, "drive ", 6)) {
@@ -292,8 +310,10 @@ static void check_drift(void)
     last = now_ms();
     int16_t at = -1;
     uint8_t marc = 0;
+    cc1101_capture_pause();   /* an overflow restart passes through IDLE */
     const cc1101_err_t v = cc1101_verify_profile(&s_bus, &s_profile, &at);
     const cc1101_err_t m = cc1101_read_status(&s_bus, CC1101_MARCSTATE, &marc);
+    cc1101_capture_resume();
     if (v == CC1101_OK && m == CC1101_OK && (marc & 0x1F) == CC1101_MARC_RX) return;
     s_drifts++;
     out("E,drift,count=%lu,verify=%s,first_mismatch=%d,marc=%s/%02x\n", (unsigned long)s_drifts,
@@ -317,13 +337,9 @@ static void bench_task(void *arg)
         int peak = -200;
         long sum = 0;
         uint32_t count = 0;
-        static uint32_t last_drain;
         while (now_ms() - start < WINDOW_MS) {
             if (s_quiet) { vTaskDelay(1); continue; }
-            if (s_fifo_baud && now_ms() - last_drain >= s_drain_ms) {
-                last_drain = now_ms();
-                drain_fifo();
-            }
+            if (s_fifo_baud) emit_chunks();
             if (s_gap_us) esp_rom_delay_us(s_gap_us);
             int16_t dbm = 0;
             if (cc1101_rx_rssi(&s_bus, &dbm) != CC1101_OK) continue;
@@ -346,6 +362,8 @@ esp_err_t cc1101_bench_start(void)
     usb_serial_jtag_vfs_use_driver();
 
     err = cc1101_port_init(&s_bus);
+    if (err != ESP_OK) return err;
+    err = cc1101_capture_init(&s_bus);
     if (err != ESP_OK) return err;
     s_profile = cc1101_profile_ook_433_async;
     return xTaskCreate(bench_task, "cc1101_bench", 4096, NULL, 2, NULL) == pdPASS ? ESP_OK

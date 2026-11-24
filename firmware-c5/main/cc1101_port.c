@@ -9,15 +9,23 @@
 #include "driver/gpio.h"
 #include "esp_rom_sys.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "subghz_spi.h"
 
 #define PIN_CC1101_CSN 7          /* D3, 10 kΩ pull-up (Rev D §4.4) */
 #define CC1101_SPI_HZ  1000000    /* Rev D §4: start at 1 MHz */
 
+/* The holder is per task, not a flag: with a shared flag a second task saw
+ * "locked", skipped the bus lock, ran a concurrent polling transaction and
+ * released the first task's mutex (assert in xTaskPriorityDisinherit,
+ * WORKLOG 2026-11-23). */
 typedef struct {
     spi_device_handle_t dev;
-    bool locked;
+    volatile TaskHandle_t holder;
 } port_t;
+
+static bool held_by_me(const port_t *p) { return p->holder == xTaskGetCurrentTaskHandle(); }
 
 static port_t s_port;
 
@@ -25,14 +33,13 @@ static void port_cs(void *ctx, bool asserted)
 {
     port_t *p = ctx;
     if (asserted) {
-        if (!p->locked) p->locked = subghz_spi_lock(SUBGHZ_SPI_LOCK_TIMEOUT_MS);
-        if (p->locked) gpio_set_level(PIN_CC1101_CSN, 0);
-    } else {
+        if (!held_by_me(p) && subghz_spi_lock(SUBGHZ_SPI_LOCK_TIMEOUT_MS))
+            p->holder = xTaskGetCurrentTaskHandle();
+        if (held_by_me(p)) gpio_set_level(PIN_CC1101_CSN, 0);
+    } else if (held_by_me(p)) {   /* never touch CSn or the lock from a non-holder */
         gpio_set_level(PIN_CC1101_CSN, 1);
-        if (p->locked) {
-            p->locked = false;
-            subghz_spi_unlock();
-        }
+        p->holder = NULL;
+        subghz_spi_unlock();
     }
 }
 
@@ -41,7 +48,7 @@ static void port_cs(void *ctx, bool asserted)
 static bool port_xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len)
 {
     port_t *p = ctx;
-    if (!p->locked || len == 0 || len > 1 + CC1101_FIFO_SIZE) return false;
+    if (!held_by_me(p) || len == 0 || len > 1 + CC1101_FIFO_SIZE) return false;
     spi_transaction_t t = { .length = len * 8, .tx_buffer = tx, .rx_buffer = rx };
     return spi_device_polling_transmit(p->dev, &t) == ESP_OK;
 }
@@ -50,7 +57,7 @@ static bool port_xfer(void *ctx, const uint8_t *tx, uint8_t *rx, size_t len)
 static int port_so(void *ctx)
 {
     const port_t *p = ctx;
-    return p->locked ? gpio_get_level(SUBGHZ_PIN_MISO) : 1;
+    return held_by_me(p) ? gpio_get_level(SUBGHZ_PIN_MISO) : 1;
 }
 
 static void port_delay(void *ctx, uint32_t us)

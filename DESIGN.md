@@ -297,7 +297,8 @@ isolated third-party dependencies.
 | `cc1101_profile.c` | CC1101 register profiles as data (433.92 MHz OOK async, read back from a receiving chip), frequency word helpers; pure C, host-tested. Same status as `cc1101_bus.c` |
 | `cc1101_config.c` | Applies a profile in IDLE with per-register read-back and bounded retries, GDO pins first; drift/silent-reset verify with FSCAL result masks; pure C, host-tested. Same status as `cc1101_bus.c` |
 | `cc1101_rx.c` | CC1101 receive start/stop: flush, guaranteed synthesizer calibration (explicit SCAL when autocal does not cover IDLE→RX), confirmed MARCSTATE=RX; RSSI to dBm; pure C, host-tested. Same status as `cc1101_bus.c` |
-| `cc1101_port.c` | ESP-IDF transport for `cc1101_bus` on the shared bus: CSn GPIO7 (Rev D §4.4), takes the `subghz_spi` lock for each CS-low span and refuses to clock without it |
+| `cc1101_port.c` | ESP-IDF transport for `cc1101_bus` on the shared bus: CSn GPIO7 (Rev D §4.4), takes the `subghz_spi` lock for each CS-low span (holder tracked per task) and refuses to clock without it |
+| `cc1101_capture.c` | CC1101 FIFO-sampling drain task: fixed 8 ms tick at priority 6 (below OCP dispatch), timestamped chunks to a message buffer, chip-overflow vs slow-consumer counters, pause/resume for other chip sequences; lossless at 25 kbaud under SX1262 load (WORKLOG 2026-11-23) |
 | `cc1101_bench.c` | Bench-only USB console (`CONFIG_OSCILLA_CC1101_BENCH`, `build_firmware.sh --cc1101-bench`): same lines as `bench-cc1101-driver`, plus `lload` SX1262 sweep load for coexistence. Not an OCP surface |
 | `config_codec.c` | Pure-C 128-byte versioned, CRC32-protected probe config blob codec & bounds validator (region, band, channels, LoRa RX params); host-tested under ASan/UBSan |
 | `config.c` | NVS-backed probe settings (`oscilla`/`cfg_v1`): loads at boot before radio init, commits on `set_region`/`set_band`/`set_channels`/`lora_config` |

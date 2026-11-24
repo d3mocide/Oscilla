@@ -149,6 +149,7 @@ def main():
         sys.exit("refusing: the Flipper transmits test bursts; pass --transmit")
     probe = Probe(args.c5)
     probe.start()
+    time.sleep(5)   # opening the USB console resets the C5; let it boot
     fz = Flipper(args.flipper)
     phase(probe, fz, "async", ["lload off", "mode async"], args.seconds, 0, 0)
     phase(probe, fz, "fifo", [f"mode fifo {args.baud}"], args.seconds, args.bursts, args.baud)
@@ -157,7 +158,7 @@ def main():
     probe.send("i")
     time.sleep(1)
     info = probe.wait_line("I,partnum", t, 2)
-    keys = ("fifo_baud", "fifo_bytes", "fifo_overflows", "fifo_errors", "drifts", "lload_sweeps", "lload_errors")
+    keys = ("fifo_baud", "fifo_bytes", "fifo_overflows", "fifo_errors", "fifo_dropped", "fifo_late", "drifts", "lload_sweeps", "lload_errors")
     print("counters:", ", ".join(f"{k}={p.split('=')[1]}" for p in info.split(",") for k in keys
                                   if p.startswith(k + "=")))
     probe.send("lload off")
