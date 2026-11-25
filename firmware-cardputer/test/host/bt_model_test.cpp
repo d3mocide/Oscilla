@@ -197,6 +197,22 @@ int main()
         check(m.devices().size() == model::BtModel::kMaxDevices, "an address past capacity is dropped, not inserted");
     }
     {
+        /* Live discovery must not grow the table by doubling (heap holes on the deck). */
+        model::BtModel m;
+        m.beginContinuous();
+        size_t growths = 0, last = m.devices().capacity();
+        for (unsigned i = 0; i < model::BtModel::kMaxDevices; ++i) {
+            char mac[18];
+            std::snprintf(mac, sizeof mac, "00:00:00:00:%02x:%02x", (unsigned)(i >> 8), (unsigned)(i & 0xFF));
+            m.absorbEvent(eventOf("[EVT] kind=ble mac=" + std::string(mac) + " name=\"\" mfr=\"\" tracker=\"\" rssi=-50\n"));
+            if (m.devices().capacity() != last) { ++growths; last = m.devices().capacity(); }
+        }
+        check(growths == 1 && last == model::BtModel::kMaxDevices,
+              "live discovery allocates the table once, at its cap");
+        m.beginContinuous();
+        check(m.devices().capacity() == 0, "a new live session releases the table");
+    }
+    {
         model::BtModel m;
         m.beginContinuous();
         m.absorbEvent(eventOf("[EVT] kind=ble mac=f4:12:34:56:78:9a name=\"A\" mfr=\"\" tracker=\"\" rssi=-58\n"));

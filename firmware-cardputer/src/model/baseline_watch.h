@@ -76,6 +76,7 @@ public:
     bool active() const { return !aps_.empty() || !pans_.empty(); }
     size_t apCount() const { return aps_.size(); }
     size_t panCount() const { return pans_.size(); }
+    const std::vector<BaselineAp> &aps() const { return aps_; }
 
     void evaluate(const ScanModel &scan, const ZigModel &zig, uint32_t now_ms);
     void evaluateInspect(const Inspect &in, uint32_t now_ms);

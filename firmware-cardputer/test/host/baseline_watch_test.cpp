@@ -3,6 +3,7 @@
 #include "ocp.h"
 
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 
 namespace {
@@ -173,6 +174,33 @@ int main()
     const auto *opened = coarse_watch.anomalyForBssid("02:00:00:00:03:05");
     assert(opened && opened->kind == model::AnomalyKind::AuthDowngrade);       // WPA3 now open
     assert(coarse_watch.countOf(model::AnomalyKind::AuthDowngrade) == 2);
+
+    // The baseline lives all session on a PSRAM-less deck: storage fits what it holds.
+    {
+        std::string big = "schema=oscilla-baseline-v1\n";
+        model::ScanModel many;
+        many.begin();
+        ocp::Item page;
+        page.tag = OCP_MARK_SCAN;
+        page.kv = {{OCP_K_FIRST, "1"}, {OCP_K_TOTAL, "130"}};
+        for (int i = 0; i < 130; ++i) {
+            char mac[18], row[128];
+            std::snprintf(mac, sizeof mac, "02:00:00:00:%02x:%02x", i >> 8, i & 0xff);
+            big += std::string("AP,") + mac + ",net,WPA2,6,0\n";
+            std::snprintf(row, sizeof row, "\"%d\",\"net\",\"%s\",\"6\",\"WPA2\",\"-50\",\"2.4\"", i + 1, mac);
+            page.rows.push_back(row);
+        }
+        big += "AP,02:00:00:00:00:00,dup,WPA2,6,0\n";   // duplicate: reserved for, then trimmed
+        model::BaselineWatch fitted;
+        assert(fitted.parseCsv(big));
+        assert(fitted.apCount() == 130 && fitted.aps().capacity() == 130);
+        many.absorbPage(page);
+        model::ZigModel none;
+        fitted.captureFrom(many, none);
+        assert(fitted.apCount() == 130 && fitted.aps().capacity() == 130);
+        fitted.clear();
+        assert(fitted.aps().capacity() == 0);
+    }
 
     std::cout << "baseline watch: capture, CSV round-trip, evil-twin, auth-downgrade (precise + coarse), MFP-drop, hidden-AP safety and eviction passed\n";
     return 0;

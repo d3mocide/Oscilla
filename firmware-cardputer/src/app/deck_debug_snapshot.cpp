@@ -1,6 +1,7 @@
 /* Counts/states only; each formatted field has a short stack lifetime. */
 #include "app/deck_app.h"
 #include "debug/diagnostic_line.h"
+#include "model/table_bytes.h"
 #include "storage/lora_logger.h"
 #include "storage/wardrive_logger.h"
 namespace app {
@@ -96,6 +97,29 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("airtag_sightings", bt_.trackerCount());
     line.field("anti_alerts", anti_.alertCount());
     line.field("anti_starting", anti_start_pending_);
+    line.field("anti_trackers", anti_.trackers().size());
+    line.field("bt_hits", bt_.trackerHits().size());
+    {
+        using model::tableBytes; using model::stringsHeap;
+        const auto &sc = scan_.rows();
+        line.field("tbl_scan", tableBytes(sc, sc.size(), [](const model::ApRow &r) { return stringsHeap(r.ssid, r.bssid, r.auth); }));
+        const auto &bd = bt_.devices();
+        const auto &bh = bt_.trackerHits();
+        line.field("tbl_bt", tableBytes(bd, bd.capacity(), [](const model::BtDevice &d) { return stringsHeap(d.mac, d.name, d.mfr, d.tracker_kind); }) +
+                             tableBytes(bh, bh.capacity(), [](const model::BtTrackerHit &h) { return stringsHeap(h.mac, h.tracker_kind); }));
+        const auto &cc = contacts_.clients();
+        const auto &cp = contacts_.probes();
+        line.field("tbl_contacts", tableBytes(cc, cc.capacity(), [](const model::ClientRow &r) { return stringsHeap(r.bssid, r.mac); }) +
+                                   tableBytes(cp, cp.capacity(), [](const model::ProbeRow &r) { return stringsHeap(r.mac, r.ssid); }));
+        const auto &ba = baseline_.aps();
+        line.field("tbl_baseline", tableBytes(ba, ba.capacity(), [](const model::BaselineAp &a) { return stringsHeap(a.bssid, a.ssid, a.auth); }));
+        const auto &zp = zig_.pans();
+        const auto &zn = zig_.nodes();
+        line.field("tbl_zig", tableBytes(zp, zp.capacity(), [](const model::ZigPan &p) { return stringsHeap(p.pan, p.proto, p.channels); }) +
+                              tableBytes(zn, zn.capacity(), [](const model::ZigNode &n) { return stringsHeap(n.pan, n.short_addr, n.ext, n.role); }));
+        const auto &at = anti_.trackers();
+        line.field("tbl_anti", tableBytes(at, at.capacity(), [](const model::AntiTracker &t) { return stringsHeap(t.mac, t.tracker_kind); }));
+    }
     line.field("probe_heap", probe_heap_);
     line.field("probe_heap_total", probe_heap_total_);
     line.field("probe_heap_min", probe_heap_min_);

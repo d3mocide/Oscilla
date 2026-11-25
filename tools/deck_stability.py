@@ -57,6 +57,9 @@ MODES = [
 ]
 PHY_FLAGS = ('wifi_live', 'wifi_scanning', 'bt_live', 'bt_scanning', 'bt_tracker', 'sniffer_active',
              'spectrum_active', 'deauth_active', 'anti_active')
+# Table sizes and rough heap held per table (dump tbl_*), to say what fills the deck.
+TABLE_FIELDS = ('clients', 'probes', 'zig_nodes', 'baseline_aps', 'anti_trackers', 'bt_hits',
+                'tbl_scan', 'tbl_bt', 'tbl_contacts', 'tbl_baseline', 'tbl_zig', 'tbl_anti')
 TOUR = ['ook', 'key .', 'key ;', 'gnss', 'lora', 'wifi', 'info']
 
 
@@ -198,6 +201,9 @@ class Deck:
                     'ook_active', 'ook_devices', 'ook_packets', 'ook_unknown', 'scan_rows', 'bt_devices',
                     'sniff_pkts', 'probe_status_seq', *PHY_FLAGS):
             row[key] = int(d[key])
+        for key in TABLE_FIELDS:   # newer deck firmware only; absent keys are left out
+            if key in d:
+                row[key] = int(d[key])
         self.record(row)
         if self.samples and row['deck_uptime_s'] < self.samples[-1]['deck_uptime_s']:
             raise Fault('deck uptime went backwards (deck reset)')

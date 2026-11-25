@@ -5,6 +5,7 @@
  */
 
 #include "model/baseline_watch.h"
+#include <algorithm>
 
 #include <cstdio>
 #include <cstdlib>
@@ -146,14 +147,18 @@ bool BaselineWatch::isHighSeverity(AnomalyKind kind)
 
 void BaselineWatch::clear()
 {
-    aps_.clear();
-    pans_.clear();
-    anomalies_.clear();
+    /* Release, not just empty: the baseline is held for the whole session on a
+     * PSRAM-less deck, so its storage is sized once to what it holds. */
+    std::vector<BaselineAp>().swap(aps_);
+    std::vector<BaselinePan>().swap(pans_);
+    std::vector<BaselineAnomaly>().swap(anomalies_);
 }
 
 void BaselineWatch::captureFrom(const ScanModel &scan, const ZigModel &zig)
 {
     clear();
+    aps_.reserve(std::min(scan.rows().size(), kMaxBaselineAps));
+    pans_.reserve(std::min(zig.pans().size(), kMaxBaselinePans));
     for (const auto &r : scan.rows()) {
         if (aps_.size() >= kMaxBaselineAps) break;
         if (!validMac(r.bssid) || findAp(r.bssid)) continue;
@@ -164,6 +169,8 @@ void BaselineWatch::captureFrom(const ScanModel &scan, const ZigModel &zig)
         if (p.pan.empty() || hasPanInBaseline(p.pan)) continue;
         pans_.push_back({p.pan, p.channels});
     }
+    aps_.shrink_to_fit();   /* duplicates and bad BSSIDs were skipped */
+    pans_.shrink_to_fit();
 }
 
 std::string BaselineWatch::serializeCsv() const
@@ -184,6 +191,13 @@ std::string BaselineWatch::serializeCsv() const
 bool BaselineWatch::parseCsv(const std::string &csv)
 {
     clear();
+    size_t ap_lines = csv.compare(0, 3, "AP,") == 0 ? 1 : 0, pan_lines = 0;
+    for (size_t at = csv.find('\n'); at != std::string::npos; at = csv.find('\n', at + 1)) {
+        if (csv.compare(at + 1, 3, "AP,") == 0) ++ap_lines;
+        else if (csv.compare(at + 1, 4, "PAN,") == 0) ++pan_lines;
+    }
+    aps_.reserve(std::min(ap_lines, kMaxBaselineAps));
+    pans_.reserve(std::min(pan_lines, kMaxBaselinePans));
     size_t pos = 0;
     bool header_ok = false;
     while (pos < csv.size()) {
@@ -214,6 +228,8 @@ bool BaselineWatch::parseCsv(const std::string &csv)
             pans_.push_back({pan, channels});
         }
     }
+    aps_.shrink_to_fit();   /* rejected or duplicate rows were reserved for */
+    pans_.shrink_to_fit();
     return header_ok;
 }
 

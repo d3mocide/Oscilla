@@ -136,6 +136,10 @@ BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
         if (d.mac == mac) return &d;
     }
     if (devices_.size() >= kMaxDevices) return nullptr;   /* full: dropped, same posture as the probe's own table */
+    /* One table-sized block instead of a doubling chain: each doubling held the
+     * old and new blocks at once and left holes, which the PSRAM-less deck could
+     * not afford (WORKLOG 2026-11-24). begin*() still releases it. */
+    if (devices_.size() == devices_.capacity()) devices_.reserve(kMaxDevices);
     devices_.push_back(BtDevice{});
     devices_.back().mac = mac;
     return &devices_.back();
