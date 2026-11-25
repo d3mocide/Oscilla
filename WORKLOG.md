@@ -1,3 +1,28 @@
+## 2026-11-24 — 2 h probe soak; combined deck+probe run finds a deck out-of-memory abort
+
+**Phase:** stability · **By:** Claude + Will
+
+- **Probe soak** (`bench-cc1101-driver/soak.py`, USB bench build of `7df8c65`, 2.0 h, all
+  three lanes, Wi-Fi/BLE rotation every 15 min, Flipper every 30 min): 0 anomalies,
+  0 OOK overflows/drops/errors, 148 OOK packets (144 LaCrosse ≈ one per 50 s, as
+  expected), Flipper 4/4 at 0.22–0.26 s, sampled heap 79,872 → 79,348 B (−194 B/h).
+  **Open:** the since-boot low-water mark ratcheted down during the sniffer phase
+  (77 KB → 42 KB → 20 KB → **9,076 B** at 1.1 h), not at the scan/BLE rotations. Sampled
+  free heap never moved, so these are short bursts. Hypothesis, not proven: Wi-Fi
+  dynamic RX buffers (`DYNAMIC_RX_BUFFER_NUM` 32, internal RAM) filling under sniffer
+  traffic bursts. rtl_433 stopped after 4 readings, so it gave no cross-check this run.
+- **Combined run** (`tools/deck_stability.py`, probe on `build-uart`): smoke run of
+  4 + 3 + 1 minutes. Script fixes found on the way: the deck reboots when its port opens
+  (startup hold now tolerates boot output), LoRa needs `lora config` after a deck boot,
+  and leaving a Wi-Fi/BLE card stops the PHY lane by design (the tour now restarts the mode).
+- **Deck abort at 6 min:** `abort()` ← `std::bad_alloc` in
+  `BtModel::operator=` ← `tickExternalGpsDisplay` (`external_gps_display.cpp:323`, the
+  external panel's per-frame model copy). Deck free heap swung 137 KB → 56 KB with the
+  Wi-Fi scan rows (~150 rows ≈ 40 KB), and the largest block fell 115 KB → 22 KB as views
+  changed: fragmentation from frame copies being freed and reallocated per view switch.
+  The deck has no PSRAM. Not OOK-specific; the BLE-live slot after a sniffer slot was the
+  first copy that didn't fit. Fix not yet chosen.
+
 ## 2026-11-24 — GNSS card in the rotation; external OOK view
 
 **Phase:** deck screens · **By:** Claude + Will

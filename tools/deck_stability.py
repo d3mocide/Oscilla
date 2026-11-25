@@ -96,6 +96,8 @@ class Deck:
         self.expected = {}
         self.baseline = None
         self.ook_seen = (0, time.monotonic())
+        self.armed = False          # boot output before preflight is expected, not a fault
+        self.boots = 0
 
     # ---- serial ----------------------------------------------------------
     def say(self, text):
@@ -125,8 +127,10 @@ class Deck:
                         self.latest[name] = kv(line)
                         break
                 if RESET_RE.match(line):
-                    self.record({'diagnostic': line, 'elapsed_s': self.elapsed()})
-                    raise Fault('deck reset diagnostic: ' + line[:80])
+                    self.record({'diagnostic': line, 'elapsed_s': self.elapsed(), 'armed': self.armed})
+                    if self.armed:
+                        raise Fault('deck reset diagnostic: ' + line[:80])
+                    self.boots += 1
                 if line.startswith('deck probe-reset '):
                     self.events['probe_resets'] += 1
                 if line.startswith('deck state='):
@@ -242,6 +246,9 @@ class Deck:
     def start_receivers(self):
         d = self.dump()
         if d['lora_active'] == '0':
+            if d['lora_cfg'] == 'none':       # a freshly booted deck has not sent a LoRa config yet
+                self.send('lora config', 1.0)
+                self.wait(lambda d: d['lora_cfg'] != 'none', 'LoRa config accepted')
             self.send('lora', 1.5)
             self.wait(lambda d: d['lora_active'] == '1', 'LoRa RX started')
         if d['ook_active'] == '0':
@@ -268,12 +275,21 @@ class Deck:
                       and int(d['probe_status_seq']) > before, name + ' ownership')
             self.expected.update({flag: 1, 'probe_owner': owner})
 
-    def tour(self):
-        """One pass through the cards a person would look at, with keys."""
+    def tour(self, mode=None):
+        """One pass through the cards a person would look at, with keys.
+
+        Leaving a Wi-Fi/BLE card stops the PHY lane by design (the visible
+        card owns that radio; LoRa and OOK keep running), so the tour drops
+        the PHY expectations, looks around, then goes back and restarts the
+        mode the way a person would."""
+        for k in (*PHY_FLAGS, 'probe_owner'):
+            self.expected.pop(k, None)
         for step in TOUR:
             self.send(step if step.startswith('key') else 'card ' + step, .8)
         self.send('key i', .3)
         self.send('key back', .3)
+        if mode:
+            self.start_mode(mode)
 
     def run_until(self, end, phase, mode=None, tour_every=60):
         next_sample = time.monotonic()
@@ -287,7 +303,7 @@ class Deck:
                     self.send(mode[2], .3)
                 next_refresh = now + 45
             if now >= next_tour:
-                self.tour()
+                self.tour(mode)
                 next_tour = time.monotonic() + tour_every
             if now >= next_sample:
                 row = self.take(phase)
@@ -332,11 +348,19 @@ def main():
     outcome, reason = 'incomplete', ''
     try:
         deck.say(f'output {out}')
-        deck.collect(3)
+        deck.collect(15)            # let a deck that rebooted on port open finish booting
+        if deck.boots:
+            deck.say('deck booted while the port opened; waiting for the link')
         deck.send('\ndebug on', .6)
-        pre = deck.take('preflight', check=False)
-        if not pre['link_ready'] or not pre['sd_ready']:
-            raise Fault('preflight: link or SD not ready')
+        deadline = time.monotonic() + 60
+        while True:
+            pre = deck.take('preflight', check=False)
+            if pre['link_ready'] and pre['sd_ready']:
+                break
+            if time.monotonic() > deadline:
+                raise Fault('preflight: link or SD not ready after 60 s')
+            deck.collect(2)
+        deck.armed = True
         deck.say('preflight ' + deck.brief(pre))
         deck.stop_phy()
         deck.start_receivers()
