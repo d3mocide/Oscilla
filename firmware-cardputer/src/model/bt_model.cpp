@@ -7,6 +7,8 @@
 
 #include "model/bt_model.h"
 
+#include <algorithm>
+
 #include <cerrno>
 #include <cstdlib>
 
@@ -58,6 +60,7 @@ bool parseBtRow(const std::string &raw, BtDevice &row)
 void BtModel::beginScan()
 {
     devices_.clear();
+    evicted_ = 0;
     devices_.shrink_to_fit();
     malformed_ = 0;
     scanning_ = true;
@@ -66,6 +69,7 @@ void BtModel::beginScan()
 void BtModel::beginContinuous()
 {
     devices_.clear();
+    evicted_ = 0;
     devices_.shrink_to_fit();
     malformed_ = 0;
     continuous_active_ = true;
@@ -135,7 +139,20 @@ BtDevice *BtModel::findOrInsertDevice(const std::string &mac)
     for (auto &d : devices_) {
         if (d.mac == mac) return &d;
     }
-    if (devices_.size() >= kMaxDevices) return nullptr;   /* full: dropped, same posture as the probe's own table */
+    if (devices_.size() >= kMaxDevices) {
+        /* Full: the newcomer takes the slot of the advertiser heard from longest
+         * ago, in place so other rows keep their index. Live/wardrive tables are
+         * "what is around now", and wardrive logs only rows present here, so
+         * refusing newcomers would silently stop the SD log mid-drive. */
+        auto &slot = *std::min_element(devices_.begin(), devices_.end(),
+                                       [](const BtDevice &a, const BtDevice &b) {
+                                           return a.observation_id < b.observation_id;
+                                       });
+        slot = BtDevice{};
+        slot.mac = mac;
+        ++evicted_;
+        return &slot;
+    }
     /* One table-sized block instead of a doubling chain: each doubling held the
      * old and new blocks at once and left holes, which the PSRAM-less deck could
      * not afford (WORKLOG 2026-11-24). begin*() still releases it. */
@@ -182,7 +199,6 @@ void BtModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
         const auto *signal=evt.get(OCP_K_RSSI);long measured=0;
         if(!signal||!toLong(*signal,-128,127,measured)){++malformed_;return;}
         BtDevice *row = findOrInsertDevice(*mac);
-        if (!row) return;   /* table full: dropped, not swapped in for an older row */
 
         if (const auto *name = evt.get(OCP_K_NAME)) row->name = *name;
         if (const auto *mfr = evt.get(OCP_K_MFR)) row->mfr = *mfr;

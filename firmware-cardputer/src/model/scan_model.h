@@ -49,7 +49,10 @@ struct Inspect {
 
 class ScanModel {
 public:
-    static constexpr size_t kMaxRows = 512;   /* deck RAM, no PSRAM */
+    /* Deck RAM, no PSRAM. Matches the probe's own scan store (WIFI_STORE_MAX), so a
+     * survey is never cut short here; only live/wardrive tables reach it, and
+     * those replace their longest-unseen row instead of refusing a new one. */
+    static constexpr size_t kMaxRows = 256;
 
     /* A scan was requested: forget the old one. */
     void begin();
@@ -82,10 +85,13 @@ public:
     uint32_t elapsedMs() const { return elapsed_ms_; }
     uint16_t malformedRows() const { return malformed_; }
     const std::deque<ApRow> &rows() const { return rows_; }
+    /* Live rows replaced because the table was full (this session). */
+    uint32_t evicted() const { return evicted_; }
     const Inspect &inspect() const { return inspect_; }
 
 private:
     std::deque<ApRow> rows_;
+    uint32_t evicted_ = 0;
     Inspect inspect_;
     bool scanning_ = false;
     bool continuous_active_ = false;

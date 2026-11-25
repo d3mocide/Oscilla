@@ -70,13 +70,13 @@ int main()
     {
         model::ScanModel m;
         m.begin();
-        uint16_t next = m.absorbPage(frameOf(page(300, 1, 256)));
-        check(next == 257 && m.scanning(), "first of two pages asks for 257");
-        check(m.absorbPage(frameOf(page(300, 1, 256))) == 0 && m.rows().size() == 256,
+        uint16_t next = m.absorbPage(frameOf(page(200, 1, 128)));
+        check(next == 129 && m.scanning(), "first of two pages asks for 129");
+        check(m.absorbPage(frameOf(page(200, 1, 128))) == 0 && m.rows().size() == 128,
               "a repeated or stale page is ignored");
-        next = m.absorbPage(frameOf(page(300, 257, 44)));
-        check(next == 0 && !m.scanning() && m.rows().size() == 300, "second page completes the survey");
-        check(m.rows().back().idx == 300, "indices continue across pages");
+        next = m.absorbPage(frameOf(page(200, 129, 72)));
+        check(next == 0 && !m.scanning() && m.rows().size() == 200, "second page completes the survey");
+        check(m.rows().back().idx == 200, "indices continue across pages");
     }
     {
         model::ScanModel m;

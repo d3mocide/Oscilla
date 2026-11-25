@@ -380,7 +380,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/app/wifi_region_sync` · `src/app/wifi_band_sync` | app | Deck-owned Wi-Fi region and band-scope sync policy (`set_region`, `set_band`) |
 | `src/app/wardrive_resume` | app | When an open Drive log restarts the probe's `start_wardrive` stream after another PHY tool interrupted it |
 | `src/model/ook_model` · `src/ui/ook_view` | model · view | OOK RX (OCP-SPEC §15, D-20): validated `kind=ook` events folded into one row per transmitter (Princeton code, or LaCrosse id + channel), newest first, plus a packet log, `ook_unknown` counts and `[OOK]` health; `s` start/stop, `; .` select, detail line for the selected device |
-| `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 512-row cap in small allocation blocks, inspect result |
+| `src/model/scan_model` | model | Validated scan rows/events (never trusted), paging, 256-row cap in small allocation blocks (live tables replace the longest-unseen row, D-22), inspect result |
 | `src/model/snapshot_rows` | model | Contact/advertiser snapshot replacement with reused storage and no overlapping table allocations |
 | `src/ocp/ocp_csv` | OCP client | `[SCAN]` row splitter; diffed against `tools/ocp.py` |
 | `src/ui/sweep_view` · `src/ui/dwell_animation` | view | AP list and shared bounded-listen progress |

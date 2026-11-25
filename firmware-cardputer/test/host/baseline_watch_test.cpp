@@ -202,6 +202,58 @@ int main()
         assert(fitted.aps().capacity() == 0);
     }
 
+    // Compact records: no per-AP strings; SSIDs share one pool; file format unchanged.
+    {
+        static_assert(sizeof(model::BaselineAp) == 12, "a baseline AP is 12 bytes");
+        std::string csv = "schema=oscilla-baseline-v1\n";
+        size_t ssid_bytes = 0;
+        for (int i = 0; i < 130; ++i) {
+            char line[96];
+            std::snprintf(line, sizeof line, "AP,02:00:00:00:%02x:%02x,office-network-%09d,WPA2/WPA3,%d,%d\n",
+                          i >> 8, i & 0xff, i, 1 + i % 11, i % 2);
+            csv += line;
+            ssid_bytes += 24;
+        }
+        csv += "AP,0a:00:00:00:00:01,caf\\xc3\\xa9\\x2c \\x22q\\x22,WPA3-EAP192,36,1\n";   // non-ASCII, comma, quotes
+        csv += "AP,0a:00:00:00:00:02,,OPEN,1,0\n";                                           // hidden
+        csv += "AP,0a:00:00:00:00:03,x,SOMETHING-NEW,1,0\n";                                  // unlisted auth
+        csv += "PAN,0x1a2b,11\n";
+        model::BaselineWatch w;
+        assert(w.parseCsv(csv) && w.apCount() == 133 && w.panCount() == 1);
+        const size_t heap = w.apHeapBytes();
+        std::printf("  133-AP baseline (24-byte SSIDs) holds %zu bytes in two blocks\n", heap);
+        std::fflush(stdout);
+        assert(heap <= 133 * sizeof(model::BaselineAp) + ssid_bytes + 16 + 1);
+        assert(w.ssidOf(w.aps()[130]) == std::string("caf\xc3\xa9, \"q\""));
+        assert(w.ssidOf(w.aps()[131]).empty());
+
+        std::string expect = csv;
+        const std::string unlisted = "x,SOMETHING-NEW,";
+        expect.replace(expect.find(unlisted), unlisted.size(), "x,UNKNOWN,");
+        assert(w.serializeCsv() == expect);   // byte-exact round trip, unlisted auth named UNKNOWN
+
+        // Lookups compare address bytes, so case does not matter; SSID matching stays exact.
+        model::ScanModel live;
+        live.begin();
+        ocp::Item page;
+        page.tag = OCP_MARK_SCAN;
+        page.kv = {{OCP_K_FIRST, "1"}, {OCP_K_TOTAL, "3"}};
+        page.rows = {"\"1\",\"office-network-000000005\",\"02:00:00:00:00:05\",\"6\",\"WPA2\",\"-50\",\"2.4\"",
+                     "\"2\",\"office-network-000000007\",\"0A:00:00:00:00:09\",\"6\",\"WPA2/WPA3\",\"-50\",\"2.4\"",
+                     "\"3\",\"office-network-00000000\",\"0A:00:00:00:00:01\",\"36\",\"OPEN\",\"-50\",\"5\""};
+        live.absorbPage(page);
+        model::ZigModel none;
+        w.evaluate(live, none, 1);
+        const auto *down = w.anomalyForBssid("02:00:00:00:00:05");
+        assert(down && down->kind == model::AnomalyKind::AuthDowngrade && down->detail == "WPA2/WPA3->WPA2");
+        const auto *twin = w.anomalyForBssid("0A:00:00:00:00:09");
+        assert(twin && twin->kind == model::AnomalyKind::EvilTwin);
+        const auto *upper = w.anomalyForBssid("0A:00:00:00:00:01");
+        assert(upper && upper->kind == model::AnomalyKind::AuthDowngrade);   // matched despite upper case
+        w.clear();
+        assert(w.apHeapBytes() == 0);
+    }
+
     std::cout << "baseline watch: capture, CSV round-trip, evil-twin, auth-downgrade (precise + coarse), MFP-drop, hidden-AP safety and eviction passed\n";
     return 0;
 }

@@ -1,3 +1,36 @@
+## 2026-11-25 — Probe low-water traced to Wi-Fi RX buffers; deck live tables cap at 256 and replace; baseline shrinks 5×
+
+**Phase:** stability · **By:** Claude + Will
+
+- **Probe 9 KB low-water: cause found, fix not chosen.** A temporary heap-hook bench
+  build (`CONFIG_HEAP_USE_HOOKS`, not committed) recorded which task made each new
+  internal-heap low. In a 45 min sniffer + LoRa + OOK run the low-water fell
+  72 → 50 → **8.5 KB** at 31 min (sampled free heap never moved: 75.0 KB). Every
+  allocation at the lows came from the Wi-Fi driver task in triples of
+  1,856 + 168 + 8 B per received frame, with bursts of up to 3.4 MB/s of
+  allocate/free. 32 queued frames (`DYNAMIC_RX_BUFFER_NUM`) × 2,032 B ≈ 65 KB, and
+  75 − 65 ≈ 10 KB, matching the low. So the floor is bounded by the RX buffer count,
+  not a leak, but at that moment anything else on the probe has ~8 KB. The combined
+  deck runs never showed it because their sniffer slots were 2.5 min. Options
+  (radio-affecting, Will's call): move Wi-Fi buffers to PSRAM
+  (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`), or lower `DYNAMIC_RX_BUFFER_NUM`
+  (drops more frames in bursts). Output: `output/heapdiag/run45.log` (git-ignored).
+- **Deck live tables (D-22).** Wi-Fi cap 512 → 256, matching the probe's scan store;
+  BLE stays 96. A full live/wardrive table now replaces its longest-unseen row in
+  place instead of refusing newcomers. Found on the way: wardrive logs only rows
+  present in these tables, which reset only at drive start, so the SD log stopped
+  taking new BLE devices after 96 and new APs after 512. `dump` adds `scan_evicted`
+  and `bt_evicted`.
+- **Baseline APs are 12 bytes** (address bytes, auth code, SSID offset into one pool);
+  file format unchanged. The deck's saved 130-AP baseline: 12.4 KB → **2.3 KB**. Deck
+  heap 17 s after boot: 165 KB free, 147 KB largest.
+- Tests: 600-network and 300-device drives log every newcomer, keep a still-heard row
+  and hold the cap; byte-exact baseline round trip (escaped, hidden, unlisted auth);
+  case-insensitive address match. Mutants (refuse when full ×2, no pool trim, pool kept
+  on clear, case-sensitive match) all fail. `check_protocol.sh` and both firmware
+  builds pass. Both units flashed (probe back on `build-uart`). Not yet in a
+  combined run.
+
 ## 2026-11-25 — Deck memory: the external panel stops copying models; two full 2 h combined runs pass
 
 **Phase:** stability · **By:** Claude + Will

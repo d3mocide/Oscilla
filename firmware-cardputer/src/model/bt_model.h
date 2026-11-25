@@ -89,6 +89,8 @@ public:
     bool airtagActive() const { return airtag_active_; }
     uint16_t malformedRows() const { return malformed_; }
     const std::vector<BtDevice> &devices() const { return devices_; }
+    /* Live rows replaced because the table was full (this session). */
+    uint32_t evicted() const { return evicted_; }
 
     /* Distinct tracker-classified rows in the current device table. */
     uint16_t deviceTrackerCount() const;
@@ -101,6 +103,7 @@ private:
     BtDevice *findOrInsertDevice(const std::string &mac);
 
     std::vector<BtDevice> devices_;
+    uint32_t evicted_ = 0;
     uint16_t malformed_ = 0;
     uint32_t observation_id_=0;
     bool scanning_ = false;

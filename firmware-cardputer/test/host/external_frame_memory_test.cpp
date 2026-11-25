@@ -48,10 +48,10 @@ std::string mac(unsigned i)
     return s;
 }
 
-/* Tables at the size the combined run held when the deck aborted, or more. */
+/* Tables at their caps: more than the combined run held when the deck aborted. */
 void fill(model::ScanModel &scan, model::BtModel &bt, model::ContactsModel &contacts)
 {
-    constexpr unsigned kAps = 300;
+    constexpr unsigned kAps = model::ScanModel::kMaxRows;
     scan.begin();
     ocp::Item ap;
     ap.tag = OCP_MARK_SCAN;
@@ -123,7 +123,7 @@ int main() {
     /* Full tables, touring views the way deck_stability.py does: no display
      * allocation may need a table-sized contiguous block, and nothing is kept. */
     fill(scan, bt, contacts);
-    check(scan.rows().size() == 300 && bt.devices().size() == model::BtModel::kMaxDevices &&
+    check(scan.rows().size() == model::ScanModel::kMaxRows && bt.devices().size() == model::BtModel::kMaxDevices &&
           contacts.clients().size() == 200, "full-size source tables are populated");
     uint32_t now = 10000;
     auto frames = [&](int which, int count) {

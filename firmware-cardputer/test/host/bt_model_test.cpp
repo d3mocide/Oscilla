@@ -183,7 +183,7 @@ int main()
         check(m.devices()[0].name == "B" && m.devices()[0].rssi == -40, "upsert takes the latest fields");
     }
     {
-        /* Table caps at kMaxDevices, same lossy-by-design posture as the probe's own table. */
+        /* Table caps at kMaxDevices; when full, a newcomer replaces the longest-unseen row. */
         model::BtModel m;
         m.beginContinuous();
         for (unsigned i = 0; i < model::BtModel::kMaxDevices; i++) {
@@ -194,7 +194,34 @@ int main()
         }
         check(m.devices().size() == model::BtModel::kMaxDevices, "table fills to its cap");
         m.absorbEvent(eventOf("[EVT] kind=ble mac=ff:ff:ff:ff:ff:ff name=\"\" mfr=\"\" tracker=\"\" rssi=-50\n"));
-        check(m.devices().size() == model::BtModel::kMaxDevices, "an address past capacity is dropped, not inserted");
+        check(m.devices().size() == model::BtModel::kMaxDevices, "a full table does not grow");
+        check(m.devices()[0].mac == "ff:ff:ff:ff:ff:ff" && m.devices()[1].mac == "00:00:00:00:00:01" &&
+              m.evicted() == 1, "the newcomer takes the longest-unseen slot; other rows keep their index");
+    }
+    {
+        /* A long wardrive: every new advertiser must be in the table when its event
+         * lands, because the SD log copies the row from here (deck_wardrive.cpp). */
+        model::BtModel m;
+        m.beginContinuous();
+        const std::string keep = "[EVT] kind=ble mac=aa:aa:aa:aa:aa:aa name=\"K\" mfr=\"\" tracker=\"\" rssi=-40\n";
+        m.absorbEvent(eventOf(keep));
+        unsigned loggable = 0;
+        constexpr unsigned kDrive = 300;
+        for (unsigned i = 0; i < kDrive; ++i) {
+            char mac[18];
+            std::snprintf(mac, sizeof mac, "00:00:00:00:%02x:%02x", (unsigned)(i >> 8), (unsigned)(i & 0xFF));
+            m.absorbEvent(eventOf("[EVT] kind=ble mac=" + std::string(mac) + " name=\"\" mfr=\"\" tracker=\"\" rssi=-50\n"));
+            for (const auto &d : m.devices()) if (d.mac == mac) { ++loggable; break; }
+            if (i % 10 == 0) m.absorbEvent(eventOf(keep));   /* still around: re-heard */
+        }
+        bool kept = false;
+        for (const auto &d : m.devices()) kept |= d.mac == "aa:aa:aa:aa:aa:aa";
+        check(loggable == kDrive, "every new advertiser of a 300-device drive is present to log");
+        check(m.devices().size() == model::BtModel::kMaxDevices && m.evicted() == kDrive + 1 - model::BtModel::kMaxDevices,
+              "the table stays at its cap, replacing one row per newcomer");
+        check(kept, "an advertiser still being heard is not the one replaced");
+        m.beginContinuous();
+        check(m.evicted() == 0, "a new live session resets the eviction count");
     }
     {
         /* Live discovery must not grow the table by doubling (heap holes on the deck). */

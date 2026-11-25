@@ -50,7 +50,7 @@ int main() {
             check(scan.rows().size() == model::ScanModel::kMaxRows &&
                   frozen.rows().size() == scan.rows().size(),
                   "full live inventory and frozen copy keep the existing row cap");
-            auto update = event(0);
+            auto update = event(model::ScanModel::kMaxRows);   /* the last newcomer took slot 0 */
             update.kv[5].value = "-42";
             scan.absorbEvent(update, 9999);
             check(scan.rows()[0].rssi == -42 && frozen.rows()[0].rssi == -54,
@@ -60,6 +60,36 @@ int main() {
                   "stop keeps every cached AP");
             scan.clear(); frozen.clear();
             check(scan.rows().empty() && frozen.rows().empty(), "restart releases old AP rows");
+        }
+        {
+            /* A long wardrive: every new network must be in the table when its
+             * event lands, because the SD log copies the row from here
+             * (deck_wardrive.cpp). Full tables replace the longest-unseen row. */
+            constexpr size_t kDrive = 600;
+            const size_t kKeep = 0xffff;   /* a network still being heard */
+            scan.beginContinuous();
+            scan.absorbEvent(event(kKeep), 1);
+            size_t loggable = 0;
+            for (size_t i = 0; i < kDrive; ++i) {
+                const auto e = event(i);
+                scan.absorbEvent(e, 10+i);
+                const std::string &mac = e.kv[1].value;
+                for (const auto &r : scan.rows()) if (r.bssid == mac) { ++loggable; break; }
+                if (i % 10 == 0) scan.absorbEvent(event(kKeep), 10+i);
+            }
+            const std::string keep_mac = event(kKeep).kv[1].value;
+            bool kept = false;
+            for (const auto &r : scan.rows()) kept |= r.bssid == keep_mac;
+            check(loggable == kDrive, "every new network of a 600-network drive is present to log");
+            check(scan.rows().size() == model::ScanModel::kMaxRows &&
+                  scan.evicted() == kDrive + 1 - model::ScanModel::kMaxRows,
+                  "the live table stays at its cap, replacing one row per newcomer");
+            check(kept, "a network still being heard is not the one replaced");
+            bool slots_ok = true;
+            for (size_t i = 0; i < scan.rows().size(); ++i) slots_ok &= scan.rows()[i].idx == i + 1;
+            check(slots_ok, "a replacement keeps its slot's index; other rows do not move");
+            scan.beginContinuous();
+            check(scan.evicted() == 0, "a new live session resets the eviction count");
         }
         scan.begin();
         for (size_t start = 0; start < model::ScanModel::kMaxRows; start += 64) {

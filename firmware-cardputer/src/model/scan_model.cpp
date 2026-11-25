@@ -7,6 +7,8 @@
 
 #include "model/scan_model.h"
 
+#include <algorithm>
+
 #include <cerrno>
 #include <cctype>
 #include <cstdlib>
@@ -85,6 +87,7 @@ void ScanModel::begin()
 {
     rows_.clear();
     rows_.shrink_to_fit();
+    evicted_ = 0;
     inspect_ = Inspect();
     scanning_ = true;
     continuous_active_ = false;
@@ -99,6 +102,7 @@ void ScanModel::beginContinuous()
 {
     rows_.clear();
     rows_.shrink_to_fit();
+    evicted_ = 0;
     inspect_ = Inspect();
     scanning_ = false;
     continuous_active_ = true;
@@ -186,10 +190,20 @@ void ScanModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
         row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;
         return;
     }
-    if (rows_.size() >= kMaxRows) return;   /* bounded deck table: drop, don't churn old rows */
+    /* Full: the newcomer takes the slot of the row heard from longest ago. A
+     * live table is "what is around now", and wardrive logs only rows present
+     * here, so refusing newcomers would silently stop the SD log mid-drive.
+     * In place, so every other row keeps its index (cursors stay put). */
+    ApRow *slot = nullptr;
+    if (rows_.size() >= kMaxRows) {
+        slot = &*std::min_element(rows_.begin(), rows_.end(), [](const ApRow &a, const ApRow &b) {
+            return a.observation_id < b.observation_id;
+        });
+        ++evicted_;
+    }
 
     ApRow row;
-    row.idx = static_cast<uint16_t>(rows_.size() + 1);
+    row.idx = slot ? slot->idx : static_cast<uint16_t>(rows_.size() + 1);
     row.ssid = *ssid;
     row.bssid = *bssid;
     row.ch = static_cast<uint8_t>(ch);
@@ -199,7 +213,8 @@ void ScanModel::absorbEvent(const ocp::Item &evt,uint32_t now_ms)
     row.rssi = static_cast<int>(rssi);
     row.observed_ms=now_ms;row.observation_id=++observation_id_;
     row.beacon_info=true;row.rsn=rsn;row.mfp_capable=mfp_capable;row.mfp_required=mfp_required;row.interval_ms=interval;
-    rows_.push_back(std::move(row));
+    if (slot) *slot = std::move(row);
+    else rows_.push_back(std::move(row));
     total_ = static_cast<uint16_t>(rows_.size());
 }
 

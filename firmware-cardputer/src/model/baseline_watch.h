@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "model/scan_model.h"
@@ -27,12 +28,15 @@
 
 namespace model {
 
+/* 12 bytes, no heap of its own: the baseline is held for the whole session on
+ * a PSRAM-less deck. SSIDs live in BaselineWatch's one shared pool. */
 struct BaselineAp {
-    std::string bssid;
-    std::string ssid;
-    std::string auth;
+    uint8_t bssid[6] = {};
     uint8_t ch = 0;
+    uint8_t auth = 0;          /* index into the known auth labels; see authLabel() */
     bool mfp_required = false;
+    uint8_t ssid_len = 0;
+    uint16_t ssid_off = 0;     /* into the SSID pool */
 };
 
 struct BaselinePan {
@@ -77,6 +81,11 @@ public:
     size_t apCount() const { return aps_.size(); }
     size_t panCount() const { return pans_.size(); }
     const std::vector<BaselineAp> &aps() const { return aps_; }
+    std::string_view ssidOf(const BaselineAp &ap) const { return std::string_view(ssid_pool_).substr(ap.ssid_off, ap.ssid_len); }
+    static std::string bssidText(const BaselineAp &ap);
+    static const char *authLabel(uint8_t code);
+    /* Heap held by the AP table and its SSID pool (debug dump). */
+    size_t apHeapBytes() const;
 
     void evaluate(const ScanModel &scan, const ZigModel &zig, uint32_t now_ms);
     void evaluateInspect(const Inspect &in, uint32_t now_ms);
@@ -92,7 +101,10 @@ private:
     bool hasSsidInBaseline(const std::string &ssid) const;
     bool hasPanInBaseline(const std::string &pan_id) const;
 
+    bool addAp(const std::string &bssid, const std::string &ssid, const std::string &auth, uint8_t ch, bool mfp);
+
     std::vector<BaselineAp> aps_;
+    std::string ssid_pool_;
     std::vector<BaselinePan> pans_;
     std::vector<BaselineAnomaly> anomalies_;
 };

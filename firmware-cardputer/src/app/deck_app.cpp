@@ -500,7 +500,7 @@ void DeckApp::onReply(const ocp::Item &it)
                 notice("");
                 wardrive_rescan_=true;
             } else {
-                notice(scan_.truncated() ? "list capped at 512" : "");
+                notice(scan_.truncated() ? "list capped at " + std::to_string(model::ScanModel::kMaxRows) : std::string());
             }
         }
     } else if (it.tag == OCP_MARK_INSPECT) {

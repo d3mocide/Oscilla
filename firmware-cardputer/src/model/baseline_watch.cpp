@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace model {
 
@@ -81,6 +82,26 @@ std::vector<std::string> splitCsv(const std::string &line)
     return cols;
 }
 
+bool parseMac(const std::string &s, uint8_t out[6])
+{
+    if (!validMac(s)) return false;
+    for (int i = 0; i < 6; ++i) out[i] = static_cast<uint8_t>(hexVal(s[i * 3]) << 4 | hexVal(s[i * 3 + 1]));
+    return true;
+}
+
+/* Every label authRank() ranks, plus the probe's others. Index 0 is "". */
+const char *const kAuthLabels[] = {
+    "", "OPEN", "WEP", "WPA", "WPA/WPA2", "WPA2", "RSN", "OWE", "WPA2/WPA3", "WPA3",
+    "WPA-EAP", "WPA2-EAP", "WPA3-EAP", "WPA2/WPA3-EAP", "WPA3-EAP192", "WAPI", "DPP", "UNKNOWN",
+};
+constexpr uint8_t kAuthCount = sizeof kAuthLabels / sizeof kAuthLabels[0];
+
+uint8_t authCode(const std::string &auth)
+{
+    for (uint8_t i = 0; i < kAuthCount; ++i) if (auth == kAuthLabels[i]) return i;
+    return kAuthCount - 1;   /* an unlisted label ranks -1 either way */
+}
+
 bool parseU8(const std::string &s, uint8_t max_val, uint8_t *out)
 {
     if (s.empty() || s.size() > 3) return false;
@@ -145,11 +166,46 @@ bool BaselineWatch::isHighSeverity(AnomalyKind kind)
            kind == AnomalyKind::MfpDropped;
 }
 
+std::string BaselineWatch::bssidText(const BaselineAp &ap)
+{
+    char out[18];
+    std::snprintf(out, sizeof out, "%02x:%02x:%02x:%02x:%02x:%02x",
+                  ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+    return out;
+}
+
+const char *BaselineWatch::authLabel(uint8_t code)
+{
+    return code < kAuthCount ? kAuthLabels[code] : kAuthLabels[kAuthCount - 1];
+}
+
+size_t BaselineWatch::apHeapBytes() const
+{
+    return aps_.capacity() * sizeof(BaselineAp) + (ssid_pool_.capacity() > 15 ? ssid_pool_.capacity() + 1 : 0);
+}
+
+bool BaselineWatch::addAp(const std::string &bssid, const std::string &ssid, const std::string &auth,
+                          uint8_t ch, bool mfp)
+{
+    BaselineAp ap;
+    if (aps_.size() >= kMaxBaselineAps || !parseMac(bssid, ap.bssid) || findAp(bssid)) return false;
+    const size_t len = std::min<size_t>(ssid.size(), 32);   /* 802.11 SSIDs are at most 32 bytes */
+    ap.ch = ch;
+    ap.auth = authCode(auth);
+    ap.mfp_required = mfp;
+    ap.ssid_len = static_cast<uint8_t>(len);
+    ap.ssid_off = static_cast<uint16_t>(ssid_pool_.size());   /* <= 256 x 32 bytes */
+    ssid_pool_.append(ssid, 0, len);
+    aps_.push_back(ap);
+    return true;
+}
+
 void BaselineWatch::clear()
 {
     /* Release, not just empty: the baseline is held for the whole session on a
      * PSRAM-less deck, so its storage is sized once to what it holds. */
     std::vector<BaselineAp>().swap(aps_);
+    std::string().swap(ssid_pool_);
     std::vector<BaselinePan>().swap(pans_);
     std::vector<BaselineAnomaly>().swap(anomalies_);
 }
@@ -159,10 +215,12 @@ void BaselineWatch::captureFrom(const ScanModel &scan, const ZigModel &zig)
     clear();
     aps_.reserve(std::min(scan.rows().size(), kMaxBaselineAps));
     pans_.reserve(std::min(zig.pans().size(), kMaxBaselinePans));
+    size_t pool = 0;
+    for (const auto &r : scan.rows()) pool += std::min<size_t>(r.ssid.size(), 32);
+    ssid_pool_.reserve(std::min(pool, kMaxBaselineAps * 32));
     for (const auto &r : scan.rows()) {
         if (aps_.size() >= kMaxBaselineAps) break;
-        if (!validMac(r.bssid) || findAp(r.bssid)) continue;
-        aps_.push_back({r.bssid, r.ssid, r.auth, r.ch, r.beacon_info && r.mfp_required});
+        addAp(r.bssid, r.ssid, r.auth, r.ch, r.beacon_info && r.mfp_required);
     }
     for (const auto &p : zig.pans()) {
         if (pans_.size() >= kMaxBaselinePans) break;
@@ -170,6 +228,7 @@ void BaselineWatch::captureFrom(const ScanModel &scan, const ZigModel &zig)
         pans_.push_back({p.pan, p.channels});
     }
     aps_.shrink_to_fit();   /* duplicates and bad BSSIDs were skipped */
+    ssid_pool_.shrink_to_fit();
     pans_.shrink_to_fit();
 }
 
@@ -180,7 +239,8 @@ std::string BaselineWatch::serializeCsv() const
         char tail[24];
         std::snprintf(tail, sizeof tail, ",%u,%u\n",
                       static_cast<unsigned>(a.ch), a.mfp_required ? 1U : 0U);
-        out += "AP," + a.bssid + "," + escapeField(a.ssid) + "," + escapeField(a.auth) + tail;
+        out += "AP," + bssidText(a) + "," + escapeField(std::string(ssidOf(a))) + "," +
+               escapeField(authLabel(a.auth)) + tail;
     }
     for (const auto &p : pans_) {
         out += "PAN," + escapeField(p.pan_id) + "," + escapeField(p.channels) + "\n";
@@ -217,9 +277,8 @@ bool BaselineWatch::parseCsv(const std::string &csv)
         auto f = splitCsv(line);
         if (f.size() == 6 && f[0] == "AP" && aps_.size() < kMaxBaselineAps) {
             uint8_t ch = 0, mfp = 0;
-            if (!validMac(f[1]) || !parseU8(f[4], 196, &ch) || !parseU8(f[5], 1, &mfp)) continue;
-            if (findAp(f[1])) continue;
-            aps_.push_back({f[1], unescapeField(f[2]), unescapeField(f[3]), ch, mfp != 0});
+            if (!parseU8(f[4], 196, &ch) || !parseU8(f[5], 1, &mfp)) continue;
+            addAp(f[1], unescapeField(f[2]), unescapeField(f[3]), ch, mfp != 0);
         } else if (f.size() == 3 && f[0] == "PAN" && pans_.size() < kMaxBaselinePans) {
             std::string pan = unescapeField(f[1]);
             std::string channels = unescapeField(f[2]);
@@ -229,20 +288,23 @@ bool BaselineWatch::parseCsv(const std::string &csv)
         }
     }
     aps_.shrink_to_fit();   /* rejected or duplicate rows were reserved for */
+    ssid_pool_.shrink_to_fit();
     pans_.shrink_to_fit();
     return header_ok;
 }
 
 const BaselineAp *BaselineWatch::findAp(const std::string &bssid) const
 {
-    for (const auto &a : aps_) if (a.bssid == bssid) return &a;
+    uint8_t mac[6];
+    if (!parseMac(bssid, mac)) return nullptr;
+    for (const auto &a : aps_) if (std::memcmp(a.bssid, mac, sizeof mac) == 0) return &a;
     return nullptr;
 }
 
 bool BaselineWatch::hasSsidInBaseline(const std::string &ssid) const
 {
     if (ssid.empty()) return false;
-    for (const auto &a : aps_) if (a.ssid == ssid) return true;
+    for (const auto &a : aps_) if (ssidOf(a) == ssid) return true;
     return false;
 }
 
@@ -284,10 +346,10 @@ void BaselineWatch::evaluate(const ScanModel &scan, const ZigModel &zig, uint32_
     if (!active()) return;
     for (const auto &r : scan.rows()) {
         if (const auto *base = findAp(r.bssid)) {
-            const int base_rank = authRank(base->auth);
+            const int base_rank = authRank(authLabel(base->auth));
             const int live_rank = liveAuthCeiling(r);
             if (base_rank >= 0 && live_rank >= 0 && live_rank < base_rank) {
-                upsertAnomaly(AnomalyKind::AuthDowngrade, r.bssid, base->auth + "->" + r.auth, now_ms);
+                upsertAnomaly(AnomalyKind::AuthDowngrade, r.bssid, authLabel(base->auth) + ("->" + r.auth), now_ms);
             }
             if (base->mfp_required && r.beacon_info && !r.mfp_required) {
                 upsertAnomaly(AnomalyKind::MfpDropped, r.bssid, r.ssid, now_ms);
@@ -313,7 +375,7 @@ void BaselineWatch::evaluateInspect(const Inspect &in, uint32_t now_ms)
     const auto *base = findAp(in.bssid);
     if (!base) return;
     if (base->mfp_required && !in.mfp_required) {
-        upsertAnomaly(AnomalyKind::MfpDropped, in.bssid, base->ssid, now_ms);
+        upsertAnomaly(AnomalyKind::MfpDropped, in.bssid, std::string(ssidOf(*base)), now_ms);
     }
 }
 
