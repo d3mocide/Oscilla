@@ -34,8 +34,15 @@ constexpr int kWidth = 320, kStripHeight = 24, kStrips = 10;
 constexpr uint64_t kRowHashOffset = 14695981039346656037ULL;
 constexpr uint64_t kRowHashPrime = 1099511628211ULL;
 bool frame_resources_enabled=false;
-model::SessionReview frame_sessions;
+const model::SessionReview *frame_sessions=nullptr;
 bool frame_sessions_enabled=false;
+/* Frames borrow the app's live models instead of copying them: a copy doubled
+ * the deck's largest tables (no PSRAM) and its free/realloc on every view change
+ * fragmented the heap until a copy could not be placed (WORKLOG 2026-11-24).
+ * Every pointer targets a DeckApp member or a static in main.cpp, so it outlives
+ * the frame; the cost is that a frame drawn across ticks may show a table that
+ * changed between strips, corrected by the next frame. */
+const model::ContactsModel kNoContacts;
 enum class ExternalView : uint8_t {
     Default,
     Link,
@@ -74,15 +81,15 @@ bool frame_startup, frame_system_enabled, frame_zig_enabled, frame_pans;
 ExternalView active_view;
 ExternalView frame_view;
 size_t frame_zig_cursor;
-model::ZigModel frame_zig;
+const model::ZigModel *frame_zig=nullptr;
 model::SystemStatus frame_system;
 model::SystemResources frame_resources;
-model::WifiInspection frame_wifi_detail;
+const model::WifiInspection *frame_wifi_detail=nullptr;
 model::SurveyState frame_wifi_context;
-model::BtInspection frame_bt_detail;
+const model::BtInspection *frame_bt_detail=nullptr;
 bool frame_wifi_detail_enabled,frame_bt_detail_enabled;
-model::DeauthModel frame_deauth;
-model::AntiSurveillanceModel frame_anti;
+const model::DeauthModel *frame_deauth=nullptr;
+const model::AntiSurveillanceModel *frame_anti=nullptr;
 bool frame_trace_page, frame_trace_listening, frame_deauth_enabled, frame_anti_enabled, frame_anti_starting, frame_settings;
 bool frame_deauth_new;
 size_t frame_deauth_cursor, frame_anti_cursor;
@@ -94,33 +101,33 @@ int next_strip = kStrips;
 bool enabled;
 bool display_sleeping;
 bool force_full_frame;
-model::SpectrumModel frame_spectrum;
+const model::SpectrumModel *frame_spectrum=nullptr;
 size_t frame_cursor;
-model::ScanModel frame_scan;
+const model::ScanModel *frame_scan=nullptr;
 bool frame_scan_enabled;
 size_t frame_scan_cursor;
 bool frame_monitor, frame_lora_enabled;
-model::LoraModel frame_lora;
-model::LoraSweepModel frame_lora_sweep;
+const model::LoraModel *frame_lora=nullptr;
+const model::LoraSweepModel *frame_lora_sweep=nullptr;
 bool frame_lora_sweep_enabled;
-model::SignalHunt frame_signal_hunt;
+const model::SignalHunt *frame_signal_hunt=nullptr;
 bool frame_signal_hunt_enabled;
-model::PacketInspection frame_packet;
-model::ContactsModel frame_wifi_contacts;
+const model::PacketInspection *frame_packet=nullptr;
+const model::ContactsModel *frame_wifi_contacts=nullptr;
 bool frame_packet_enabled;
 size_t frame_lora_cursor;
 bool frame_drive_enabled,frame_drive_closing;
-model::DriveTrail frame_drive;
-model::ContactsModel frame_contacts;
-model::ContactInspection frame_contact_detail;
+const model::DriveTrail *frame_drive=nullptr;
+const model::ContactsModel *frame_contacts=nullptr;
+const model::ContactInspection *frame_contact_detail=nullptr;
 bool frame_contact_detail_enabled;
 bool frame_contacts_enabled, frame_probes;
 size_t frame_contacts_cursor;
-model::BtModel frame_bt;
+const model::BtModel *frame_bt=nullptr;
 bool frame_bt_enabled;
 size_t frame_bt_cursor;
 model::GnssModel frame_gps;
-model::OokModel frame_ook;
+const model::OokModel *frame_ook=nullptr;
 bool frame_ook_enabled;
 size_t frame_ook_cursor;
 storage::WardriveLogStats frame_log;
@@ -224,24 +231,24 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
                               card && card->settings ? ExternalView::Settings :
                               card && card->ook ? ExternalView::Ook : ExternalView::Default;
     if (view != active_view) {
-        detail::discardFrameCopy(frame_scan);
-        detail::discardFrameCopy(frame_wifi_contacts);
-        detail::discardFrameCopy(frame_bt);
-        detail::discardFrameCopy(frame_contacts);
-        detail::discardFrameCopy(frame_sessions);
-        detail::discardFrameCopy(frame_spectrum);
-        detail::discardFrameCopy(frame_lora);
-        detail::discardFrameCopy(frame_packet);
-        detail::discardFrameCopy(frame_deauth);
-        detail::discardFrameCopy(frame_anti);
-        detail::discardFrameCopy(frame_zig);
-        detail::discardFrameCopy(frame_wifi_detail);
-        detail::discardFrameCopy(frame_bt_detail);
-        detail::discardFrameCopy(frame_contact_detail);
+        frame_scan=nullptr;
+        frame_wifi_contacts=nullptr;
+        frame_bt=nullptr;
+        frame_contacts=nullptr;
+        frame_sessions=nullptr;
+        frame_spectrum=nullptr;
+        frame_lora=nullptr;
+        frame_packet=nullptr;
+        frame_deauth=nullptr;
+        frame_anti=nullptr;
+        frame_zig=nullptr;
+        frame_wifi_detail=nullptr;
+        frame_bt_detail=nullptr;
+        frame_contact_detail=nullptr;
         detail::discardFrameCopy(frame_system);
         detail::discardFrameCopy(frame_settings_state);
-        detail::discardFrameCopy(frame_signal_hunt);
-        detail::discardFrameCopy(frame_ook);
+        frame_signal_hunt=nullptr;
+        frame_ook=nullptr;
         active_view = view;
         row_cache.invalidate();
         force_full_frame = true;
@@ -260,21 +267,21 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
         if(resample)last_model_sample=now_ms;
         frame_gps=gps;
         frame_sessions_enabled=card&&card->sessions;
-        if(frame_sessions_enabled&&resample)frame_sessions=*card->sessions;
+        frame_sessions=frame_sessions_enabled?card->sessions:nullptr;
         frame_monitor = spectrum != nullptr;
         frame_view = view;
         frame_lora_enabled = lora != nullptr;
         frame_lora_sweep_enabled = card && card->lora_sweep;
-        if (frame_lora_sweep_enabled) frame_lora_sweep = *card->lora_sweep;
+        frame_lora_sweep=frame_lora_sweep_enabled?card->lora_sweep:nullptr;
         frame_signal_hunt_enabled = card && card->signal_hunt;
-        if (frame_signal_hunt_enabled) frame_signal_hunt = *card->signal_hunt;
+        frame_signal_hunt=frame_signal_hunt_enabled?card->signal_hunt:nullptr;
         frame_packet_enabled=card && card->packet;
-        if(frame_packet_enabled)frame_packet=*card->packet;
+        frame_packet=frame_packet_enabled?card->packet:nullptr;
         frame_startup=now_ms-started_at<2000;
         frame_scan_enabled=scan!=nullptr;
-        if((scan || (card && card->wifi_detail)) && resample)frame_wifi_contacts=card && card->observed_contacts ? *card->observed_contacts : model::ContactsModel{};
+        frame_scan=scan;
+        frame_wifi_contacts=card && card->observed_contacts ? card->observed_contacts : &kNoContacts;
         if(scan) {
-            if(resample)frame_scan=*scan;
             const auto count=static_cast<uint16_t>(std::min<size_t>(scan->rows().size(), UINT16_MAX));
             if(view==ExternalView::Wifi && count>previous_scan_rows) scan_event_until=now_ms+700;
             previous_scan_rows=count;
@@ -288,51 +295,53 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
             if(frame_resources_enabled)frame_resources=*card->system_resources;
         }
         frame_wifi_detail_enabled=card && card->wifi_detail;
-        if(frame_wifi_detail_enabled&&resample){frame_wifi_detail=*card->wifi_detail;if(card->wifi_context)frame_wifi_context=model::SurveyState(*card->wifi_context);}
+        frame_wifi_detail=frame_wifi_detail_enabled?card->wifi_detail:nullptr;
+        if(frame_wifi_detail_enabled&&resample&&card->wifi_context)frame_wifi_context=model::SurveyState(*card->wifi_context);
         frame_bt_detail_enabled=card && card->bt_detail;
-        if(frame_bt_detail_enabled&&resample)frame_bt_detail=*card->bt_detail;
+        frame_bt_detail=frame_bt_detail_enabled?card->bt_detail:nullptr;
         frame_trace_page=card && card->trace_page;
         frame_trace_listening=card && card->trace_listening;
         frame_deauth_enabled=card && card->deauth;
+        frame_deauth=frame_deauth_enabled?card->deauth:nullptr;
         if(frame_deauth_enabled) {
-            frame_deauth=*card->deauth;
-            if(view==ExternalView::Deauth && frame_deauth.totalCount()>previous_deauth_count) deauth_event_until=now_ms+700;
-            previous_deauth_count=frame_deauth.totalCount();
+            if(view==ExternalView::Deauth && frame_deauth->totalCount()>previous_deauth_count) deauth_event_until=now_ms+700;
+            previous_deauth_count=frame_deauth->totalCount();
         } else if(view!=ExternalView::Deauth) previous_deauth_count=0;
         frame_deauth_new=now_ms<deauth_event_until;
         frame_deauth_cursor=card ? card->deauth_cursor : 0;
         frame_anti_enabled=card && card->anti;
-        if(frame_anti_enabled) frame_anti=*card->anti;
+        frame_anti=frame_anti_enabled?card->anti:nullptr;
         frame_anti_cursor=card ? card->anti_cursor : 0;
         frame_anti_starting=card && card->anti_starting;
         frame_ook_enabled=card && card->ook;
-        if(frame_ook_enabled&&resample) frame_ook=*card->ook;
+        frame_ook=frame_ook_enabled?card->ook:nullptr;
         frame_ook_cursor=card ? card->ook_cursor : 0;
         frame_settings=card && card->settings;
         if(frame_settings) frame_settings_state=*card->settings;
         frame_zig_enabled=zig!=nullptr;
-        if(zig) frame_zig=*zig;
+        frame_zig=zig;
         frame_pans=pans;frame_zig_cursor=zig_cursor;
         frame_contacts_enabled = contacts != nullptr;
         frame_contact_detail_enabled=card && card->contact_detail;
-        if(frame_contact_detail_enabled && resample)frame_contact_detail=*card->contact_detail;
-        if(contacts&&resample) frame_contacts=*contacts;
+        frame_contact_detail=frame_contact_detail_enabled?card->contact_detail:nullptr;
+        frame_contacts=contacts;
         frame_probes=probes;
         frame_contacts_cursor=contacts_cursor;
         frame_bt_enabled = bt != nullptr;
-        if(bt&&resample) frame_bt=*bt;
+        frame_bt=bt;
         frame_bt_cursor=bt_cursor;
         frame_drive_enabled = drive != nullptr;
+        frame_drive=drive;
         frame_drive_closing=card && card->drive_closing;
         if(drive) {
-            frame_drive=*drive;frame_gps=gps;
+            frame_gps=gps;
 #if !defined(OSCILLA_SD_DISPLAY_BENCH)
             frame_log=storage::wardriveLogStats();
 #endif
         }
-        if (lora) frame_lora = *lora;
+        frame_lora=lora;
         frame_lora_cursor = lora_cursor;
-        if (spectrum) frame_spectrum = *spectrum;
+        frame_spectrum=spectrum;
         frame_cursor = cursor;
         frame_time = now_ms;
         last_frame = now_ms;
@@ -342,41 +351,41 @@ void tickExternalGpsDisplay(const model::GnssModel &gps, uint32_t bytes,
     if(frame_startup && frame_view == ExternalView::Default) {
         drawExternalStartupStrip(strip,next_strip*kStripHeight);
     } else if (frame_signal_hunt_enabled) {
-        drawExternalHuntStrip(strip, next_strip * kStripHeight, frame_signal_hunt, frame_time);
+        drawExternalHuntStrip(strip, next_strip * kStripHeight,*frame_signal_hunt, frame_time);
     } else if(frame_system_enabled) {
         drawExternalSystemStrip(strip,next_strip*kStripHeight,frame_system,frame_time,frame_resources_enabled?&frame_resources:nullptr);
     } else if(frame_scan_enabled) {
-        drawExternalWifiStrip(strip,next_strip*kStripHeight,frame_scan,frame_scan_cursor,frame_time,frame_time<scan_event_until,&frame_wifi_contacts,frame_wifi_baseline.active?&frame_wifi_baseline:nullptr);
+        drawExternalWifiStrip(strip,next_strip*kStripHeight,*frame_scan,frame_scan_cursor,frame_time,frame_time<scan_event_until,frame_wifi_contacts,frame_wifi_baseline.active?&frame_wifi_baseline:nullptr);
     } else if(frame_sessions_enabled) {
-        drawExternalSessionStrip(strip,next_strip*kStripHeight,frame_sessions);
-    } else if(frame_trace_page) {
-        drawExternalWifiDetailStrip(strip,next_strip*kStripHeight,frame_wifi_detail,frame_wifi_context,frame_wifi_contacts,frame_trace_listening,frame_time);
+        drawExternalSessionStrip(strip,next_strip*kStripHeight,*frame_sessions);
+    } else if(frame_trace_page && frame_wifi_detail) {
+        drawExternalWifiDetailStrip(strip,next_strip*kStripHeight,*frame_wifi_detail,frame_wifi_context,*frame_wifi_contacts,frame_trace_listening,frame_time);
     } else if(frame_deauth_enabled) {
-        drawExternalDeauthStrip(strip,next_strip*kStripHeight,frame_deauth,frame_deauth_cursor,frame_deauth_new,frame_time);
+        drawExternalDeauthStrip(strip,next_strip*kStripHeight,*frame_deauth,frame_deauth_cursor,frame_deauth_new,frame_time);
     } else if(frame_anti_enabled) {
-        drawExternalAntiStrip(strip,next_strip*kStripHeight,frame_anti,frame_anti_cursor,frame_anti_starting,frame_time);
+        drawExternalAntiStrip(strip,next_strip*kStripHeight,*frame_anti,frame_anti_cursor,frame_anti_starting,frame_time);
     } else if(frame_ook_enabled) {
-        drawExternalOokStrip(strip,next_strip*kStripHeight,frame_ook,frame_ook_cursor,frame_time);
+        drawExternalOokStrip(strip,next_strip*kStripHeight,*frame_ook,frame_ook_cursor,frame_time);
     } else if(frame_settings) {
         drawExternalSettingsStrip(strip,next_strip*kStripHeight,frame_settings_state);
     } else if(frame_zig_enabled) {
-        drawExternalZigStrip(strip,next_strip*kStripHeight,frame_zig,frame_pans,frame_zig_cursor);
+        drawExternalZigStrip(strip,next_strip*kStripHeight,*frame_zig,frame_pans,frame_zig_cursor);
     } else if(frame_contacts_enabled) {
-        if(frame_contact_detail_enabled)drawExternalContactDetailStrip(strip,next_strip*kStripHeight,frame_contacts,frame_contact_detail,frame_time);
-        else drawExternalContactsStrip(strip,next_strip*kStripHeight,frame_contacts,frame_probes,frame_contacts_cursor,frame_time);
+        if(frame_contact_detail_enabled)drawExternalContactDetailStrip(strip,next_strip*kStripHeight,*frame_contacts,*frame_contact_detail,frame_time);
+        else drawExternalContactsStrip(strip,next_strip*kStripHeight,*frame_contacts,frame_probes,frame_contacts_cursor,frame_time);
     } else if(frame_bt_enabled) {
-        if(frame_bt_detail_enabled)drawExternalBtDetailStrip(strip,next_strip*kStripHeight,frame_bt_detail,frame_bt,frame_time);
-        else drawExternalBtStrip(strip,next_strip*kStripHeight,frame_bt,frame_bt_cursor);
+        if(frame_bt_detail_enabled)drawExternalBtDetailStrip(strip,next_strip*kStripHeight,*frame_bt_detail,*frame_bt,frame_time);
+        else drawExternalBtStrip(strip,next_strip*kStripHeight,*frame_bt,frame_bt_cursor);
     } else if(frame_drive_enabled) {
-        drawExternalDriveStrip(strip,next_strip*kStripHeight,frame_gps,frame_drive,frame_log,frame_time,frame_drive_closing);
+        drawExternalDriveStrip(strip,next_strip*kStripHeight,frame_gps,*frame_drive,frame_log,frame_time,frame_drive_closing);
     } else if (frame_lora_sweep_enabled) {
-        drawExternalLoraSweepStrip(strip, next_strip * kStripHeight, frame_lora_sweep, frame_time);
+        drawExternalLoraSweepStrip(strip, next_strip * kStripHeight,*frame_lora_sweep, frame_time);
     } else if (frame_lora_enabled) {
-        if(frame_packet_enabled)drawExternalLoraDetailStrip(strip,next_strip*kStripHeight,frame_packet);
-        else drawExternalLoraStrip(strip, next_strip * kStripHeight, frame_lora, frame_lora_cursor, frame_time);
+        if(frame_packet_enabled)drawExternalLoraDetailStrip(strip,next_strip*kStripHeight,*frame_packet);
+        else drawExternalLoraStrip(strip, next_strip * kStripHeight,*frame_lora, frame_lora_cursor, frame_time);
     } else if (frame_monitor) {
         strip.fillScreen(kVoidInk);
-        drawExternalSpectrumStrip(strip, next_strip * kStripHeight, frame_spectrum, frame_cursor, frame_time);
+        drawExternalSpectrumStrip(strip, next_strip * kStripHeight,*frame_spectrum, frame_cursor, frame_time);
     }
     else {
         drawExternalGnssStrip(strip,next_strip*kStripHeight,frame_gps,frame_time);
