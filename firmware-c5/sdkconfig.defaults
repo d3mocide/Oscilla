@@ -7,7 +7,8 @@ CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 
 # The delivered XIAO ESP32-C5 variant carries 8 MB of PSRAM. Keep
 # performance-sensitive stacks and radio queues internal; app-owned bulk
-# state opts into PSRAM explicitly with MALLOC_CAP_SPIRAM.
+# state opts into PSRAM explicitly with MALLOC_CAP_SPIRAM. The Wi-Fi driver's
+# own buffers are the exception below (D-23).
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_USE_CAPS_ALLOC=y
 CONFIG_SPIRAM_MEMTEST=y
@@ -52,3 +53,18 @@ CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=3584
 # NimBLE host pools (msys/mbufs) in PSRAM: +4.9 KB internal, BLE scans
 # unchanged on the bench (75 devices / 86 events vs 89).
 CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# D-23: Wi-Fi driver buffers in PSRAM. Under heavy sniffing the driver holds up
+# to 32 dynamic RX buffers (~2 KB each) in internal RAM: low-water fell to
+# 8.5 KB in a 45 min sniffer+LoRa+OOK run. With this on, the same run bottoms at
+# 86 KB. Bench A/B (WORKLOG 2026-11-25): sniffer capture unchanged, wardrive
+# ~2% fewer unique networks. Enabling it forces static TX buffers (default 16,
+# ~26 KB internal); the probe never sends data frames, so 2 is plenty.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=2
+# The PSRAM option also moves these defaults (static RX 10->16, ~10 KB internal;
+# BA window 6->16; TCP out-of-order 4->0). Pin them to what the A/B measured.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_RX_BA_WIN=6
+CONFIG_LWIP_TCP_OOSEQ_MAX_PBUFS=4

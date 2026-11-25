@@ -1,3 +1,38 @@
+## 2026-11-25 — Probe Wi-Fi driver buffers move to PSRAM (D-23)
+
+**Phase:** stability · **By:** Claude + Will
+
+- **Fix for the 8.5 KB low-water below.** `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y` in
+  `sdkconfig.defaults`. The same 45 min sniffer + LoRa + OOK bench run now bottoms at
+  **86,188 B** (was 8,508 B), within 140 B of where it started, with no resets. Idle
+  internal free: 87,188 → 93,792 B. On the Grove build through the deck:
+  95.8 KB free, 91.2 KB min, link clean.
+- **Side effects, pinned.** The option forces static TX buffers, 16 by default, which
+  cost ~26 KB internal and left the first test image *worse* than before (69 KB idle);
+  the probe never sends data frames, so 2. A fresh config also moved static RX buffers
+  10→16, the BA window 6→16 and TCP out-of-order pbufs 4→0; all are pinned back so
+  the default build is byte-for-byte the config that was measured.
+- **A/B, 6 alternating 10 min slots on the bench** (5 min Wi-Fi-only wardrive, then
+  5 min sniffer; counts only):
+
+  | | Current (A) | PSRAM (B) |
+  |---|---|---|
+  | Wardrive unique networks | 160, 165, 165 (163.3) | 157, 162, 160 (159.7) |
+  | Wardrive network events, mean | 1,399 | 1,296 |
+  | Sniffer frames/s, mean | 84.6 | 83.8 |
+  | Sniffer clients / probers, mean | 77 / 42 | 75 / 46 |
+  | Lowest internal free | 48,032 B | 89,212 B |
+
+  Sniffer capture is unchanged. Wardrive came in ~2% lower on unique networks and
+  ~7% on events, below both neighbouring A slots every time: small but consistent.
+  Likely cause, unconfirmed: wardrive hops every 200 ms, so any extra latency right
+  after a hop costs a beacon or two per channel. Will accepted the trade for the
+  stability and headroom. Next candidate: PSRAM at 80 MHz (now 40, ESP-IDF's C5
+  default), which needs its own A/B.
+- Output: `output/psram/run45.log`, `output/psram/ab.jsonl` (git-ignored).
+  `check_protocol.sh`, `ocp_repl.py --selftest` and `build_firmware.sh` pass.
+  Not yet in a combined deck + probe run.
+
 ## 2026-11-25 — Probe low-water traced to Wi-Fi RX buffers; deck live tables cap at 256 and replace; baseline shrinks 5×
 
 **Phase:** stability · **By:** Claude + Will
