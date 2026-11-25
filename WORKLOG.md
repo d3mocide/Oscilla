@@ -1,3 +1,36 @@
+## 2026-11-25 — Deck memory: the external panel stops copying models; two full 2 h combined runs pass
+
+**Phase:** stability · **By:** Claude + Will
+
+- **External panel borrows, doesn't copy (D-21, `129e14f`).** `tickExternalGpsDisplay`
+  holds pointers to the `DeckApp` models for a frame instead of per-frame copies. The
+  copies doubled the largest tables and were freed and rebuilt on every view change,
+  which is what fragmented the heap into the 2026-11-24 abort. Cost accepted: a frame
+  drawn across ticks can tear once (~50 ms) if a table changes mid-frame.
+  `check_external_frame_memory.py` tours 300 APs / 96 BLE / 200 clients and requires
+  every display allocation < 1 KiB with none retained (measured 31 B, 0). Mutants
+  restoring a BLE copy (15 KB block) or a scan copy (698 retained) fail.
+- **Run 1** (`deck_stability.py`, 2 h, `129e14f`): completed. 0 resets, 0 link errors;
+  BLE live, the old abort point, passed. But the largest block fell to **12.5 KB**
+  (free min 41 KB): fragmentation was reduced, not gone.
+- **Two tables sized once (`c4a811a`).** BLE live discovery grew `devices_` by doubling
+  (old and new blocks held together, ~15 KB at the last step); it now reserves its
+  96-device cap in one step. The Wi-Fi baseline is loaded from SD at boot and held all
+  session: 130 APs sat in a 256-slot block (22.0 KB); it now reserves what it will hold,
+  trims, and releases on clear (12.4 KB). Host tests fail with either fix removed.
+  `dump` gained `baseline_aps`, `anti_trackers`, `bt_hits` and `tbl_*` per-table heap
+  estimates; `deck_stability.py` records them. Deck boot heap 138/115 KB → 153/139 KB
+  (free/largest) across both commits.
+- **Run 2** (2 h, `c4a811a`): completed. 0 resets, 0 link errors, stack ≥ 2,592 B,
+  max loop cycle 442 ms. Largest block min **25.1 KB** (run 1: 12.5), free min 56.6 KB
+  (run 1: 40.9). At the low point the tables held: scan 22.9 KB (162 rows), BLE
+  23.4 KB (96 devices), baseline 12.4 KB, contacts 7.2 KB, anti 4.2 KB — the cached
+  tables from finished modes are now the deck's main heap user, by design ("last look").
+- **Open:** if more headroom is needed, the next lever is releasing or capping finished
+  modes' cached tables (BLE strings: 96 × 17-char MACs are heap strings). The probe's
+  9 KB low-water during the sniffer phase is still open. Output:
+  `output/deck-stability/20261124-203704/` and `20261124-224155/` (git-ignored).
+
 ## 2026-11-24 — 2 h probe soak; combined deck+probe run finds a deck out-of-memory abort
 
 **Phase:** stability · **By:** Claude + Will
