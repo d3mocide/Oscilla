@@ -29,6 +29,19 @@
   after a hop costs a beacon or two per channel. Will accepted the trade for the
   stability and headroom. Next candidate: PSRAM at 80 MHz (now 40, ESP-IDF's C5
   default), which needs its own A/B.
+- **PSRAM 80 MHz: no edge, stays at 40.** Test image only (one setting changed).
+  Boot timing tuning and the 8 MB memory test pass at 80 MHz. 4 alternating pairs of
+  5 min Wi-Fi-only wardrive, 40 MHz (A) vs 80 MHz (B):
+
+  | | 40 MHz (A) | 80 MHz (B) |
+  |---|---|---|
+  | Unique networks | 165, 160, 155, 159 (159.8) | 169, 153, 159, 161 (160.5) |
+  | Network events, mean | 1,252 | 1,273 |
+  | Lowest internal free | 89,212 B | 87,580 B |
+
+  The difference (+0.7 networks, +1.7% events) is well inside the ±5 swing between
+  neighbouring slots, so doubling PSRAM speed does not recover the ~2% wardrive gap;
+  bandwidth is not the cause. No resets or errors. Output: `output/psram/ab80.jsonl`.
 - Output: `output/psram/run45.log`, `output/psram/ab.jsonl` (git-ignored).
   `check_protocol.sh`, `ocp_repl.py --selftest` and `build_firmware.sh` pass.
   Not yet in a combined deck + probe run.
