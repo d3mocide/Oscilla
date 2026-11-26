@@ -9,6 +9,7 @@
 
 #include "ble_recon.h"
 #include "cc1101_bench.h"
+#include "synth_bench.h"
 #include "ook_recon.h"
 #include "config.h"
 #include "lora_recon.h"
@@ -75,6 +76,9 @@ void app_main(void)
 #else
     /* After LoRa: the CC1101 shares its SPI bus. A missing module is fine. */
     if (ook_recon_init() != ESP_OK) ESP_LOGE(TAG, "ook unavailable");
+#endif
+#if CONFIG_OSCILLA_SYNTH_BENCH
+    if (synth_bench_start() != ESP_OK) ESP_LOGE(TAG, "synth bench unavailable");
 #endif
 
     /* BLE is async (ble_recon_ready() flips true once the NimBLE host

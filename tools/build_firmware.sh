@@ -35,11 +35,15 @@ for arg in "$@"; do
             # Grove OCP plus the CC1101 bench console on USB (D-15).
             VARIANT="cc1101"; DEFAULTS="sdkconfig.defaults;sdkconfig.cc1101-bench"
             ;;
+        --synth-bench)
+            # Grove OCP plus the synthetic-event console on USB (synth_bench.h).
+            VARIANT="synth"; DEFAULTS="sdkconfig.defaults;sdkconfig.synth-bench"
+            ;;
         --probe-only)
             PROBE_ONLY=1
             ;;
         *)
-            echo "usage: $0 [--bench|--cc1101-bench] [--probe-only]" >&2
+            echo "usage: $0 [--bench|--cc1101-bench|--synth-bench] [--probe-only]" >&2
             exit 2
             ;;
     esac
@@ -58,6 +62,12 @@ echo "=== probe: firmware-c5 (esp32c5, $VARIANT) ==="
             || { echo "CC1101 bench console missing in $BUILD_DIR" >&2; exit 1; }
     elif grep -q "^CONFIG_OSCILLA_CC1101_BENCH=y" "$BUILD_DIR/sdkconfig"; then
         echo "CC1101 bench console leaked into $BUILD_DIR" >&2; exit 1
+    fi
+    if [ "$VARIANT" = synth ]; then
+        grep -q "^CONFIG_OSCILLA_SYNTH_BENCH=y" "$BUILD_DIR/sdkconfig" \
+            || { echo "synth bench console missing in $BUILD_DIR" >&2; exit 1; }
+    elif grep -q "^CONFIG_OSCILLA_SYNTH_BENCH=y" "$BUILD_DIR/sdkconfig"; then
+        echo "synth bench console leaked into $BUILD_DIR" >&2; exit 1
     fi
     echo "  transport verified: $VARIANT -> firmware-c5/$BUILD_DIR"
 )

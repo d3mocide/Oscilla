@@ -64,6 +64,11 @@ python3 tools/check_deck_parser.py --count 150
     -Ifirmware-c5/main -o "$out/beacon_test" firmware-c5/test/host/beacon_test.c firmware-c5/main/beacon_parse.c
 "$out/beacon_test" 100000 | tail -1 | sed 's/^/  /'
 
+# Synthetic-event bench planner (synth_bench.h): even spread, unique addresses.
+"${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -Ifirmware-c5/main -o "$out/synth_plan_test" firmware-c5/test/host/synth_plan_test.c firmware-c5/main/synth_plan.c
+"$out/synth_plan_test" | sed 's/^/  /'
+
 # Wi-Fi regions (set_region): one table for the probe hop list and the deck
 # picker. Built as C and as C++ because both firmwares include it.
 "${CC:-gcc}" -std=c99 -g -O1 "${warn[@]}" -fsanitize=address,undefined -fno-sanitize-recover=all \

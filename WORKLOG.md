@@ -1,3 +1,34 @@
+## 2026-11-25 — Tables pushed past their caps on hardware with synthetic events
+
+**Phase:** stability · **By:** Claude + Will
+
+- **Synth bench build** (`--synth-bench`, `CONFIG_OSCILLA_SYNTH_BENCH`, default off):
+  OCP on Grove as in the field, plus a USB console on the probe
+  (`synth <wifi_n> <ble_n> <seconds> [keep]`) that injects made-up `network` and
+  `ble` events into the normal event queue. Nothing is transmitted and no OCP verb
+  is added. Addresses are locally administered `02:5e:00/01:xx:xx:xx`, SSIDs/names
+  `SYNTH-nnnnnn`, so they can't pass for real devices. The first `keep` of each lane
+  are re-reported every 5 s. `build_firmware.sh` fails any other build that has the
+  console on (checked with a forced-on config). Host test `synth_plan_test`: even
+  Wi-Fi/BLE spread, unique addresses; mutants (Wi-Fi first, lane byte dropped) fail.
+  Chosen over Flipper beacon/BLE spam, which would reach everyone nearby.
+- **Run** (`tools/deck_synth_caps.py`, 600 networks + 300 devices over 10 min,
+  keep 8, wardrive session open, real traffic on top). **Completed:** no resets, 0
+  link errors/timeouts/resets, 0 events rejected or dropped on the probe.
+  - Wi-Fi list hit 256 at ~2 min and held there; `scan_evicted` 548 (≈ 600
+    synthetic + ~190 real − 256).
+  - BLE list hit 96 at ~45 s and held; `bt_evicted` 882 (real BLE address churn
+    adds to the 300).
+  - **Wardrive kept logging past both caps** (the D-22 bug): AP rows 22 → 4,254
+    and BLE rows 0 → 2,783, still climbing at the same rate after the lists were
+    full. Pending queue stayed at 0–3.
+  - Deck: free min 69.1 KB, largest block min 54.3 KB with both lists full
+    (`tbl_scan` 36 KB at 256 rows, `tbl_bt` 15 KB). Probe free min 81.6 KB.
+- The deck had a GNSS fix, so the synthetic rows were written to that drive's SD
+  files alongside real nearby networks. That drive must be deleted, never uploaded.
+- `dump` adds `wardrive_aps` and `wardrive_aps_nofix`. Output:
+  `output/synth/20261125-203418/` (git-ignored).
+
 ## 2026-11-25 — Combined 2 h run passes with D-22 + D-23
 
 **Phase:** stability · **By:** Claude + Will

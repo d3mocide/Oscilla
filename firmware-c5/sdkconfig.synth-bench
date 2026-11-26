@@ -1,0 +1,5 @@
+# Synthetic-event bench overlay: OCP on Grove as in the field, plus a USB
+# console that injects made-up network/BLE events (synth_bench.h). Bench only.
+#   ./tools/build_firmware.sh --synth-bench --probe-only
+CONFIG_OSCILLA_OCP_TRANSPORT_UART=y
+CONFIG_OSCILLA_SYNTH_BENCH=y

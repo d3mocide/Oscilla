@@ -43,6 +43,17 @@ config OSCILLA_CC1101_BENCH
         gap N, quiet, loud, lload on|off) on USB Serial/JTAG. OCP stays on
         the Grove UART. Receive-only; adds no OCP verb.
 
+config OSCILLA_SYNTH_BENCH
+    bool "Synthetic network/BLE events from a USB console (bench)"
+    depends on OSCILLA_OCP_TRANSPORT_UART && !OSCILLA_CC1101_BENCH
+    default n
+    help
+        Bench-only: a USB Serial/JTAG console (`synth <wifi_n> <ble_n>
+        <seconds> [keep]`) injects made-up `network` and `ble` events into the
+        normal event queue, so the deck's table caps and wardrive log can be
+        driven past their limits without anything on the air. Transmits
+        nothing; adds no OCP verb. Never set in the default build.
+
 config OSCILLA_ZIG_ACK_TEST_IDENTITY
     bool "Fixed 802.15.4 identity for ACK bench test"
     default n

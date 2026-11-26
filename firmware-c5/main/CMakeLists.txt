@@ -37,6 +37,8 @@ idf_component_register(
          "ook_events.c"
          "ook_recon.c"
          "cc1101_bench.c"
+         "synth_plan.c"
+         "synth_bench.c"
          "config_codec.c"
          "config.c"
          "probe_restart.c"
