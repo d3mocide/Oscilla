@@ -1,7 +1,11 @@
 name: Oscilla security gates
 
 on:
+  # Branch pushes to main and release tags (v*, cut on main per
+  # docs/RELEASING.md). Other branches and archive/* tags do not run.
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
   schedule:
     - cron: "17 4 * * 1"
