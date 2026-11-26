@@ -1,3 +1,31 @@
+## 2026-11-26 — v0.4.0 milestone cut
+
+**Phase:** release · **By:** Claude + Will
+
+- Second tagged version, 66 commits after v0.3.0. Will's uncommitted work was
+  committed first in three groups: the deck key guide, audio cues and wake-key
+  handling (`e221395`); worklog/roadmap notes (`ef2aa92`); and the hardware
+  worklog (`bd8158f`). Then the release commit: `VERSION` 0.4.0, `CHANGELOG.md`,
+  ROADMAP header. OCP stays at 1: the new verbs and the `rst` field are additive.
+- Gates on the release tree, with Will's work included:
+  `ASAN_OPTIONS=detect_leaks=0 check_protocol.sh`, `ocp_repl.py --selftest`,
+  `build_firmware.sh` (both firmwares) and `--bench --probe-only`,
+  `check_ui_palette`, `check_rx_only` and `check_deck_stack` all pass.
+  `render_external_views.py --sync-guide-assets` regenerated the same six deck
+  PNGs Will had already updated, and nothing else.
+- Committed tree alone (before Will's work was added): a clean checkout of
+  `c0e640b` passed `check_protocol.sh`, the selftest and both firmware builds.
+- Units before the cut: about 4 h on the pre-release images after the synth
+  run, with 0 link errors or timeouts. Deck free-heap low 69.1 KB, set during
+  the synth run; probe low 91.2 KB.
+- **Not yet flashed.** All three USB devices (probe, deck, Flipper) dropped
+  off the dock's hub before the flash started, so neither board took the
+  0.4.0 image. The deck still runs the pre-release working-tree build and the
+  probe runs the pre-release `build-uart`. Flash both from the tag and check
+  that `[HELLO]` reports `ver=0.4.0` (RELEASING step 7).
+- The deck SD holds the synth-run drive (`SYNTH-` / `02:5e:` rows mixed with
+  real networks). It must be deleted and never uploaded.
+
 ## 2026-11-25 — Tables pushed past their caps on hardware with synthetic events
 
 **Phase:** stability · **By:** Claude + Will

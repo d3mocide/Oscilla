@@ -6,7 +6,7 @@
 | Field | Value |
 |---|---|
 | **Current phase** | P5 complete → **P6 — Combined soak & power** (🟡 USB endurance passed; battery and power pending); P7/P8 continue in parallel |
-| **Last updated** | 2026-11-21 (v0.3.0+) |
+| **Last updated** | 2026-11-26 (v0.4.0) |
 | **Hardware authority** | [`Research/c5-backpack-design.md`](Research/c5-backpack-design.md) Rev D |
 | **Design authority** | [`DESIGN.md`](DESIGN.md) v0.2 |
 
