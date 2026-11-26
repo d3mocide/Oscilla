@@ -51,15 +51,16 @@ Oscilla splits physical responsibilities cleanly between two microcontrollers jo
 └──────────────────────────────────────────────┘                                         └──────────────────────────────────────────────┘
 ```
 
-### Sub-GHz Architecture (SX1262)
+### Sub-GHz Architecture (SX1262 + CC1101)
 
-The C5 probe's v1 sub-GHz receiver is the Wio-SX1262. D-15 archives the
-former CC1101 experiment in the separate `cc1101` branch; it is not a product
-mode.
+The C5 probe has two sub-GHz receivers on one SPI bus: the Wio-SX1262 for LoRa
+and spectrum sweeps, and a CC1101 for 433 MHz OOK (D-15, D-20). Both are
+receive-only, and each runs as its own lane alongside the Wi-Fi/BLE PHY lane.
 
 | Peripheral           | Primary Band              | Demodulation Target              | Example Target Traffic                                       |
 | -------------------- | ------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | **Seeed Wio-SX1262** | **915 MHz** (862–930 MHz) | LoRa Chirp Spread Spectrum       | Meshtastic mesh, LoRaWAN sensors, decentralized telemetry    |
+| **CC1101**           | **433.92 MHz**            | OOK pulse trains                 | Princeton remotes, LaCrosse TX141THBv2 weather sensors       |
 
 ### Why two machines?
 
@@ -80,13 +81,13 @@ Explore the consolidated brand system, Observatory v2 renders, and interactive U
 ### External Viewports (Section 05)
 
 The replacement **GMT028-05 V1.1** panel uses the ST7789 driver. Build or upload
-the normal deck with `pio run -e cardputer-adv` (`cardputer-adv-st7789` is an alias) (add `-t upload` and
+the normal deck with `pio run -e cardputer-adv` (add `-t upload` and
 the deck's stable `--upload-port`). Wiring and qualification status are in
 [Rev D §5.4](Research/c5-backpack-design.md#54-replacement-gmt028-05-v11-2026-11-16-bench).
 `tools/render_external_views.py` renders populated, empty and cached synthetic
 fixtures directly from the companion C++ at panel resolution.
 
-`tft-cs-check` is the SD-removed colour fixture; `sd-st7789-check` is the
+`tft-cs-check` is the SD-removed colour fixture; `sd-display-check` is the
 Enter/USB-armed disposable-file coexistence fixture.
 
 | Viewport          | Instrument Visualization                                             | Purpose & Metrics                                                        | Status        |

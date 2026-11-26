@@ -4,8 +4,10 @@
  * sets the matching ESP-IDF country; the deck offers them in Settings.
  *
  * Each list is the non-DFS channels that ESP-IDF's regulatory database
- * (components/esp_wifi/regulatory/esp_wifi_regulatory.txt, IDF 5.5.1)
- * allows for that country. DFS channels stay out of every list (D-14).
+ * (components/esp_wifi/regulatory/esp_wifi_regulatory.txt) allows for that
+ * country, checked against IDF 5.5.6. DFS channels stay out of every list
+ * (D-14). Since 5.5.1 that database also allows CA ch 12-13 and 5850-5895
+ * MHz; the CA list below does not include them yet.
  * Receive-only (D-8): a region decides which channels are listened to and
  * never enables transmission.
  *

@@ -3,7 +3,7 @@
 **Bench instrumentation, not Oscilla firmware.** It compiles the probe's
 `firmware-c5/main/cc1101_*.c` unchanged (`src/driver_unity.c`) behind an
 Arduino SPI transport. That lets the driver be A/B-tested against the
-SmartRC reference sketch (`bench-cc1101-s3` on branch `cc1101-bench`) on the
+SmartRC reference sketch (`bench-cc1101-s3`, archived at tag `archive/cc1101-bench`) on the
 same module before Rev D allocates CC1101 pins (D-15). Receive-only: the
 driver cannot issue a transmit strobe or write PATABLE.
 
@@ -73,3 +73,13 @@ Flipper (`--transmit`).
 a normal `--bench` probe build, the OOK lane over OCP (`ook_listen`, merged
 `kind=ook` events, OCP-SPEC §15), optionally with the Wi-Fi sniffer and
 LoRa RX running too (`--concurrent`). It also needs `--transmit`.
+
+### All-lanes soak
+
+`soak.py` runs the Wi-Fi sniffer, LoRa RX and OOK RX together on a `--bench`
+probe for `--hours`, rotating the PHY lane through a scan and a BLE scan every
+`--cycle-min` minutes. It records counters only (heap, lane states, event
+counts, latency) to `output/soak/<timestamp>/`. `--rtl` counts LaCrosse
+reports through `rtl_433`; `--flipper <port> --transmit` sends the made-up
+Princeton key A5C3E1 every `--burst-min` minutes. `--summarize <dir>`
+re-reads a finished run.

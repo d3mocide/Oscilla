@@ -34,7 +34,7 @@ BOOT_NOISE = [
     "ESP-ROM:esp32c5-eco2-20250121", "Build:Jan 21 2025",
     "rst:0xc (SW_CPU),boot:0x18 (SPI_FAST_FLASH_BOOT)", "Core0 Saved PC:0x408069ee",
     "SPI mode:DIO, clock div:1", "load:0x408556c0,len:0x1714", "entry 0x4084bbaa",
-    "I (31) boot: ESP-IDF v5.5.1 2nd stage bootloader", "W (4821) wifi: exceed max band",
+    "I (31) boot: ESP-IDF v5.5.6 2nd stage bootloader", "W (4821) wifi: exceed max band",
     "E (120) task_wdt: Task watchdog got triggered.", "Guru Meditation Error: Core  0 panic'ed",
 ]
 TAGS = ["[SCAN]", "[INSPECT]", "[STATUS]", "[LORA]", "[ZIG]", "[BLE]", "[CFG]"]

@@ -34,12 +34,7 @@ scratch/
 output/
 
 # ─── Local toolchain / editor state ──────────────────────────────────────────
-# Note the trailing /* rather than /: git cannot re-include a file whose
-# parent directory is excluded, so the negation below would not work.
-.vscode/*
-# Exception: extensions.json is shareable — it says which extensions this
-# project expects, not anything about this machine.
-!.vscode/extensions.json
+.vscode/
 .idea/
 compile_commands.json
 .cache/

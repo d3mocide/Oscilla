@@ -76,7 +76,7 @@ identifier conventions.
 
 ### A-01 — High — zero-length LoRa packet uses an uninitialized string
 
-**Evidence:** [`lora_recon.c:122`](../firmware-c5/main/lora_recon.c#L122)
+**Evidence:** [`lora_recon.c:122`](../../firmware-c5/main/lora_recon.c#L122)
 allocates `hex` without initialization. The loop at line 125 writes a terminator
 only after encoding at least one byte. A packet with `p->len == 0` skips the
 loop, after which line 129 passes the indeterminate buffer to `%s`.
@@ -97,7 +97,7 @@ zero-length `LORA_EVT_PACKET`; no stack bytes may appear after `hex=`.
 
 ### A-02 — High — the receive-only check is bypassable by ordinary refactors
 
-**Evidence:** [`check_rx_only.py:20`](../tools/check_rx_only.py#L20) searches for
+**Evidence:** [`check_rx_only.py:20`](../../tools/check_rx_only.py#L20) searches for
 22 exact identifiers. It does not assert passive configuration values or an
 allowlist of SX1262 opcodes.
 
@@ -107,7 +107,7 @@ Concrete gaps:
   `WIFI_SCAN_TYPE_ACTIVE == 0`. Removing the explicit
   `scan_type = WIFI_SCAN_TYPE_PASSIVE` line therefore enables active scanning
   without introducing the banned `WIFI_SCAN_TYPE_ACTIVE` token.
-- [`ble_recon.c:177`](../firmware-c5/main/ble_recon.c#L177) relies on
+- [`ble_recon.c:177`](../../firmware-c5/main/ble_recon.c#L177) relies on
   `params.passive = 1`, but the check does not require that assignment or reject
   zero.
 - The in-house SX1262 driver uses numeric `OP_*` opcodes. Adding
@@ -137,25 +137,25 @@ source and both firmware variants must pass.
 
 ### A-03 — Medium — RF callbacks can block on OCP output; the promised event queue is absent
 
-**Contract:** [`ocp.h:50`](../protocol/ocp.h#L50),
-[`OCP-SPEC.md:161`](../protocol/OCP-SPEC.md#L161), and
-[`SECURITY.md:94`](../SECURITY.md#L94) say events use a fixed-depth queue and
+**Contract:** [`ocp.h:50`](../../protocol/ocp.h#L50),
+[`OCP-SPEC.md:161`](../../protocol/OCP-SPEC.md#L161), and
+[`SECURITY.md:94`](../../SECURITY.md#L94) say events use a fixed-depth queue and
 drop instead of blocking an engine.
 
 **Evidence:** `OCP_EVENT_QUEUE_DEPTH` is defined as 32 but unused by firmware.
 The following radio-stack callbacks call `ocp_emit_event()` directly:
 
-- [`wifi_deauth.c:40`](../firmware-c5/main/wifi_deauth.c#L40)
-- [`wifi_sniff.c:56`](../firmware-c5/main/wifi_sniff.c#L56)
-- [`ble_recon.c:110`](../firmware-c5/main/ble_recon.c#L110)
+- [`wifi_deauth.c:40`](../../firmware-c5/main/wifi_deauth.c#L40)
+- [`wifi_sniff.c:56`](../../firmware-c5/main/wifi_sniff.c#L56)
+- [`ble_recon.c:110`](../../firmware-c5/main/ble_recon.c#L110)
 
 The UART transport calls `uart_write_bytes()` with no timeout at
-[`ocp_transport.c:53`](../firmware-c5/main/ocp_transport.c#L53). ESP-IDF's own
+[`ocp_transport.c:53`](../../firmware-c5/main/ocp_transport.c#L53). ESP-IDF's own
 5.5.1 UART documentation says that call waits until enough TX ring-buffer space
 is available. Thus an event burst can block a Wi-Fi driver or NimBLE host
 callback behind the 115200-baud link. Continuous Wi-Fi discovery does use a
 nonblocking queue, but it is independently sized to 64 at
-[`wifi_networks.c:125`](../firmware-c5/main/wifi_networks.c#L125), not the
+[`wifi_networks.c:125`](../../firmware-c5/main/wifi_networks.c#L125), not the
 contract's shared depth.
 
 **Impact:** a nearby source can generate deauth, probe, or tracker event bursts
@@ -175,13 +175,13 @@ the watchdog must not fire. Repeat on hardware under an authorized RF flood.
 
 ### A-04 — Medium — OCP frame locking can interleave or silently deliver partial frames
 
-**Evidence:** [`ocp_frame.c:34`](../firmware-c5/main/ocp_frame.c#L34) ignores
+**Evidence:** [`ocp_frame.c:34`](../../firmware-c5/main/ocp_frame.c#L34) ignores
 failure to acquire the frame mutex after two seconds and emits anyway. The
 per-line mutex at line 51 silently drops a line after 100 ms. A block frame can
 therefore lose a row or `END` while later lines continue, or a compact reply
 such as `[STOP]` can be emitted inside another task's still-open block frame.
 
-This contradicts [`OCP-SPEC.md:20`](../protocol/OCP-SPEC.md#L20), which requires
+This contradicts [`OCP-SPEC.md:20`](../../protocol/OCP-SPEC.md#L20), which requires
 an oversized/unavailable frame to be abandoned whole because a truncated
 result is indistinguishable from a complete one. A 256-row page at 115200 baud
 can itself occupy the wire for roughly two seconds, so the frame-lock timeout
@@ -203,7 +203,7 @@ past two seconds and prove the old code goes red.
 
 ### A-05 — Medium — hostile SSIDs can become spreadsheet formulas in wardrive CSV
 
-**Evidence:** [`wardrive_csv.cpp:21`](../firmware-cardputer/src/storage/wardrive_csv.cpp#L21)
+**Evidence:** [`wardrive_csv.cpp:21`](../../firmware-cardputer/src/storage/wardrive_csv.cpp#L21)
 passes all printable ASCII except comma and quote. Consequently an SSID whose
 first byte is `=`, `+`, `-`, or `@` is written at the start of a CSV cell. Those
 prefixes are interpreted as formulas by common spreadsheet applications.
@@ -225,7 +225,7 @@ the new adversarial test.
 
 ### A-06 — Low — KML hostile-byte and remote-resource handling is incomplete
 
-**Evidence:** [`wardrive_kml.cpp:22`](../firmware-cardputer/src/storage/wardrive_kml.cpp#L22)
+**Evidence:** [`wardrive_kml.cpp:22`](../../firmware-cardputer/src/storage/wardrive_kml.cpp#L22)
 escapes XML metacharacters and replaces forbidden C0 controls, but copies every
 byte at or above `0x20` unchanged while declaring UTF-8. SSIDs are arbitrary
 bytes, so invalid UTF-8 sequences can still make the XML document unparseable.
@@ -251,15 +251,15 @@ readable document.
 
 **Evidence:**
 
-- [`zig_recon.c:104`](../firmware-c5/main/zig_recon.c#L104) parses without an
+- [`zig_recon.c:104`](../../firmware-c5/main/zig_recon.c#L104) parses without an
   end pointer and casts before range validation. For example, channel `267`
   wraps to 11, and `11junk` is accepted as 11.
-- [`lora_recon.c:49`](../firmware-c5/main/lora_recon.c#L49) and line 89 accept
+- [`lora_recon.c:49`](../../firmware-c5/main/lora_recon.c#L49) and line 89 accept
   numeric prefixes with trailing garbage.
-- [`ble_recon.c:198`](../firmware-c5/main/ble_recon.c#L198) accepts any
+- [`ble_recon.c:198`](../../firmware-c5/main/ble_recon.c#L198) accepts any
   positive signed-long dwell, allowing a single scan to hold the PHY lane for
   roughly 24 days on a 32-bit target unless stopped.
-- [`gnss_model.cpp:18`](../firmware-cardputer/src/model/gnss_model.cpp#L18)
+- [`gnss_model.cpp:18`](../../firmware-cardputer/src/model/gnss_model.cpp#L18)
   accepts non-finite altitude/HDOP and does not enforce latitude, longitude,
   or UTC component ranges before logging.
 
@@ -277,7 +277,7 @@ coordinates, invalid UTC, and impossible dates.
 
 ### A-08 — Low — capability readiness can be advertised after failed 802.15.4 initialization
 
-**Evidence:** [`zig_recon.c:95`](../firmware-c5/main/zig_recon.c#L95) can fail
+**Evidence:** [`zig_recon.c:95`](../../firmware-c5/main/zig_recon.c#L95) can fail
 after creating `s_lock`, but `zig_recon_ready()` at line 102 reports readiness
 solely from `s_lock != NULL`. `main.c` logs the initialization failure and
 continues, after which `[HELLO]` can still advertise `ieee802154`.
@@ -295,7 +295,7 @@ steps. The capability must be absent and every associated verb must return
 
 ### A-09 — Low — build inputs are not fully pinned or continuously enforced
 
-**Evidence:** [`platformio.ini:7`](../firmware-cardputer/platformio.ini#L7)
+**Evidence:** [`platformio.ini:7`](../../firmware-cardputer/platformio.ini#L7)
 specifies `platform = espressif32` without a version. The installed resolution
 during this audit was 7.0.1, but a clean future build can resolve another
 platform/framework/toolchain. ESP-IDF 5.5.1 is documented but not asserted by
@@ -316,7 +316,7 @@ receive-only mutation.
 
 ### A-10 — Low — `SECURITY.md` materially understates the implemented attack surface
 
-**Evidence:** [`SECURITY.md:123`](../SECURITY.md#L123) says only P0 is complete
+**Evidence:** [`SECURITY.md:123`](../../SECURITY.md#L123) says only P0 is complete
 and that firmware engines are not written. The repository now contains and has
 hardware evidence for Wi-Fi, BLE, 802.15.4, LoRa, GNSS, and storage engines.
 The same section says every stated property is enforced today, while A-02

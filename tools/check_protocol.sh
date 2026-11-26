@@ -48,6 +48,7 @@ python3 tools/check_event_queue.py | tail -1 | sed 's/^/  /'
 python3 tools/test_wifi_inspect_arm.py | tail -1 | sed 's/^/  /'
 python3 tools/test_sweep_layout.py | tail -1 | sed 's/^/  /'
 python3 tools/test_card_selection_style.py | tail -1 | sed 's/^/  /'
+python3 tools/test_soak_report.py 2>&1 | tail -1 | sed 's/^/  soak report: /'
 python3 tools/check_external_frame_memory.py | tail -1 | sed 's/^/  /'
 
 # Spec rules: the OCP-SPEC §9 conformance checklist.

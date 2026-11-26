@@ -1,9 +1,9 @@
 # Security Policy
 
-> **Current implementation audit:**
-> [`docs/SECURITY_CODE_AUDIT_2026-09-16.md`](docs/SECURITY_CODE_AUDIT_2026-09-16.md)
-> records open findings and validation gates. It supplements this policy; it
-> does not mark the findings resolved.
+> **Last code audit (archived):**
+> [`docs/archive/SECURITY_CODE_AUDIT_2026-09-16.md`](docs/archive/SECURITY_CODE_AUDIT_2026-09-16.md).
+> Its findings A-01 to A-10 are remediated. It predates the OOK lane, the
+> PSRAM moves and ESP-IDF 5.5.6, so a fresh audit is due.
 
 Oscilla is a **passive wireless-survey instrument**. It listens; it does not
 transmit. This document states that boundary precisely, describes how it is
@@ -130,7 +130,7 @@ OCP transport, and microSD export engines. The receive-only boundary,
 hostile-field escaping, typed event queue, transactional block framing, strict
 command/GNSS validation, and failed-init capability gating are implemented in
 source and covered by the host security suite. The precise finding-by-finding
-record is [`docs/SECURITY_CODE_AUDIT_2026-09-16.md`](docs/SECURITY_CODE_AUDIT_2026-09-16.md).
+record is the archived [2026-09-16 audit](docs/archive/SECURITY_CODE_AUDIT_2026-09-16.md).
 
 Build and host evidence is not hardware evidence. The 2026-09-17 bench run
 verified current-image 802.15.4 capture/no-ACK behavior, Wio lane isolation,

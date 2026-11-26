@@ -49,7 +49,7 @@ Keep the buffer close to the deck end of the harness, with 100 nF decoupling.
 
 1. Measure panel current awake vs. today's sleep (INA226 power meter on the
    panel VCC branch), then with the gate off: the target is ~0 mA.
-2. SD stress (`sd-st7789-check`-style write/read/verify cycles) with the panel
+2. SD stress (`sd-display-check`-style write/read/verify cycles) with the panel
    **off**, **on**, and toggled during transfers: zero errors.
 3. Cold boot and USB/JTAG recovery with the pull-down fitted (GPIO3 strap
    still behaves; GPIO4 is not a strap).

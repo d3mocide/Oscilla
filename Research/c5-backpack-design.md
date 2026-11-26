@@ -4,8 +4,9 @@
 **Date:** 2026-09-12  
 **Status:** Signal assignments selected 2026-09-12; bench-validated since —
 Grove UART link, LoRa RX harness, Cardputer ADV board support, and GNSS are
-all hardware-confirmed (see WORKLOG.md and ROADMAP.md P1–P4). P5 (external
-TFT) is in bench integration; P6 (combined power/soak) has not started.
+all hardware-confirmed (see WORKLOG.md and ROADMAP.md P1–P5). The external
+panel is the GMT028-05 ST7789 (§5.4) and the CC1101 shares the probe's SPI bus
+(§4.4). P6 (combined power/soak) is in progress.
 **Scope:** Component ownership, physical connections, firmware pin configuration, and electrical constraints.
 
 This document supersedes the original architecture draft and PDF revisions A–C for pin assignments. Use the tables and configuration below as the implementation baseline; it remains the sole authority for pins/rails/bus-sharing (AGENTS.md §2) regardless of how much firmware has since been built against it.
@@ -29,9 +30,10 @@ The Cardputer owns GNSS directly. GNSS data need not traverse the C5 link unless
 ```mermaid
 flowchart TD
     H["Cardputer ADV / ESP32-S3"] -->|"Grove UART"| C["XIAO ESP32-C5"]
-    H -->|"One shared SPI bus"| S["External ILI9341 (Cap TFT V2) + internal microSD"]
+    H -->|"One shared SPI bus"| S["External GMT028-05 ST7789 + internal microSD"]
     H -->|"Separate GNSS UART"| G["ATGM336H"]
     C -->|"SPI + BUSY + DIO1 + reset + RF switch"| L["Wio-SX1262"]
+    C -->|"Same SPI bus, own CSn"| K["CC1101 (433 MHz, receive-only)"]
 ```
 
 ## 2. Pin notation and implementation rules
@@ -206,13 +208,13 @@ Firmware requirements:
 2. Initialize the SD card into SPI mode before other traffic on this shared bus when a card is present.
 3. Reuse the existing SD SPI bus object/controller. Inspect the board library before choosing a framework-specific SPI host identifier; do not initialize a second independent bus on these same pins.
 4. Coordinate SD and TFT transactions with one shared bus lock/transaction mechanism. Separate UI/storage tasks must not bypass it.
-5. Set each device's clock/mode for its transaction. Start external TFT transfers around 4 MHz and increase only after qualifying the exact panel and shared-bus behavior. The delivered no-CS panel was bench-qualified at 8 MHz; the replacement CS panel remains at 4 MHz until physically tested.
+5. Set each device's clock/mode for its transaction. Start external TFT transfers around 4 MHz and increase only after qualifying the exact panel and shared-bus behavior. The delivered no-CS panel was bench-qualified at 8 MHz; the GMT028-05 replacement runs at 8 MHz after its 2026-11-16 coexistence test (§5.4).
 6. Configure the TFT as write-only. Do not require display ID/readback operations through its disconnected MISO pin.
-7. Preserve the existing internal display's pins and bus configuration. It is a separate display from the external ILI9341.
+7. Preserve the existing internal display's pins and bus configuration. It is a separate display from the external panel.
 
 If touch is added later, allocate a real touch CS GPIO, connect external MISO only after verifying deselected output behavior, and include touch in shared-bus arbitration. Polling could avoid a PEN GPIO, but touch is not part of the current pin assignment.
 
-### 5.3 Delivered no-CS ILI9341 bench configuration
+### 5.3 Delivered no-CS ILI9341 bench configuration (retired; historical)
 
 The user identifies the delivered 2.8-inch controller as ILI9341 and reports
 header labels, in order: `MISO BLK DC RES MOSI CLK VCC GRD`. No external CS pad
@@ -277,8 +279,7 @@ lists GMT028-05 as ST7789. The user confirmed colour output from the
 removed. The ILI9341 `cardputer-adv-cs` image booted but produced a white
 external screen. The subsequent hand-written ST7789 command adapter also
 booted without visible output; that failed integration is recorded in WORKLOG.
-The default `cardputer-adv` build now supports only ST7789; the
-`cardputer-adv-st7789` alias selects the same configuration. Native M5GFX
+The default `cardputer-adv` build now supports only ST7789. Native M5GFX
 handles both initialization and pixels, matching the working colour fixture.
 It uses the SD's same SPI2 controller, including the GPIO39 SD MISO route,
 with SD initialized first and the existing storage lock covering every
@@ -286,10 +287,11 @@ TFT transaction. The TFT remains write-only. TFT and SD are configured
 at 8 MHz after the 2026-11-16 bounded coexistence test passed. The user confirmed visible normal-app output with the native
 driver; its initial white-background/blue-logo polarity prompted setting
 `invert=false`, and the user confirmed correct colours. `sd-display-check`
-/ `sd-st7789-check` passed 32 disposable-file write/read/cleanup cycles
+passed 32 disposable-file write/read/cleanup cycles
 (131,072 bytes written and verified; all test files removed), with clean
 8 MHz output confirmed by the user. This closes the bounded readback check;
-physical cold-boot and sustained soak qualification remain pending. Old ILI9341/no-CS build profiles are retired;
+physical cold-boot and sustained soak were met on operator report on
+2026-11-20 (ROADMAP P5). Old ILI9341/no-CS build profiles are retired;
 §5.3 retains their historical bench evidence.
 
 ## 6. Cardputer ↔ ATGM336H GNSS
@@ -478,7 +480,7 @@ The coding agent should implement board configuration and small component tests 
 
 1. **UART:** configure both ends, exchange bounded test messages, tolerate C5 boot text, and detect peer reset/disconnection.
 2. **LoRa:** configure GPIO defaults, reset the radio, verify BUSY transitions and SPI responses, then validate RF-switch/TCXO setup and receive operation. Use explicit frequency settings and a matching antenna before any TX test.
-3. **TFT:** initialize ILI9341 using the write-only pin map. Do not make unsupported display-readback or backlight-PWM assumptions.
+3. **TFT:** initialize the GMT028-05 ST7789 (§5.4) using the write-only pin map. Do not make unsupported display-readback or backlight-PWM assumptions.
 4. **SD + TFT:** integrate both into the same SPI bus/locking mechanism. Test cold startup with SD inserted and sustained redraw while writing and reading back a disposable test file.
 5. **GNSS:** receive raw NMEA, parse valid messages, distinguish a no-fix state from UART failure, and verify outdoor reception.
 6. **Combined:** exercise UI, storage, GNSS, host UART, and radios together. Measure supply dips and record resets, timeouts, serial overruns, and storage errors.
