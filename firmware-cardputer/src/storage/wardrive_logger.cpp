@@ -15,6 +15,7 @@
 #include <SD.h>
 
 #include "storage/sd_storage.h"
+#include "storage/vendor_lookup.h"
 #include "storage/sd_activity.h"
 #include "storage/wardrive_csv.h"
 #include "storage/wardrive_kml.h"
@@ -176,6 +177,7 @@ bool wardriveLogBegin(const model::GnssFix &fix)
     if (g_card_fault) {
         if (!remount()) return false;
         g_card_fault = false;
+        resetVendorLookup();   /* the card may have been swapped */
     } else if (!ready()) return false;
     if (!lock()) return false;
 

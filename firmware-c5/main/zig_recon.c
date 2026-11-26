@@ -52,7 +52,7 @@ static void emit_table(const char *only_pan)
         if (!only_pan || !strcmp(only_pan, pan)) ++nodes;
     }
     ocp_emit_begin(OCP_MARK_ZIG, "%s=%u %s=%u %s=%u %s=%u %s=%u %s=%u", OCP_K_COUNT, pans + nodes,
-                   OCP_K_PANS, pans, OCP_K_NODES, nodes, OCP_K_DROPPED, s_table->dropped,
+                   OCP_K_PANS, pans, OCP_K_NODES, nodes, OCP_K_DROPPED, s_table->dropped + zig_radio_dropped(),
                    OCP_K_CH, s_ch, OCP_K_DWELL_MS, s_dwell);
     for (unsigned i = 0; i < s_table->pan_count; ++i) {
         zig_pan_t *p = &s_table->pans[i]; char channels[5] = "";

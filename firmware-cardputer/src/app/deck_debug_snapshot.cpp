@@ -3,6 +3,7 @@
 #include "debug/diagnostic_line.h"
 #include "model/table_bytes.h"
 #include "storage/lora_logger.h"
+#include "storage/vendor_lookup.h"
 #include "storage/wardrive_logger.h"
 namespace app {
 std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
@@ -145,6 +146,8 @@ std::string DeckApp::debugSnapshot(uint32_t now_ms) const {
     line.field("session_meta", session_review_.summary.lora_sidecar.has_meta);
     line.field("session_health", session_review_.summary.lora_sidecar.has_health);
     line.field("session_geotagged", session_review_.summary.geotagged);
+    line.field("vendor_oui", storage::ouiTablePresent() ? 1 : 0);
+    line.field("vendor_bt", storage::btMfrTablePresent() ? 1 : 0);
     line.field("baseline_aps", baseline_.apCount());
     line.field("baseline_pans", baseline_.panCount());
     line.field("baseline_alerts", baseline_.anomalies().size());

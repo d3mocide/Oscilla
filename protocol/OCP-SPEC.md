@@ -767,7 +767,9 @@ commissioning, key handling, network-layer decode, or transmission.
 `zig_recon_status` is compact: `[ZIG] state=rx|idle ch= dwell_ms= pans= nodes= END`.
 `zig_recon_list` emits the full capped table; `zig_recon_nodes [pan]` filters
 node rows by four-lowercase-hex PAN ID; `zig_recon_clear` clears both tables.
-Every table frame has `n= pans= nodes= dropped= ch= dwell_ms=`. Rows are CSV:
+Every table frame has `n= pans= nodes= dropped= ch= dwell_ms=`. `dropped`
+counts PANs or nodes not stored because a table was full, plus frames lost
+because the receive queue was full; it resets with the session. Rows are CSV:
 
 ```
 [ZIG] BEGIN n=2 pans=1 nodes=1 dropped=0 ch=11 dwell_ms=400

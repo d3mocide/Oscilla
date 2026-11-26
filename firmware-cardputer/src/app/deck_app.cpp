@@ -179,6 +179,9 @@ DeckApp::DeckApp(ocp::Client::Write write) : client_(std::move(write))
         hunt_.clear();
         hunt_start_pending_ = false;
         zig_.clear();
+        ook_.clear();
+        ook_listen_pending_ = false;
+        ook_cursor_ = 0;
         next_page_ = 0;
         if (screen_ == Screen::Trace) screen_ = Screen::Sweep;
         notice("probe rebooted - resynced");
