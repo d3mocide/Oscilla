@@ -910,6 +910,155 @@ RX start with confirmed calibration and MARCSTATE=RX, the ESP-IDF
 `spi_master` transport on the shared bus, Rev D pin allocation, and
 any hardware run. D-15 stays Archived.
 
+## 2026-11-23 — Contextual deck key guide
+
+- Replaced the shared `h` screen with controls for the current card or
+  nested view. The footer exposes `h HELP` and Wi-Fi Scan, BLE Scan,
+  and Anti-Surv advertise `f HUNT`. Help now blocks the Packet Monitor
+  Enter action while open. The companion TFT continues showing its live view.
+- Added [Deck Controls](docs/deck-controls.md) for the longer workflows.
+  Verified four key-guide renders at 240×135 and generated 175 UI fixtures.
+  The Cardputer ADV build, host checks, and stack checks passed.
+- Flashed the deck app partition with a verified hash. The deck booted
+  with SD ready and the Grove link ready. On the USB-injected keyboard
+  path, Help blocked navigation and both h and Back closed it. From a
+  live passive Wi-Fi snapshot, f opened Hunt. First Back closed the
+  guide while Hunt stayed active, second Back exited Hunt. Returned to Link.
+  Physical visual and keyboard checks remain open.
+
+## 2026-11-23 — USB use/idle rerun passed
+
+- The unchanged flashed pair finished all six use/idle cycles in 3,605.37 s.
+  Across 253 samples, zero reported link errors, timeouts, resets, UART
+  errors, SD write errors, log drops, panics or telemetry retries. Minimum
+  loop stack headroom was 2,560 B. The six closed LoRa recordings contained
+  310 packet rows in total. Cleanup confirmed both lanes idle and logs closed.
+- This closes the three USB phases for the tested image across the steady
+  and switching run and the corrected use/idle rerun. Battery testing,
+  measured power, and the later physical keyboard timeout check remain open.
+
+## 2026-11-22 — Display timeout keyboard handling
+
+- Moved timeout evaluation after input so a key at the deadline is handled
+  while the screen is still awake. Raw keyboard state keeps the display
+  awake while a key is held and wakes on modifier-only input. Suppression
+  lasts until all keys in the wake chord are released.
+- Host regressions cover the deadline, held keys and wake chord release.
+  A copy without wake-chord suppression failed the regression. The
+  protocol suite, Cardputer ADV build and stack checks passed. Left the currently flashed
+  image running its USB use/idle phase; physical-key verification is pending.
+
+## 2026-11-22 — Current-firmware USB endurance and use/idle retry
+
+- Completed two-hour steady (7,200.37 s) and 30-minute passive scan switching
+  (1,800.43 s). Closed the continuous LoRa recording with 1,600 packet and
+  903 health rows. Reported zero link errors, timeouts, probe resets, UART
+  errors, SD errors, and log drops. Minimum sampled loop stack was 2,592 B.
+- The first use/idle cycle failed its Wi-Fi ownership check during scripted
+  navigation. LoRa was still recording. Cleanup closed it and left both
+  lanes idle. No panic signature appeared in the timed run.
+- Bench replay showed the sequence can lose its dossier entry when Enter is
+  consumed by display wake and the next Back is still sent. In a forced-sleep
+  replay the deck also briefly lost its cached state; that replay did not
+  capture a reset diagnostic. The collector now explicitly wakes the display,
+  verifies dossier/System transitions, and reports the exact mismatched fields.
+  Started a use/idle-only rerun on the same firmware. Two setup checks
+  exposed native USB bootloader entry and a missing deck LoRa configuration
+  after boot. Recovered the deck with a watchdog reset, opened the port
+  without changing modem lines, and configured LoRa before the timed
+  baseline. The first corrected UI pass preserved Wi-Fi and LoRa with
+  zero reported errors or drops; the full hour remains in progress.
+
+## 2026-11-22 — Roadmap reconciliation and 802.15.4 recovery
+
+- Rechecked D-18 on the attached deck and probe with LoRa idle. The passive
+  Wi-Fi scan before 802.15.4 found 106 APs. Stopping 802.15.4 restarted the
+  probe (uptime 63,601 → 848 ms), and Grove was ready within 4.1 s. A fresh
+  passive scan returned 113 APs with zero reported link errors or timeouts.
+- The first attempt waited on the deck's reset counter, which counts only
+  unsolicited HELLO while Ready. Used probe uptime on the repeat to capture
+  a reboot that recovered through a solicited handshake.
+- Updated the roadmap with bench evidence and remaining gates for wardrive,
+  probe persistence, LoRa sweep, baseline watch, Signal Hunt, and audio.
+
+## 2026-11-22 — Audio Cues settings copy
+
+- The existing Audio Cues row now shows an Enter hint on both displays.
+  The external inspector lists startup, Signal Hunt, and waypoint sounds.
+  Rendered 171 fixtures and checked the audio inspector for clipping.
+- Built the deck and passed stack guards. Flashed with a verified hash.
+  Enter from the Audio Cues row toggled mute off and back on through the
+  normal keyboard path over USB. The external TFT redrew after the change.
+
+## 2026-11-22 — Synthesized sci-fi startup sound
+
+- Replaced the four-note chime with 1.8 s of original mono PCM. A D minor
+  pad swells under the rising bell motif and fades to silence. The linker
+  places all 28,800 samples in flash. The exported PCM peaked at 76/127.
+- Cardputer ADV build and stack guards passed. Flashed the deck app partition
+  with a verified hash and booted with audio enabled. The probe link returned
+  ready with zero errors, timeouts, or resets. Restored the previous mute
+  setting after the audition. Acoustic playback awaits listener confirmation.
+
+## 2026-11-22 — Deck boot melody and event sounds
+
+- Added a four-note boot melody, rising Hunt acquisition and falling stale-target
+  cues, and a three-note saved-waypoint confirmation. All use the saved audio
+  setting. Cues run from the main loop, with Geiger pulses waiting until the
+  active cue finishes. Muting clears the cue and stops its speaker channel.
+- Built the Cardputer ADV image, passed stack guards (loop 1072/2048 B), and
+  flashed the deck app partition with a verified hash. On the updated image,
+  live Wi-Fi Hunt acquired a target and a GNSS waypoint saved to SD. Closed
+  the test session and restored mute. The Grove link recorded zero errors,
+  timeouts, or probe resets. New sounds still need a listening check.
+- Host cue tests cover transition direction, repeated-state suppression,
+  timing across clock wrap, boot note count, and cancellation. A copy with
+  the Hunt transition check removed failed the test as expected.
+
+## 2026-11-22 — Signal Hunt audio bench check
+
+- Ran three enable/mute cycles with the attached deck and probe and a live
+  Wi-Fi target. The deck reported the requested audio state at each step,
+  Hunt stayed active, and samples advanced through both states (372 total).
+  Stopped Hunt, restored the previous audio preference, and returned to Link.
+- At the observed −56 to −57 dBm, the cadence model calls for roughly two
+  pulses per second. Host cadence and stale-signal mute tests passed.
+- Repeated all three cycles with the operator present, who confirmed the
+  sound check. Hunt received 342 samples during the repeat and the probe
+  returned to idle on stop.
+
+## 2026-11-22 — Passive 802.15.4 bench smoke test
+
+- Started passive 802.15.4 over the deck console. The deck showed
+  `zig_active=1` and probe owner `ieee802154`. After approximately 10 s,
+  it reported zero PANs and zero nodes. Stop released the lane and returned
+  the probe to idle with zero link errors, timeouts or resets.
+- The first script expected the wrong owner label and timed out while
+  observing the active receiver. The protocol defines `ieee802154`.
+  Live frame decode and PAN baseline behavior still need known traffic.
+
+## 2026-11-22 — Wardrive resume bench recheck
+
+- Checked clean main at `572a512`; both USB devices matched their expected IDs.
+  `check_protocol.sh` and all 27 OCP REPL self-tests passed.
+- Exercised the already-flashed deck and probe over Grove. The deck exposed
+  the new `wardrive_block` field. A passive Wi-Fi Signal Hunt paused the
+  wardrive stream while its SD log stayed open. The stream resumed within
+  4.1 s of stopping Hunt. The test log closed and the probe returned to idle.
+- With GNSS fixed, the session counted 240 AP rows, zero no-fix AP rows, zero
+  SD write errors, and zero link errors, timeouts or probe resets during the
+  test. Duplicate suppression passed its host regression; the SD records were
+  not inspected for duplicates. No firmware was reflashed or flash hash checked.
+
+## 2026-11-22 — Settings bench smoke test
+
+- Entered Settings from Link via the normal Back action over USB and moved
+  through all six rows without changing settings. The external TFT pixel
+  counter advanced on entry and on all five cursor moves. Returned to Link.
+  Physical layout on either panel was not visually inspected.
+- The attached deck reported two built-in LoRa profiles and zero SD profiles
+  loaded. SD profile loading and on-device vendor lookup remain open.
+
 ## 2026-11-22 — First flash of WP-3..12b + review fixes: bench results & two hardware-found fixes
 
 - **Flashed:** probe `38:44:BE:BF:D2:94` (`build-uart` at `414e273`, 3/3 hashes) and deck
