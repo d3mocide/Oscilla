@@ -15,6 +15,50 @@ Earlier months: [October 2026](docs/worklog/2026-10.md), [September 2026](docs/w
 
 ---
 
+## 2026-11-26 — Repo audit: dead code, stale docs, CI, branches
+
+**Phase:** maintenance · **By:** Claude + Will
+
+- **CI host job fixed.** It had failed since v0.3.0: `check_external_frame_memory.py`
+  needs M5GFX's font headers, which only exist after a PlatformIO install. The
+  job now fetches just that pinned library (4 s). Reproduced and fixed in a
+  fresh checkout; not yet seen green on GitHub.
+- **Dead code**, found by comparing each object file's defined symbols with the
+  linked image, then searching for callers: two ILI9341/no-CS bench sketches no
+  environment built, `BaselineWatch::kindShort`, the never-set status LED fault
+  state (removed on Will's call), and the `writeExternalTftRow` wrapper.
+- **Helpers written but never called, now wired in:**
+  - a probe reboot clears the deck's OOK model; `onReset` predated the OOK lane,
+    so stale devices and a listening state survived a reboot;
+  - 802.15.4 receive-queue overflows count in `dropped=`;
+  - an SD remount re-probes the vendor tables, and `dump` reports
+    `vendor_oui=` / `vendor_bt=`.
+
+  Host gates and builds pass. **Not yet checked on hardware** (the boards are
+  unplugged).
+- **Bench builds:** `sd-display-check` no longer linked (its source list
+  predated the newer views), so the missing files were added; it builds again.
+  The alias environments `cardputer-adv-st7789` and `sd-st7789-check` are gone.
+  All deck bench environments and `bench-power-meter` build.
+- **Docs:**
+  - README's sub-GHz section still called the CC1101 archived; it ships as
+    the OOK lane.
+  - Rev D: status, diagram, §5.2/§5.3/§10 display text. No pin changed.
+  - The September security audit moved to `docs/archive/`.
+  - The region table was checked against IDF 5.5.6. Upstream now also allows
+    CA ch 12-13 and 5850-5895 MHz. This is not added, because it changes the
+    probe's radio config and needs Will's approval.
+  - `test_soak_report.py` joins the host gate.
+  - WORKLOG was split by month into `docs/worklog/`.
+- **Git:**
+  - Branches `cc1101` and `cc1101-bench` are kept as the tags `archive/cc1101`
+    and `archive/cc1101-bench`.
+  - Removed the merged branches (`cc1101-idf`, `p0-scaffold`) and the
+    superseded `idf-v5.5.6`, their three worktrees, and an old stash of Will's
+    work that HEAD already contains.
+  - Bench output from the worktrees was copied to `output/from-worktrees/`.
+- The KiCad plugin stays; Codex uses it.
+
 ## 2026-11-26 — v0.4.0 milestone cut
 
 **Phase:** release · **By:** Claude + Will
