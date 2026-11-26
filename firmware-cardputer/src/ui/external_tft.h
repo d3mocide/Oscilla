@@ -16,8 +16,6 @@ void holdExternalTftReset();
 bool beginExternalTft();
 /* Put the ST7789 panel into SLPIN/SLPOUT under the shared lock (BLK stays on 3V3, Rev D §5.1). */
 bool setExternalTftSleep(bool sleep);
-/* Send one native RGB565 row under the shared lock; false means retry. */
-bool writeExternalTftRow(int y, const uint16_t *pixels);
 /* Send a bounded horizontal span; caller retries after lock contention. */
 bool writeExternalTftSpan(int y,int x,int width,const uint16_t *pixels);
 /* Driver state and sends only; the panel has no readback connection. */

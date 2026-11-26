@@ -135,18 +135,6 @@ int BaselineWatch::liveAuthCeiling(const ApRow &row)
     return -1;
 }
 
-const char *BaselineWatch::kindShort(AnomalyKind kind)
-{
-    switch (kind) {
-    case AnomalyKind::NewAp:         return "NEW";
-    case AnomalyKind::NewPan:        return "PAN+";
-    case AnomalyKind::MfpDropped:    return "MFP!";
-    case AnomalyKind::AuthDowngrade: return "DOWN";
-    case AnomalyKind::EvilTwin:      return "TWIN";
-    }
-    return "?";
-}
-
 const char *BaselineWatch::kindLabel(AnomalyKind kind)
 {
     switch (kind) {

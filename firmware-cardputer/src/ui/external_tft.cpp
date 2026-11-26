@@ -82,11 +82,6 @@ bool setExternalTftSleep(bool sleep)
     return true;
 }
 
-bool writeExternalTftRow(int y, const uint16_t *pixels)
-{
-    return writeExternalTftSpan(y,0,320,pixels);
-}
-
 bool writeExternalTftSpan(int y,int x,int width,const uint16_t *pixels)
 {
     if (!status.initialized || status.sleeping || !pixels || y < 0 || y >= 240 || x<0 || width<=0 || width>320 || x>320-width) return false;

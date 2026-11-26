@@ -4,7 +4,6 @@
  *   booting   rapid blink
  *   healthy   short flash every heartbeat period
  *   activity  extra flash per command handled
- *   fault     solid on
  *   dark      no power, or the dispatch loop has stopped kicking
  *
  * The heartbeat is gated on status_led_kick(), so a wedged dispatch task goes
@@ -16,7 +15,6 @@
 #ifndef OSCILLA_STATUS_LED_H
 #define OSCILLA_STATUS_LED_H
 
-#include <stdbool.h>
 #include "esp_err.h"
 
 esp_err_t status_led_start(void);
@@ -29,6 +27,5 @@ void status_led_ready(void);
 
 void status_led_activity(void);
 
-void status_led_set_fault(bool fault);
 
 #endif /* OSCILLA_STATUS_LED_H */

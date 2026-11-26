@@ -267,7 +267,7 @@ isolated third-party dependencies.
 | `ocp_block.c` | Bounded transactional block-frame buffer; host-tested and committed only as a whole |
 | `ocp_parse.c` | Overflow-safe whole-token command integer parsing; pure C, host-tested |
 | `ocp_server.c` | Line assembly, command table dispatch, system verbs |
-| `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity / fault; dark if dispatch stalls |
+| `status_led.c` | XIAO user LED (Rev D §8.1): boot / heartbeat / activity; dark if dispatch stalls |
 | `radio_arbiter.c` | Single PHY owner + teardown hooks (§6.2); power interlock stub until P6 |
 | `wifi_recon.c` | **Passive** dual-band scan, RSSI-sorted store, paging (OCP-SPEC §10) |
 | `wifi_networks.c` | Continuous passive beacon/probe-response discovery; channel hop, first-sighting `[EVT] kind=network` stream |

@@ -26,7 +26,6 @@
 
 static atomic_llong s_last_kick_us;
 static atomic_bool  s_ready;
-static atomic_bool  s_fault;
 static atomic_bool  s_activity;
 
 static void led(bool on)
@@ -43,9 +42,7 @@ static void led_task(void *arg)
     for (;;) {
         int64_t now = esp_timer_get_time();
 
-        if (atomic_load(&s_fault)) {
-            led(true);
-        } else if (!atomic_load(&s_ready)) {
+        if (!atomic_load(&s_ready)) {
             led((now / (BOOT_HALF_MS * 1000)) % 2 == 0);
         } else {
             bool alive = now - atomic_load(&s_last_kick_us) < KICK_STALE_MS * 1000;
@@ -81,7 +78,6 @@ esp_err_t status_led_start(void)
 void status_led_kick(void)     { atomic_store(&s_last_kick_us, esp_timer_get_time()); }
 void status_led_ready(void)    { atomic_store(&s_ready, true); }
 void status_led_activity(void) { atomic_store(&s_activity, true); }
-void status_led_set_fault(bool fault) { atomic_store(&s_fault, fault); }
 
 #else /* LED disabled: every call is a no-op */
 
@@ -89,6 +85,5 @@ esp_err_t status_led_start(void) { return ESP_OK; }
 void status_led_kick(void) {}
 void status_led_ready(void) {}
 void status_led_activity(void) {}
-void status_led_set_fault(bool fault) { (void)fault; }
 
 #endif

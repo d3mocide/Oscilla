@@ -68,7 +68,6 @@ public:
     static int authRank(const std::string &auth);
     /* Highest rank the live row could be; a coarse event label hides the exact mode. */
     static int liveAuthCeiling(const ApRow &row);
-    static const char *kindShort(AnomalyKind kind);
     static const char *kindLabel(AnomalyKind kind);
     static bool isHighSeverity(AnomalyKind kind);
 

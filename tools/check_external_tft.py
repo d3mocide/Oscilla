@@ -70,24 +70,24 @@ void unlock() { assert(held); held=false; }
 }
 int main() {
     uint16_t row[320]{};
-    assert(!ui::writeExternalTftRow(0,row));
+    assert(!ui::writeExternalTftSpan(0,0,320,row));
     assert(!ui::setExternalTftSleep(true) && sleeps==0);
     allow_lock=false;
     assert(!ui::beginExternalTft() && initializations==0 && !held);
     allow_lock=true;
     assert(!ui::beginExternalTft() && initializations==1 && !held);
-    assert(!ui::writeExternalTftRow(0,row));
+    assert(!ui::writeExternalTftSpan(0,0,320,row));
     init_ok=true;
     assert(ui::beginExternalTft() && !held);
-    assert(!ui::writeExternalTftRow(-1,row));
-    assert(!ui::writeExternalTftRow(240,row));
-    assert(!ui::writeExternalTftRow(0,nullptr));
+    assert(!ui::writeExternalTftSpan(-1,0,320,row));
+    assert(!ui::writeExternalTftSpan(240,0,320,row));
+    assert(!ui::writeExternalTftSpan(0,0,320,nullptr));
     assert(images==0);
     allow_lock=false;
-    assert(!ui::writeExternalTftRow(0,row) && images==0);
+    assert(!ui::writeExternalTftSpan(0,0,320,row) && images==0);
     assert(!ui::setExternalTftSleep(true) && sleeps==0 && !ui::externalTftStatus().sleeping);
     allow_lock=true;
-    assert(ui::writeExternalTftRow(239,row) && images==1 && !held);
+    assert(ui::writeExternalTftSpan(239,0,320,row) && images==1 && !held);
     assert(ui::externalTftStatus().rows_sent==1);
     assert(!ui::writeExternalTftSpan(0,319,2,row));
     assert(!ui::writeExternalTftSpan(0,0,0,row));
@@ -97,9 +97,9 @@ int main() {
     assert(ui::externalTftStatus().max_span_us==100);
     assert(ui::setExternalTftSleep(true) && sleeps==1 && ui::externalTftStatus().sleeping && !held);
     assert(ui::setExternalTftSleep(true) && sleeps==1);
-    assert(!ui::writeExternalTftRow(0,row) && images==2);
+    assert(!ui::writeExternalTftSpan(0,0,320,row) && images==2);
     assert(ui::setExternalTftSleep(false) && wakeups==1 && !ui::externalTftStatus().sleeping && !held);
-    assert(ui::writeExternalTftRow(0,row) && images==3 && !held);
+    assert(ui::writeExternalTftSpan(0,0,320,row) && images==3 && !held);
 }
 """)
 

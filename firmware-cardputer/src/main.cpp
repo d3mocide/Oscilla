@@ -62,7 +62,7 @@ void setup()
     M5Cardputer.Display.setRotation(1);
     ui::initCanvas();
 
-    /* Shared bus first; no-CS bench disables SD mounting (Rev D §5.2). */
+    /* Shared bus first: SD mounts before the external panel (Rev D §5.2). */
     if (!storage::begin()) Serial.println("deck: no SD card, logging unavailable");
     if (!ui::beginExternalGpsDisplay()) Serial.println("deck: external display init failed");
     else Serial.printf("deck: ST7789 native driver initialized; TFT %lu Hz; no display readback\n",
