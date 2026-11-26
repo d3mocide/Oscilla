@@ -60,6 +60,9 @@ int main(void)
     CHECK(ocp_wifi_region_find("XX") == NULL, "unknown code is rejected");
     CHECK(ocp_wifi_region_find("") == NULL, "empty code is rejected");
     CHECK(ocp_wifi_region_find(NULL) == NULL, "NULL code is rejected");
+    const ocp_wifi_region_t *ca = ocp_wifi_region_find("CA");
+    CHECK(ca && has(ca, 12) && has(ca, 13) && !has(ca, 14) && !has(ca, 169),
+          "CA 1-13 (IDF 5.5.6 2400-2483.5 MHz), no ch 169+ until the C5 is checked there");
     const ocp_wifi_region_t *eu = ocp_wifi_region_find("EU");
     CHECK(eu && has(eu, 12) && has(eu, 13) && !has(eu, 14), "EU hops 1-13");
     CHECK(eu && strcmp(eu->country, "DE") == 0, "EU applies a CEPT country ESP-IDF accepts");
@@ -82,6 +85,6 @@ int main(void)
     }
 
     if (failures) { printf("wifi regions: %d failure(s)\n", failures); return 1; }
-    printf("wifi regions: hop lists well-formed, DFS-free, US 1-11, EU 1-13, JP 1-14 passed\n");
+    printf("wifi regions: hop lists well-formed, DFS-free, US 1-11, CA/EU 1-13, JP 1-14 passed\n");
     return 0;
 }

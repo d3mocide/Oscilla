@@ -6,8 +6,9 @@
  * Each list is the non-DFS channels that ESP-IDF's regulatory database
  * (components/esp_wifi/regulatory/esp_wifi_regulatory.txt) allows for that
  * country, checked against IDF 5.5.6. DFS channels stay out of every list
- * (D-14). Since 5.5.1 that database also allows CA ch 12-13 and 5850-5895
- * MHz; the CA list below does not include them yet.
+ * (D-14). CA gained 2400-2483.5 MHz (ch 12-13) in 5.5.6's database; its
+ * 5850-5895 MHz (ch 169-177) is not listed until the C5 is shown to receive
+ * there.
  * Receive-only (D-8): a region decides which channels are listened to and
  * never enables transmission.
  *
@@ -46,8 +47,8 @@ static inline const ocp_wifi_region_t *ocp_wifi_region_table(size_t *count)
     static const ocp_wifi_region_t k_regions[] = {
         /* 2400-2472 MHz: ch 1-11. 5150-5250, 5730-5855 MHz. */
         { "US", "US", "UNITED STATES", 20, { OCP_WIFI_24_1_11, OCP_WIFI_5_LOW, OCP_WIFI_5_HIGH } },
-        /* 2402-2472 MHz: ch 1-11. 5150-5250, 5735-5835 MHz. */
-        { "CA", "CA", "CANADA",        20, { OCP_WIFI_24_1_11, OCP_WIFI_5_LOW, OCP_WIFI_5_HIGH } },
+        /* 2400-2483.5 MHz: ch 1-13 (IDF 5.5.6). 5150-5250, 5730-5850 MHz. */
+        { "CA", "CA", "CANADA",        22, { OCP_WIFI_24_1_13, OCP_WIFI_5_LOW, OCP_WIFI_5_HIGH } },
         /* 2402-2482 MHz: ch 1-13. 5170-5250, 5735-5835 MHz. */
         { "MX", "MX", "MEXICO",        22, { OCP_WIFI_24_1_13, OCP_WIFI_5_LOW, OCP_WIFI_5_HIGH } },
         /* CEPT (country EU/DE rows): 2400-2483.5 MHz, 5150-5250, SRD 5725-5875 MHz. */

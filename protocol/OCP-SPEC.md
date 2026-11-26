@@ -544,8 +544,8 @@ channels ESP-IDF's regulatory database allows for that country (D-19).
 
 | Code | 2.4 GHz | 5 GHz |
 |---|---|---|
-| `US`, `CA` | 1-11 | 36-48, 149-165 |
-| `MX`, `EU`, `GB` | 1-13 | 36-48, 149-165 |
+| `US` | 1-11 | 36-48, 149-165 |
+| `CA`, `MX`, `EU`, `GB` | 1-13 | 36-48, 149-165 |
 | `JP` | 1-14 | 36-48 |
 
 ```
