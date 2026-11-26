@@ -6,6 +6,239 @@ respective bench records under this directory; this log records design changes
 and their validation status. See [Rev D](../../Research/c5-backpack-design.md)
 for electrical authority.
 
+
+## 2026-11-24 — Full-height V4 four-pin trial
+
+Added `v4-full-4pin` and retained the two-pin profile. The inner
+receivers line up with the deck sockets at X −23 mm, Y ±20 mm.
+The old pigtail barrels would overlap the receiver bosses. Moved
+the pigtail axes outward 8 mm to Y ±28 mm. The center SMA and
+internal board mounts retain their positions.
+
+CAD checks cleared the assembly, plug paths, four receiver reliefs,
+pigtail barrels and nominal 8 mm pigtail nuts. Exported closed
+tray, lid and USB-cap meshes. The two-pin meshes regenerate
+identically. Four-pin fit and lower-edge retention await a test print.
+
+## 2026-11-24 — Full-height V4 with outer friction-pin mounts
+
+Added the `v4-full` enclosure profile and exported its tray, lid and
+USB cap. The case body matches the nominal 84 × 54 mm Cardputer back.
+It uses only the outer two pin receivers for deck attachment. The
+reference shell sections show roughly 4.8 mm bore diameter and 6 mm
+depth. The three internal V4 PCB mounts are retained. The CC1101
+module sits inside the case in the 0.6 mm near-flush soldered model,
+with an 11.8 mm access opening for the recessed direct SMA.
+
+Both case solids and the USB cap export as closed meshes. The
+nominal assembly, plugs, pin receivers and 10 mm SMA nut envelope
+are clear in CAD. Pin retention, actual connector fit and hinge
+travel await the test print.
+
+## 2026-11-24 — Backpack STLs for the compact V4 carrier
+
+Added a compact V4 profile to `hardware/enclosure/backpack/backpack.py`
+and exported its tray, lid, peg and USB cap to `out-v4/`. It uses
+three carrier mounts, the final USB-C and Grove locations, and
+20 mm spacing between the top SMA axes. The center direct SMA has
+a relief and cradle sized for the two modeled CC1101 outlines, with
+a 2.5 mm board-to-module gap. The shell is 45.4 mm top to bottom
+before the clip tabs. Existing deck clip datums remain in place.
+
+All four printed-part meshes are closed and single-component. The
+tray, lid, carrier envelope, nominal connector paths and antenna
+nut envelope passed CAD interference checks. V1.5 regenerated
+the original mesh geometry. Actual fit and hinge travel await a
+test print.
+
+## 2026-11-23 — V4 module and UART silkscreen
+
+Labeled the front XIAO C5, WIO-SX1262, CC1101 and UART. Centered
+WIO-SX1262 between the two rails. Kept U1 and J1–J4 on F.Fab. Refilled DRC
+and schematic parity are clean. Refreshed the top renders.
+
+## 2026-11-23 — V4 test-point net labels
+
+Printed 5V, 3.3V and GRD beside the corresponding test pads.
+Kept TP1 through TP3 as tool and fabrication references.
+Refilled DRC and schematic parity are clean. Updated the top renders.
+
+## 2026-11-23 — V4 compact front assembly references
+
+Restored 0.8 mm front reference designators below the passives and
+inside the larger footprints. TP2 and TP3 are labeled below their
+pads and TP1 to its right for clearance. Refilled DRC and schematic
+parity are clean. Refreshed the top renders.
+
+## 2026-11-23 — V4 test triangle lowered
+
+Moved all three test pads down 0.10 mm and updated their short copper
+connections. Refilled DRC and schematic parity are clean. The GND
+pad has 0.06 mm of nominal courtyard clearance to the lower-right
+mount. The populated and bare front and back renders were refreshed.
+
+## 2026-11-23 — V4 larger exposed Oscilla mark
+
+Enlarged the front copper logo and wordmark about 12% and lowered them
+0.35 mm on the compact test-triangle board. Updated both top renders.
+Refilled DRC and schematic parity are clean. The front ground fill
+backs both mask openings.
+
+## 2026-11-23 — V4 compact unlabeled test triangle
+
+Tightened the V4 test pads under Grove to a 3.30 mm base and two
+2.63 mm sides, center to center. Removed the test-point and Grove
+front labels. The upper pad is protected 5V, lower left is 3V3,
+and lower right is GND. Only their local fanout changed. Refilled
+DRC and schematic parity are clean. The lower-right pad clears
+the mounting courtyard by 0.16 mm in CAD.
+
+## 2026-11-23 — V4 aligned C5 and triangular test pads
+
+Created `hardware/c5-wio-carrier/compact-v4-triangle/`. Lowered the C5
+1.7 mm to align with Wio, restored H4 to the upper-left corner and
+shifted the copper mark 3.2 mm right. Set the test pads below Grove
+as 5V above 3V3 and GND. The C5-to-H4 courtyard clearance is 0.86 mm.
+ERC and refilled DRC with schematic parity are clean. The schematic
+netlist matches the prior V4. The USB-C shell opening follows the
+downward shift and needs physical fit verification.
+
+## 2026-11-23 — V4 edge USB and exposed Oscilla mark
+
+Created `hardware/c5-wio-carrier/compact-v4-copper-mark/`. Removed H3,
+moved H4 along the top edge, and moved the C5 4.25 mm left for edge
+USB-C. Opened the front mask over the Oscilla logo and wordmark on
+the ground fill. Removed the two radio labels. ERC and refilled DRC
+with schematic parity are clean, and the electrical netlist matches
+the previous V4. The revised USB-C opening, three-point mount and
+assembly still need physical fit validation.
+
+## 2026-11-23 — V4 solder-mask preview and silkscreen cleanup
+
+Enabled both solder-mask layers for the compact V4 preview. Moved
+assembly designators to F.Fab and kept the front wordmark, functional
+labels, footprint outlines and rear Grove instruction. KiCad's bare
+front and rear renders now show pads through the mask. Refilled DRC
+with schematic parity reported zero violations. No mask openings
+were added for decorative copper.
+
+## 2026-11-23 — V4 radio clearance and marking revision
+
+Routed `hardware/c5-wio-carrier/compact-v4-clearance/` with Wio
+2.5 mm farther right and Grove 1.6 mm farther out. The modeled
+plan clearance between radio bodies is 1.47–1.69 mm across the two
+CC1101 envelopes. Kept four corner mounts, the 79 × 26 mm outline
+and the 0805 passives. Moved the 5V, 3V3 and GND test pads to a row
+below Grove. Added OSCILLA V4 by H4 and a Grove unplug reminder on
+the back. ERC and refilled DRC with schematic parity are clean. Each
+ground fill has one connected region. Actual flat-mounted fit, case
+connector access and RF performance remain bench checks.
+
+## 2026-11-23 — V4 restored corner mounts
+
+Routed a centered two-layer corner-mount variant at
+`hardware/c5-wio-carrier/compact-v4-corner-study/`. Kept the 79 × 26 mm
+outline and moved the C5 4.25 mm inward and Grove 0.9 mm down to clear
+the four 5 mm mounting envelopes. Corrected the J4 socket STEP model
+offset by one header pitch. ERC and refilled DRC with schematic parity
+are clean. Top GND is one region and back GND is four regions joined
+through the top and plated connections. The case USB-C pocket and
+Grove opening require another physical fit check.
+
+## 2026-11-23 — V4 compact carrier and radio order comparison
+
+Built two two-layer 79 × 26 mm variants at
+`hardware/c5-wio-carrier/compact-v4-study/` and
+`hardware/c5-wio-carrier/compact-v4-swap-study/`. J4 moves 6 mm inward.
+Shifting the shell top with it and raising the bottom by 2.6 mm gives
+a 45.4 mm shell body target before adding mounting ears. The existing
+clip locations require revised mounting geometry. The centered
+variant targets 20 mm antenna spacing. Both use the V3 netlist and
+0805 footprints and passed KiCad ERC and refilled DRC with zero
+violations, unconnected items or parity issues.
+
+The centered route has shorter shared SPI trees and the larger main
+back GND copper region. Both two-layer routes divide the back GND fill
+and use the top fill and vias for continuity. Centered V4 has six
+additional ground stitches. Assembly and the receive-floor comparison
+against the four-layer board remain open.
+
+## 2026-11-23 — V3 compact routed dual-radio carrier
+
+Built `hardware/c5-wio-carrier/v3-dual-radio/` at 79 × 30.1 mm.
+Kept the V1.5 mounts, right-facing Grove and left-facing USB-C.
+Moved Wio right and turned J4 toward the enclosure's top wall.
+The two SPI receivers keep V2's pin assignments and local 0805
+bypass and select pull-up. V3 uses four layers with dedicated inner
+ground planes and nearby return stitching at the SPI transitions.
+
+KiCad 10.0.7 ERC and refilled DRC with schematic parity reported
+zero violations, unconnected pads or parity issues. Verified V2 and
+V3 netlist equality. A copy with J4 CSn disconnected failed parity.
+The top and angled renders show provisional socket and module
+geometry. The final wall relief and cradle need the actual assembled
+SMA height and nut clearance. Combined power, boot and RF hardware
+qualification remain open.
+
+## 2026-11-23 — Ebyte drawing checked against the compact carrier
+
+Identified the supplied drawing as the E07-M1101D-SMA mechanical
+drawing. Added a second STEP envelope with its 30 × 15 × 1.2 mm PCB,
+2.54 mm pitch, 9.60 mm SMA projection and 12.8 mm pin-tip-to-connector
+span. Kept the photo-based envelope because the board length and
+mounting-hole setback differ. FreeCAD reloaded both models. In the
+compact plan, the two nominal connector-side rows land about 4 and
+5 mm inside the carrier edge with the brass shoulder 0.5 mm outside
+the shell. Installed fit and the final top-wall opening remain open.
+
+## 2026-11-23 — CC1101 photo-derived clearance model
+
+Scaled the top-view photo from the assumed 2.54 mm header grid and
+cross-checked the horizontal scale against the labeled 28 mm body
+length. Used a provisional 28 × 15 mm board, 26 mm shoulder-to-header
+distance and 10 mm SMA projection. Exported and reloaded the STEP
+clearance model in FreeCAD. The compact study now uses that plan-view
+geometry. Actual installed SMA height and antenna coupling nut size
+remain open for the top-wall detail.
+
+## 2026-11-23 — Compact direct-SMA placement study
+
+Drew the 433 MHz antenna parallel to the two existing top-wall pigtail
+antennas, with the CC1101's metal seating face outside the enclosure.
+The study keeps Grove on the right and USB-C on the left. It targets
+the V1.5 79 × 30.1 mm carrier envelope by positioning the CC1101 between
+the C5 and Wio, with the antenna end overhanging the carrier toward
+the top wall. The current V2 board remains the routed electrical draft.
+The compact layout and shell relief await the SMA seat-to-header and
+installed centerline measurements before routing or fit verification.
+
+## 2026-11-23 — V2 hand-solder footprints and antenna direction
+
+Changed R4 and C3 to 0805 to match the existing carrier; C4 was already
+0805. Reran ERC and refilled DRC with zero violations, unconnected items
+or schematic parity issues. Next layout must place the 433 MHz antenna
+parallel to Wi-Fi and LoRa at the enclosure's top. The current V2 route
+has the module facing left; the enclosure model has two existing top SMA
+positions and the third antenna mount is pending hardware geometry.
+
+## 2026-11-23 — Dual-radio carrier V2 layout draft
+
+Routed V2 from the V1.5 C5/Wio carrier under
+`hardware/c5-wio-carrier/v2-dual-radio/`. Rev D §4.4 on `cc1101-idf`
+(`d9e8770`) supplies the pin allocation and `7c0ec32` records the harness.
+J4 follows the supplied blue 433M V2.0 pin diagram. It shares SCK, MOSI
+and MISO with Wio, uses D3/GPIO7 with a 10 kΩ CSn pull-up and has local
+100 nF and 10 µF bypass. Both GDO pins are open.
+
+V2 adds 20 mm on one edge and retains the existing four mounting
+locations. The CC1101 body and SMA envelope and 2.54 mm header pitch are
+provisional. The supplier graphic shows a rectangular module with both
+axes labeled 28 mm. Physical measurements, socket height, antenna
+clearance and enclosure fit are open. KiCad 10.0.7 reported zero ERC
+violations and zero refilled DRC violations, unconnected items or
+schematic parity issues. The netlist matches all eight J4 pins.
+Assembly power, boot and RF qualification remain open.
+
 ## 2026-11-23 — CC1101 added to Rev D (§4.4); D-15 reopened
 
 - **Change:** C5 GPIO7 / D3 becomes the CC1101 CSn on the shared sub-GHz SPI
