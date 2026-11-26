@@ -1,3 +1,30 @@
+## 2026-11-25 — Combined 2 h run passes with D-22 + D-23
+
+**Phase:** stability · **By:** Claude + Will
+
+- `deck_stability.py`, default stages (45 min all lanes, 30 min mode switching,
+  4 × use/idle), deck `259f8e3`, probe `d2edbfb` on its Grove build. **Completed:**
+  0 resets, 0 link errors/timeouts/resets, 0 UART or SD write errors; loop stack
+  ≥ 2,592 B; max loop cycle 523 ms (run 2: 442).
+- Compared with the D-21 runs:
+
+  | | Run 1 (`129e14f`) | Run 2 (`c4a811a`) | This run |
+  |---|---|---|---|
+  | Deck largest block, min | 12.5 KB | 25.1 KB | **36.9 KB** |
+  | Deck free, min | 40.9 KB | 56.6 KB | **70.2 KB** |
+  | Probe free, min | ~9 KB (sniffer) | ~9 KB (sniffer) | **85.0 KB** |
+
+  The deck's largest block steps down as each mode leaves its table cached (scan
+  19–22 KB, BLE 22–23 KB, contacts up to 11.7 KB), then holds at 36.9 KB from the
+  second use/idle cycle to the end while free heap recovers to 89 KB: a plateau,
+  not a leak. Baseline held at 2.3 KB (130 APs) throughout.
+- **Not exercised on hardware:** the bench air peaked at 158 networks and 89 BLE
+  devices, under the 256 / 96 caps, so `scan_evicted` and `bt_evicted` stayed 0. The
+  replace-when-full path rests on the host tests (600-network and 300-device drives).
+  A real drive, or a busier site, is what would reach it.
+- `deck_stability.py` now records `scan_evicted` and `bt_evicted`. Output:
+  `output/deck-stability/20261125-150049/` (git-ignored).
+
 ## 2026-11-25 — Probe Wi-Fi driver buffers move to PSRAM (D-23)
 
 **Phase:** stability · **By:** Claude + Will

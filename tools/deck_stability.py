@@ -59,7 +59,8 @@ PHY_FLAGS = ('wifi_live', 'wifi_scanning', 'bt_live', 'bt_scanning', 'bt_tracker
              'spectrum_active', 'deauth_active', 'anti_active')
 # Table sizes and rough heap held per table (dump tbl_*), to say what fills the deck.
 TABLE_FIELDS = ('clients', 'probes', 'zig_nodes', 'baseline_aps', 'anti_trackers', 'bt_hits',
-                'tbl_scan', 'tbl_bt', 'tbl_contacts', 'tbl_baseline', 'tbl_zig', 'tbl_anti')
+                'tbl_scan', 'tbl_bt', 'tbl_contacts', 'tbl_baseline', 'tbl_zig', 'tbl_anti',
+                'scan_evicted', 'bt_evicted')
 TOUR = ['ook', 'key .', 'key ;', 'gnss', 'lora', 'wifi', 'info']
 
 
