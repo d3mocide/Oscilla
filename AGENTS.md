@@ -177,6 +177,9 @@ result; this repo's culture is that a claim without evidence is a defect.
   mechanical, enclosure, and carrier revisions go in
   [`docs/hardware/WORKLOG.md`](docs/hardware/WORKLOG.md), newest first. Keep
   failed experiments and their evidence; do not round a POC up to a release.
+  New `WORKLOG.md` entries go below its template, above the previous entry.
+  When a month ends, move that month's entries unchanged to
+  `docs/worklog/YYYY-MM.md` and add it to the "Earlier months" line.
 - **Update [`docs/DECISIONS.md`](docs/DECISIONS.md)** when a `D-n` moves, and
   note the move in the relevant worklog.
 - **A phase is done when its exit gate is demonstrated**, on hardware where the
