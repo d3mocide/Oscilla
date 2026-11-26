@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "audio/startup_sound.h"
 #include <M5Cardputer.h>
 #include <atomic>
 
@@ -118,6 +119,10 @@ void setup()
     Serial2.begin(kGnssBaudDefault, SERIAL_8N1, kGnssRxPin, kGnssTxPin);
     g_app.onLog([](const std::string &line) { Serial.printf("deck %s\n", line.c_str()); });
     g_app.begin(millis());
+    if (g_app.audioEnabled()) {
+        M5Cardputer.Speaker.playRaw(audio::kStartupSound.data(), audio::kStartupSound.size(),
+                                   audio::kStartupSampleRate, false, 1, 0, true);
+    }
     logDeckMemory("boot", millis());
 }
 
@@ -242,16 +247,23 @@ void loop()
     }
 
     M5Cardputer.update();
-    if (M5Cardputer.Keyboard.isChange() && M5Cardputer.Keyboard.isPressed()) {
+    const bool keys_changed = M5Cardputer.Keyboard.isChange();
+    const bool keys_pressed = M5Cardputer.Keyboard.isPressed() != 0;
+    if (g_app.handleKeyboardActivity(keys_pressed, keys_changed, now)) {
         const auto &ks = M5Cardputer.Keyboard.keysState();
         app::Keys keys;
         keys.chars.assign(ks.word.begin(), ks.word.end());
         keys.enter = ks.enter;
         g_app.onKeys(keys, now);
     }
+    g_app.tickDisplayIdle(now);
     syncDisplaySleep(g_app.displaySleeping(), now);
-    if (const auto pulse = g_app.pollGeigerPulse(now); pulse.fire) {
-        M5Cardputer.Speaker.tone(pulse.freq_hz, pulse.duration_ms);
+    const bool audio_enabled = g_app.audioEnabled();
+    static bool audio_was_enabled = false;
+    if (!audio_enabled && audio_was_enabled) M5Cardputer.Speaker.stop(0);
+    audio_was_enabled = audio_enabled;
+    if (const auto pulse = g_app.pollAudio(millis()); pulse.fire) {
+        M5Cardputer.Speaker.tone(pulse.freq_hz, pulse.duration_ms, 0);
     }
 
     if (g_app.dirty(now)) g_app.draw(now);

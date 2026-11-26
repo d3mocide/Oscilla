@@ -50,6 +50,7 @@ public:
     {
         last_activity_ms_ = now_ms;
         sleeping_ = false;
+        suppress_keyboard_ = false;
     }
 
     uint16_t timeoutS() const { return timeout_s_; }
@@ -88,6 +89,16 @@ public:
         return true;
     }
 
+    bool onKeyboard(bool pressed, bool changed, uint32_t now_ms)
+    {
+        if (!pressed) {
+            suppress_keyboard_ = false;
+            return false;
+        }
+        if (onActivity(now_ms)) suppress_keyboard_ = true;
+        return changed && !suppress_keyboard_;
+    }
+
     IdleTransition tick(uint32_t now_ms)
     {
         if (timeout_s_ == 0) {
@@ -108,6 +119,7 @@ private:
     uint16_t timeout_s_ = 0;
     uint32_t last_activity_ms_ = 0;
     bool sleeping_ = false;
+    bool suppress_keyboard_ = false;
 };
 
 }  // namespace app

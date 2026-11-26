@@ -86,7 +86,7 @@ void drawBtView(const model::BtModel &bt, size_t cursor, uint32_t scanning_ms,
 
     d.setCursor(4, kHintRowY);
     d.setTextColor(kCalibrationYellow, kVoidInk);
-    d.print("ENTER DOSSIER / s SCAN / c LIVE");
+    d.print("f HUNT / ENTER INFO / s SCAN / c LIVE");
     endChrome(chrome);
 }
 

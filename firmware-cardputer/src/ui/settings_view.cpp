@@ -109,7 +109,9 @@ void drawSettingsView(const SettingsViewState &s, const ChromeState &chrome)
     d.drawFastHLine(5, kBodyTop + 86, 230, kDimGreen);
     d.setCursor(5, kHintRowY);
     d.setTextColor(kMutedSlate, kVoidInk);
-    d.print("; . ROW  , / ADJUST  ` LINK");
+    d.print(cur == static_cast<size_t>(SettingsRow::AudioCues)
+                ? "; . ROW  ENTER TOGGLE  ` LINK"
+                : "; . ROW  , / ADJUST  ` LINK");
 
     endChrome(chrome);
 }

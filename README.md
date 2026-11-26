@@ -134,6 +134,8 @@ See [`ROADMAP.md`](ROADMAP.md) for full phase-by-phase entry/exit gates and test
 
 ## 5. Quickstart & Verification
 
+See the [deck controls guide](docs/deck-controls.md) for navigation, Signal Hunt, settings, and logging workflows.
+
 ### Host Verification (No Hardware Required)
 
 You can verify the protocol contract and parser conformance on your workstation using Python 3 and standard build tools:

@@ -266,13 +266,13 @@ void drawExternalSettingsStrip(lgfx::LGFX_Sprite &d, int top, const SettingsView
         obsCard(c, 20, 40, 280, 98, s.audio_enabled ? kCalibrationYellow : kMutedSlate);
         obsMicro(c, 32, 48, "CARDPUTER SPEAKER FEEDBACK", kMutedSlate, kPanelDark);
         obsMicro(c, 288, 48, "DEFAULT MUTED", kMutedSlate, kPanelDark, Align::Right);
-        obsText(c, 32, 65, s.audio_enabled ? "GEIGER ON" : "MUTED",
+        obsText(c, 32, 65, s.audio_enabled ? "AUDIO ON" : "MUTED",
                 FontId::Hero, s.audio_enabled ? kCalibrationYellow : kMutedSlate, 250);
         c.line(32, 102, 288, 102, kLineBorder);
-        obsMicro(c, 32, 110, "SIGNAL HUNT GEIGER CADENCE (-100..-35 dBm)", kMutedSlate, kPanelDark);
-        obsMicro(c, 32, 123, "HOTKEY a MUTES OR UNMUTES LIVE DURING HUNT", kDimGreen, kPanelDark);
+        obsMicro(c, 32, 110, "STARTUP, SIGNAL HUNT, AND WAYPOINT SOUNDS", kMutedSlate, kPanelDark);
+        obsMicro(c, 32, 123, "ENTER TO TOGGLE", kDimGreen, kPanelDark);
         dock_title = "AUDIO CUES";
-        dock_desc = "PERSISTED IN /oscilla/audio_enabled";
+        dock_desc = "AUDIO SETTING SAVED ON SD";
         break;
 
     case SettingsRow::DebugSerial:

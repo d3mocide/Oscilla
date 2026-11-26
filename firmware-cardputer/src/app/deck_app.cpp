@@ -814,6 +814,17 @@ void DeckApp::toggleBaselineWatch()
     else saveBaselineNow();
 }
 
+model::GeigerPulse DeckApp::pollAudio(uint32_t now_ms)
+{
+    audio_cues_.updateHunt(hunt_.active(), !hunt_.isStale(now_ms));
+    if (!audio_enabled_) {
+        audio_cues_.clear();
+        return {};
+    }
+    if (audio_cues_.busy()) return audio_cues_.poll(now_ms);
+    return hunt_.pollGeiger(now_ms);
+}
+
 void DeckApp::toggleAudioEnabled()
 {
     audio_enabled_ = !audio_enabled_;
@@ -1213,6 +1224,17 @@ void DeckApp::stopPhyForNavigation(uint32_t now_ms)
     stopPhy(now_ms);
 }
 
+bool DeckApp::handleKeyboardActivity(bool pressed, bool changed, uint32_t now_ms)
+{
+    const bool was_sleeping = idle_sleep_.sleeping();
+    const bool dispatch = idle_sleep_.onKeyboard(pressed, changed, now_ms);
+    if (was_sleeping && !idle_sleep_.sleeping()) {
+        log("display wake (key swallowed)");
+        dirty_ = true;
+    }
+    return dispatch;
+}
+
 void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
 {
     now_ = now_ms;
@@ -1472,7 +1494,7 @@ void DeckApp::onKeys(const Keys &keys, uint32_t now_ms)
     }
     if(keys.enter&&!help_visible_&&screen_==Screen::Sweep)openWifiDossier();
     if(keys.enter&&!help_visible_&&screen_==Screen::Beacons&&!bt_inspection_.active())openBtDossier();
-    if (keys.enter && screen_ == Screen::Spectrum && !spectrum_.locked() &&
+    if (keys.enter && !help_visible_ && screen_ == Screen::Spectrum && !spectrum_.locked() &&
         spectrum_cursor_ < spectrum_.readings().size()) {
         startPacketMonitor(now_ms, spectrum_.readings()[spectrum_cursor_].ch);
     }
@@ -1631,6 +1653,7 @@ void DeckApp::markWaypoint(uint32_t now_ms)
         notice("waypoint write failed");
         return;
     }
+    if (audio_enabled_) audio_cues_.waypoint();
     const uint32_t shown = d_ok ? drive_idx : lora_idx;
     notice("waypoint #" + std::to_string(shown));
     log("waypoint drive=" + std::to_string(drive_idx) + " lora=" + std::to_string(lora_idx));
@@ -1965,6 +1988,10 @@ void DeckApp::tick(uint32_t now_ms)
     }
 
     pollBatteryIfDue(now_ms);
+}
+
+void DeckApp::tickDisplayIdle(uint32_t now_ms)
+{
     const auto idle_tr = idle_sleep_.tick(now_ms);
     if (idle_tr == IdleTransition::EnterSleep) log("display sleep");
     else if (idle_tr == IdleTransition::Wake) { log("display wake"); dirty_ = true; }
@@ -2020,7 +2047,23 @@ void DeckApp::draw(uint32_t now_ms)
     };
 
     if (help_visible_) {
-        ui::drawHelpView(makeChrome("HELP"));
+        using ui::HelpDetail;
+        auto detail = HelpDetail::None;
+        if (hunt_.active()) detail = HelpDetail::Hunt;
+        else if (screen_ == Screen::Beacons && bt_inspection_.active()) detail = HelpDetail::BleDossier;
+        else if (screen_ == Screen::Contacts && contact_inspection_.active()) detail = HelpDetail::ContactDossier;
+        else if (showingLoraSweep()) detail = HelpDetail::LoraSpectrum;
+        else if (screen_ == Screen::SubGhz && packet_inspection_.active()) detail = HelpDetail::LoraPacket;
+        else if (screen_ == Screen::Spectrum && spectrum_.locked()) detail = HelpDetail::Channel;
+        else if (screen_ == Screen::Logs) {
+            switch (session_review_.stage) {
+            case model::ReviewStage::Catalog: break;
+            case model::ReviewStage::Summary: detail = HelpDetail::SessionSummary; break;
+            case model::ReviewStage::Records: detail = HelpDetail::SessionRecords; break;
+            case model::ReviewStage::Hex: detail = HelpDetail::SessionPacket; break;
+            }
+        }
+        ui::drawHelpView(makeChrome("KEY GUIDE"), screen_, detail);
     } else if (hunt_.active()) {
         ui::drawSignalHuntView(hunt_, now_ms, makeChrome("SIGNAL HUNT"));
     } else switch (screen_) {

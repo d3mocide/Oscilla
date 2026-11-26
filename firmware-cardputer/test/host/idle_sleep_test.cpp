@@ -73,6 +73,22 @@ int main()
     assert(!s.sleeping());
     assert(s.tick(200000) == IdleTransition::None);
 
+    // Input at the deadline is dispatched before the idle timer can expire.
+    assert(s.setTimeoutS(30, 0));
+    assert(s.onKeyboard(true, true, 30000));
+    assert(s.tick(30000) == IdleTransition::None);
+
+    // A held key keeps the screen lit. The wake chord is ignored until released.
+    assert(!s.onKeyboard(true, false, 60000));
+    assert(s.tick(60000) == IdleTransition::None);
+    assert(!s.onKeyboard(false, true, 60001));
+    assert(s.tick(90000) == IdleTransition::EnterSleep);
+    assert(!s.onKeyboard(true, true, 90001));
+    assert(!s.sleeping());
+    assert(!s.onKeyboard(true, true, 90002));
+    assert(!s.onKeyboard(false, true, 90003));
+    assert(s.onKeyboard(true, true, 90004));
+
     // Unsigned 32-bit millis() wrap-around across UINT32_MAX.
     const uint32_t near_wrap = UINT32_MAX - 10000;
     assert(s.setTimeoutS(30, near_wrap));
@@ -83,6 +99,6 @@ int main()
     assert(s.onActivity(20500) == true);
     assert(!s.sleeping());
 
-    std::cout << "idle sleep: presets, threshold, wake-key swallow, disable-while-asleep, and millis wrap passed\n";
+    std::cout << "idle sleep: presets, threshold, wake chord isolation, held keys, disable-while-asleep, and millis wrap passed\n";
     return 0;
 }

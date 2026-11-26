@@ -112,7 +112,7 @@ void drawSweepView(const model::ScanModel &scan, size_t cursor, uint32_t scannin
 
     d.setCursor(4, kHintRowY);
     d.setTextColor(kCalibrationYellow, kVoidInk);
-    d.print(bl_on ? "ENTER INFO / r SCAN / c LIVE / b CLR" : "ENTER INFO / r SCAN / c LIVE / b BASE");
+    d.print("f HUNT / ENTER INFO / r SCAN / c LIVE");
     endChrome(chrome);
 }
 

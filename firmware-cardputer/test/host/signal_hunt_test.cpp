@@ -1,4 +1,5 @@
 /* Host tests for model::SignalHunt (WP-12b). */
+#include "app/audio_cues.h"
 #include "model/signal_hunt.h"
 #include "ocp.h"
 
@@ -75,6 +76,30 @@ int main()
     auto p_wrap2 = h.pollGeiger(0x00000100u);
     assert(p_wrap2.fire);
 
-    std::cout << "signal hunt: target filter, peak/sparkline ring, monotonic Geiger cadence and stale mute passed\n";
+    app::AudioCues cues;
+    cues.updateHunt(true, false);
+    assert(!cues.busy());
+    cues.updateHunt(true, true);
+    const auto acquire_first = cues.poll(0xffffffc0u);
+    assert(acquire_first.fire);
+    assert(!cues.poll(20).fire);
+    cues.updateHunt(true, true);
+    const auto acquire_second = cues.poll(30);
+    assert(acquire_second.fire && acquire_second.freq_hz > acquire_first.freq_hz);
+    assert(cues.busy() && !cues.poll(125).fire);
+    assert(!cues.poll(150).fire && !cues.busy());
+    cues.updateHunt(true, false);
+    const auto lost_first = cues.poll(200);
+    const auto lost_second = cues.poll(300);
+    assert(lost_first.fire && lost_second.fire && lost_second.freq_hz < lost_first.freq_hz);
+    cues.updateHunt(false, false);
+    assert(!cues.busy());
+
+    cues.waypoint();
+    assert(cues.poll(1100).fire);
+    cues.clear();
+    assert(!cues.poll(1200).fire && !cues.busy());
+
+    std::cout << "signal hunt: target filter, peak/sparkline ring, monotonic Geiger cadence stale mute and cue sequencing passed\n";
     return 0;
 }

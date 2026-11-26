@@ -406,6 +406,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/model/gnss_noise` | model | Epoch-deduplicated relative scatter/raw path statistics; gaps never add distance |
 | `src/model/session_review` | model | Strict session names, grouped bounded inventory, hostile CSV validation and six-record snapshot pages |
 | `src/storage/session_reader` | services | Read-only inventory and fixed-length file snapshots, one directory entry or 512 bytes per shared-bus turn |
+| `src/ui/help_view` | view | Deck keyboard guide for the current card or nested view, opened with `h` |
 | `src/ui/session_view` | view | Paired LOGS inventory, observed-span/signal summary, saved records and raw packet inspection |
 | `src/model/device_inspection` | model | Pinned AP/BLE identities, retained missing rows and observed client selection |
 | `src/model/signal_history` | model | Bounded real-observation RSSI ring, 120-second plots, gap and wrap handling |
@@ -416,7 +417,7 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/external_contact_detail_view` | view | Selected-client ego graph of reported AP or SSID-request links; no distance/bearing inference |
 | `src/ui/display_text` | view | Shared safe ASCII labels for deck renderers |
 | `src/model/system_resources` | model | Fixed 61-sample heap rings (60s auto-scale plots) and measured battery discharge trend (`BatteryTrend`); host-tested |
-| `src/app/idle_sleep` | app | Configurable idle display-sleep state machine (`OFF`/`30s`/`60s`/`2m`/`5m`, wake-key swallow); host-tested |
+| `src/app/idle_sleep` | app | Configurable idle display-sleep state machine (`OFF`/`30s`/`60s`/`2m`/`5m`, input before timeout, held-key activity, wake chord swallowed through release); host-tested |
 | `src/model/system_status` | model | Plain snapshot of measured deck/probe diagnostics; framework independent |
 | `src/ui/external_system_view` | view | Lens Core startup, Link health and live heap/resource monitor with reported activity |
 | `src/ui/external_zig_view` | view | Passive PAN/node inventory, RSSI/LQI rails and selected MAC identity; no topology inference |
@@ -432,6 +433,8 @@ Everything from the OCP client downward is **framework-agnostic plain C++**, so 
 | `src/ui/external_wifi_view` | view | Passive Wi-Fi AP inventory, selected row, band/channel/RSSI, and live/cached/truncated state |
 | `src/ui/external_card_views` | view | Read-only AP Detail, Deauth Detect, Anti-Surveillance, and paired 7-row Settings inspector companion cards |
 | `src/ui/settings_state` | view model | Shared 7-row configuration snapshot (`BRIGHTNESS`, `IDLE SLEEP`, `WI-FI REGION`, `WI-FI BAND`, `LORA PROFILE`, `AUDIO CUES`, `DEBUG SERIAL`) for paired onboard + external Settings views |
+| `src/app/audio_cues` | app | Nonblocking Hunt acquire/loss, and saved-waypoint speaker cues under the deck audio setting |
+| `src/audio/startup_sound` | audio | Original synthesized PCM startup sound, played by the deck speaker when unmuted |
 | `src/model/signal_hunt` | model | Allocation-free 64-sample single-target RSSI sparkline ring, peak/min/stale tracking, and monotonic muteable Geiger pulse scheduler; host-tested |
 | `src/ui/signal_hunt_view` | view | Onboard 240×135 Signal Hunt view: target header, live dBm, proximity bar, sparkline, peak/hits, live audio mute & peak reset controls |
 | `src/ui/external_hunt_view` | view | Observatory v2 320×240 Signal Hunt companion card: RSSI sparkline + peak dashed line, proximity badge, 24-segment meter, Geiger cadence status, and Reading Dock |

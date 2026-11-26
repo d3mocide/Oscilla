@@ -87,7 +87,7 @@ void drawAntiSurveillanceView(const model::AntiSurveillanceModel &anti, size_t c
 
     d.setCursor(4, kHintRowY);
     d.setTextColor(kCalibrationYellow, kVoidInk);
-    d.print("s WATCH-STOP / ; . ROW");
+    d.print("s WATCH-STOP / ; . ROW / f HUNT");
 
     endChrome(chrome);
 }

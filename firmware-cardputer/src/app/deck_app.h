@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include "app/audio_cues.h"
 #include "model/system_status.h"
 #include "model/inspection_state.h"
 #include "model/contact_inspection.h"
@@ -92,7 +93,7 @@ public:
     bool showingLoraSweep() const { return screen_ == Screen::SubGhz && lora_sweep_mode_ && !packet_inspection_.active(); }
     const model::SignalHunt &signalHunt() const { return hunt_; }
     bool showingHunt() const { return hunt_.active(); }
-    model::GeigerPulse pollGeigerPulse(uint32_t now_ms) { return hunt_.pollGeiger(now_ms); }
+    model::GeigerPulse pollAudio(uint32_t now_ms);
     bool audioEnabled() const { return audio_enabled_; }
     void setAudioEnabled(bool on) { audio_enabled_ = on; hunt_.setAudioEnabled(on); }
     const model::PacketInspection &packetInspection() const { return packet_inspection_; }
@@ -133,6 +134,8 @@ public:
     bool showingOok() const { return screen_ == Screen::Ook; }
     uint32_t gnssChecksumFailures() const { return gnss_parser_.checksumFailures(); }
     void tick(uint32_t now_ms);
+    bool handleKeyboardActivity(bool pressed, bool changed, uint32_t now_ms);
+    void tickDisplayIdle(uint32_t now_ms);
     void onKeys(const Keys &keys, uint32_t now_ms);
 
     /* Debug console (DESIGN §7.6): named commands over the same USB Serial
@@ -336,6 +339,7 @@ private:
     model::BaselineWatch baseline_;
     model::SignalHunt hunt_;
     bool hunt_start_pending_ = false;
+    AudioCues audio_cues_;
     bool audio_enabled_ = false;
     model::ZigModel zig_;
     gnss::NmeaParser gnss_parser_;

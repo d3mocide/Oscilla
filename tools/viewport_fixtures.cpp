@@ -34,6 +34,7 @@
 #include "ui/external_ook_view.h"
 #include "ui/gnss_fix_view.h"
 #include "ui/settings_view.h"
+#include "ui/help_view.h"
 #include "ui/signal_hunt_view.h"
 
 static ocp::Item event(std::initializer_list<ocp::KeyValue> fields) {
@@ -130,6 +131,14 @@ int main(int argc,char **argv) {
         deckSave("deck-clients",[&]{ui::drawContactsView(contacts,ui::ContactsTab::Clients,0,chrome);});
         deckSave("deck-requests",[&]{ui::drawContactsView(contacts,ui::ContactsTab::Probes,0,chrome);});
         chrome.title="WI-FI SCAN";
+        if (!empty && !cached) {
+            auto guide = chrome;
+            guide.title = "KEY GUIDE";
+            deckSave("deck-help-wifi", [&]{ ui::drawHelpView(guide, app::Screen::Sweep, ui::HelpDetail::None); });
+            deckSave("deck-help-hunt", [&]{ ui::drawHelpView(guide, app::Screen::Sweep, ui::HelpDetail::Hunt); });
+            deckSave("deck-help-settings", [&]{ ui::drawHelpView(guide, app::Screen::Settings, ui::HelpDetail::None); });
+            deckSave("deck-help-lora-spectrum", [&]{ ui::drawHelpView(guide, app::Screen::SubGhz, ui::HelpDetail::LoraSpectrum); });
+        }
         deckSave("deck-wifi",[&]{ui::drawSweepView(scan,1,12000,chrome);});
         chrome.title="BLE SCAN";
         deckSave("deck-ble",[&]{ui::drawBtView(bt,1,12000,chrome);});

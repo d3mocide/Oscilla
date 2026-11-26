@@ -103,7 +103,7 @@ void beginChrome(const ChromeState &state)
     d.fillRect(0, kBodyTop, d.width(), kBodyHeight, kVoidInk);
 }
 
-void endChrome(const ChromeState &state)
+void endChrome(const ChromeState &state, bool help_open)
 {
     auto &d = ui::canvas();
     d.setTextSize(1);
@@ -134,8 +134,12 @@ void endChrome(const ChromeState &state)
 
     d.setCursor(pw + 6, kFooterTop + 4);
     d.setTextColor(kMutedSlate, kPanelDark);
-    const size_t max_chars = static_cast<size_t>((d.width() - (pw + 8)) / 6);
+    const int help_x = d.width() - (help_open ? 63 : 39);
+    const size_t max_chars = static_cast<size_t>((help_x - (pw + 8)) / 6);
     d.print(clipped(state.transport, max_chars).c_str());
+    d.setCursor(help_x, kFooterTop + 4);
+    d.setTextColor(kFieldGreen, kPanelDark);
+    d.print(help_open ? "h / ` EXIT" : "h HELP");
 }
 
 }  // namespace ui
